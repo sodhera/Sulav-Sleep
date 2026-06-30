@@ -1,1105 +1,393 @@
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useState } from 'react';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import {
-  Animated,
-  Easing,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
-  TextInput,
-  useWindowDimensions,
   View,
 } from 'react-native';
 
-type Phase = 'day' | 'windDown' | 'sleepLock' | 'morning';
-
-type PhaseMeta = {
-  title: string;
-  eyebrow: string;
-  summary: string;
-  metric: string;
-  metricLabel: string;
-  state: string;
-  accent: string;
-  progress: number;
-  primaryAction: string;
+// ── Palette ──────────────────────────────────────────────────────────────────
+const C = {
+  bg:        '#07050E',
+  ink:       '#FFF5E9',
+  inkDim:    '#D7C4B3',
+  inkQuiet:  '#A99383',
+  amber:     '#F3BA63',
+  surface:   '#110F1C',
+  border:    '#231D34',
+  borderDim: '#1A1528',
 };
 
-const colors = {
-  ink: '#FFF5E9',
-  inkDim: '#D7C4B3',
-  inkQuiet: '#A99383',
-  night: '#0E0B0E',
-  night2: '#151014',
-  panel: '#201819',
-  panel2: '#2A201F',
-  panel3: '#352722',
-  line: '#5B473D',
-  lineSoft: '#3B2F2D',
-  ember: '#E56E50',
-  amber: '#F3BA63',
-  rose: '#D49483',
-  moss: '#9AAA86',
-  violet: '#8C7BE0',
-  danger: '#F08A71',
-  black: '#0A0809',
-};
+const F = { body: 'Avenir Next', mono: 'Menlo' };
 
-const spacing = {
-  xs: 6,
-  sm: 10,
-  md: 16,
-  lg: 22,
-  xl: 30,
-  xxl: 42,
-};
+function haptic() { Haptics.selectionAsync().catch(() => {}); }
 
-const radius = {
-  sm: 14,
-  md: 20,
-  lg: 28,
-  xl: 38,
-  pill: 999,
-};
-
-const type = {
-  display: 'Avenir Next',
-  body: 'Avenir Next',
-  mono: 'Menlo',
-};
-
-const phases: { id: Phase; label: string }[] = [
-  { id: 'day', label: 'Plan' },
-  { id: 'windDown', label: 'Wind Down' },
-  { id: 'sleepLock', label: 'Locked' },
-  { id: 'morning', label: 'Morning' },
+// ── 25 stars — fixed positions [x%, y%, size, opacity] ──────────────────────
+const STARS: [number, number, number, number][] = [
+  [7, 7, 2.0, 0.75],  [20, 4, 1.5, 0.55],  [36, 8, 2.5, 0.88],
+  [50, 5, 1.5, 0.60],  [64, 11, 2.0, 0.70],  [79, 6, 2.0, 0.75],
+  [92, 15, 1.5, 0.55],  [13, 21, 1.5, 0.60],  [30, 18, 1.0, 0.42],
+  [45, 23, 2.0, 0.65],  [58, 16, 1.5, 0.55],  [73, 25, 1.0, 0.45],
+  [88, 19, 1.5, 0.60],  [4, 31, 1.5, 0.50],  [18, 37, 1.0, 0.40],
+  [34, 32, 2.0, 0.65],  [63, 35, 1.5, 0.55],  [77, 28, 2.0, 0.70],
+  [95, 33, 1.0, 0.45],  [25, 45, 1.0, 0.40],  [49, 42, 1.5, 0.55],
+  [83, 47, 1.0, 0.40],  [11, 50, 1.5, 0.50],  [57, 49, 1.0, 0.40],
+  [39, 53, 1.5, 0.50],
 ];
 
-const phaseMeta: Record<Phase, PhaseMeta> = {
-  day: {
-    title: 'Tonight is scheduled',
-    eyebrow: 'Sleep Gate',
-    summary: 'At 9:30 PM the phone narrows to reading, journaling, alarm, and emergency.',
-    metric: '10:30',
-    metricLabel: 'bedtime',
-    state: 'Ready',
-    accent: colors.amber,
-    progress: 0.28,
-    primaryAction: 'Start wind down',
-  },
-  windDown: {
-    title: 'Wind Down is active',
-    eyebrow: 'One hour before bed',
-    summary: 'Distracting apps are shielded. The display should be warm, low contrast, and boring.',
-    metric: '60',
-    metricLabel: 'minutes',
-    state: 'Filtering',
-    accent: colors.ember,
-    progress: 0.5,
-    primaryAction: 'Review apps',
-  },
-  sleepLock: {
-    title: 'Sleep Lock is holding',
-    eyebrow: 'Six hour commitment',
-    summary: 'Opening the phone during this window records an interruption and lowers the sleep score.',
-    metric: '5:42',
-    metricLabel: 'remaining',
-    state: 'Locked',
-    accent: colors.rose,
-    progress: 0.73,
-    primaryAction: 'Log opening',
-  },
-  morning: {
-    title: 'Check in gently',
-    eyebrow: 'Wake window',
-    summary: 'The phone stayed quiet long enough to count as sleep. Capture energy and any dream trace.',
-    metric: '86',
-    metricLabel: 'score',
-    state: 'Open',
-    accent: colors.moss,
-    progress: 0.88,
-    primaryAction: 'Save morning',
-  },
-};
+// ── Night Art Widget ─────────────────────────────────────────────────────────
+function NightWidget({
+  score,
+  bedtime,
+  week,
+}: {
+  score: number;
+  bedtime: string;
+  week: number[];
+}) {
+  const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
-const sleepSeries = [
-  { day: 'M', score: 76, label: 'Late' },
-  { day: 'T', score: 82, label: 'Good' },
-  { day: 'W', score: 69, label: 'Open' },
-  { day: 'T', score: 91, label: 'Good' },
-  { day: 'F', score: 78, label: 'Late' },
-  { day: 'S', score: 84, label: 'Good' },
-  { day: 'S', score: 88, label: 'Today' },
-];
+  return (
+    <View style={{ height: 370, borderRadius: 28, borderCurve: 'continuous', overflow: 'hidden' }}>
 
-const allowedApps = [
-  { name: 'Read', detail: 'Books and saved articles', tone: colors.amber },
-  { name: 'Journal', detail: 'Thought dump before lock', tone: colors.rose },
-  { name: 'Alarm', detail: 'Wake time only', tone: colors.moss },
-  { name: 'Emergency', detail: 'Calls and safety access', tone: colors.danger },
-];
+      {/* ── Sky gradient ── */}
+      <LinearGradient
+        colors={['#0C091E', '#110D2A', '#180F34', '#150C2E']}
+        start={{ x: 0.2, y: 0 }}
+        end={{ x: 0.8, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+      />
 
-const lockRules = [
-  { label: '9:30 PM', value: 'Wind Down starts' },
-  { label: '10:30 PM', value: 'Sleep Lock begins' },
-  { label: '4:30 AM', value: 'Morning check-in opens' },
-];
+      {/* ── Stars ── */}
+      {STARS.map(([x, y, s, o], i) => (
+        <View
+          key={i}
+          style={{
+            position: 'absolute',
+            left: `${x}%`,
+            top: `${y}%`,
+            width: s,
+            height: s,
+            borderRadius: s / 2,
+            backgroundColor: '#FFF5E9',
+            opacity: o,
+          }}
+        />
+      ))}
 
-function pressHaptic() {
-  Haptics.selectionAsync().catch(() => undefined);
+      {/* ── Nebula smear — very faint ── */}
+      <View style={{
+        position: 'absolute', top: 82, left: -10, right: -10, height: 20,
+        backgroundColor: 'rgba(90, 65, 170, 0.045)',
+        transform: [{ rotate: '-3deg' }],
+      }} />
+
+      {/* ── Moon — glow halos + crescent core ── */}
+      <View style={{ position: 'absolute', top: 14, right: 22, width: 124, height: 124, borderRadius: 62, backgroundColor: 'rgba(243,186,99,0.04)' }} />
+      <View style={{ position: 'absolute', top: 26, right: 34, width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(243,186,99,0.07)' }} />
+      <View style={{ position: 'absolute', top: 38, right: 46, width: 76, height: 76, borderRadius: 38, backgroundColor: 'rgba(255,248,240,0.09)' }} />
+      {/* Moon body with crescent */}
+      <View style={{
+        position: 'absolute', top: 50, right: 58,
+        width: 52, height: 52, borderRadius: 26,
+        backgroundColor: '#FFF8F0',
+        overflow: 'hidden',
+      }}>
+        {/* Shadow offset right → crescent on left side */}
+        <View style={{
+          position: 'absolute',
+          width: 50, height: 50, borderRadius: 25,
+          backgroundColor: '#100B28',
+          top: -2, left: 16,
+          opacity: 0.93,
+        }} />
+      </View>
+
+      {/* ── Far mountain peaks (barely distinct from sky) ── */}
+      {/* Peak heights: ~200–230px from card bottom */}
+      <View style={{ position: 'absolute', bottom: -75, left: 8, width: 55, height: 285, borderRadius: 27, backgroundColor: '#100D28' }} />
+      <View style={{ position: 'absolute', bottom: -85, left: 65, width: 62, height: 310, borderRadius: 31, backgroundColor: '#0E0B24' }} />
+      <View style={{ position: 'absolute', bottom: -68, left: 130, width: 50, height: 275, borderRadius: 25, backgroundColor: '#130F2E' }} />
+      <View style={{ position: 'absolute', bottom: -95, left: 200, width: 68, height: 325, borderRadius: 34, backgroundColor: '#0F0C26' }} />
+      <View style={{ position: 'absolute', bottom: -78, left: 275, width: 58, height: 295, borderRadius: 29, backgroundColor: '#12102C' }} />
+      <View style={{ position: 'absolute', bottom: -88, left: 340, width: 65, height: 315, borderRadius: 32, backgroundColor: '#0E0B24' }} />
+
+      {/* ── Mid hills (darker, rounded) ── */}
+      {/* Peak heights: ~110–135px from card bottom */}
+      <View style={{ position: 'absolute', bottom: -65, left: -25, width: 225, height: 200, borderRadius: 112, backgroundColor: '#0C091E' }} />
+      <View style={{ position: 'absolute', bottom: -70, right: -20, width: 245, height: 215, borderRadius: 122, backgroundColor: '#0A0818' }} />
+      <View style={{ position: 'absolute', bottom: -58, left: '22%', width: 205, height: 190, borderRadius: 102, backgroundColor: '#0B091C' }} />
+
+      {/* ── Near hills (very dark) ── */}
+      {/* Peak heights: ~75–95px from card bottom */}
+      <View style={{ position: 'absolute', bottom: -75, left: -15, width: 200, height: 165, borderRadius: 100, backgroundColor: '#080615' }} />
+      <View style={{ position: 'absolute', bottom: -68, right: -8, width: 218, height: 170, borderRadius: 109, backgroundColor: '#070514' }} />
+      <View style={{ position: 'absolute', bottom: -62, left: '36%', width: 185, height: 158, borderRadius: 92, backgroundColor: '#070514' }} />
+
+      {/* ── Ground ── */}
+      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 60, backgroundColor: '#04030B' }} />
+
+      {/* ── Bottom readability veil ── */}
+      <LinearGradient
+        colors={['transparent', 'rgba(4,3,11,0.72)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 110 }}
+        pointerEvents="none"
+      />
+
+      {/* ── Content overlay ── */}
+      <View style={{
+        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+        padding: 24,
+        justifyContent: 'space-between',
+      }}>
+        {/* App label */}
+        <Text style={{
+          color: 'rgba(255,245,233,0.28)',
+          fontFamily: F.body, fontSize: 11, fontWeight: '900',
+          letterSpacing: 2.5, textTransform: 'uppercase',
+        }}>
+          Sulav
+        </Text>
+
+        {/* Score */}
+        <View style={{ gap: 3 }}>
+          <Text style={{
+            color: C.amber,
+            fontFamily: F.mono, fontSize: 82, fontWeight: '900',
+            lineHeight: 90, fontVariant: ['tabular-nums'], letterSpacing: -3,
+          }}>
+            {score}
+          </Text>
+          <Text style={{
+            color: 'rgba(255,245,233,0.40)',
+            fontFamily: F.body, fontSize: 11, fontWeight: '800',
+            letterSpacing: 2.5, textTransform: 'uppercase',
+          }}>
+            sleep score
+          </Text>
+        </View>
+
+        {/* Bedtime + week bars */}
+        <View style={{ gap: 16 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View style={{
+              paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderCurve: 'continuous',
+              backgroundColor: 'rgba(255,245,233,0.07)',
+              borderWidth: 1, borderColor: 'rgba(255,245,233,0.10)',
+            }}>
+              <Text style={{ color: 'rgba(255,245,233,0.45)', fontFamily: F.body, fontSize: 11, fontWeight: '700' }}>
+                tonight
+              </Text>
+            </View>
+            <Text style={{
+              color: C.ink, fontFamily: F.mono, fontSize: 22, fontWeight: '900',
+              fontVariant: ['tabular-nums'],
+            }}>
+              {bedtime}
+            </Text>
+          </View>
+
+          <View style={{ flexDirection: 'row', gap: 7, alignItems: 'flex-end' }}>
+            {week.map((s, i) => {
+              const today = i === week.length - 1;
+              const h = 6 + Math.round((s / 100) * 22);
+              return (
+                <View key={i} style={{ alignItems: 'center', gap: 5 }}>
+                  <View style={{
+                    width: 5, height: h, borderRadius: 3,
+                    backgroundColor: today ? C.amber : `rgba(255,245,233,${s >= 80 ? 0.36 : 0.20})`,
+                  }} />
+                  <Text style={{
+                    color: today ? C.amber : 'rgba(255,245,233,0.28)',
+                    fontFamily: F.body, fontSize: 9, fontWeight: today ? '900' : '600',
+                  }}>
+                    {DAYS[i]}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      </View>
+    </View>
+  );
 }
 
-function usePhaseAnimation(phase: Phase) {
-  const fade = useRef(new Animated.Value(1)).current;
-  const lift = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    fade.setValue(0);
-    lift.setValue(12);
-    Animated.parallel([
-      Animated.timing(fade, {
-        toValue: 1,
-        duration: 260,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(lift, {
-        toValue: 0,
-        duration: 320,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [fade, lift, phase]);
-
-  return {
-    opacity: fade,
-    transform: [{ translateY: lift }],
-  };
-}
-
-function AppButton({
+// ── Action buttons ────────────────────────────────────────────────────────────
+function ActionButton({
   label,
+  sub,
+  variant = 'primary',
   onPress,
-  variant = 'quiet',
 }: {
   label: string;
+  sub?: string;
+  variant?: 'primary' | 'dark';
   onPress?: () => void;
-  variant?: 'primary' | 'quiet' | 'danger';
 }) {
-  const background =
-    variant === 'primary' ? colors.amber : variant === 'danger' ? '#3C201E' : colors.panel2;
-  const borderColor =
-    variant === 'primary' ? colors.amber : variant === 'danger' ? colors.danger : colors.lineSoft;
-  const textColor = variant === 'primary' ? colors.black : colors.ink;
-
+  const primary = variant === 'primary';
   return (
     <Pressable
       accessibilityRole="button"
-      hitSlop={8}
-      onPress={() => {
-        pressHaptic();
-        onPress?.();
-      }}
+      onPress={() => { haptic(); onPress?.(); }}
       style={({ pressed }) => ({
-        minHeight: 54,
-        paddingHorizontal: spacing.lg,
-        borderRadius: radius.pill,
-        borderCurve: 'continuous',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: background,
+        minHeight: 78,
+        borderRadius: 22, borderCurve: 'continuous',
+        backgroundColor: primary ? C.amber : C.surface,
         borderWidth: 1,
-        borderColor,
+        borderColor: primary ? '#F6C779' : C.border,
+        paddingHorizontal: 24, paddingVertical: 16,
+        justifyContent: 'center',
+        gap: 4,
         opacity: pressed ? 0.82 : 1,
-        transform: [{ scale: pressed ? 0.98 : 1 }],
+        transform: [{ scale: pressed ? 0.984 : 1 }],
       })}
     >
-      <Text
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        style={{
-          color: textColor,
-          fontFamily: type.body,
-          fontSize: 16,
-          fontWeight: '800',
-          letterSpacing: 0,
-        }}
-      >
+      <Text style={{
+        color: primary ? '#06050C' : C.ink,
+        fontFamily: F.body, fontSize: 19, fontWeight: '900',
+      }}>
         {label}
+      </Text>
+      {sub && (
+        <Text style={{
+          color: primary ? 'rgba(6,5,12,0.50)' : C.inkQuiet,
+          fontFamily: F.mono, fontSize: 13, fontWeight: '700',
+          fontVariant: ['tabular-nums'],
+        }}>
+          {sub}
+        </Text>
+      )}
+    </Pressable>
+  );
+}
+
+// ── Settings rows ─────────────────────────────────────────────────────────────
+function SettingsRow({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent?: string;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      hitSlop={4}
+      onPress={haptic}
+      style={({ pressed }) => ({
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 15, paddingHorizontal: 18,
+        borderRadius: 16, borderCurve: 'continuous',
+        backgroundColor: C.surface,
+        borderWidth: 1, borderColor: C.borderDim,
+        opacity: pressed ? 0.78 : 1,
+      })}
+    >
+      <Text style={{ color: C.inkDim, fontFamily: F.body, fontSize: 15, fontWeight: '700' }}>
+        {label}
+      </Text>
+      <Text style={{
+        color: accent ?? C.inkQuiet,
+        fontFamily: F.mono, fontSize: 15, fontWeight: '800',
+        fontVariant: ['tabular-nums'],
+      }}>
+        {value}
       </Text>
     </Pressable>
   );
 }
 
-function PhaseControl({
-  activePhase,
-  onChange,
-}: {
-  activePhase: Phase;
-  onChange: (phase: Phase) => void;
-}) {
-  return (
-    <View
-      style={{
-        flexDirection: 'row',
-        gap: spacing.xs,
-        padding: 5,
-        borderRadius: radius.pill,
-        borderCurve: 'continuous',
-        backgroundColor: '#171114',
-        borderWidth: 1,
-        borderColor: colors.lineSoft,
-      }}
-    >
-      {phases.map((phase) => {
-        const active = phase.id === activePhase;
-
-        return (
-          <Pressable
-            key={phase.id}
-            accessibilityLabel={phase.label}
-            accessibilityRole="button"
-            accessibilityState={{ selected: active }}
-            hitSlop={6}
-            onPress={() => {
-              pressHaptic();
-              onChange(phase.id);
-            }}
-            style={({ pressed }) => ({
-              flex: 1,
-              minHeight: 44,
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: radius.pill,
-              borderCurve: 'continuous',
-              backgroundColor: active ? colors.ink : 'transparent',
-              opacity: pressed ? 0.78 : 1,
-            })}
-          >
-            <Text
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              style={{
-                color: active ? colors.black : colors.inkDim,
-                fontFamily: type.body,
-                fontSize: 13,
-                fontWeight: active ? '900' : '700',
-                letterSpacing: 0,
-              }}
-            >
-              {phase.label}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
-function SleepGate({ meta }: { meta: PhaseMeta }) {
-  return (
-    <LinearGradient
-      colors={['#271C1F', '#161015', '#0F0B0E']}
-      start={{ x: 0.08, y: 0 }}
-      end={{ x: 0.92, y: 1 }}
-      style={{
-        minHeight: 360,
-        borderRadius: radius.xl,
-        borderCurve: 'continuous',
-        borderWidth: 1,
-        borderColor: colors.line,
-        padding: spacing.xl,
-        overflow: 'hidden',
-      }}
-    >
-      <View
-        style={{
-          position: 'absolute',
-          width: 260,
-          height: 260,
-          borderRadius: 130,
-          right: -78,
-          top: -58,
-          borderWidth: 40,
-          borderColor: meta.accent,
-          opacity: 0.12,
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          left: -42,
-          bottom: -82,
-          width: 250,
-          height: 250,
-          borderRadius: 125,
-          backgroundColor: '#513024',
-          opacity: 0.28,
-        }}
-      />
-
-      <View style={{ flex: 1, justifyContent: 'space-between', gap: spacing.xl }}>
-        <View style={{ gap: spacing.md }}>
-          <View
-            style={{
-              alignSelf: 'flex-start',
-              paddingHorizontal: spacing.md,
-              minHeight: 34,
-              borderRadius: radius.pill,
-              borderCurve: 'continuous',
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: 'rgba(255,245,233,0.08)',
-              borderWidth: 1,
-              borderColor: 'rgba(255,245,233,0.14)',
-            }}
-          >
-            <Text
-              style={{
-                color: colors.inkDim,
-                fontFamily: type.body,
-                fontSize: 12,
-                fontWeight: '900',
-                letterSpacing: 0,
-                textTransform: 'uppercase',
-              }}
-            >
-              {meta.eyebrow}
-            </Text>
-          </View>
-
-          <Text
-            style={{
-              color: colors.ink,
-              fontFamily: type.display,
-              fontSize: 36,
-              lineHeight: 41,
-              fontWeight: '900',
-              letterSpacing: 0,
-              maxWidth: 310,
-            }}
-          >
-            {meta.title}
-          </Text>
-          <Text
-            style={{
-              color: colors.inkDim,
-              fontFamily: type.body,
-              fontSize: 16,
-              lineHeight: 23,
-              letterSpacing: 0,
-              maxWidth: 316,
-            }}
-          >
-            {meta.summary}
-          </Text>
-        </View>
-
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'flex-end',
-            justifyContent: 'space-between',
-            gap: spacing.lg,
-          }}
-        >
-          <View
-            style={{
-              width: 156,
-              height: 156,
-              borderRadius: 78,
-              borderCurve: 'continuous',
-              borderWidth: 14,
-              borderColor: meta.accent,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: 'rgba(14,11,14,0.62)',
-            }}
-          >
-            <Text
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.62}
-              style={{
-                color: colors.ink,
-                fontFamily: type.mono,
-                fontSize: 36,
-                fontWeight: '900',
-                fontVariant: ['tabular-nums'],
-                letterSpacing: 0,
-              }}
-            >
-              {meta.metric}
-            </Text>
-            <Text
-              style={{
-                color: colors.inkQuiet,
-                fontFamily: type.body,
-                fontSize: 12,
-                fontWeight: '800',
-                letterSpacing: 0,
-                textTransform: 'uppercase',
-              }}
-            >
-              {meta.metricLabel}
-            </Text>
-          </View>
-
-          <View style={{ flex: 1, gap: spacing.sm, paddingBottom: spacing.sm }}>
-            <View
-              style={{
-                height: 8,
-                borderRadius: radius.pill,
-                backgroundColor: 'rgba(255,245,233,0.12)',
-                overflow: 'hidden',
-              }}
-            >
-              <View
-                style={{
-                  width: `${meta.progress * 100}%`,
-                  height: '100%',
-                  borderRadius: radius.pill,
-                  backgroundColor: meta.accent,
-                }}
-              />
-            </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm }}>
-              <Text
-                style={{
-                  color: colors.inkQuiet,
-                  fontFamily: type.body,
-                  fontSize: 12,
-                  fontWeight: '800',
-                  letterSpacing: 0,
-                }}
-              >
-                9:30
-              </Text>
-              <Text
-                style={{
-                  color: meta.accent,
-                  fontFamily: type.body,
-                  fontSize: 12,
-                  fontWeight: '900',
-                  letterSpacing: 0,
-                }}
-              >
-                {meta.state}
-              </Text>
-              <Text
-                style={{
-                  color: colors.inkQuiet,
-                  fontFamily: type.body,
-                  fontSize: 12,
-                  fontWeight: '800',
-                  letterSpacing: 0,
-                }}
-              >
-                4:30
-              </Text>
-            </View>
-          </View>
-        </View>
-      </View>
-    </LinearGradient>
-  );
-}
-
-function TimelinePanel() {
-  return (
-    <View
-      style={{
-        borderRadius: radius.lg,
-        borderCurve: 'continuous',
-        backgroundColor: colors.panel,
-        borderWidth: 1,
-        borderColor: colors.lineSoft,
-        padding: spacing.lg,
-        gap: spacing.md,
-      }}
-    >
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: spacing.md }}>
-        <View style={{ gap: 4, flex: 1 }}>
-          <Text
-            style={{
-              color: colors.ink,
-              fontFamily: type.body,
-              fontSize: 18,
-              lineHeight: 23,
-              fontWeight: '900',
-              letterSpacing: 0,
-            }}
-          >
-            Tonight's mechanism
-          </Text>
-          <Text
-            style={{
-              color: colors.inkQuiet,
-              fontFamily: type.body,
-              fontSize: 14,
-              lineHeight: 20,
-              letterSpacing: 0,
-            }}
-          >
-            Clear sequence, no mystery settings at night.
-          </Text>
-        </View>
-        <View
-          style={{
-            minWidth: 70,
-            minHeight: 42,
-            borderRadius: radius.md,
-            borderCurve: 'continuous',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: colors.panel3,
-          }}
-        >
-          <Text
-            style={{
-              color: colors.amber,
-              fontFamily: type.mono,
-              fontSize: 16,
-              fontWeight: '900',
-              fontVariant: ['tabular-nums'],
-              letterSpacing: 0,
-            }}
-          >
-            6h
-          </Text>
-        </View>
-      </View>
-
-      {lockRules.map((rule, index) => (
-        <View
-          key={rule.label}
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: spacing.md,
-          }}
-        >
-          <View style={{ alignItems: 'center', width: 18 }}>
-            <View
-              style={{
-                width: 12,
-                height: 12,
-                borderRadius: 6,
-                backgroundColor: index === 1 ? colors.amber : colors.panel3,
-                borderWidth: 1,
-                borderColor: colors.line,
-              }}
-            />
-          </View>
-          <Text
-            style={{
-              width: 78,
-              color: colors.ink,
-              fontFamily: type.mono,
-              fontSize: 13,
-              fontWeight: '800',
-              fontVariant: ['tabular-nums'],
-              letterSpacing: 0,
-            }}
-          >
-            {rule.label}
-          </Text>
-          <Text
-            style={{
-              flex: 1,
-              color: colors.inkDim,
-              fontFamily: type.body,
-              fontSize: 14,
-              lineHeight: 20,
-              letterSpacing: 0,
-            }}
-          >
-            {rule.value}
-          </Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function AllowedAppsPanel() {
-  return (
-    <View style={{ gap: spacing.md }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: spacing.md }}>
-        <View style={{ gap: 4, flex: 1 }}>
-          <Text
-            style={{
-              color: colors.ink,
-              fontFamily: type.body,
-              fontSize: 19,
-              lineHeight: 24,
-              fontWeight: '900',
-              letterSpacing: 0,
-            }}
-          >
-            Night shelf
-          </Text>
-          <Text
-            style={{
-              color: colors.inkQuiet,
-              fontFamily: type.body,
-              fontSize: 14,
-              lineHeight: 20,
-              letterSpacing: 0,
-            }}
-          >
-            Few choices, large targets, no feed surfaces.
-          </Text>
-        </View>
-      </View>
-
-      <View style={{ gap: spacing.sm }}>
-        {allowedApps.map((app) => (
-          <Pressable
-            key={app.name}
-            accessibilityRole="button"
-            hitSlop={6}
-            onPress={pressHaptic}
-            style={({ pressed }) => ({
-              minHeight: 72,
-              borderRadius: radius.lg,
-              borderCurve: 'continuous',
-              backgroundColor: colors.panel,
-              borderWidth: 1,
-              borderColor: colors.lineSoft,
-              padding: spacing.md,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: spacing.md,
-              opacity: pressed ? 0.82 : 1,
-              transform: [{ scale: pressed ? 0.99 : 1 }],
-            })}
-          >
-            <View
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 22,
-                borderCurve: 'continuous',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: `${app.tone}24`,
-                borderWidth: 1,
-                borderColor: `${app.tone}88`,
-              }}
-            >
-              <Text
-                style={{
-                  color: app.tone,
-                  fontFamily: type.body,
-                  fontSize: 13,
-                  fontWeight: '900',
-                  letterSpacing: 0,
-                }}
-              >
-                {app.name.slice(0, 2).toUpperCase()}
-              </Text>
-            </View>
-            <View style={{ flex: 1, gap: 3 }}>
-              <Text
-                style={{
-                  color: colors.ink,
-                  fontFamily: type.body,
-                  fontSize: 16,
-                  fontWeight: '900',
-                  letterSpacing: 0,
-                }}
-              >
-                {app.name}
-              </Text>
-              <Text
-                style={{
-                  color: colors.inkQuiet,
-                  fontFamily: type.body,
-                  fontSize: 13,
-                  lineHeight: 18,
-                  letterSpacing: 0,
-                }}
-              >
-                {app.detail}
-              </Text>
-            </View>
-            <Text
-              style={{
-                color: colors.inkQuiet,
-                fontFamily: type.body,
-                fontSize: 20,
-                fontWeight: '600',
-                letterSpacing: 0,
-              }}
-            >
-              {'>'}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-function ScorePanel({ score }: { score: number }) {
-  return (
-    <View
-      style={{
-        borderRadius: radius.lg,
-        borderCurve: 'continuous',
-        backgroundColor: colors.panel,
-        borderWidth: 1,
-        borderColor: colors.lineSoft,
-        padding: spacing.lg,
-        gap: spacing.lg,
-      }}
-    >
-      <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-        <View style={{ gap: 4, flex: 1 }}>
-          <Text
-            style={{
-              color: colors.ink,
-              fontFamily: type.body,
-              fontSize: 19,
-              lineHeight: 24,
-              fontWeight: '900',
-              letterSpacing: 0,
-            }}
-          >
-            Rhythm, not decoration
-          </Text>
-          <Text
-            style={{
-              color: colors.inkQuiet,
-              fontFamily: type.body,
-              fontSize: 14,
-              lineHeight: 20,
-              letterSpacing: 0,
-            }}
-          >
-            Bar height shows score. Labels flag late or interrupted nights.
-          </Text>
-        </View>
-        <View style={{ alignItems: 'flex-end', gap: 2 }}>
-          <Text
-            style={{
-              color: colors.amber,
-              fontFamily: type.mono,
-              fontSize: 30,
-              fontWeight: '900',
-              fontVariant: ['tabular-nums'],
-              letterSpacing: 0,
-            }}
-          >
-            {score}
-          </Text>
-          <Text
-            style={{
-              color: colors.inkQuiet,
-              fontFamily: type.body,
-              fontSize: 11,
-              fontWeight: '800',
-              letterSpacing: 0,
-              textTransform: 'uppercase',
-            }}
-          >
-            sleep score
-          </Text>
-        </View>
-      </View>
-
-      <View style={{ height: 148, flexDirection: 'row', alignItems: 'flex-end', gap: 9 }}>
-        {sleepSeries.map((item, index) => {
-          const active = index === sleepSeries.length - 1;
-          const marked = item.label === 'Open';
-
-          return (
-            <View
-              key={`${item.day}-${index}`}
-              style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', gap: 7 }}
-            >
-              <View
-                style={{
-                  width: '100%',
-                  height: item.score,
-                  minHeight: 22,
-                  borderRadius: radius.pill,
-                  borderCurve: 'continuous',
-                  backgroundColor: active ? colors.amber : colors.panel3,
-                  borderWidth: 1,
-                  borderColor: active ? '#F6C779' : colors.line,
-                  justifyContent: 'flex-start',
-                  alignItems: 'center',
-                  paddingTop: marked ? 5 : 0,
-                }}
-              >
-                {marked && (
-                  <View
-                    style={{
-                      width: 7,
-                      height: 7,
-                      borderRadius: 4,
-                      backgroundColor: colors.danger,
-                    }}
-                  />
-                )}
-              </View>
-              <Text
-                style={{
-                  color: active ? colors.ink : colors.inkQuiet,
-                  fontFamily: type.body,
-                  fontSize: 12,
-                  fontWeight: active ? '900' : '700',
-                  letterSpacing: 0,
-                }}
-              >
-                {item.day}
-              </Text>
-            </View>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
-function MorningPanel({
-  energy,
-  dream,
-  onEnergy,
-  onDream,
-}: {
-  energy: string;
-  dream: string;
-  onEnergy: (value: string) => void;
-  onDream: (value: string) => void;
-}) {
-  return (
-    <View
-      style={{
-        borderRadius: radius.lg,
-        borderCurve: 'continuous',
-        backgroundColor: colors.panel,
-        borderWidth: 1,
-        borderColor: colors.lineSoft,
-        padding: spacing.lg,
-        gap: spacing.lg,
-      }}
-    >
-      <View style={{ gap: 4 }}>
-        <Text
-          style={{
-            color: colors.ink,
-            fontFamily: type.body,
-            fontSize: 19,
-            lineHeight: 24,
-            fontWeight: '900',
-            letterSpacing: 0,
-          }}
-        >
-          Morning capture
-        </Text>
-        <Text
-          style={{
-            color: colors.inkQuiet,
-            fontFamily: type.body,
-            fontSize: 14,
-            lineHeight: 20,
-            letterSpacing: 0,
-          }}
-        >
-          Fast enough for groggy mornings, open enough for dream recall.
-        </Text>
-      </View>
-
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-        {['Calm', 'Heavy', 'Clear', 'Restless'].map((item) => {
-          const active = item === energy;
-
-          return (
-            <Pressable
-              key={item}
-              accessibilityRole="button"
-              accessibilityState={{ selected: active }}
-              hitSlop={6}
-              onPress={() => {
-                pressHaptic();
-                onEnergy(item);
-              }}
-              style={({ pressed }) => ({
-                minHeight: 46,
-                paddingHorizontal: spacing.md,
-                borderRadius: radius.pill,
-                borderCurve: 'continuous',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: active ? colors.ink : colors.panel2,
-                borderWidth: 1,
-                borderColor: active ? colors.ink : colors.lineSoft,
-                opacity: pressed ? 0.8 : 1,
-              })}
-            >
-              <Text
-                style={{
-                  color: active ? colors.black : colors.ink,
-                  fontFamily: type.body,
-                  fontSize: 15,
-                  fontWeight: '800',
-                  letterSpacing: 0,
-                }}
-              >
-                {item}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      <TextInput
-        multiline
-        value={dream}
-        onChangeText={onDream}
-        placeholder="Dream fragment, feeling, image, or nothing at all..."
-        placeholderTextColor={colors.inkQuiet}
-        style={{
-          minHeight: 122,
-          borderRadius: radius.lg,
-          borderCurve: 'continuous',
-          backgroundColor: colors.panel2,
-          borderWidth: 1,
-          borderColor: colors.lineSoft,
-          color: colors.ink,
-          padding: spacing.md,
-          fontFamily: type.body,
-          fontSize: 16,
-          lineHeight: 23,
-          textAlignVertical: 'top',
-          letterSpacing: 0,
-        }}
-      />
-    </View>
-  );
-}
-
+// ── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [phase, setPhase] = useState<Phase>('day');
-  const [interruptions, setInterruptions] = useState(0);
-  const [energy, setEnergy] = useState('Calm');
-  const [dream, setDream] = useState('');
-  const { width } = useWindowDimensions();
-  const animatedStyle = usePhaseAnimation(phase);
-
-  const compact = width < 390;
-  const meta = phaseMeta[phase];
-  const sleepScore = useMemo(() => Math.max(54, 88 - Math.min(interruptions * 8, 32)), [interruptions]);
+  const [bedtime] = useState('10:30 PM');
+  const week = [76, 82, 69, 91, 78, 84, 88];
 
   return (
     <SafeAreaProvider>
-      <LinearGradient colors={[colors.night, colors.night2, '#120D0C']} style={{ flex: 1 }}>
+      <LinearGradient colors={['#07050E', '#0C091A', '#07050E']} style={{ flex: 1 }}>
         <StatusBar style="light" />
         <SafeAreaView edges={['top', 'bottom']} style={{ flex: 1 }}>
-        <ScrollView
-          contentInsetAdjustmentBehavior="never"
-          contentContainerStyle={{
-            paddingHorizontal: compact ? spacing.md : spacing.lg,
-            paddingTop: spacing.xl,
-            paddingBottom: 44,
-            gap: spacing.lg,
-          }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <View style={{ gap: 3 }}>
-              <Text
-                style={{
-                  color: colors.inkQuiet,
-                  fontFamily: type.body,
-                  fontSize: 12,
-                  fontWeight: '900',
-                  letterSpacing: 0,
-                  textTransform: 'uppercase',
-                }}
-              >
-                Sulav Sleep
-              </Text>
-              <Text
-                style={{
-                  color: colors.ink,
-                  fontFamily: type.body,
-                  fontSize: 15,
-                  fontWeight: '800',
-                  letterSpacing: 0,
-                }}
-              >
-                10:30 PM target
-              </Text>
-            </View>
-            <View
-              style={{
-                minHeight: 40,
-                paddingHorizontal: spacing.md,
-                borderRadius: radius.pill,
-                borderCurve: 'continuous',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: 'rgba(243,186,99,0.12)',
-                borderWidth: 1,
-                borderColor: 'rgba(243,186,99,0.36)',
-              }}
-            >
-              <Text
-                style={{
-                  color: colors.amber,
-                  fontFamily: type.body,
-                  fontSize: 13,
-                  fontWeight: '900',
-                  letterSpacing: 0,
-                }}
-              >
-                Red filter safe
-              </Text>
-            </View>
-          </View>
+          <ScrollView
+            contentInsetAdjustmentBehavior="never"
+            contentContainerStyle={{
+              paddingHorizontal: 20,
+              paddingTop: 20,
+              paddingBottom: 52,
+              gap: 14,
+            }}
+          >
+            {/* Night art widget */}
+            <NightWidget score={88} bedtime={bedtime} week={week} />
 
-          <PhaseControl activePhase={phase} onChange={setPhase} />
-
-          <Animated.View style={[animatedStyle, { gap: spacing.lg }]}>
-            <SleepGate meta={meta} />
-
-            <View style={{ flexDirection: compact ? 'column' : 'row', gap: spacing.md }}>
-              <View style={{ flex: 1 }}>
-                <AppButton
-                  label={phase === 'sleepLock' ? `${meta.primaryAction} (${interruptions})` : meta.primaryAction}
-                  variant={phase === 'sleepLock' ? 'danger' : 'primary'}
-                  onPress={() => {
-                    if (phase === 'sleepLock') {
-                      setInterruptions((count) => count + 1);
-                    } else if (phase === 'day') {
-                      setPhase('windDown');
-                    }
-                  }}
-                />
+            {/* Stats badges */}
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{
+                paddingHorizontal: 12, paddingVertical: 8,
+                borderRadius: 999, borderCurve: 'continuous',
+                backgroundColor: 'rgba(243,186,99,0.10)',
+                borderWidth: 1, borderColor: 'rgba(243,186,99,0.20)',
+              }}>
+                <Text style={{ color: C.amber, fontFamily: F.body, fontSize: 13, fontWeight: '900' }}>
+                  🌙  5 night streak
+                </Text>
               </View>
-              <View style={{ flex: 1 }}>
-              <AppButton label="Filter guide" />
+              <View style={{
+                paddingHorizontal: 12, paddingVertical: 8,
+                borderRadius: 999, borderCurve: 'continuous',
+                backgroundColor: C.surface,
+                borderWidth: 1, borderColor: C.borderDim,
+              }}>
+                <Text style={{ color: C.inkQuiet, fontFamily: F.body, fontSize: 13, fontWeight: '700' }}>
+                  Last: 7h 24m
+                </Text>
               </View>
             </View>
 
-            <TimelinePanel />
+            {/* Primary actions */}
+            <View style={{ gap: 10 }}>
+              <ActionButton
+                label="Set Bedtime"
+                sub={`Currently ${bedtime}`}
+                variant="primary"
+              />
+              <ActionButton
+                label="Sleep Now"
+                sub="Lock phone for 6 hours"
+                variant="dark"
+              />
+            </View>
 
-            {(phase === 'windDown' || phase === 'sleepLock') && <AllowedAppsPanel />}
+            {/* Divider */}
+            <View style={{ height: 1, backgroundColor: C.borderDim, marginHorizontal: 4 }} />
 
-            {phase === 'morning' && (
-              <MorningPanel energy={energy} dream={dream} onEnergy={setEnergy} onDream={setDream} />
-            )}
-
-            <ScorePanel score={sleepScore} />
-          </Animated.View>
-        </ScrollView>
+            {/* Settings */}
+            <View style={{ gap: 8 }}>
+              <Text style={{
+                color: C.inkQuiet,
+                fontFamily: F.body, fontSize: 11, fontWeight: '900',
+                letterSpacing: 2, textTransform: 'uppercase',
+                paddingHorizontal: 4, marginBottom: 2,
+              }}>
+                Settings
+              </Text>
+              <SettingsRow label="Lock duration"       value="6 hours"     accent={C.amber} />
+              <SettingsRow label="Wind-down reminder"  value="1 hr before" />
+              <SettingsRow label="Morning unlock"      value="6:30 AM" />
+              <SettingsRow label="Allowed apps"        value="4 apps →" />
+            </View>
+          </ScrollView>
         </SafeAreaView>
       </LinearGradient>
     </SafeAreaProvider>

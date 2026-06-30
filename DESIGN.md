@@ -14,14 +14,15 @@ Sulav Sleep should feel like a warm bedside instrument, not a generic wellness d
 
 ## Product Mood
 
-The design direction is "sleep gate cockpit":
+The design direction is "night landscape" — standing outside on a clear night looking at a mountain range under a crescent moon:
 
-- Calm, dark, warm, and almost physical.
-- One strong instrument panel for bedtime status.
-- Sparse controls because too many nighttime choices defeat the product.
-- Data shown as a ritual and accountability system, not decorative analytics.
+- Deep indigo-black sky with a layered mountain silhouette.
+- A crescent moon with warm amber glow halos.
+- Stars scattered across the top half of the art widget.
+- Two clear primary actions (Set Bedtime + Sleep Now) as the only controls.
+- Sparse settings below — no dashboards, no phase switchers.
 
-Sleep Cycle validates the score/routine framing: duration, quality, and consistency should be visible as a simple trend. RISE validates a darker, more instrument-like sleep surface with a strong hero metric. Apple and Material both push clear hierarchy, large touch targets, semantic color, and restrained motion.
+The art widget IS the UI. It communicates sleep state through the imagery, not through status chips or progress rings.
 
 ## Palette
 
