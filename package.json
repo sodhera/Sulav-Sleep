@@ -15,7 +15,8 @@
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
-    "ios": "expo start --ios",
+    "ios": "./scripts/run-ios-simulator.sh",
+    "ios:expo": "expo run:ios",
     "web": "expo start --web"
   },
   "private": true

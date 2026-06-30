@@ -7,7 +7,9 @@ npm install
 npm run ios
 ```
 
-Expo will start Metro and open the app in the iOS Simulator through Expo Go when available.
+The iOS script copies the project to `/tmp/sulav-sleep-tracker-run` before launching. This avoids Expo/RN native build scripts that currently split the checked-out folder name at the space in `Sulav-Sleep Tracker`.
+
+The script also disables React Native prebuilt core for the local simulator build because CocoaPods can fail to validate `React-Core-prebuilt` in this environment with a missing `source` attribute.
 
 ## Run locally without launching a simulator
 
