@@ -14,13 +14,20 @@ Sulav Sleep should feel like a warm bedside instrument, not a generic wellness d
 
 ## Product Mood
 
-The design direction is "Lullaby" — a dreamy deep-indigo night sky with a soft crescent moon nestled in clouds. Friendly, rounded, a little magical. Adapted from the reference sleep-tracker shot the team chose as the north star (deep indigo + violet/magenta, Montserrat type, crescent-moon-in-clouds illustration, smooth weekly wave chart).
+The design direction is "Lullaby" — a dreamy deep-indigo night sky with a soft crescent moon, clouds, stars and mountains. Friendly, rounded, a little magical.
 
-- Deep indigo night sky with soft violet blobs.
-- A crescent moon in fluffy clouds with faint orbit rings — the emotional centre, the "art that makes you feel good about sleeping."
-- Stars scattered behind the moon.
-- Two clear actions (Sleep Now + Set Bedtime) as friendly pills.
-- Glassy statistic cards (Quality / Duration) and a smooth weekly-sleep wave chart give the data a calm, dreamy presentation.
+**The scene is the background, not a card.** Moon, clouds, stars and mountains live on the base layer behind everything. Content (greeting, schedule, actions, data) floats directly on that scene with as few containers as possible — open text and hairline dividers instead of boxes. Over-using cards is the "vibecoded" smell we are explicitly avoiding.
+
+**Parallax & motion.** The background layers separate into depth on scroll — stars barely move, the moon a little, clouds more, mountains most — and the clouds drift slowly on their own loop while stars gently twinkle. All transforms use the native driver.
+
+**Structure (two tabs + onboarding).**
+
+- Onboarding (first launch): dummy login → name → usual sleep time → usual wake time. Persisted, so it runs once.
+- Home tab: greeting by name, tonight's schedule (open text), `Sleep Now` + `Set Bedtime`, and a cardless "last night" summary. While a session is active it becomes a calm sleeping screen with a live elapsed timer and `Wake up`.
+- Reports tab: the weekly wave chart, averages, and a cardless history list (hairline-divided rows).
+- Bottom nav: Home / Reports only. Hidden while sleeping and during onboarding.
+
+**Functional.** Real persistence via AsyncStorage. `Sleep Now` starts a session; `Wake up` logs duration + a computed score into history. Schedule and name are editable; a reset returns to onboarding. Login is a dummy step for now.
 
 ## Palette — "Lullaby"
 
