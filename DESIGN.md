@@ -14,19 +14,31 @@ Sulav Sleep should feel like a warm bedside instrument, not a generic wellness d
 
 ## Product Mood
 
-The design direction is "night landscape" — standing outside on a clear night looking at a mountain range under a crescent moon:
+The design direction is "Lullaby" — a dreamy deep-indigo night sky with a soft crescent moon nestled in clouds. Friendly, rounded, a little magical. Adapted from the reference sleep-tracker shot the team chose as the north star (deep indigo + violet/magenta, Montserrat type, crescent-moon-in-clouds illustration, smooth weekly wave chart).
 
-- Deep indigo-black sky with a layered mountain silhouette.
-- A crescent moon with warm amber glow halos.
-- Stars scattered across the top half of the art widget.
-- Two clear primary actions (Set Bedtime + Sleep Now) as the only controls.
-- Sparse settings below — no dashboards, no phase switchers.
+- Deep indigo night sky with soft violet blobs.
+- A crescent moon in fluffy clouds with faint orbit rings — the emotional centre, the "art that makes you feel good about sleeping."
+- Stars scattered behind the moon.
+- Two clear actions (Sleep Now + Set Bedtime) as friendly pills.
+- Glassy statistic cards (Quality / Duration) and a smooth weekly-sleep wave chart give the data a calm, dreamy presentation.
 
-The art widget IS the UI. It communicates sleep state through the imagery, not through status chips or progress rings.
+## Palette — "Lullaby"
 
-## Palette — "Dusk"
+Deep indigo night with violet→magenta accents, taken directly from the reference. Anchors: `#291965` / `#533EA8` / `#943EC3`.
 
-The identity is the last warm light at the horizon bleeding up into deep night. A cool deep-plum sky meets a warm clay/peach horizon glow with a soft moon resting low. The cosiness lives in the *warmth at the edges*, never in cold indigo or generic amber.
+- Background gradient: `#2A1C66 → #191038`, with faint violet blobs (`#3E2A8A`, `#7A33B0`).
+- Hero widget gradient: `#332176 → #241858` (night sky).
+- Quality card: magenta gradient `#A24BE0 → #7E3CC2`.
+- Duration card: purple gradient `#5B45B8 → #3E2D8C`.
+- Ink: white `#FFFFFF`, plus `rgba(255,255,255, .74 / .52 / .30)` for dim/quiet/faint.
+- Glass surfaces: `rgba(255,255,255,0.06)` fill, `rgba(255,255,255,0.10)` border.
+- Moon: `#F4F1FF → #D9D2F7`.
+
+Reasoning:
+
+- The violet/magenta night reads as dreamy and gentle rather than clinical.
+- White pill buttons (the reference's "Start/Stop tracking") pop cleanly on indigo and feel friendly.
+- Glassy translucent cards over a soft-blob background give depth without heavy borders.
 
 - Base: `#15111B`, `#1B1622` (deep plum-black)
 - Ink (warm off-whites, never sharp white): cream `#F4E9DC`, warm `#C9B3A0`, quiet `#8E7C70`
@@ -44,23 +56,31 @@ Reasoning:
 
 ## Typography
 
-A deliberate editorial pairing using platform-available iOS fonts (no custom-font native build required):
+**Montserrat**, matching the reference exactly. A geometric, friendly sans loaded as a real custom font via `expo-font` + `@expo-google-fonts/montserrat` (this required adding the native modules and rebuilding the iOS app — see Mechanism note below).
 
-- `Hoefler Text` — display serif. Carries warmth and personality: greeting, hero duration, the italic sleep-quality line, section titles. The italic ("Restful and unbroken") is a signature touch.
-- `Avenir Next` — humanist UI sans for controls, labels, body, and small numerals where legibility leads.
+Weights in use: `400 Regular`, `500 Medium`, `600 SemiBold`, `700 Bold`, `800 ExtraBold`.
 
 Scale:
 
-- Hero duration: 52 / 56, serif, weight 500 (light and airy, never heavy).
-- Greeting / section serif: 19–28, weight 500–600.
-- Body / control labels: 15–17, sans, 600–800.
-- Captions: 11–14; ALL-CAPS letterspacing used sparingly (only `SCORE` and one or two labels).
+- Hero greeting ("Good night"): 28, ExtraBold.
+- Date / section headers: 13–22, Bold (section labels ALL-CAPS, +1 letterspacing).
+- Stat values: 26, Bold.
+- Body / controls: 15–16, Medium / SemiBold / Bold.
+- Captions: 11–14, Medium.
 
 Reasoning:
 
-- Light-weight large serif numerals feel calm. Heavy bold numerals (the previous build) read as loud and clinical — the opposite of bedtime.
-- The serif gives the app an unmistakable identity; the sans keeps the operating controls crisp.
-- Tabular numerals on metrics prevent score/time jitter.
+- Montserrat's circular geometry is the friendly, dreamy voice in the reference; nothing built into iOS matches it, so it's worth bundling.
+- ExtraBold only for the single hero greeting; everything else stays lighter so one focal point leads.
+
+## Mechanism note — native dependencies
+
+This direction needs two native modules beyond the Expo defaults:
+
+- `react-native-svg` — the crescent-moon-in-clouds illustration (crescent via an SVG mask, clouds from circles, faint orbit ellipses) and the smooth gradient-filled weekly wave chart (Catmull-Rom → bezier `Path`).
+- `expo-font` + `@expo-google-fonts/montserrat` — the Montserrat typeface.
+
+Adding them requires a native rebuild (`expo prebuild` + `pod install` + build), which the `scripts/run-ios-simulator.sh` wrapper handles. **`pod install` needs a UTF-8 locale** — run with `LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8` or CocoaPods crashes with an `ASCII-8BIT` normalization error.
 
 ## Layout And Spacing
 
