@@ -24,98 +24,96 @@ The design direction is "night landscape" — standing outside on a clear night 
 
 The art widget IS the UI. It communicates sleep state through the imagery, not through status chips or progress rings.
 
-## Palette
+## Palette — "Dusk"
 
-The app avoids sharp white, saturated blue, and purple-heavy wellness gradients. The current palette is:
+The identity is the last warm light at the horizon bleeding up into deep night. A cool deep-plum sky meets a warm clay/peach horizon glow with a soft moon resting low. The cosiness lives in the *warmth at the edges*, never in cold indigo or generic amber.
 
-- Background: `#0E0B0E`, `#151014`, `#120D0C`
-- Text: `#FFF5E9`, `#D7C4B3`, `#A99383`
-- Surfaces: `#201819`, `#2A201F`, `#352722`
-- Lines: `#5B473D`, `#3B2F2D`
-- Accents: amber `#F3BA63`, ember `#E56E50`, rose `#D49483`, moss `#9AAA86`, danger `#F08A71`
+- Base: `#15111B`, `#1B1622` (deep plum-black)
+- Ink (warm off-whites, never sharp white): cream `#F4E9DC`, warm `#C9B3A0`, quiet `#8E7C70`
+- Dusk accents: clay `#D98E6E`, peach `#E9B488`, gold `#E6C089`
+- Surfaces: card `#221A29`, raised `#2A2230`
+- Lines: `#322839`, `#271F2E`
+- Moon / sky gradient stops: sky runs `#221A30 → #352741 → #5A3F4E → #92604F → #C9885F` (deep plum to clay horizon); moon `#F7EAD7`
 
 Reasoning:
 
-- Warm dark neutrals reduce glare and remain appropriate when iOS Color Filters or Android night filters are active.
-- Amber/ember/rose support a red-filter environment better than blue or purple accents.
-- Moss is used only for morning/recovery so color still carries meaning without making the screen one-note.
-- State never relies on hue alone; labels, progress, layout, and line weight also communicate status.
+- A real twilight has a cool deep sky AND a warm horizon. That duality is the whole identity — it reads as the moment of *settling down*, not a flat dark dashboard.
+- Warm dusk tones are emotionally cozier than the cold indigo/amber that every AI sleep app defaults to.
+- Everything is low-contrast and warm so it stays comfortable at night and under a red filter.
+- One peach accent (`#E9B488`) carries every highlight — score, today's bar, primary action — for a single, coherent voice.
 
 ## Typography
 
-The prototype uses platform-available fonts:
+A deliberate editorial pairing using platform-available iOS fonts (no custom-font native build required):
 
-- `Avenir Next` for display and body text on iOS Simulator.
-- `Menlo` for clock, score, and duration numerals.
+- `Hoefler Text` — display serif. Carries warmth and personality: greeting, hero duration, the italic sleep-quality line, section titles. The italic ("Restful and unbroken") is a signature touch.
+- `Avenir Next` — humanist UI sans for controls, labels, body, and small numerals where legibility leads.
 
 Scale:
 
-- Hero title: 36 / 41, heavy.
-- Section title: 18-19 / 23-24, heavy.
-- Body: 14-16 / 20-23.
-- Small labels: 11-13, uppercase only for short status labels.
+- Hero duration: 52 / 56, serif, weight 500 (light and airy, never heavy).
+- Greeting / section serif: 19–28, weight 500–600.
+- Body / control labels: 15–17, sans, 600–800.
+- Captions: 11–14; ALL-CAPS letterspacing used sparingly (only `SCORE` and one or two labels).
 
 Reasoning:
 
-- Large numerals make bedtime, lock duration, and score instantly scannable.
-- Monospaced numerals prevent score/time jitter.
-- Letter spacing stays at `0` for native legibility.
+- Light-weight large serif numerals feel calm. Heavy bold numerals (the previous build) read as loud and clinical — the opposite of bedtime.
+- The serif gives the app an unmistakable identity; the sans keeps the operating controls crisp.
+- Tabular numerals on metrics prevent score/time jitter.
 
 ## Layout And Spacing
 
-Spacing tokens:
+Strict 8pt grid (Apple HIG). Tokens:
 
-- `6`, `10`, `16`, `22`, `30`, `42`
+- `4`, `8`, `12`, `16`, `20`, `24`, `32`, `40`
 
-Structure:
+Rules:
 
-- Header: product name, bedtime target, red-filter-safe status.
-- Phase control: one segmented control, not scattered navigation.
-- Hero: one dominant `SleepGate` panel with title, copy, metric ring, and progress line.
-- Actions: primary commitment action plus a quiet color-filter guide.
-- Mechanism: clear timeline for 9:30 PM, 10:30 PM, and 4:30 AM.
-- Contextual panels: allowed apps during Wind Down/Sleep Lock, morning capture during Morning.
-- Score: simple weekly bar rhythm.
+- Screen margins: `24`. Major section gaps: `32`. Intra-cluster gaps: `8–16`.
+- Touch targets ≥ `44`; primary/secondary actions `64` tall.
+- Generous breathing room is the point — emptiness is calming.
+
+Structure (top to bottom):
+
+- Header: serif "Good evening" greeting + date, with a small moon chip.
+- `DuskWidget`: the emotional centre — a dusk scene (gradient sky, stars, low glowing moon, soft ridge) with last-night duration, an italic quality line, the score, and a seven-night rhythm graph laid over a ground-haze veil.
+- Actions: `Sleep Now` (warm peach gradient, the commitment) and `Set Bedtime` (quiet surface, value on the right).
+- Stats: two cozy cards — average bedtime and on-time streak.
+- Settings: a single grouped list (lock duration, wind-down reminder, morning unlock, allowed apps).
 
 Reasoning:
 
-- The first viewport must show the product premise immediately: bedtime target plus lock state.
-- The hero panel prevents the screen from becoming a stack of identical cards.
-- The timeline explains mechanism without forcing the user through settings text at night.
-- Panels use generous gaps and larger rows because nighttime tap accuracy is worse.
+- The widget IS the product premise and the art — one beautiful image you want to return to, not a stack of identical cards.
+- The scene is restrained on purpose: one moon, a few stars, a soft ridge. The previous build's dozen cartoon mountain shapes read as vibecoded; restraint reads as designed.
+- Only two actions, exactly as the product calls for. Everything else collapses into the settings list.
 
 ## Containers
 
 Corners are continuous and soft:
 
 - Small: `14`
-- Medium: `20`
-- Large: `28`
-- Hero: `38`
+- Medium: `18`
+- Large: `24`
+- Hero/widget: `32`
 - Pills: `999`
 
 Rules:
 
-- Cards are only for functional clusters: hero, timeline, allowed app rows, morning capture, score.
+- Cards are only for functional clusters: the widget, stat cards, the settings group.
 - Do not nest cards inside cards.
-- Avoid bordered white cards and marketing-style floating sections.
-- Row targets are at least 44 px high; major actions are 54 px high.
+- Settings use one grouped container with hairline dividers, not a row of separate cards.
 
 ## Buttons And Controls
 
-Buttons:
-
-- Primary: amber fill, black text, 54 px minimum height.
-- Quiet: warm surface fill, light text, soft border.
-- Danger: muted ember surface and danger border for night-opening logs.
-- Segmented phase control: pill container with a filled active tab.
-- Morning check-in chips: pill controls with selected state by fill, border, and text contrast.
+- Primary (`Sleep Now`): warm peach→clay gradient fill, deep-brown text, `64` tall, two-line label with a moon glyph. It is the cosy commitment, so it glows.
+- Secondary (`Set Bedtime`): warm card surface, soft border, label left + peach value right, `64` tall.
+- Settings rows: ≥ `52` tall, hairline dividers, peach chevron.
 
 Reasoning:
 
-- Button choices follow Apple and Material guidance: clear affordance, sufficient hit area, semantic hierarchy.
-- Primary action color is warm and visible under red tint.
-- The night-opening action is visually serious without becoming alarm-red at bedtime.
+- One warm gradient action anchors the eye and feels inviting rather than clinical.
+- Hierarchy is carried by fill vs. surface, following Apple's guidance on a single clear primary action.
 
 ## Motion And Feedback
 
