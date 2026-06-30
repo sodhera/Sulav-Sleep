@@ -4,14 +4,14 @@ Sulav Sleep is a bedtime commitment app. The product is not just a sleep journal
 
 ## Current prototype
 
-The first app is intentionally simple and simulator friendly. It demonstrates the intended product shape without native blocking integrations:
+The first app is intentionally simulator friendly. It demonstrates the intended product shape without native blocking integrations:
 
 - Wind Down begins one hour before the target bedtime.
 - Sleep Lock represents the six-hour no-phone commitment window.
 - A night opening is logged as an interruption.
 - Morning check-in captures energy, mood, and whether the user woke rested.
 - Dream check-in captures a short dream note.
-- The visual system uses warm, rounded, low-stimulation surfaces designed to remain legible when an iOS Color Tint or red light filter is active.
+- The visual system uses the `DESIGN.md` "sleep gate cockpit" direction: warm, rounded, low-stimulation surfaces designed to remain legible when an iOS Color Tint or red light filter is active.
 
 ## Platform mechanism assumptions
 

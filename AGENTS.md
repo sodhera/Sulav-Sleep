@@ -6,6 +6,8 @@ We also want very frequent commits.
 
 We also need proper developer style documentation for usage and mechanisms too.
 
+Before changing the app UI, read `DESIGN.md` and update it when design decisions change.
+
 ## gstack
 
 Use the gstack `/browse` skill for all web browsing. Never use `mcp__claude-in-chrome__*` tools.

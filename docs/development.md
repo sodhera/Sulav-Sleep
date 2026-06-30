@@ -23,7 +23,14 @@ The current app is a single-screen Expo prototype. It has no backend, no persist
 
 ## UI rules
 
+- Read `DESIGN.md` before changing UI. It defines the research-backed palette, layout, motion, containers, and control choices.
 - Use warm dark surfaces and rounded continuous corners.
 - Avoid sharp white screens, blue-heavy UI, and color-only state indicators.
 - Make charts and scores readable under red tint by using text, shape, line weight, and position in addition to color.
 - Keep Wind Down mode intentionally sparse: reading, journaling, alarm, and emergency actions only.
+
+## Current design implementation
+
+The current simulator prototype uses a single "Sleep Gate" hero instead of a generic dashboard. It shows the active bedtime phase, commitment metric, lock progress, allowed app shelf, morning capture, and weekly rhythm chart.
+
+The UI uses `expo-linear-gradient` for warm dark depth, `expo-haptics` for native-feeling button feedback, and `react-native-safe-area-context` so scrolled content does not slide under the Dynamic Island/status area. Keep these dependencies unless the design system changes deliberately.
