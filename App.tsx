@@ -181,9 +181,9 @@ export default function App() {
             </View>
             <View
               style={{
-                width: 92,
-                height: 92,
-                borderRadius: 46,
+                width: 108,
+                height: 108,
+                borderRadius: 54,
                 alignItems: 'center',
                 justifyContent: 'center',
                 backgroundColor: palette.surfaceWarm,
@@ -193,9 +193,12 @@ export default function App() {
             >
               <Text
                 selectable
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.7}
                 style={{
                   color: palette.text,
-                  fontSize: 28,
+                  fontSize: 26,
                   fontWeight: '900',
                   fontVariant: ['tabular-nums'],
                   letterSpacing: 0,
