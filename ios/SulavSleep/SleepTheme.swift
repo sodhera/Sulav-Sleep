@@ -136,15 +136,29 @@ extension View {
 // notification when a night is logged. Nothing bouncy or reward-like.
 
 enum Haptics {
+    #if canImport(UIKit)
+    private static let softGenerator = UIImpactFeedbackGenerator(style: .soft)
+    private static let successGenerator = UINotificationFeedbackGenerator()
+    #endif
+
+    static func prepare() {
+        #if canImport(UIKit)
+        softGenerator.prepare()
+        successGenerator.prepare()
+        #endif
+    }
+
     static func soft() {
         #if canImport(UIKit)
-        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+        softGenerator.impactOccurred()
+        softGenerator.prepare()
         #endif
     }
 
     static func success() {
         #if canImport(UIKit)
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        successGenerator.notificationOccurred(.success)
+        successGenerator.prepare()
         #endif
     }
 }

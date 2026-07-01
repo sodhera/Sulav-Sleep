@@ -134,9 +134,11 @@ final class SleepStore {
         let start = Date()
         activeSession = ActiveSleepSession(start: start)
         selectedTab = .home
-        persist()
+        persist(refreshWidget: false)
         if profile?.lockdownEnabled == true { screenTime.startLockdown() }
-        if !AppEnvironment.isTesting { SleepLiveActivity.start(startDate: start) }
+        if !AppEnvironment.isTesting {
+            Task { SleepLiveActivity.start(startDate: start) }
+        }
         AppLog.store.info("Sleep session started")
     }
 
@@ -146,7 +148,7 @@ final class SleepStore {
         activeSession = nil
         screenTime.endLockdown()
         if !AppEnvironment.isTesting { SleepLiveActivity.end() }
-        persist()
+        persist(refreshWidget: false)
         AppLog.store.info("Sleep session canceled (not logged)")
     }
 
@@ -280,7 +282,7 @@ final class SleepStore {
         guard !trimmed.isEmpty else { return }
         profile.name = trimmed
         self.profile = profile
-        persist()
+        persist(refreshWidget: false)
     }
 
     func resetAll() {
@@ -294,11 +296,13 @@ final class SleepStore {
         AppLog.store.info("All data reset")
     }
 
-    private func persist() {
+    private func persist(refreshWidget: Bool = true) {
         persistence.save(
             SleepSnapshot(profile: profile, sessions: sessions, activeSession: activeSession)
         )
-        updateWidget()
+        if refreshWidget {
+            updateWidget()
+        }
     }
 }
 

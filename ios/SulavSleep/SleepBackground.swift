@@ -20,16 +20,6 @@ struct SleepBackground: View {
     @State private var parallax = ParallaxController()
     @State private var drag: CGSize = .zero
 
-    // Autonomous pan — like watching buildings drift past a car window.
-    // Deeper layers (small depth) barely move; the foreground window layer
-    // drifts a lot more. Bounded by a sine so it never runs past the
-    // overscan and reveals an edge.
-    private let driftPeriod: Double = 60
-
-    private func drift(_ t: Double, depth: CGFloat) -> CGFloat {
-        CGFloat(-sin(2 * .pi * t / driftPeriod)) * depth * 3.5
-    }
-
     var body: some View {
         GeometryReader { geo in
             let size = geo.size
@@ -40,20 +30,13 @@ struct SleepBackground: View {
                 ZStack {
                     SleepColor.background
 
-                    PixelCityBase(size: size)
-                        .offset(x: p.width * 4 + drift(t, depth: 4), y: p.height * 3)
+                    PixelCityBase(size: size, t: t, parallax: p)
 
                     StreetGlowLayer(t: t, size: size)
-                        .offset(x: p.width * 10 + drift(t, depth: 10), y: p.height * 6)
                     RainLayer(t: t, size: size)
-                        .offset(x: p.width * 8 + drift(t, depth: 8), y: p.height * 4)
                     AtmosphereLayer(t: t, size: size)
-                        .offset(x: p.width * 6 + drift(t, depth: 6), y: p.height * 4)
                     WindowLayer(t: t, size: size)
-                        .offset(x: p.width * 14 + drift(t, depth: 14), y: p.height * 8)
                 }
-                // Overscan so parallax + drift never reveal an edge.
-                .scaleEffect(1.35)
             }
             .contentShape(Rectangle())
             .gesture(dragFallback(size: size))
@@ -69,9 +52,7 @@ struct SleepBackground: View {
                 guard !parallax.isActive else { return }
                 let nx = Double(value.translation.width / max(size.width, 1) * 2)
                 let ny = Double(value.translation.height / max(size.height, 1) * 2)
-                withAnimation(.interpolatingSpring(stiffness: 60, damping: 12)) {
-                    drag = CGSize(width: max(-1, min(1, nx)), height: max(-1, min(1, ny)))
-                }
+                drag = CGSize(width: max(-1, min(1, nx)), height: max(-1, min(1, ny)))
             }
             .onEnded { _ in
                 withAnimation(.interpolatingSpring(stiffness: 40, damping: 10)) {
@@ -85,12 +66,23 @@ struct SleepBackground: View {
 
 private struct PixelCityBase: View {
     let size: CGSize
+    let t: TimeInterval
+    let parallax: CGSize
+
+    private let layers: [ScrollingPixelLayer.Spec] = [
+        .init(assetName: "NightCitySky", speed: 3, xDepth: 2, yDepth: 2, phase: 0.00),
+        .init(assetName: "NightCityFarSkyline", speed: 5, xDepth: 4, yDepth: 3, phase: 0.15),
+        .init(assetName: "NightCityMidSkyline", speed: 8, xDepth: 7, yDepth: 4, phase: 0.34),
+        .init(assetName: "NightCityNearSkyline", speed: 12, xDepth: 10, yDepth: 5, phase: 0.55),
+        .init(assetName: "NightCityFrontSkyline", speed: 17, xDepth: 14, yDepth: 6, phase: 0.78),
+    ]
 
     var body: some View {
-        Image("NightCity")
-            .resizable()
-            .interpolation(.none) // keep crisp pixels
-            .scaledToFill()
+        ZStack {
+            ForEach(layers) { layer in
+                ScrollingPixelLayer(spec: layer, size: size, t: t, parallax: parallax)
+            }
+        }
             .frame(width: size.width, height: size.height)
             .saturation(0.55) // pull the blue toward the warm palette
             .overlay {
@@ -113,6 +105,52 @@ private struct PixelCityBase: View {
                 )
             }
             .clipped()
+    }
+}
+
+private struct ScrollingPixelLayer: View {
+    struct Spec: Identifiable {
+        var assetName: String
+        var speed: CGFloat
+        var xDepth: CGFloat
+        var yDepth: CGFloat
+        var phase: CGFloat
+
+        var id: String { assetName }
+    }
+
+    private static let assetAspect: CGFloat = 16.0 / 9.0
+
+    let spec: Spec
+    let size: CGSize
+    let t: TimeInterval
+    let parallax: CGSize
+
+    var body: some View {
+        let tileWidth = max(size.height * Self.assetAspect, 1)
+        let repeatCount = max(3, Int(ceil(size.width / tileWidth)) + 3)
+        let distance = travelDistance(tileWidth: tileWidth)
+        let xOffset = -tileWidth - distance + parallax.width * spec.xDepth
+        let yOffset = parallax.height * spec.yDepth
+
+        HStack(spacing: 0) {
+            ForEach(0..<repeatCount, id: \.self) { _ in
+                Image(spec.assetName)
+                    .resizable()
+                    .interpolation(.none)
+                    .antialiased(false)
+                    .frame(width: tileWidth, height: size.height)
+                    .clipped()
+            }
+        }
+        .frame(width: tileWidth * CGFloat(repeatCount), height: size.height, alignment: .leading)
+        .offset(x: xOffset, y: yOffset)
+    }
+
+    private func travelDistance(tileWidth: CGFloat) -> CGFloat {
+        let raw = (t * Double(spec.speed) + Double(spec.phase * tileWidth))
+            .truncatingRemainder(dividingBy: Double(tileWidth))
+        return CGFloat(raw)
     }
 }
 
