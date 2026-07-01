@@ -1,6 +1,7 @@
 import SwiftUI
 import FamilyControls
 import ManagedSettings
+import DeviceActivity
 
 // Sleep lockdown via Apple's Screen Time (Family Controls) API.
 //
@@ -22,6 +23,10 @@ protocol ScreenTimeControlling {
     func requestAuthorization() async -> Bool
     func startLockdown()
     func endLockdown()
+    /// Schedules a DeviceActivityMonitor interval so the shield applies/clears
+    /// even if the app isn't foregrounded, capped at `maxHours`.
+    func scheduleLockdown(bedtimeMinutes: Int, wakeMinutes: Int, maxHours: Int)
+    func cancelScheduledLockdown()
     var hasSelection: Bool { get }
     /// Opaque encoded FamilyActivitySelection so callers can stay framework-free.
     func selectionData() -> Data?
@@ -29,27 +34,25 @@ protocol ScreenTimeControlling {
 }
 
 enum SleepScreenTime {
-    static let selectionKey = "sulav.lock.selection.v1"
+    static let selectionKey = SleepLockdownSelection.selectionKey
 
     static func makeDefault() -> ScreenTimeControlling {
         ScreenTimeService()
     }
 
     static func decodeSelection(_ data: Data?) -> FamilyActivitySelection {
-        guard let data, let selection = try? JSONDecoder().decode(FamilyActivitySelection.self, from: data) else {
-            return FamilyActivitySelection()
-        }
-        return selection
+        SleepLockdownSelection.decode(data)
     }
 
     static func encodeSelection(_ selection: FamilyActivitySelection) -> Data? {
-        try? JSONEncoder().encode(selection)
+        SleepLockdownSelection.encode(selection)
     }
 }
 
 final class ScreenTimeService: ScreenTimeControlling {
     private let store = ManagedSettingsStore()
     private let center = AuthorizationCenter.shared
+    private let deviceActivityCenter = DeviceActivityCenter()
 
     var isSupported: Bool {
         #if targetEnvironment(simulator)
@@ -93,17 +96,52 @@ final class ScreenTimeService: ScreenTimeControlling {
         AppLog.app.info("Sleep lockdown cleared")
     }
 
+    func scheduleLockdown(bedtimeMinutes: Int, wakeMinutes: Int, maxHours: Int) {
+        guard isSupported else { return }
+        let schedule = DeviceActivitySchedule(
+            intervalStart: dateComponents(fromMinutes: bedtimeMinutes),
+            intervalEnd: dateComponents(fromMinutes: wakeMinutes),
+            repeats: true
+        )
+        let event = DeviceActivityEvent(
+            applications: SleepScreenTime.decodeSelection(selectionData()).applicationTokens,
+            categories: SleepScreenTime.decodeSelection(selectionData()).categoryTokens,
+            threshold: DateComponents(hour: maxHours)
+        )
+        do {
+            try deviceActivityCenter.startMonitoring(
+                sleepActivityName,
+                during: schedule,
+                events: [sleepEventName: event]
+            )
+            AppLog.app.info("Scheduled sleep lockdown \(bedtimeMinutes)->\(wakeMinutes), cap \(maxHours)h")
+        } catch {
+            AppLog.app.error("Failed to schedule sleep lockdown: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    func cancelScheduledLockdown() {
+        guard isSupported else { return }
+        deviceActivityCenter.stopMonitoring([sleepActivityName])
+    }
+
+    private func dateComponents(fromMinutes minutes: Int) -> DateComponents {
+        DateComponents(hour: (minutes / 60) % 24, minute: minutes % 60)
+    }
+
     var hasSelection: Bool {
         let selection = SleepScreenTime.decodeSelection(selectionData())
         return !selection.applicationTokens.isEmpty || !selection.categoryTokens.isEmpty
     }
 
+    /// Stored in the App Group so the DeviceActivityMonitor extension can read
+    /// it when applying the scheduled shield in the background.
     func selectionData() -> Data? {
-        UserDefaults.standard.data(forKey: SleepScreenTime.selectionKey)
+        SleepLockdownSelection.groupDefaults()?.data(forKey: SleepScreenTime.selectionKey)
     }
 
     func saveSelection(data: Data) {
-        UserDefaults.standard.set(data, forKey: SleepScreenTime.selectionKey)
+        SleepLockdownSelection.groupDefaults()?.set(data, forKey: SleepScreenTime.selectionKey)
     }
 }
 
@@ -117,6 +155,7 @@ struct LockdownSettingsView: View {
     @State private var showPicker = false
     @State private var enabled = false
     @State private var requesting = false
+    @State private var maxHours = 6
 
     var body: some View {
         LiquidSheetContainer {
@@ -170,6 +209,14 @@ struct LockdownSettingsView: View {
                     .padding(.vertical, SleepSpacing.sm)
                 }
                 .buttonStyle(.plain)
+
+                Stepper(value: $maxHours, in: 1...12) {
+                    Text("Unlock after \(maxHours)h even if I don't wake up")
+                        .font(SleepFont.body(15))
+                        .foregroundStyle(SleepColor.dim)
+                }
+                .tint(SleepColor.amber)
+                .onChange(of: maxHours) { _, hours in store.setLockdownMaxHours(hours) }
             }
 
             LiquidPrimaryButton(title: "Done", systemImage: "checkmark") { dismiss() }
@@ -183,6 +230,7 @@ struct LockdownSettingsView: View {
         .onAppear {
             selection = SleepScreenTime.decodeSelection(store.appSelectionData())
             enabled = store.lockdownEnabled
+            maxHours = store.lockdownMaxHours
         }
     }
 

@@ -66,6 +66,7 @@ final class SleepStore {
 
     var screenTimeState: ScreenTimeState { screenTime.authorizationState() }
     var lockdownEnabled: Bool { profile?.lockdownEnabled == true }
+    var lockdownMaxHours: Int { profile?.lockdownMaxHours ?? 6 }
 
     // MARK: - Lifecycle
 
@@ -130,10 +131,12 @@ final class SleepStore {
     // MARK: - Sleep loop
 
     func startSleep() {
-        activeSession = ActiveSleepSession(start: Date())
+        let start = Date()
+        activeSession = ActiveSleepSession(start: start)
         selectedTab = .home
         persist()
         if profile?.lockdownEnabled == true { screenTime.startLockdown() }
+        if !AppEnvironment.isTesting { SleepLiveActivity.start(startDate: start) }
         AppLog.store.info("Sleep session started")
     }
 
@@ -142,6 +145,7 @@ final class SleepStore {
     func cancelSleep() {
         activeSession = nil
         screenTime.endLockdown()
+        if !AppEnvironment.isTesting { SleepLiveActivity.end() }
         persist()
         AppLog.store.info("Sleep session canceled (not logged)")
     }
@@ -161,6 +165,7 @@ final class SleepStore {
         sessions.append(session)
         self.activeSession = nil
         screenTime.endLockdown()
+        if !AppEnvironment.isTesting { SleepLiveActivity.end() }
         persist()
         AppLog.store.info("Logged night: \(minutes)m, score \(session.score)")
 
@@ -208,6 +213,7 @@ final class SleepStore {
         profile.lockdownEnabled = granted
         self.profile = profile
         persist()
+        if granted { rescheduleLockdown() }
         AppLog.store.info("Sleep lockdown \(granted ? "enabled" : "denied")")
     }
 
@@ -216,13 +222,36 @@ final class SleepStore {
         profile.lockdownEnabled = false
         self.profile = profile
         screenTime.endLockdown()
+        screenTime.cancelScheduledLockdown()
         persist()
         AppLog.store.info("Sleep lockdown disabled")
     }
 
+    func setLockdownMaxHours(_ hours: Int) {
+        guard var profile else { return }
+        profile.lockdownMaxHours = hours
+        self.profile = profile
+        persist()
+        if profile.lockdownEnabled { rescheduleLockdown() }
+    }
+
     /// Opaque encoded app selection for the lockdown picker UI.
     func appSelectionData() -> Data? { screenTime.selectionData() }
-    func saveAppSelection(_ data: Data) { screenTime.saveSelection(data: data) }
+    func saveAppSelection(_ data: Data) {
+        screenTime.saveSelection(data: data)
+        if profile?.lockdownEnabled == true { rescheduleLockdown() }
+    }
+
+    /// Re-registers the scheduled bedtime->wake DeviceActivityMonitor window so
+    /// the shield applies/clears even if the app isn't open.
+    private func rescheduleLockdown() {
+        guard let profile, profile.lockdownEnabled else { return }
+        screenTime.scheduleLockdown(
+            bedtimeMinutes: profile.bedtime,
+            wakeMinutes: profile.wakeTime,
+            maxHours: profile.lockdownMaxHours
+        )
+    }
 
     @MainActor
     func refreshHealth() async {
@@ -242,6 +271,7 @@ final class SleepStore {
         profile.wakeTime = wakeTime
         self.profile = profile
         persist()
+        rescheduleLockdown()
     }
 
     func saveName(_ name: String) {

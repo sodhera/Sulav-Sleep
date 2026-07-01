@@ -1,0 +1,66 @@
+import ActivityKit
+import WidgetKit
+import SwiftUI
+
+// Live Activity for the active-sleep timer: Lock Screen banner + Dynamic
+// Island. Renders `startDate` with a system-driven live timer — no polling.
+struct SulavSleepLiveActivity: Widget {
+    var body: some WidgetConfiguration {
+        ActivityConfiguration(for: SleepActivityAttributes.self) { context in
+            LockScreenSleepView(startDate: context.state.startDate)
+                .activityBackgroundTint(SleepColor.sleepBlack)
+                .activitySystemActionForegroundColor(SleepColor.ember)
+        } dynamicIsland: { context in
+            DynamicIsland {
+                DynamicIslandExpandedRegion(.leading) {
+                    Image(systemName: "moon.fill")
+                        .foregroundStyle(SleepColor.ember)
+                }
+                DynamicIslandExpandedRegion(.trailing) {
+                    Text(timerInterval: context.state.startDate...Date.distantFuture, countsDown: false)
+                        .font(SleepFont.title(16))
+                        .foregroundStyle(SleepColor.ember)
+                        .monospacedDigit()
+                }
+                DynamicIslandExpandedRegion(.bottom) {
+                    Text("Asleep")
+                        .font(SleepFont.body(12))
+                        .foregroundStyle(SleepColor.muted)
+                }
+            } compactLeading: {
+                Image(systemName: "moon.fill").foregroundStyle(SleepColor.ember)
+            } compactTrailing: {
+                Text(timerInterval: context.state.startDate...Date.distantFuture, countsDown: false)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(SleepColor.ember)
+                    .monospacedDigit()
+                    .frame(width: 44)
+            } minimal: {
+                Image(systemName: "moon.fill").foregroundStyle(SleepColor.ember)
+            }
+        }
+    }
+}
+
+private struct LockScreenSleepView: View {
+    let startDate: Date
+
+    var body: some View {
+        HStack(spacing: SleepSpacing.md) {
+            Image(systemName: "moon.stars.fill")
+                .font(.system(size: 22))
+                .foregroundStyle(SleepColor.ember)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Asleep")
+                    .font(SleepFont.body(13))
+                    .foregroundStyle(SleepColor.muted)
+                Text(timerInterval: startDate...Date.distantFuture, countsDown: false)
+                    .font(SleepFont.title(24))
+                    .foregroundStyle(SleepColor.ember)
+                    .monospacedDigit()
+            }
+            Spacer()
+        }
+        .padding(SleepSpacing.lg)
+    }
+}

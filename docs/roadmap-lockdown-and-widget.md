@@ -26,14 +26,22 @@ capability.
   building/testing/running; on the Simulator the service reports `.unavailable`
   and every call is a no-op.
 
+- **Scheduled/background enforcement** — `SulavSleepMonitor` (DeviceActivityMonitor
+  extension): applies the shield at the scheduled bedtime, clears it at wake, and
+  lifts it early if the user-set max-hours cap (`Profile.lockdownMaxHours`,
+  default 6) is reached, all independent of the app being open. Reads the
+  App-Group-stored app selection via `SleepLockdownShared.swift`. Scheduled via
+  `ScreenTimeService.scheduleLockdown` whenever lockdown is enabled or the
+  schedule/selection changes.
+- **Live Activity** — `SleepActivityAttributes` + `SleepLiveActivity` (app side,
+  starts/ends the activity) and `SulavSleepLiveActivity` (widget-side Lock
+  Screen + Dynamic Island view) show the live elapsed-sleep timer without
+  polling, via `Text(timerInterval:)`.
+
 ## What's still to do
 
-- **Scheduled / background enforcement**: a `DeviceActivityMonitor` extension to
-  apply the shield at the scheduled bedtime and auto-clear after N hours even if
-  the app isn't opened. Today the shield is applied on Sleep Now and cleared on
-  Wake up / Cancel (foreground).
-- **Live Activity** for the active-sleep timer (optional).
-- Request the Family Controls capability from Apple for the dev account.
+- Request the Family Controls capability from Apple for the dev account (needed
+  for real enforcement on device; everything else is code-complete).
 
 ---
 

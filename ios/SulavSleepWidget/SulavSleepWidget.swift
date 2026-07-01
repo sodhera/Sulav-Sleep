@@ -49,6 +49,7 @@ struct SulavSleepWidget: Widget {
 struct SulavSleepWidgetBundle: WidgetBundle {
     var body: some Widget {
         SulavSleepWidget()
+        SulavSleepLiveActivity()
     }
 }
 

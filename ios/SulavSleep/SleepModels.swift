@@ -30,17 +30,23 @@ struct Profile: Codable, Equatable {
     var healthSyncEnabled: Bool
     /// Whether the user has enabled Screen Time app-lockdown while asleep.
     var lockdownEnabled: Bool
+    /// Max hours the lockdown stays active even if "Wake up" isn't tapped.
+    var lockdownMaxHours: Int
 
-    init(name: String, bedtime: Int, wakeTime: Int, onboarded: Bool, healthSyncEnabled: Bool = false, lockdownEnabled: Bool = false) {
+    init(
+        name: String, bedtime: Int, wakeTime: Int, onboarded: Bool,
+        healthSyncEnabled: Bool = false, lockdownEnabled: Bool = false, lockdownMaxHours: Int = 6
+    ) {
         self.name = name
         self.bedtime = bedtime
         self.wakeTime = wakeTime
         self.onboarded = onboarded
         self.healthSyncEnabled = healthSyncEnabled
         self.lockdownEnabled = lockdownEnabled
+        self.lockdownMaxHours = lockdownMaxHours
     }
 
-    // Decode-safe: records written before these fields existed default to false.
+    // Decode-safe: records written before these fields existed default sensibly.
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         name = try c.decode(String.self, forKey: .name)
@@ -49,6 +55,7 @@ struct Profile: Codable, Equatable {
         onboarded = try c.decode(Bool.self, forKey: .onboarded)
         healthSyncEnabled = try c.decodeIfPresent(Bool.self, forKey: .healthSyncEnabled) ?? false
         lockdownEnabled = try c.decodeIfPresent(Bool.self, forKey: .lockdownEnabled) ?? false
+        lockdownMaxHours = try c.decodeIfPresent(Int.self, forKey: .lockdownMaxHours) ?? 6
     }
 }
 
