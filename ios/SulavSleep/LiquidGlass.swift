@@ -1,5 +1,10 @@
 import SwiftUI
 
+// Centralized Liquid Glass behavior. Native `glassEffect` on iOS 26+, with a
+// `.ultraThinMaterial` fallback that keeps the same shape and hairline border.
+// Glass here reads like slightly fogged window glass on a rainy night: light
+// blur, subtle transparency, warm reflection, thin border. See DESIGN.md.
+
 struct LiquidGlassSurface: ViewModifier {
     var cornerRadius: CGFloat
     var tint: Color
@@ -9,18 +14,14 @@ struct LiquidGlassSurface: ViewModifier {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         if #available(iOS 26.0, *) {
             if interactive {
-                content
-                    .glassEffect(.regular.tint(tint).interactive(), in: shape)
+                content.glassEffect(.regular.tint(tint).interactive(), in: shape)
             } else {
-                content
-                    .glassEffect(.regular.tint(tint), in: shape)
+                content.glassEffect(.regular.tint(tint), in: shape)
             }
         } else {
             content
                 .background(.ultraThinMaterial, in: shape)
-                .overlay {
-                    shape.stroke(SleepColor.hairline, lineWidth: 1)
-                }
+                .overlay { shape.stroke(SleepColor.border, lineWidth: 1) }
         }
     }
 }
@@ -31,30 +32,30 @@ extension View {
         tint: Color = SleepColor.glassFill,
         interactive: Bool = false
     ) -> some View {
-        modifier(
-            LiquidGlassSurface(
-                cornerRadius: cornerRadius,
-                tint: tint,
-                interactive: interactive
-            )
-        )
+        modifier(LiquidGlassSurface(cornerRadius: cornerRadius, tint: tint, interactive: interactive))
     }
 }
 
+// MARK: - Buttons
+
+/// Warm, primary action. Amber gradient fill, deep-navy ink, soft glow.
 struct LiquidPrimaryButton: View {
     let title: String
-    let systemImage: String?
-    let action: () -> Void
+    var systemImage: String?
+    var action: () -> Void
+
+    init(title: String, systemImage: String? = nil, action: @escaping () -> Void) {
+        self.title = title
+        self.systemImage = systemImage
+        self.action = action
+    }
 
     var body: some View {
         Button(action: action) {
             Label {
-                Text(title)
-                    .font(SleepFont.title(16))
+                Text(title).font(SleepFont.label(16)).tracking(0.2)
             } icon: {
-                if let systemImage {
-                    Image(systemName: systemImage)
-                }
+                if let systemImage { Image(systemName: systemImage) }
             }
             .frame(maxWidth: .infinity, minHeight: 58)
         }
@@ -62,22 +63,27 @@ struct LiquidPrimaryButton: View {
     }
 }
 
+/// Quiet, secondary action. Subtle glass, ink text, optional trailing value.
 struct LiquidSecondaryButton: View {
     let title: String
-    let value: String?
-    let systemImage: String?
-    let action: () -> Void
+    var value: String?
+    var systemImage: String?
+    var action: () -> Void
+
+    init(title: String, value: String? = nil, systemImage: String? = nil, action: @escaping () -> Void) {
+        self.title = title
+        self.value = value
+        self.systemImage = systemImage
+        self.action = action
+    }
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: SleepSpacing.sm) {
-                if let systemImage {
-                    Image(systemName: systemImage)
-                }
-                Text(title)
-                    .font(SleepFont.label(16))
+                if let systemImage { Image(systemName: systemImage) }
+                Text(title).font(SleepFont.label(16))
                 if let value {
-                    Text("· \(value)")
+                    Text(value)
                         .foregroundStyle(SleepColor.quiet)
                         .font(SleepFont.body(15))
                 }
@@ -92,27 +98,43 @@ struct LiquidButtonStyle: ButtonStyle {
     var prominent: Bool
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .foregroundStyle(prominent ? SleepColor.indigo : SleepColor.white)
+        let pressed = configuration.isPressed
+        return configuration.label
+            .foregroundStyle(prominent ? SleepColor.background : SleepColor.ink)
             .padding(.horizontal, SleepSpacing.lg)
             .background {
                 Capsule(style: .continuous)
-                    .fill(prominent ? SleepColor.white : SleepColor.glassFill)
+                    .fill(prominent ? AnyShapeStyle(warmFill) : AnyShapeStyle(SleepColor.glassFill))
             }
             .overlay {
                 Capsule(style: .continuous)
-                    .stroke(prominent ? Color.clear : SleepColor.hairline, lineWidth: 1)
+                    .stroke(prominent ? Color.white.opacity(0.18) : SleepColor.border, lineWidth: 1)
             }
             .liquidGlass(
                 cornerRadius: SleepRadius.pill,
-                tint: prominent ? SleepColor.white.opacity(0.28) : SleepColor.glassFill,
+                tint: prominent ? SleepColor.glassWarm : SleepColor.glassFill,
                 interactive: true
             )
-            .scaleEffect(configuration.isPressed ? 0.985 : 1)
-            .opacity(configuration.isPressed ? 0.88 : 1)
-            .animation(.snappy(duration: 0.18), value: configuration.isPressed)
+            .shadow(
+                color: SleepColor.amber.opacity(prominent ? (pressed ? 0.18 : 0.34) : 0),
+                radius: pressed ? 10 : 20,
+                y: pressed ? 3 : 8
+            )
+            .scaleEffect(pressed ? 0.98 : 1)
+            .opacity(pressed ? 0.94 : 1)
+            .animation(.snappy(duration: 0.18), value: pressed)
+    }
+
+    private var warmFill: LinearGradient {
+        LinearGradient(
+            colors: [SleepColor.gold, SleepColor.amber],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
     }
 }
+
+// MARK: - Sheet container
 
 struct LiquidSheetContainer<Content: View>: View {
     @ViewBuilder var content: Content
@@ -130,12 +152,12 @@ struct LiquidSheetContainer<Content: View>: View {
         .frame(maxWidth: .infinity)
         .background {
             RoundedRectangle(cornerRadius: SleepRadius.xl, style: .continuous)
-                .fill(SleepColor.bgMid.opacity(0.92))
+                .fill(SleepColor.navy.opacity(0.92))
                 .ignoresSafeArea(edges: .bottom)
         }
         .liquidGlass(cornerRadius: SleepRadius.xl)
         .presentationDetents([.medium])
         .presentationDragIndicator(.hidden)
+        .presentationBackground(.clear)
     }
 }
-

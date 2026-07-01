@@ -3,25 +3,36 @@ import Observation
 
 @Observable
 final class SleepStore {
-    var profile: Profile?
+    /// Nights the user logged in-app. Local source of truth, always persisted.
     var sessions: [SleepSession] = []
+    /// Nights imported from Apple Health. Refreshed at runtime, never persisted.
+    var importedHealthSessions: [SleepSession] = []
+    var profile: Profile?
     var activeSession: ActiveSleepSession?
     var selectedTab: AppTab = .home
+    var isImportingHealth = false
 
     private let persistence: SleepPersistence
+    private let health: SleepHealthProviding
 
-    init(persistence: SleepPersistence = .shared) {
+    init(persistence: SleepPersistence = .shared, health: SleepHealthProviding? = nil) {
         self.persistence = persistence
+        self.health = health ?? SleepHealth.makeDefault()
         reload()
     }
 
-    var isOnboarded: Bool {
-        profile?.onboarded == true
+    // MARK: - Derived state
+
+    var isOnboarded: Bool { profile?.onboarded == true }
+
+    /// The single, deduplicated history shown across the app. Health wins over a
+    /// local record for the same night so a night we wrote to Health isn't
+    /// counted twice. See `SleepMerge`.
+    var displaySessions: [SleepSession] {
+        SleepMerge.merge(local: sessions, health: importedHealthSessions)
     }
 
-    var latestSession: SleepSession? {
-        sessions.last
-    }
+    var latestSession: SleepSession? { displaySessions.last }
 
     var targetMinutes: Int {
         guard let profile else { return 8 * 60 }
@@ -30,12 +41,19 @@ final class SleepStore {
 
     var onTrackStreak: Int {
         var streak = 0
-        for session in sessions.reversed() {
+        for session in displaySessions.reversed() {
             guard session.score >= 80 else { break }
             streak += 1
         }
         return streak
     }
+
+    var healthSyncState: HealthSyncState {
+        guard health.isAvailable else { return .unavailable }
+        return profile?.healthSyncEnabled == true ? .connected : .notConnected
+    }
+
+    // MARK: - Lifecycle
 
     func reload() {
         let snapshot = persistence.load()
@@ -44,23 +62,44 @@ final class SleepStore {
         activeSession = snapshot.activeSession
     }
 
-    func completeOnboarding(name: String, bedtime: Int, wakeTime: Int) {
-        let nextProfile = Profile(
-            name: name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Friend" : name,
+    /// Called when the app becomes active. Pulls fresh nights from Health if the
+    /// user has connected it.
+    @MainActor
+    func refreshHealthIfEnabled() async {
+        guard profile?.healthSyncEnabled == true else { return }
+        await refreshHealth()
+    }
+
+    // MARK: - Onboarding
+
+    func completeOnboarding(name: String, bedtime: Int, wakeTime: Int, connectHealth: Bool) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        profile = Profile(
+            name: trimmed.isEmpty ? "Friend" : trimmed,
             bedtime: bedtime,
             wakeTime: wakeTime,
-            onboarded: true
+            onboarded: true,
+            healthSyncEnabled: false
         )
-        profile = nextProfile
-        sessions = SleepSeed.sessions(targetMinutes: SleepMath.windowMinutes(bedtime: bedtime, wakeTime: wakeTime), now: Date())
+        // No seeding: the history is empty until the user logs a real night or
+        // connects Apple Health.
+        sessions = []
+        importedHealthSessions = []
         activeSession = nil
         persist()
+        AppLog.store.info("Onboarding complete (connectHealth=\(connectHealth))")
+        if connectHealth {
+            Task { await enableHealthSync() }
+        }
     }
+
+    // MARK: - Sleep loop
 
     func startSleep() {
         activeSession = ActiveSleepSession(start: Date())
         selectedTab = .home
         persist()
+        AppLog.store.info("Sleep session started")
     }
 
     func wakeUp() {
@@ -72,12 +111,59 @@ final class SleepStore {
             start: activeSession.start,
             end: end,
             durationMinutes: minutes,
-            score: SleepMath.score(durationMinutes: minutes, targetMinutes: targetMinutes)
+            score: SleepMath.score(durationMinutes: minutes, targetMinutes: targetMinutes),
+            source: .local
         )
         sessions.append(session)
         self.activeSession = nil
         persist()
+        AppLog.store.info("Logged night: \(minutes)m, score \(session.score)")
+
+        if profile?.healthSyncEnabled == true {
+            Task {
+                await health.save(session: session)
+                await refreshHealth()
+            }
+        }
     }
+
+    // MARK: - Health sync
+
+    @MainActor
+    func enableHealthSync() async {
+        guard health.isAvailable else {
+            AppLog.health.notice("HealthKit unavailable on this device")
+            return
+        }
+        let granted = await health.requestAuthorization()
+        guard var profile else { return }
+        profile.healthSyncEnabled = granted
+        self.profile = profile
+        persist()
+        if granted {
+            await refreshHealth()
+        }
+    }
+
+    func disableHealthSync() {
+        guard var profile else { return }
+        profile.healthSyncEnabled = false
+        self.profile = profile
+        importedHealthSessions = []
+        persist()
+        AppLog.store.info("Health sync disabled")
+    }
+
+    @MainActor
+    func refreshHealth() async {
+        guard health.isAvailable, profile?.healthSyncEnabled == true else { return }
+        isImportingHealth = true
+        defer { isImportingHealth = false }
+        importedHealthSessions = await health.fetchNights(days: 30, targetMinutes: targetMinutes)
+        AppLog.store.info("Display history now \(self.displaySessions.count) night(s)")
+    }
+
+    // MARK: - Profile edits
 
     func saveSchedule(bedtime: Int, wakeTime: Int) {
         guard var profile else { return }
@@ -99,21 +185,46 @@ final class SleepStore {
     func resetAll() {
         profile = nil
         sessions = []
+        importedHealthSessions = []
         activeSession = nil
         selectedTab = .home
         persistence.reset()
+        AppLog.store.info("All data reset")
     }
 
     private func persist() {
         persistence.save(
-            SleepSnapshot(
-                profile: profile,
-                sessions: sessions,
-                activeSession: activeSession
-            )
+            SleepSnapshot(profile: profile, sessions: sessions, activeSession: activeSession)
         )
     }
 }
+
+// MARK: - History merge (pure, testable)
+
+enum SleepMerge {
+    static func merge(
+        local: [SleepSession],
+        health: [SleepSession],
+        calendar: Calendar = .current
+    ) -> [SleepSession] {
+        var byNight: [Date: SleepSession] = [:]
+        for session in local {
+            byNight[key(for: session.end, calendar: calendar)] = session
+        }
+        for session in health {
+            byNight[key(for: session.end, calendar: calendar)] = session // Health wins
+        }
+        return byNight.values.sorted { $0.end < $1.end }
+    }
+
+    /// A stable per-night key. Shifting back 12h keeps early-morning wake times
+    /// grouped with the evening they belong to.
+    static func key(for end: Date, calendar: Calendar = .current) -> Date {
+        calendar.startOfDay(for: end.addingTimeInterval(-12 * 3600))
+    }
+}
+
+// MARK: - Persistence
 
 struct SleepSnapshot: Codable {
     var profile: Profile?
@@ -176,12 +287,12 @@ struct SleepPersistence {
     }
 }
 
+// MARK: - Sleep math (pure, testable)
+
 enum SleepMath {
     static func windowMinutes(bedtime: Int, wakeTime: Int) -> Int {
         var diff = wakeTime - bedtime
-        if diff <= 0 {
-            diff += 1_440
-        }
+        if diff <= 0 { diff += 1_440 }
         return diff
     }
 
@@ -196,22 +307,3 @@ enum SleepMath {
         return max(40, min(100, Int(raw.rounded())))
     }
 }
-
-enum SleepSeed {
-    static func sessions(targetMinutes: Int, now: Date) -> [SleepSession] {
-        [430, 468, 384, 502, 410, 451].enumerated().map { index, duration in
-            let daysAgo = 6 - index
-            let end = Calendar.current.date(byAdding: .day, value: -daysAgo, to: now) ?? now
-            let adjustedEnd = Calendar.current.date(bySettingHour: 7, minute: 0, second: 0, of: end) ?? end
-            let start = adjustedEnd.addingTimeInterval(TimeInterval(-duration * 60))
-            return SleepSession(
-                id: "seed-\(index)",
-                start: start,
-                end: adjustedEnd,
-                durationMinutes: duration,
-                score: SleepMath.score(durationMinutes: duration, targetMinutes: targetMinutes)
-            )
-        }
-    }
-}
-

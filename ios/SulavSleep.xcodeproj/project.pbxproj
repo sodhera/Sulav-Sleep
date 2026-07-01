@@ -12,6 +12,8 @@
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		198E5870D78A269255C9D9C1 /* LiquidGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 512730D266670DD636BD803A /* LiquidGlass.swift */; };
 		1E5168B98C242B90B04B7D9C /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE73361F00ABDB639ED1D41A /* AppDelegate.swift */; };
+		F100000000000000000000A2 /* Log.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000000A1 /* Log.swift */; };
+		F100000000000000000000B2 /* SleepHealthKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000000B1 /* SleepHealthKit.swift */; };
 		30ABD308DAB8167D795A2D9D /* ReportsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0E16E05E315F1EE37C03F9C /* ReportsView.swift */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		47501ABFFD25AA9B7048E27C /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9234E0E1693C0FC11F33BD3A /* OnboardingView.swift */; };
@@ -40,6 +42,8 @@
 		9F4311BA03CAD3F576F79BFC /* SleepBackground.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepBackground.swift; path = SulavSleep/SleepBackground.swift; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = SulavSleep/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BE73361F00ABDB639ED1D41A /* AppDelegate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = SulavSleep/AppDelegate.swift; sourceTree = "<group>"; };
+		F100000000000000000000A1 /* Log.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Log.swift; path = SulavSleep/Log.swift; sourceTree = "<group>"; };
+		F100000000000000000000B1 /* SleepHealthKit.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepHealthKit.swift; path = SulavSleep/SleepHealthKit.swift; sourceTree = "<group>"; };
 		DE88F8599F33B6D90A64D2BA /* Sheets.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Sheets.swift; path = SulavSleep/Sheets.swift; sourceTree = "<group>"; };
 		EBB2CED1004A6A08D5A70F24 /* RootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RootView.swift; path = SulavSleep/RootView.swift; sourceTree = "<group>"; };
 		F0E16E05E315F1EE37C03F9C /* ReportsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReportsView.swift; path = SulavSleep/ReportsView.swift; sourceTree = "<group>"; };
@@ -68,6 +72,8 @@
 				BE73361F00ABDB639ED1D41A /* AppDelegate.swift */,
 				314F2F155CF97AAF34DA0A4C /* HomeView.swift */,
 				512730D266670DD636BD803A /* LiquidGlass.swift */,
+				F100000000000000000000A1 /* Log.swift */,
+				F100000000000000000000B1 /* SleepHealthKit.swift */,
 				9234E0E1693C0FC11F33BD3A /* OnboardingView.swift */,
 				F0E16E05E315F1EE37C03F9C /* ReportsView.swift */,
 				EBB2CED1004A6A08D5A70F24 /* RootView.swift */,
@@ -187,6 +193,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				1E5168B98C242B90B04B7D9C /* AppDelegate.swift in Sources */,
+				F100000000000000000000A2 /* Log.swift in Sources */,
+				F100000000000000000000B2 /* SleepHealthKit.swift in Sources */,
 				09AFEF368C3AA0418E7EE898 /* HomeView.swift in Sources */,
 				198E5870D78A269255C9D9C1 /* LiquidGlass.swift in Sources */,
 				47501ABFFD25AA9B7048E27C /* OnboardingView.swift in Sources */,

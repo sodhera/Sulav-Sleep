@@ -1,23 +1,28 @@
 import SwiftUI
 
 struct ReportsView: View {
-    let sessions: [SleepSession]
+    var store: SleepStore
+
+    private var sessions: [SleepSession] { store.displaySessions }
 
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
-                Text("Reports")
-                    .font(SleepFont.hero(30))
-                    .foregroundStyle(SleepColor.white)
-                    .padding(.top, SleepSpacing.lg)
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Reports")
+                        .font(SleepFont.hero(30))
+                        .foregroundStyle(SleepColor.ink)
+                    Spacer()
+                    if store.isImportingHealth {
+                        ProgressView().controlSize(.small).tint(SleepColor.amber)
+                    }
+                }
+                .padding(.top, SleepSpacing.lg)
 
                 if sessions.isEmpty {
-                    Text("Your nights will appear here once you start logging sleep.")
-                        .font(SleepFont.body(15))
-                        .foregroundStyle(SleepColor.quiet)
-                        .padding(.top, SleepSpacing.huge)
+                    EmptyReports(healthState: store.healthSyncState)
                 } else {
-                    ReportContent(sessions: sessions)
+                    ReportContent(sessions: sessions, hasHealth: sessions.contains { $0.source == .healthKit })
                 }
             }
             .padding(.horizontal, SleepSpacing.xxl)
@@ -27,12 +32,35 @@ struct ReportsView: View {
     }
 }
 
+private struct EmptyReports: View {
+    let healthState: HealthSyncState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: SleepSpacing.md) {
+            Image(systemName: "moon.stars")
+                .font(.system(size: 34, weight: .light))
+                .foregroundStyle(SleepColor.muted)
+                .padding(.bottom, SleepSpacing.xs)
+            Text("Nothing to show yet")
+                .font(SleepFont.title(20))
+                .foregroundStyle(SleepColor.ink)
+            Text(healthState == .connected
+                 ? "Log a night, or once Apple Health has sleep recorded it will appear here — nothing is made up."
+                 : "Your nights will appear here once you log sleep. Connect Apple Health in Settings to pull in your real history.")
+                .font(SleepFont.body(15))
+                .foregroundStyle(SleepColor.muted)
+                .lineSpacing(4)
+                .frame(maxWidth: 320, alignment: .leading)
+        }
+        .padding(.top, SleepSpacing.huge * 1.5)
+    }
+}
+
 private struct ReportContent: View {
     let sessions: [SleepSession]
+    let hasHealth: Bool
 
-    private var lastSeven: [SleepSession] {
-        Array(sessions.suffix(7))
-    }
+    private var lastSeven: [SleepSession] { Array(sessions.suffix(7)) }
 
     private var averageDuration: Int {
         guard !sessions.isEmpty else { return 0 }
@@ -46,19 +74,17 @@ private struct ReportContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: SleepSpacing.sm) {
-                Text("LAST 7 NIGHTS")
-                    .font(SleepFont.label(12))
-                    .foregroundStyle(SleepColor.faint)
+            VStack(alignment: .leading, spacing: SleepSpacing.md) {
+                Text("Last 7 nights").sectionLabel()
 
                 WeeklyChart(sessions: lastSeven)
-                    .frame(height: 130)
+                    .frame(height: 132)
 
                 HStack {
                     ForEach(lastSeven) { session in
                         Text(SleepFormatting.narrowWeekday.string(from: session.end))
                             .font(SleepFont.body(11))
-                            .foregroundStyle(session.id == lastSeven.last?.id ? SleepColor.white : SleepColor.faint)
+                            .foregroundStyle(session.id == lastSeven.last?.id ? SleepColor.amber : SleepColor.faint)
                             .frame(maxWidth: .infinity)
                     }
                 }
@@ -72,18 +98,22 @@ private struct ReportContent: View {
             .padding(.top, SleepSpacing.huge)
 
             VStack(alignment: .leading, spacing: 0) {
-                Text("HISTORY")
-                    .font(SleepFont.label(12))
-                    .foregroundStyle(SleepColor.faint)
-                    .padding(.bottom, SleepSpacing.md)
+                HStack {
+                    Text("History").sectionLabel()
+                    Spacer()
+                    if hasHealth {
+                        Label("Apple Health", systemImage: "heart.fill")
+                            .font(SleepFont.label(11))
+                            .foregroundStyle(SleepColor.muted)
+                    }
+                }
+                .padding(.bottom, SleepSpacing.md)
 
                 ForEach(Array(sessions.reversed().enumerated()), id: \.element.id) { index, session in
                     HistoryRow(session: session)
                         .overlay(alignment: .top) {
                             if index > 0 {
-                                Rectangle()
-                                    .fill(SleepColor.hairline)
-                                    .frame(height: 1)
+                                Rectangle().fill(SleepColor.hairline).frame(height: 1)
                             }
                         }
                 }
@@ -98,13 +128,13 @@ private struct StatBlock: View {
     let value: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 3) {
             Text(label)
                 .font(SleepFont.body(13))
-                .foregroundStyle(SleepColor.quiet)
+                .foregroundStyle(SleepColor.muted)
             Text(value)
                 .font(SleepFont.title(26))
-                .foregroundStyle(SleepColor.white)
+                .foregroundStyle(SleepColor.ink)
                 .monospacedDigit()
         }
     }
@@ -116,23 +146,29 @@ private struct HistoryRow: View {
     var body: some View {
         HStack(spacing: SleepSpacing.lg) {
             VStack(alignment: .leading, spacing: 3) {
-                Text(SleepFormatting.historyDate.string(from: session.end))
-                    .font(SleepFont.label(15))
-                    .foregroundStyle(SleepColor.white)
+                HStack(spacing: SleepSpacing.xs) {
+                    Text(SleepFormatting.historyDate.string(from: session.end))
+                        .font(SleepFont.label(15))
+                        .foregroundStyle(SleepColor.ink)
+                    Image(systemName: session.source == .healthKit ? "heart.fill" : "moon.fill")
+                        .font(.system(size: 9))
+                        .foregroundStyle(SleepColor.faint)
+                        .accessibilityLabel(session.source == .healthKit ? "From Apple Health" : "Logged in app")
+                }
                 Text(SleepFormatting.duration(session.durationMinutes))
                     .font(SleepFont.body(13))
-                    .foregroundStyle(SleepColor.quiet)
+                    .foregroundStyle(SleepColor.muted)
             }
 
             Spacer()
 
             ProgressView(value: Double(session.score), total: 100)
-                .tint(SleepColor.white)
+                .tint(SleepColor.gold)
                 .frame(width: 70)
 
             Text("\(session.score)")
                 .font(SleepFont.title(17))
-                .foregroundStyle(SleepColor.white)
+                .foregroundStyle(SleepColor.ink)
                 .frame(width: 34, alignment: .trailing)
                 .monospacedDigit()
         }
@@ -147,14 +183,22 @@ private struct WeeklyChart: View {
         GeometryReader { proxy in
             Canvas { context, size in
                 let points = chartPoints(size: size)
-                guard points.count > 1 else { return }
+                guard points.count > 1 else {
+                    if let only = points.first {
+                        context.fill(
+                            Path(ellipseIn: CGRect(x: only.x - 5, y: only.y - 5, width: 10, height: 10)),
+                            with: .color(SleepColor.amber)
+                        )
+                    }
+                    return
+                }
 
                 for hour in [8.0, 7.0, 6.0, 5.0] {
                     let y = yPosition(hours: hour, height: size.height)
                     var grid = Path()
                     grid.move(to: CGPoint(x: 0, y: y))
                     grid.addLine(to: CGPoint(x: size.width, y: y))
-                    context.stroke(grid, with: .color(SleepColor.hairline.opacity(0.55)), lineWidth: 1)
+                    context.stroke(grid, with: .color(SleepColor.hairline), lineWidth: 1)
                 }
 
                 let line = smoothPath(points: points)
@@ -166,19 +210,30 @@ private struct WeeklyChart: View {
                 context.fill(
                     fill,
                     with: .linearGradient(
-                        Gradient(colors: [SleepColor.white.opacity(0.22), SleepColor.white.opacity(0)]),
+                        Gradient(colors: [SleepColor.amber.opacity(0.24), SleepColor.amber.opacity(0)]),
                         startPoint: .zero,
                         endPoint: CGPoint(x: 0, y: size.height)
                     )
                 )
-                context.stroke(line, with: .color(SleepColor.white), lineWidth: 2.5)
+                context.stroke(
+                    line,
+                    with: .linearGradient(
+                        Gradient(colors: [SleepColor.gold, SleepColor.amber]),
+                        startPoint: .zero,
+                        endPoint: CGPoint(x: size.width, y: 0)
+                    ),
+                    style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round)
+                )
 
-                if let peak = points.min(by: { $0.y < $1.y }) {
-                    context.fill(Path(ellipseIn: CGRect(x: peak.x - 4, y: peak.y - 4, width: 8, height: 8)), with: .color(.white.opacity(0.6)))
-                }
                 if let last = points.last {
-                    context.fill(Path(ellipseIn: CGRect(x: last.x - 5.5, y: last.y - 5.5, width: 11, height: 11)), with: .color(SleepColor.white))
-                    context.stroke(Path(ellipseIn: CGRect(x: last.x - 10, y: last.y - 10, width: 20, height: 20)), with: .color(.white.opacity(0.35)), lineWidth: 1.5)
+                    context.fill(
+                        Path(ellipseIn: CGRect(x: last.x - 5.5, y: last.y - 5.5, width: 11, height: 11)),
+                        with: .color(SleepColor.amber)
+                    )
+                    context.stroke(
+                        Path(ellipseIn: CGRect(x: last.x - 10, y: last.y - 10, width: 20, height: 20)),
+                        with: .color(SleepColor.amber.opacity(0.35)), lineWidth: 1.5
+                    )
                 }
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
@@ -219,4 +274,3 @@ private struct WeeklyChart: View {
         return path
     }
 }
-

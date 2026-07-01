@@ -37,6 +37,10 @@
     <string>12.0</string>
     <key>LSRequiresIPhoneOS</key>
     <true/>
+    <key>NSHealthShareUsageDescription</key>
+    <string>Sulav Sleep reads your sleep history from Apple Health so your nightly reports reflect your real sleep.</string>
+    <key>NSHealthUpdateUsageDescription</key>
+    <string>Sulav Sleep saves the nights you log to Apple Health so all your sleep data stays in one place.</string>
     <key>NSAppTransportSecurity</key>
     <dict>
       <key>NSAllowsArbitraryLoads</key>

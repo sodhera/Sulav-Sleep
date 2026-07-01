@@ -10,7 +10,7 @@ struct HomeView: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 0) {
-                HomeHeader {
+                HomeHeader(isImporting: store.isImportingHealth) {
                     presentedSheet = .settings
                 }
 
@@ -19,7 +19,10 @@ struct HomeView: View {
                         profile: profile,
                         activeSession: active,
                         now: now,
-                        onWake: store.wakeUp
+                        onWake: {
+                            Haptics.success()
+                            store.wakeUp()
+                        }
                     )
                     .transition(.opacity.combined(with: .scale(scale: 0.98)))
                 } else {
@@ -28,8 +31,13 @@ struct HomeView: View {
                         lastSession: store.latestSession,
                         targetMinutes: store.targetMinutes,
                         streak: store.onTrackStreak,
-                        onSleepNow: store.startSleep,
-                        onSetBedtime: { presentedSheet = .schedule }
+                        healthState: store.healthSyncState,
+                        onSleepNow: {
+                            Haptics.soft()
+                            store.startSleep()
+                        },
+                        onSetBedtime: { presentedSheet = .schedule },
+                        onOpenSettings: { presentedSheet = .settings }
                     )
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
@@ -42,19 +50,19 @@ struct HomeView: View {
         .sheet(item: $presentedSheet) { sheet in
             switch sheet {
             case .schedule:
-                ScheduleSheet(
-                    bedtime: profile.bedtime,
-                    wakeTime: profile.wakeTime
-                ) { bedtime, wakeTime in
+                ScheduleSheet(bedtime: profile.bedtime, wakeTime: profile.wakeTime) { bedtime, wakeTime in
                     store.saveSchedule(bedtime: bedtime, wakeTime: wakeTime)
                     presentedSheet = nil
                 }
             case .settings:
                 SettingsSheet(
                     profile: profile,
+                    healthState: store.healthSyncState,
                     onSaveName: store.saveName,
-                    onOpenSchedule: {
-                        presentedSheet = .schedule
+                    onOpenSchedule: { presentedSheet = .schedule },
+                    onToggleHealth: { enabled in
+                        if enabled { Task { await store.enableHealthSync() } }
+                        else { store.disableHealthSync() }
                     },
                     onReset: {
                         presentedSheet = nil
@@ -70,24 +78,33 @@ struct HomeView: View {
                 try? await Task.sleep(for: .seconds(1))
             }
         }
-        .animation(.easeInOut(duration: 0.28), value: store.activeSession != nil)
+        .animation(.easeInOut(duration: 0.3), value: store.activeSession != nil)
     }
 }
 
 private struct HomeHeader: View {
+    let isImporting: Bool
     let onSettings: () -> Void
 
     var body: some View {
         HStack {
-            Text(SleepFormatting.longDate.string(from: Date()))
-                .font(SleepFont.body(14))
-                .foregroundStyle(SleepColor.quiet)
+            HStack(spacing: SleepSpacing.sm) {
+                Text(SleepFormatting.longDate.string(from: Date()))
+                    .font(SleepFont.body(14))
+                    .foregroundStyle(SleepColor.muted)
+                if isImporting {
+                    ProgressView()
+                        .controlSize(.mini)
+                        .tint(SleepColor.amber)
+                        .accessibilityLabel("Syncing Apple Health")
+                }
+            }
 
             Spacer()
 
             Button(action: onSettings) {
-                Image(systemName: "moon.stars.fill")
-                    .font(.system(size: 17, weight: .semibold))
+                Image(systemName: "slider.horizontal.3")
+                    .font(.system(size: 16, weight: .medium))
                     .frame(width: 40, height: 40)
             }
             .buttonStyle(.plain)
@@ -104,31 +121,31 @@ private struct AwakeStateView: View {
     let lastSession: SleepSession?
     let targetMinutes: Int
     let streak: Int
+    let healthState: HealthSyncState
     let onSleepNow: () -> Void
     let onSetBedtime: () -> Void
+    let onOpenSettings: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
             VStack(spacing: SleepSpacing.xs) {
-                Text("Good evening,")
+                Text(greeting)
                     .font(SleepFont.body(16))
                     .foregroundStyle(SleepColor.dim)
                 Text(profile.name)
-                    .font(SleepFont.hero(34))
-                    .foregroundStyle(SleepColor.white)
+                    .font(SleepFont.hero(36))
+                    .foregroundStyle(SleepColor.ink)
             }
             .padding(.top, SleepSpacing.huge * 1.4)
 
-            VStack(spacing: 2) {
-                Text("TONIGHT")
-                    .font(SleepFont.label(12))
-                    .foregroundStyle(SleepColor.faint)
-                Text("\(SleepFormatting.clock(profile.bedtime))  ->  \(SleepFormatting.clock(profile.wakeTime))")
-                    .font(SleepFont.title(22))
-                    .foregroundStyle(SleepColor.white)
+            VStack(spacing: SleepSpacing.xs) {
+                Text("Tonight").sectionLabel()
+                Text("\(SleepFormatting.clock(profile.bedtime))  –  \(SleepFormatting.clock(profile.wakeTime))")
+                    .font(SleepFont.title(24))
+                    .foregroundStyle(SleepColor.ink)
                 Text("\(SleepFormatting.duration(targetMinutes)) in bed")
                     .font(SleepFont.body(13))
-                    .foregroundStyle(SleepColor.quiet)
+                    .foregroundStyle(SleepColor.muted)
             }
             .padding(.top, SleepSpacing.huge * 1.1)
 
@@ -143,8 +160,23 @@ private struct AwakeStateView: View {
             }
             .padding(.top, SleepSpacing.huge * 1.2)
 
-            LastNightSummary(lastSession: lastSession, streak: streak)
-                .padding(.top, SleepSpacing.huge * 1.3)
+            LastNightSummary(
+                lastSession: lastSession,
+                streak: streak,
+                healthState: healthState,
+                onConnectHealth: onOpenSettings
+            )
+            .padding(.top, SleepSpacing.huge * 1.3)
+        }
+    }
+
+    private var greeting: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 5..<12: return "Good morning,"
+        case 12..<17: return "Good afternoon,"
+        case 17..<22: return "Good evening,"
+        default: return "Good night,"
         }
     }
 }
@@ -166,20 +198,21 @@ private struct SleepingStateView: View {
                 .foregroundStyle(SleepColor.dim)
 
             Text("\(elapsedMinutes / 60)h \(String(format: "%02d", elapsedMinutes % 60))m")
-                .font(SleepFont.hero(56))
-                .foregroundStyle(SleepColor.white)
-                .padding(.top, SleepSpacing.lg)
+                .font(SleepFont.hero(58))
+                .foregroundStyle(SleepColor.ink)
                 .monospacedDigit()
+                .padding(.top, SleepSpacing.lg)
 
-            Text("Sleeping since \(SleepFormatting.shortTime.string(from: activeSession.start))")
+            Text("Since \(SleepFormatting.shortTime.string(from: activeSession.start))")
                 .font(SleepFont.body(14))
-                .foregroundStyle(SleepColor.quiet)
+                .foregroundStyle(SleepColor.muted)
 
             Text("The phone is resting. Wake up when you're ready and we'll log your night.")
                 .font(SleepFont.body(13))
-                .foregroundStyle(SleepColor.faint)
+                .foregroundStyle(SleepColor.quiet)
                 .multilineTextAlignment(.center)
-                .frame(maxWidth: 270)
+                .lineSpacing(4)
+                .frame(maxWidth: 280)
                 .padding(.top, SleepSpacing.sm)
 
             Spacer(minLength: SleepSpacing.huge * 2.2)
@@ -194,51 +227,81 @@ private struct SleepingStateView: View {
 private struct LastNightSummary: View {
     let lastSession: SleepSession?
     let streak: Int
+    let healthState: HealthSyncState
+    let onConnectHealth: () -> Void
 
     var body: some View {
         VStack(spacing: SleepSpacing.lg) {
-            Rectangle()
-                .fill(SleepColor.hairline)
-                .frame(height: 1)
+            Rectangle().fill(SleepColor.hairline).frame(height: 1)
 
             if let lastSession {
                 HStack(alignment: .bottom) {
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 3) {
                         Text("Last night")
                             .font(SleepFont.body(13))
-                            .foregroundStyle(SleepColor.quiet)
+                            .foregroundStyle(SleepColor.muted)
                         Text(SleepFormatting.duration(lastSession.durationMinutes))
                             .font(SleepFont.title(28))
-                            .foregroundStyle(SleepColor.white)
+                            .foregroundStyle(SleepColor.ink)
                             .monospacedDigit()
                     }
-
                     Spacer()
-
-                    VStack(alignment: .trailing, spacing: 2) {
+                    VStack(alignment: .trailing, spacing: 3) {
                         Text("Score")
                             .font(SleepFont.body(13))
-                            .foregroundStyle(SleepColor.quiet)
+                            .foregroundStyle(SleepColor.muted)
                         Text("\(lastSession.score)")
                             .font(SleepFont.title(28))
-                            .foregroundStyle(SleepColor.white)
+                            .foregroundStyle(scoreColor(lastSession.score))
                             .monospacedDigit()
                     }
                 }
-            } else {
-                Text("No nights logged yet. Tap Sleep Now when you head to bed.")
-                    .font(SleepFont.body(14))
-                    .foregroundStyle(SleepColor.quiet)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
 
-            if streak > 0 {
-                Label("\(streak) night\(streak > 1 ? "s" : "") on track", systemImage: "moon.zzz.fill")
-                    .font(SleepFont.body(14))
-                    .foregroundStyle(SleepColor.dim)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                if streak > 0 {
+                    Label("\(streak) night\(streak > 1 ? "s" : "") on track", systemImage: "flame.fill")
+                        .font(SleepFont.body(14))
+                        .foregroundStyle(SleepColor.gold)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            } else {
+                EmptyNight(healthState: healthState, onConnectHealth: onConnectHealth)
             }
+        }
+    }
+
+    private func scoreColor(_ score: Int) -> Color {
+        switch score {
+        case 80...: return SleepColor.gold
+        case 60..<80: return SleepColor.ink
+        default: return SleepColor.danger
         }
     }
 }
 
+private struct EmptyNight: View {
+    let healthState: HealthSyncState
+    let onConnectHealth: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: SleepSpacing.md) {
+            Text("No nights logged yet")
+                .font(SleepFont.title(18))
+                .foregroundStyle(SleepColor.ink)
+            Text("Tap Sleep Now when you head to bed and your first real night will appear here.")
+                .font(SleepFont.body(14))
+                .foregroundStyle(SleepColor.muted)
+                .lineSpacing(3)
+
+            if healthState == .notConnected {
+                Button(action: onConnectHealth) {
+                    Label("Connect Apple Health", systemImage: "heart.fill")
+                        .font(SleepFont.label(14))
+                        .foregroundStyle(SleepColor.amber)
+                }
+                .buttonStyle(.plain)
+                .padding(.top, SleepSpacing.xs)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}

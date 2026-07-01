@@ -1,18 +1,21 @@
 import SwiftUI
 
 struct OnboardingView: View {
-    let onDone: (String, Int, Int) -> Void
+    var healthAvailable: Bool
+    let onDone: (String, Int, Int, Bool) -> Void
 
     @State private var step = 0
     @State private var name = ""
     @State private var bedtime = 22 * 60 + 30
     @State private var wakeTime = 6 * 60 + 30
 
+    private let lastStep = 4
+
     var body: some View {
         VStack(spacing: 0) {
             VStack(spacing: SleepSpacing.lg) {
-                CrescentMoon(size: 96)
-                StepDots(step: step, total: 4)
+                CrescentMoon(size: 92)
+                StepDots(step: step, total: lastStep + 1)
             }
             .padding(.top, SleepSpacing.huge)
 
@@ -30,61 +33,83 @@ struct OnboardingView: View {
                         subtitle: "Around \(SleepFormatting.clock(bedtime))",
                         minutes: $bedtime
                     )
-                default:
+                case 3:
                     TimeStep(
                         title: "And when do you wake?",
                         subtitle: "Around \(SleepFormatting.clock(wakeTime))",
                         minutes: $wakeTime
                     )
+                default:
+                    HealthStep(available: healthAvailable)
                 }
             }
             .frame(maxWidth: .infinity)
             .padding(.horizontal, SleepSpacing.xxl)
+            .animation(.easeInOut(duration: 0.25), value: step)
 
             Spacer()
 
-            VStack(spacing: SleepSpacing.md) {
-                LiquidPrimaryButton(
-                    title: primaryTitle,
-                    systemImage: step == 3 ? "checkmark" : "arrow.right"
-                ) {
-                    advance()
-                }
-
-                if step > 0 {
-                    Button("Back") {
-                        step -= 1
-                    }
-                    .font(SleepFont.body(14))
-                    .foregroundStyle(SleepColor.quiet)
-                    .frame(height: 44)
-                }
-            }
-            .padding(.horizontal, SleepSpacing.xxl)
-            .padding(.bottom, SleepSpacing.xxl)
+            actions
+                .padding(.horizontal, SleepSpacing.xxl)
+                .padding(.bottom, SleepSpacing.xxl)
         }
         .safeAreaPadding(.top)
         .safeAreaPadding(.bottom)
     }
 
+    @ViewBuilder
+    private var actions: some View {
+        VStack(spacing: SleepSpacing.md) {
+            if step == lastStep {
+                if healthAvailable {
+                    LiquidPrimaryButton(title: "Connect Apple Health", systemImage: "heart.fill") {
+                        finish(connectHealth: true)
+                    }
+                    Button("Maybe later") { finish(connectHealth: false) }
+                        .font(SleepFont.body(15))
+                        .foregroundStyle(SleepColor.dim)
+                        .frame(height: 44)
+                } else {
+                    LiquidPrimaryButton(title: "Start sleeping well", systemImage: "checkmark") {
+                        finish(connectHealth: false)
+                    }
+                }
+            } else {
+                LiquidPrimaryButton(title: primaryTitle, systemImage: "arrow.right") {
+                    advance()
+                }
+            }
+
+            if step > 0 && step != lastStep {
+                Button("Back") { withAnimation { step -= 1 } }
+                    .font(SleepFont.body(15))
+                    .foregroundStyle(SleepColor.muted)
+                    .frame(height: 44)
+            } else if step == lastStep && healthAvailable {
+                Button("Back") { withAnimation { step -= 1 } }
+                    .font(SleepFont.body(15))
+                    .foregroundStyle(SleepColor.muted)
+                    .frame(height: 36)
+            }
+        }
+    }
+
     private var primaryTitle: String {
         switch step {
-        case 0: "Continue"
-        case 1: "Next"
-        case 2: "Next"
-        default: "Start sleeping well"
+        case 0: "Begin"
+        default: "Next"
         }
     }
 
     private func advance() {
-        if step == 1, name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return
-        }
-        if step < 3 {
-            step += 1
-        } else {
-            onDone(name, bedtime, wakeTime)
-        }
+        if step == 1, name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return }
+        Haptics.soft()
+        withAnimation { step += 1 }
+    }
+
+    private func finish(connectHealth: Bool) {
+        Haptics.success()
+        onDone(name, bedtime, wakeTime, connectHealth)
     }
 }
 
@@ -92,14 +117,14 @@ private struct OnboardingIntro: View {
     var body: some View {
         VStack(spacing: SleepSpacing.md) {
             Text("Sulav Sleep")
-                .font(SleepFont.hero(32))
-                .foregroundStyle(SleepColor.white)
-            Text("A calmer night. Set a bedtime, quiet the phone, and wake to a gentle picture of your sleep.")
+                .font(SleepFont.hero(34))
+                .foregroundStyle(SleepColor.ink)
+            Text("A calmer night. Set a bedtime, quiet the phone, and wake to an honest picture of how you slept.")
                 .font(SleepFont.body(16))
                 .foregroundStyle(SleepColor.dim)
                 .multilineTextAlignment(.center)
-                .lineSpacing(4)
-                .frame(maxWidth: 310)
+                .lineSpacing(5)
+                .frame(maxWidth: 320)
         }
     }
 }
@@ -111,7 +136,7 @@ private struct NameStep: View {
         VStack(spacing: SleepSpacing.lg) {
             Text("What should we call you?")
                 .font(SleepFont.title(24))
-                .foregroundStyle(SleepColor.white)
+                .foregroundStyle(SleepColor.ink)
                 .multilineTextAlignment(.center)
 
             TextField("Your name", text: $name)
@@ -119,13 +144,12 @@ private struct NameStep: View {
                 .autocorrectionDisabled(true)
                 .submitLabel(.done)
                 .font(SleepFont.title(22))
-                .foregroundStyle(SleepColor.white)
+                .foregroundStyle(SleepColor.ink)
                 .multilineTextAlignment(.center)
+                .tint(SleepColor.amber)
                 .padding(.vertical, SleepSpacing.md)
                 .overlay(alignment: .bottom) {
-                    Rectangle()
-                        .fill(SleepColor.hairline)
-                        .frame(height: 1)
+                    Rectangle().fill(SleepColor.hairline).frame(height: 1)
                 }
                 .accessibilityLabel("Your name")
         }
@@ -142,11 +166,11 @@ private struct TimeStep: View {
             VStack(spacing: SleepSpacing.sm) {
                 Text(title)
                     .font(SleepFont.title(24))
-                    .foregroundStyle(SleepColor.white)
+                    .foregroundStyle(SleepColor.ink)
                     .multilineTextAlignment(.center)
                 Text(subtitle)
                     .font(SleepFont.body(14))
-                    .foregroundStyle(SleepColor.quiet)
+                    .foregroundStyle(SleepColor.muted)
             }
 
             DatePicker(
@@ -160,7 +184,34 @@ private struct TimeStep: View {
             .datePickerStyle(.wheel)
             .labelsHidden()
             .colorScheme(.dark)
+            .tint(SleepColor.amber)
             .liquidGlass(cornerRadius: SleepRadius.xl)
+        }
+    }
+}
+
+private struct HealthStep: View {
+    let available: Bool
+
+    var body: some View {
+        VStack(spacing: SleepSpacing.lg) {
+            Image(systemName: "heart.text.square.fill")
+                .font(.system(size: 44, weight: .regular))
+                .foregroundStyle(SleepColor.amber)
+
+            Text(available ? "Connect Apple Health" : "You're all set")
+                .font(SleepFont.title(24))
+                .foregroundStyle(SleepColor.ink)
+                .multilineTextAlignment(.center)
+
+            Text(available
+                 ? "Pull in your real sleep history and save the nights you log — everything stays in Apple Health. You can change this anytime in Settings."
+                 : "Log a night with Sleep Now and your reports will fill in with your real data. No sample data, ever.")
+                .font(SleepFont.body(15))
+                .foregroundStyle(SleepColor.dim)
+                .multilineTextAlignment(.center)
+                .lineSpacing(5)
+                .frame(maxWidth: 320)
         }
     }
 }
@@ -173,9 +224,9 @@ private struct StepDots: View {
         HStack(spacing: SleepSpacing.sm) {
             ForEach(0..<total, id: \.self) { index in
                 Capsule()
-                    .fill(index == step ? SleepColor.white : SleepColor.hairline)
+                    .fill(index == step ? SleepColor.amber : SleepColor.hairline)
                     .frame(width: index == step ? 22 : 7, height: 7)
-                    .animation(.snappy(duration: 0.2), value: step)
+                    .animation(.snappy(duration: 0.25), value: step)
             }
         }
     }
@@ -187,7 +238,7 @@ struct CrescentMoon: View {
     var body: some View {
         ZStack {
             Circle()
-                .fill(.white.opacity(0.05))
+                .fill(SleepColor.moon.opacity(0.06))
                 .frame(width: size, height: size)
             Circle()
                 .fill(
@@ -198,9 +249,8 @@ struct CrescentMoon: View {
                     )
                 )
                 .frame(width: size * 0.70, height: size * 0.70)
-                .mask(alignment: .topTrailing) {
-                    CrescentMask()
-                }
+                .mask(alignment: .topTrailing) { CrescentMask() }
+                .shadow(color: SleepColor.amber.opacity(0.18), radius: 18)
         }
     }
 }
