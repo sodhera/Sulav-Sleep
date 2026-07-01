@@ -5,7 +5,7 @@ struct RootView: View {
 
     var body: some View {
         ZStack {
-            SleepBackground()
+            SleepBackground(showsMoon: store.isOnboarded)
 
             if store.isOnboarded, let profile = store.profile {
                 MainShellView(store: store, profile: profile)
@@ -89,4 +89,3 @@ struct BottomNav: View {
         .padding(.vertical, SleepSpacing.sm)
     }
 }
-

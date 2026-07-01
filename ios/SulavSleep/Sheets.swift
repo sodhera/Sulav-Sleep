@@ -90,6 +90,7 @@ struct SettingsSheet: View {
                     .foregroundStyle(SleepColor.quiet)
                 TextField("Your name", text: $name)
                     .textInputAutocapitalization(.words)
+                    .autocorrectionDisabled(true)
                     .font(SleepFont.label(18))
                     .foregroundStyle(SleepColor.white)
                     .padding(.vertical, SleepSpacing.md)
@@ -147,4 +148,3 @@ private enum ScheduleMode: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 }
-

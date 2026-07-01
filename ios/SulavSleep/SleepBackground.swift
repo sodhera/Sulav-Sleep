@@ -1,8 +1,10 @@
 import SwiftUI
 
 struct SleepBackground: View {
+    var showsMoon = true
+
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 30)) { timeline in
+        TimelineView(.animation(minimumInterval: 1.0 / 12.0)) { timeline in
             let time = timeline.date.timeIntervalSinceReferenceDate
 
             Canvas { context, size in
@@ -17,7 +19,9 @@ struct SleepBackground: View {
                 )
 
                 drawStars(in: &context, size: size, time: time)
-                drawMoon(in: &context, size: size)
+                if showsMoon {
+                    drawMoon(in: &context, size: size)
+                }
                 drawClouds(in: &context, size: size, time: time)
                 drawMountains(in: &context, size: size)
             }
@@ -51,12 +55,14 @@ struct SleepBackground: View {
                 endPoint: CGPoint(x: center.x + 34, y: center.y + 34)
             )
         )
-        context.blendMode = .destinationOut
         context.fill(
             Path(ellipseIn: CGRect(x: center.x - 18, y: center.y - 52, width: 74, height: 74)),
-            with: .color(.black)
+            with: .linearGradient(
+                Gradient(colors: [SleepColor.bgTop, SleepColor.bgMid]),
+                startPoint: CGPoint(x: center.x, y: center.y - 56),
+                endPoint: CGPoint(x: center.x, y: center.y + 20)
+            )
         )
-        context.blendMode = .normal
     }
 
     private func drawClouds(in context: inout GraphicsContext, size: CGSize, time: TimeInterval) {
@@ -103,4 +109,3 @@ struct SleepBackground: View {
         return path
     }
 }
-

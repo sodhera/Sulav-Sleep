@@ -14,6 +14,13 @@ Use the gstack `/browse` skill for all web browsing. Never use `mcp__claude-in-c
 
 Available gstack skills in Codex: `/office-hours`, `/plan-ceo-review`, `/plan-eng-review`, `/plan-design-review`, `/design-consultation`, `/review`, `/ship`, `/browse`, `/qa`, `/qa-only`, `/design-review`, `/setup-browser-cookies`, `/retro`, `/investigate`, `/document-release`, `/careful`, `/freeze`, `/guard`, `/unfreeze`, `/gstack-upgrade`.
 
-## Expo
+## iOS
 
-This project uses Expo SDK 56. Read the exact versioned docs at https://docs.expo.dev/versions/v56.0.0/ before writing platform-specific code.
+This project is now a native SwiftUI iOS app. `ios/SulavSleep.xcodeproj` is the source of truth.
+
+Before changing native UI or app behavior:
+
+- Read `DESIGN.md`.
+- Keep developer documentation in `docs/development.md` and product intent in `docs/product-brief.md` current.
+- Prefer the `build-ios-apps` skills for SwiftUI, Liquid Glass, simulator build/run, App Intents, performance, and leak work.
+- Build with `xcodebuild` or `./scripts/run-ios-simulator.sh`; do not reintroduce Expo/React Native unless explicitly requested.

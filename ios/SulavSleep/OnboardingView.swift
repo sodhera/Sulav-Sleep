@@ -116,6 +116,7 @@ private struct NameStep: View {
 
             TextField("Your name", text: $name)
                 .textInputAutocapitalization(.words)
+                .autocorrectionDisabled(true)
                 .submitLabel(.done)
                 .font(SleepFont.title(22))
                 .foregroundStyle(SleepColor.white)
@@ -216,4 +217,3 @@ private struct CrescentMask: View {
         }
     }
 }
-

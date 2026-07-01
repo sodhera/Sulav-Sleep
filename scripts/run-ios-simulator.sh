@@ -8,15 +8,29 @@ SCHEME="SulavSleep"
 CONFIGURATION="${CONFIGURATION:-Debug}"
 DERIVED_DATA_PATH="${DERIVED_DATA_PATH:-$ROOT_DIR/ios/build/DerivedData}"
 
-SIM_ID="$(xcrun simctl list devices available | awk -v name="$DEVICE_NAME" '
-  $0 ~ name && $0 ~ /Shutdown|Booted/ {
-    match($0, /\\(([0-9A-F-]+)\\)/, m)
-    if (m[1] != "") {
-      print m[1]
-      exit
-    }
-  }
-')"
+SIM_ID="$(
+  DEVICE_NAME="$DEVICE_NAME" /usr/bin/python3 - <<'PY'
+import json
+import os
+import re
+import subprocess
+
+device_name = os.environ["DEVICE_NAME"]
+raw = subprocess.check_output(["xcrun", "simctl", "list", "devices", "available", "-j"])
+devices_by_runtime = json.loads(raw)["devices"]
+candidates = []
+
+for runtime, devices in devices_by_runtime.items():
+    version = tuple(int(part) for part in re.findall(r"\d+", runtime))
+    for device in devices:
+        if device.get("name") == device_name:
+            boot_rank = 1 if device.get("state") == "Booted" else 0
+            candidates.append((boot_rank, version, device["udid"]))
+
+if candidates:
+    print(sorted(candidates)[-1][2])
+PY
+)"
 
 if [[ -z "$SIM_ID" ]]; then
   echo "Could not find an available simulator named '$DEVICE_NAME'." >&2

@@ -3,7 +3,8 @@ import Foundation
 enum SleepFormatting {
     static let shortTime: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.timeStyle = .short
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "h:mm a"
         return formatter
     }()
 
@@ -47,4 +48,3 @@ enum SleepFormatting {
         return Calendar.current.date(from: components) ?? Date()
     }
 }
-
