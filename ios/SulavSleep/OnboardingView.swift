@@ -13,35 +13,43 @@ struct OnboardingView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            VStack(spacing: SleepSpacing.lg) {
-                CrescentMoon(size: 92)
-                StepDots(step: step, total: lastStep + 1)
-            }
-            .padding(.top, SleepSpacing.huge)
-
             Spacer()
 
-            VStack(spacing: SleepSpacing.xl) {
-                switch step {
-                case 0:
-                    OnboardingIntro()
-                case 1:
-                    NameStep(name: $name)
-                case 2:
-                    TimeStep(
-                        title: "When do you usually sleep?",
-                        subtitle: "Around \(SleepFormatting.clock(bedtime))",
-                        minutes: $bedtime
-                    )
-                case 3:
-                    TimeStep(
-                        title: "And when do you wake?",
-                        subtitle: "Around \(SleepFormatting.clock(wakeTime))",
-                        minutes: $wakeTime
-                    )
-                default:
-                    HealthStep(available: healthAvailable)
-                }
+            // All steps are built once, up front, and shown/hidden with
+            // opacity rather than swapped via `switch`. Lazily constructing a
+            // step (especially the wheel DatePickers) the first time it's
+            // shown caused a visible hitch right as the "Next" transition
+            // played; building them eagerly moves that cost to first appear,
+            // before the user is interacting.
+            ZStack {
+                OnboardingIntro()
+                    .opacity(step == 0 ? 1 : 0)
+                    .allowsHitTesting(step == 0)
+                    .accessibilityHidden(step != 0)
+                NameStep(name: $name)
+                    .opacity(step == 1 ? 1 : 0)
+                    .allowsHitTesting(step == 1)
+                    .accessibilityHidden(step != 1)
+                TimeStep(
+                    title: "When do you usually sleep?",
+                    subtitle: "Around \(SleepFormatting.clock(bedtime))",
+                    minutes: $bedtime
+                )
+                .opacity(step == 2 ? 1 : 0)
+                .allowsHitTesting(step == 2)
+                .accessibilityHidden(step != 2)
+                TimeStep(
+                    title: "And when do you wake?",
+                    subtitle: "Around \(SleepFormatting.clock(wakeTime))",
+                    minutes: $wakeTime
+                )
+                .opacity(step == 3 ? 1 : 0)
+                .allowsHitTesting(step == 3)
+                .accessibilityHidden(step != 3)
+                HealthStep(available: healthAvailable)
+                    .opacity(step == 4 ? 1 : 0)
+                    .allowsHitTesting(step == 4)
+                    .accessibilityHidden(step != 4)
             }
             .frame(maxWidth: .infinity)
             .padding(.horizontal, SleepSpacing.xxl)
@@ -211,58 +219,6 @@ private struct HealthStep: View {
                 .multilineTextAlignment(.center)
                 .lineSpacing(4)
                 .frame(maxWidth: 300)
-        }
-    }
-}
-
-private struct StepDots: View {
-    let step: Int
-    let total: Int
-
-    var body: some View {
-        HStack(spacing: SleepSpacing.sm) {
-            ForEach(0..<total, id: \.self) { index in
-                Capsule()
-                    .fill(index == step ? SleepColor.amber : SleepColor.hairline)
-                    .frame(width: index == step ? 22 : 7, height: 7)
-                    .animation(.snappy(duration: 0.25), value: step)
-            }
-        }
-    }
-}
-
-struct CrescentMoon: View {
-    let size: CGFloat
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(SleepColor.moon.opacity(0.06))
-                .frame(width: size, height: size)
-            Circle()
-                .fill(
-                    LinearGradient(
-                        colors: [.white, SleepColor.moon],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .frame(width: size * 0.70, height: size * 0.70)
-                .mask(alignment: .topTrailing) { CrescentMask() }
-                .shadow(color: SleepColor.amber.opacity(0.18), radius: 18)
-        }
-    }
-}
-
-private struct CrescentMask: View {
-    var body: some View {
-        Canvas { context, size in
-            context.fill(Path(ellipseIn: CGRect(origin: .zero, size: size)), with: .color(.white))
-            context.blendMode = .destinationOut
-            context.fill(
-                Path(ellipseIn: CGRect(x: size.width * 0.37, y: -size.height * 0.13, width: size.width, height: size.height)),
-                with: .color(.black)
-            )
         }
     }
 }

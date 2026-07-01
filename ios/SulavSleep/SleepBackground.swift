@@ -20,14 +20,15 @@ struct SleepBackground: View {
     @State private var parallax = ParallaxController()
     @State private var drag: CGSize = .zero
 
-    // Very slow, subtle autonomous pan — like watching buildings drift past a
-    // car window. Deeper layers (small depth) barely move; the foreground
-    // window layer drifts a little more. Bounded by a slow sine so it never
-    // runs past the overscan and reveals an edge.
-    private let driftPeriod: Double = 340
+    // Slow autonomous pan — like watching buildings drift past a car window.
+    // Deeper layers (small depth) barely move; the foreground window layer
+    // drifts more. Bounded by a slow sine so it never runs past the overscan
+    // and reveals an edge. Tuned to be plainly visible within a few seconds
+    // while still reading as gentle, not jumpy.
+    private let driftPeriod: Double = 100
 
     private func drift(_ t: Double, depth: CGFloat) -> CGFloat {
-        CGFloat(-sin(t / driftPeriod)) * depth * 1.1
+        CGFloat(-sin(2 * .pi * t / driftPeriod)) * depth * 2.0
     }
 
     var body: some View {
@@ -52,8 +53,8 @@ struct SleepBackground: View {
                     WindowLayer(t: t, size: size)
                         .offset(x: p.width * 14 + drift(t, depth: 14), y: p.height * 8)
                 }
-                // Overscan so a few pixels of parallax never reveal an edge.
-                .scaleEffect(1.12)
+                // Overscan so parallax + drift never reveal an edge.
+                .scaleEffect(1.25)
             }
             .contentShape(Rectangle())
             .gesture(dragFallback(size: size))

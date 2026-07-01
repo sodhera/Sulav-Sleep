@@ -46,10 +46,11 @@ state (bare timer, "Tap to wake"); tapping the screen reveals the controls.
 Parallax comes from the gyroscope (`CoreMotion`), low-pass filtered so it eases
 naturally with no snapping. When device motion is unavailable (e.g. Simulator) a
 drag gesture drives it instead, and the continuous animation carries the scene.
-On top of that, each layer also drifts on its own very slow sine (~340s period),
+On top of that, each layer also drifts on its own slow sine (~100s period),
 scaled by depth — like watching buildings drift past a car window at night.
-It's subtle by design: if it's consciously noticeable, it's too fast.
-Layers are overscanned (`scaleEffect(1.12)`) so parallax never reveals an edge.
+It should read as gentle, ambient motion, not a snap — but it must be
+visible; if you have to squint to see it, it's too subtle.
+Layers are overscanned (`scaleEffect(1.25)`) so parallax + drift never reveal an edge.
 The whole scene renders in a single `TimelineView` at ~30fps, and pauses
 entirely on tabs that aren't visible so it never costs frames off-screen.
 
