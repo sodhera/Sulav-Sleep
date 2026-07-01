@@ -119,12 +119,11 @@ private struct OnboardingIntro: View {
             Text("Sulav Sleep")
                 .font(SleepFont.hero(34))
                 .foregroundStyle(SleepColor.ink)
-            Text("A calmer night. Set a bedtime, quiet the phone, and wake to an honest picture of how you slept.")
+            Text("Set a bedtime. Quiet the phone. Sleep.")
                 .font(SleepFont.body(16))
                 .foregroundStyle(SleepColor.dim)
                 .multilineTextAlignment(.center)
-                .lineSpacing(5)
-                .frame(maxWidth: 320)
+                .frame(maxWidth: 300)
         }
     }
 }
@@ -205,13 +204,13 @@ private struct HealthStep: View {
                 .multilineTextAlignment(.center)
 
             Text(available
-                 ? "Pull in your real sleep history and save the nights you log — everything stays in Apple Health. You can change this anytime in Settings."
-                 : "Log a night with Sleep Now and your reports will fill in with your real data. No sample data, ever.")
+                 ? "Sync your real sleep both ways. Change it anytime in Settings."
+                 : "Log a night and your reports fill in. No sample data, ever.")
                 .font(SleepFont.body(15))
                 .foregroundStyle(SleepColor.dim)
                 .multilineTextAlignment(.center)
-                .lineSpacing(5)
-                .frame(maxWidth: 320)
+                .lineSpacing(4)
+                .frame(maxWidth: 300)
         }
     }
 }

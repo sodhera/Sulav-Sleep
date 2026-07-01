@@ -106,6 +106,14 @@ final class SleepStore {
         AppLog.store.info("Sleep session started")
     }
 
+    /// Leave the sleep screen without logging a night — for someone who opened
+    /// it to peek or tapped Sleep Now by mistake.
+    func cancelSleep() {
+        activeSession = nil
+        persist()
+        AppLog.store.info("Sleep session canceled (not logged)")
+    }
+
     func wakeUp() {
         guard let activeSession else { return }
         let end = Date()

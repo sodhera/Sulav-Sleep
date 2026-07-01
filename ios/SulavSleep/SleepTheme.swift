@@ -55,6 +55,14 @@ enum SleepColor {
     static let rain = Color(hex: 0xBFD0E0)
 
     static let white = Color.white
+
+    // Sleep mode — pitch black with layered reds. Red preserves night vision,
+    // so the whole immersive sleep screen lives in these tones.
+    static let sleepBlack = Color(hex: 0x040203)
+    static let ember = Color(hex: 0xE0655C)     // timer / primary accent
+    static let emberDim = Color(hex: 0x9A322C)  // borders / secondary
+    static let crimsonGlow = Color(hex: 0x7A1A15)
+    static let bloodGlow = Color(hex: 0x4A0E0C)
 }
 
 // MARK: - Spacing (8pt grid)

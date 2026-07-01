@@ -14,6 +14,7 @@
 		1E5168B98C242B90B04B7D9C /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE73361F00ABDB639ED1D41A /* AppDelegate.swift */; };
 		F100000000000000000000A2 /* Log.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000000A1 /* Log.swift */; };
 		F100000000000000000000B2 /* SleepHealthKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000000B1 /* SleepHealthKit.swift */; };
+		F100000000000000000000D2 /* SleepModeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000000D1 /* SleepModeView.swift */; };
 		30ABD308DAB8167D795A2D9D /* ReportsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0E16E05E315F1EE37C03F9C /* ReportsView.swift */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		47501ABFFD25AA9B7048E27C /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9234E0E1693C0FC11F33BD3A /* OnboardingView.swift */; };
@@ -52,6 +53,7 @@
 		BE73361F00ABDB639ED1D41A /* AppDelegate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = SulavSleep/AppDelegate.swift; sourceTree = "<group>"; };
 		F100000000000000000000A1 /* Log.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Log.swift; path = SulavSleep/Log.swift; sourceTree = "<group>"; };
 		F100000000000000000000B1 /* SleepHealthKit.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepHealthKit.swift; path = SulavSleep/SleepHealthKit.swift; sourceTree = "<group>"; };
+		F100000000000000000000D1 /* SleepModeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepModeView.swift; path = SulavSleep/SleepModeView.swift; sourceTree = "<group>"; };
 		DE88F8599F33B6D90A64D2BA /* Sheets.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Sheets.swift; path = SulavSleep/Sheets.swift; sourceTree = "<group>"; };
 		EBB2CED1004A6A08D5A70F24 /* RootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RootView.swift; path = SulavSleep/RootView.swift; sourceTree = "<group>"; };
 		F0E16E05E315F1EE37C03F9C /* ReportsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReportsView.swift; path = SulavSleep/ReportsView.swift; sourceTree = "<group>"; };
@@ -111,6 +113,7 @@
 				EBB2CED1004A6A08D5A70F24 /* RootView.swift */,
 				DE88F8599F33B6D90A64D2BA /* Sheets.swift */,
 				9F4311BA03CAD3F576F79BFC /* SleepBackground.swift */,
+				F100000000000000000000D1 /* SleepModeView.swift */,
 				316EF63C74A39E0CE6D1D1BE /* SleepFormatting.swift */,
 				116765E93C9E1F418AE0CB6A /* SleepIntents.swift */,
 				740A33B6E6D4861DF61CFBB1 /* SleepModels.swift */,
@@ -304,6 +307,7 @@
 				93BACAE13B0502CF9AD5202A /* RootView.swift in Sources */,
 				E78D7CA5F0403ACA372B7DB8 /* Sheets.swift in Sources */,
 				77C469E0A58F15200C2E9F6E /* SleepBackground.swift in Sources */,
+				F100000000000000000000D2 /* SleepModeView.swift in Sources */,
 				AB28ABECC3ED7A36A911D0C8 /* SleepFormatting.swift in Sources */,
 				CC3D146C5EAF5AB2266E9E6D /* SleepIntents.swift in Sources */,
 				05AC2F4B7D3F4F3896894861 /* SleepModels.swift in Sources */,

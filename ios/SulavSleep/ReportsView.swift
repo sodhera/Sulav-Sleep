@@ -45,12 +45,11 @@ private struct EmptyReports: View {
                 .font(SleepFont.title(20))
                 .foregroundStyle(SleepColor.ink)
             Text(healthState == .connected
-                 ? "Log a night, or once Apple Health has sleep recorded it will appear here — nothing is made up."
-                 : "Your nights will appear here once you log sleep. Connect Apple Health in Settings to pull in your real history.")
+                 ? "Your logged and Apple Health nights will appear here."
+                 : "Log a night, or connect Apple Health in Settings.")
                 .font(SleepFont.body(15))
                 .foregroundStyle(SleepColor.muted)
-                .lineSpacing(4)
-                .frame(maxWidth: 320, alignment: .leading)
+                .frame(maxWidth: 300, alignment: .leading)
         }
         .padding(.top, SleepSpacing.huge * 1.5)
     }
