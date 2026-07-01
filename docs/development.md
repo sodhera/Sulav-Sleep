@@ -88,6 +88,12 @@ Filter with `-only-testing:SulavSleepTests` or `-only-testing:SulavSleepUITests`
 - `SleepHealthKit.swift`: `SleepHealthProviding` protocol, the real
   `HealthKitService`, a `DisabledHealthService` no-op, the `SleepHealth`
   factory, and the pure `SleepNightBuilder`.
+- `SleepScreenTime.swift`: `ScreenTimeControlling` protocol + `ScreenTimeService`
+  (FamilyControls auth + ManagedSettings shield) and `LockdownSettingsView`
+  (FamilyActivityPicker). Device-only; `.unavailable` no-op on Simulator.
+- `SleepWidgetShared.swift`: App Group summary types + read/write, shared with
+  the widget target.
+- `SleepModeView.swift`: immersive black/red sleep-mode takeover.
 - `RootView.swift`: onboarding gate, tab shell, bottom navigation.
 - `HomeView.swift`: greeting, schedule, Sleep Now, active sleeping state, wake
   logging, last-night summary, empty states, Health import indicator.
@@ -131,6 +137,27 @@ Filter with `-only-testing:SulavSleepTests` or `-only-testing:SulavSleepUITests`
 - Native `glassEffect` on iOS 26+, `.ultraThinMaterial` fallback otherwise.
 - `LiquidGlass.swift` is the only glass compatibility wrapper.
 - Interactive glass for tappable controls only.
+
+## Widget & App Group
+
+- `SulavSleepWidgetExtension` (WidgetKit) is embedded in the app and shares data
+  via App Group `group.com.anonymous.sulav-sleep`. `SleepWidgetShared.swift`
+  (the summary types + read/write) is a member of both targets.
+- `SleepStore` writes the summary and calls `WidgetCenter.reloadAllTimelines()`
+  on every history change — **except under tests**. WidgetKit reloads / App
+  Group writes stall the XCTest-monitored app launch, so `updateWidget()` is
+  guarded by `AppEnvironment.isTesting` (set for the unit-test host env and the
+  `-uitest-reset` UI-test arg). Real runs are unaffected.
+
+## Sleep lockdown build specifics
+
+- Screen Time needs `com.apple.developer.family-controls`, which is applied to
+  **device builds only** via `SulavSleep-device.entitlements` and the
+  `CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]` build setting. The base
+  `SulavSleep.entitlements` (Simulator) has HealthKit + App Group only, so the
+  Simulator builds, tests, and runs normally.
+- To enable real enforcement: request the Family Controls capability for the dev
+  account, then build/run on a device. See `docs/roadmap-lockdown-and-widget.md`.
 
 ## App Intents
 

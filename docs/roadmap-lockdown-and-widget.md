@@ -5,8 +5,39 @@ evolving from a passive sleep *log* into a sleep-*enforcement* habit tool: when
 you log sleep, the phone becomes (nearly) useless until you wake or a set number
 of hours pass — plus a widget that shows your sleep graph and score.
 
-Status: **planned**. Current app has the calm nightly loop, real HealthKit data,
-and the immersive sleep-mode screen — but does **not** yet enforce anything.
+Status: **largely implemented** (see "What's built" below). The widget ships and
+works in the Simulator. The Screen Time lockdown is fully coded and wired;
+real enforcement runs on a device once Apple grants the Family Controls
+capability.
+
+## What's built
+
+- **Home-screen widget** — `SulavSleepWidgetExtension` (WidgetKit): small
+  (last score + mini bars) and medium (7-night bar graph + avg + streak),
+  reading a compact summary from the App Group `group.com.anonymous.sulav-sleep`.
+  `SleepStore` publishes the summary and reloads timelines on every change.
+- **Sleep lockdown** — `SleepScreenTime.swift`: `ScreenTimeService`
+  (FamilyControls `AuthorizationCenter` + `ManagedSettings` shield), a
+  `FamilyActivityPicker` UI (`LockdownSettingsView`), and wiring so
+  `startSleep()` shields the chosen apps and `wakeUp()`/`cancelSleep()` clear
+  them. The `com.apple.developer.family-controls` entitlement is applied to
+  **device builds only** (via `SulavSleep-device.entitlements` and a
+  `CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]` build setting), so the Simulator keeps
+  building/testing/running; on the Simulator the service reports `.unavailable`
+  and every call is a no-op.
+
+## What's still to do
+
+- **Scheduled / background enforcement**: a `DeviceActivityMonitor` extension to
+  apply the shield at the scheduled bedtime and auto-clear after N hours even if
+  the app isn't opened. Today the shield is applied on Sleep Now and cleared on
+  Wake up / Cancel (foreground).
+- **Live Activity** for the active-sleep timer (optional).
+- Request the Family Controls capability from Apple for the dev account.
+
+---
+
+_Original plan follows._
 
 ---
 

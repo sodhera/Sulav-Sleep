@@ -15,10 +15,16 @@ final class SleepStore {
 
     private let persistence: SleepPersistence
     private let health: SleepHealthProviding
+    private let screenTime: ScreenTimeControlling
 
-    init(persistence: SleepPersistence = .shared, health: SleepHealthProviding? = nil) {
+    init(
+        persistence: SleepPersistence = .shared,
+        health: SleepHealthProviding? = nil,
+        screenTime: ScreenTimeControlling? = nil
+    ) {
         self.persistence = persistence
         self.health = health ?? SleepHealth.makeDefault()
+        self.screenTime = screenTime ?? SleepScreenTime.makeDefault()
         // UI tests launch with a clean slate so onboarding is deterministic.
         if CommandLine.arguments.contains("-uitest-reset") {
             persistence.reset()
@@ -57,6 +63,9 @@ final class SleepStore {
         guard health.isAvailable else { return .unavailable }
         return profile?.healthSyncEnabled == true ? .connected : .notConnected
     }
+
+    var screenTimeState: ScreenTimeState { screenTime.authorizationState() }
+    var lockdownEnabled: Bool { profile?.lockdownEnabled == true }
 
     // MARK: - Lifecycle
 
@@ -124,6 +133,7 @@ final class SleepStore {
         activeSession = ActiveSleepSession(start: Date())
         selectedTab = .home
         persist()
+        if profile?.lockdownEnabled == true { screenTime.startLockdown() }
         AppLog.store.info("Sleep session started")
     }
 
@@ -131,6 +141,7 @@ final class SleepStore {
     /// it to peek or tapped Sleep Now by mistake.
     func cancelSleep() {
         activeSession = nil
+        screenTime.endLockdown()
         persist()
         AppLog.store.info("Sleep session canceled (not logged)")
     }
@@ -149,6 +160,7 @@ final class SleepStore {
         )
         sessions.append(session)
         self.activeSession = nil
+        screenTime.endLockdown()
         persist()
         AppLog.store.info("Logged night: \(minutes)m, score \(session.score)")
 
@@ -186,6 +198,31 @@ final class SleepStore {
         persist()
         AppLog.store.info("Health sync disabled")
     }
+
+    // MARK: - Sleep lockdown (Screen Time)
+
+    @MainActor
+    func enableLockdown() async {
+        let granted = await screenTime.requestAuthorization()
+        guard var profile else { return }
+        profile.lockdownEnabled = granted
+        self.profile = profile
+        persist()
+        AppLog.store.info("Sleep lockdown \(granted ? "enabled" : "denied")")
+    }
+
+    func disableLockdown() {
+        guard var profile else { return }
+        profile.lockdownEnabled = false
+        self.profile = profile
+        screenTime.endLockdown()
+        persist()
+        AppLog.store.info("Sleep lockdown disabled")
+    }
+
+    /// Opaque encoded app selection for the lockdown picker UI.
+    func appSelectionData() -> Data? { screenTime.selectionData() }
+    func saveAppSelection(_ data: Data) { screenTime.saveSelection(data: data) }
 
     @MainActor
     func refreshHealth() async {

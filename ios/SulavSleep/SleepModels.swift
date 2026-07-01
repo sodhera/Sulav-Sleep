@@ -28,16 +28,19 @@ struct Profile: Codable, Equatable {
     var onboarded: Bool
     /// Whether the user has opted into two-way Apple Health sync.
     var healthSyncEnabled: Bool
+    /// Whether the user has enabled Screen Time app-lockdown while asleep.
+    var lockdownEnabled: Bool
 
-    init(name: String, bedtime: Int, wakeTime: Int, onboarded: Bool, healthSyncEnabled: Bool = false) {
+    init(name: String, bedtime: Int, wakeTime: Int, onboarded: Bool, healthSyncEnabled: Bool = false, lockdownEnabled: Bool = false) {
         self.name = name
         self.bedtime = bedtime
         self.wakeTime = wakeTime
         self.onboarded = onboarded
         self.healthSyncEnabled = healthSyncEnabled
+        self.lockdownEnabled = lockdownEnabled
     }
 
-    // Decode-safe: records written before `healthSyncEnabled` existed default to false.
+    // Decode-safe: records written before these fields existed default to false.
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         name = try c.decode(String.self, forKey: .name)
@@ -45,6 +48,7 @@ struct Profile: Codable, Equatable {
         wakeTime = try c.decode(Int.self, forKey: .wakeTime)
         onboarded = try c.decode(Bool.self, forKey: .onboarded)
         healthSyncEnabled = try c.decodeIfPresent(Bool.self, forKey: .healthSyncEnabled) ?? false
+        lockdownEnabled = try c.decodeIfPresent(Bool.self, forKey: .lockdownEnabled) ?? false
     }
 }
 
@@ -90,6 +94,7 @@ struct ActiveSleepSession: Codable, Equatable {
 enum PresentedSheet: String, Identifiable {
     case schedule
     case settings
+    case lockdown
 
     var id: String { rawValue }
 }

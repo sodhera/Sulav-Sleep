@@ -59,6 +59,7 @@ struct SettingsSheet: View {
     let onSaveName: (String) -> Void
     let onOpenSchedule: () -> Void
     let onToggleHealth: (Bool) -> Void
+    let onOpenLockdown: () -> Void
     let onReset: () -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -71,6 +72,7 @@ struct SettingsSheet: View {
         onSaveName: @escaping (String) -> Void,
         onOpenSchedule: @escaping () -> Void,
         onToggleHealth: @escaping (Bool) -> Void,
+        onOpenLockdown: @escaping () -> Void,
         onReset: @escaping () -> Void
     ) {
         self.profile = profile
@@ -78,6 +80,7 @@ struct SettingsSheet: View {
         self.onSaveName = onSaveName
         self.onOpenSchedule = onOpenSchedule
         self.onToggleHealth = onToggleHealth
+        self.onOpenLockdown = onOpenLockdown
         self.onReset = onReset
         _name = State(initialValue: profile.name)
         _healthOn = State(initialValue: healthState == .connected)
@@ -127,6 +130,23 @@ struct SettingsSheet: View {
             .buttonStyle(.plain)
 
             healthRow
+
+            Button {
+                saveName()
+                onOpenLockdown()
+            } label: {
+                HStack {
+                    Text("Sleep lockdown")
+                        .font(SleepFont.body(16))
+                        .foregroundStyle(SleepColor.dim)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(SleepColor.faint)
+                }
+                .padding(.vertical, SleepSpacing.md)
+            }
+            .buttonStyle(.plain)
 
             Button(role: .destructive) {
                 onReset()

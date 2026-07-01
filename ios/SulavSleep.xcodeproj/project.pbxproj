@@ -16,6 +16,7 @@
 		F100000000000000000000B2 /* SleepHealthKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000000B1 /* SleepHealthKit.swift */; };
 		F100000000000000000000D2 /* SleepModeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000000D1 /* SleepModeView.swift */; };
 		F100000000000000000000E2 /* SleepWidgetShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000000E1 /* SleepWidgetShared.swift */; };
+		F100000000000000000000F2 /* SleepScreenTime.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000000F1 /* SleepScreenTime.swift */; };
 		30ABD308DAB8167D795A2D9D /* ReportsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0E16E05E315F1EE37C03F9C /* ReportsView.swift */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		47501ABFFD25AA9B7048E27C /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9234E0E1693C0FC11F33BD3A /* OnboardingView.swift */; };
@@ -61,6 +62,7 @@
 		F100000000000000000000B1 /* SleepHealthKit.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepHealthKit.swift; path = SulavSleep/SleepHealthKit.swift; sourceTree = "<group>"; };
 		F100000000000000000000D1 /* SleepModeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepModeView.swift; path = SulavSleep/SleepModeView.swift; sourceTree = "<group>"; };
 		F100000000000000000000E1 /* SleepWidgetShared.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepWidgetShared.swift; path = SulavSleep/SleepWidgetShared.swift; sourceTree = "<group>"; };
+		F100000000000000000000F1 /* SleepScreenTime.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepScreenTime.swift; path = SulavSleep/SleepScreenTime.swift; sourceTree = "<group>"; };
 		DE88F8599F33B6D90A64D2BA /* Sheets.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Sheets.swift; path = SulavSleep/Sheets.swift; sourceTree = "<group>"; };
 		EBB2CED1004A6A08D5A70F24 /* RootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RootView.swift; path = SulavSleep/RootView.swift; sourceTree = "<group>"; };
 		F0E16E05E315F1EE37C03F9C /* ReportsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReportsView.swift; path = SulavSleep/ReportsView.swift; sourceTree = "<group>"; };
@@ -133,6 +135,7 @@
 				9F4311BA03CAD3F576F79BFC /* SleepBackground.swift */,
 				F100000000000000000000D1 /* SleepModeView.swift */,
 				F100000000000000000000E1 /* SleepWidgetShared.swift */,
+				F100000000000000000000F1 /* SleepScreenTime.swift */,
 				316EF63C74A39E0CE6D1D1BE /* SleepFormatting.swift */,
 				116765E93C9E1F418AE0CB6A /* SleepIntents.swift */,
 				740A33B6E6D4861DF61CFBB1 /* SleepModels.swift */,
@@ -362,6 +365,7 @@
 				77C469E0A58F15200C2E9F6E /* SleepBackground.swift in Sources */,
 				F100000000000000000000D2 /* SleepModeView.swift in Sources */,
 				F100000000000000000000E2 /* SleepWidgetShared.swift in Sources */,
+				F100000000000000000000F2 /* SleepScreenTime.swift in Sources */,
 				AB28ABECC3ED7A36A911D0C8 /* SleepFormatting.swift in Sources */,
 				CC3D146C5EAF5AB2266E9E6D /* SleepIntents.swift in Sources */,
 				05AC2F4B7D3F4F3896894861 /* SleepModels.swift in Sources */,
@@ -468,6 +472,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = SulavSleep/SulavSleep.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "SulavSleep/SulavSleep-device.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_BITCODE = NO;
@@ -495,6 +500,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = SulavSleep/SulavSleep.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "SulavSleep/SulavSleep-device.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = NO;

@@ -69,11 +69,14 @@ struct HomeView: View {
                         if enabled { Task { await store.enableHealthSync() } }
                         else { store.disableHealthSync() }
                     },
+                    onOpenLockdown: { presentedSheet = .lockdown },
                     onReset: {
                         presentedSheet = nil
                         store.resetAll()
                     }
                 )
+            case .lockdown:
+                LockdownSettingsView(store: store)
             }
         }
     }
