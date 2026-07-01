@@ -2,6 +2,7 @@ import SwiftUI
 
 struct RootView: View {
     var store: SleepStore
+    @State private var onboardingNameFocused = false
 
     var body: some View {
         ZStack {
@@ -16,8 +17,11 @@ struct RootView: View {
                 MainShellView(store: store, profile: profile)
                     .transition(.opacity)
             } else {
-                SleepBackground(showsMoon: false)
-                OnboardingView(healthAvailable: store.healthSyncState != .unavailable) { name, bedtime, wakeTime, connectHealth in
+                SleepBackground(showsMoon: false, isActive: !onboardingNameFocused)
+                OnboardingView(
+                    healthAvailable: store.healthSyncState != .unavailable,
+                    onNameFocusChanged: { onboardingNameFocused = $0 }
+                ) { name, bedtime, wakeTime, connectHealth in
                     store.completeOnboarding(name: name, bedtime: bedtime, wakeTime: wakeTime, connectHealth: connectHealth)
                 }
                 .transition(.opacity)

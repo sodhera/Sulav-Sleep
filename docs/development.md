@@ -105,12 +105,15 @@ Filter with `-only-testing:SulavSleepTests` or `-only-testing:SulavSleepUITests`
 - `OnboardingView.swift`: intro, name, bedtime, wake, and the Apple Health
   connect step. It renders only the active onboarding step and owns the shared
   lightweight `TimeAdjuster`, used instead of UIKit `DatePicker`/wheel controls
-  to avoid first-use hitches during transitions.
+  to avoid first-use hitches during transitions. The name field reports focus to
+  `RootView`, which pauses the animated background while the keyboard is active.
 - `Sheets.swift`: schedule editor and settings (name, schedule, Health toggle,
   reset).
 - `LiquidGlass.swift`: native Liquid Glass wrappers with material fallbacks.
 - `SleepBackground.swift`: layered, infinitely scrolling Rainy Pixel Night scene
   + `ParallaxController` (CoreMotion).
+- `SleepAssetCache.swift`: launch-time decode cache for the pixel city layers so
+  the first interactive onboarding steps do not pay image decode cost.
 - `SleepTheme.swift`: palette, spacing, radius, typography, `Haptics`.
 - `SleepFormatting.swift`: date/time/duration formatting.
 - `SleepIntents.swift`: App Intents (start sleep, open app).

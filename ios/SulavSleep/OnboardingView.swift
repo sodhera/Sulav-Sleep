@@ -5,6 +5,7 @@ import UIKit
 
 struct OnboardingView: View {
     var healthAvailable: Bool
+    var onNameFocusChanged: (Bool) -> Void = { _ in }
     let onDone: (String, Int, Int, Bool) -> Void
 
     @State private var step = 0
@@ -30,6 +31,11 @@ struct OnboardingView: View {
         }
         .safeAreaPadding(.top)
         .safeAreaPadding(.bottom)
+        .onChange(of: step) { _, newStep in
+            if newStep != 1 {
+                onNameFocusChanged(false)
+            }
+        }
     }
 
     @ViewBuilder
@@ -38,7 +44,7 @@ struct OnboardingView: View {
         case 0:
             OnboardingIntro()
         case 1:
-            NameStep(name: $name)
+            NameStep(name: $name, onFocusChanged: onNameFocusChanged)
         case 2:
             TimeStep(
                 title: "When do you usually sleep?",
@@ -145,6 +151,8 @@ private struct OnboardingIntro: View {
 
 private struct NameStep: View {
     @Binding var name: String
+    let onFocusChanged: (Bool) -> Void
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         VStack(spacing: SleepSpacing.lg) {
@@ -165,7 +173,14 @@ private struct NameStep: View {
                 .overlay(alignment: .bottom) {
                     Rectangle().fill(SleepColor.hairline).frame(height: 1)
                 }
+                .focused($isFocused)
+                .simultaneousGesture(TapGesture().onEnded {
+                    onFocusChanged(true)
+                })
                 .onSubmit { Keyboard.dismiss() }
+                .onChange(of: isFocused) { _, focused in
+                    onFocusChanged(focused)
+                }
                 .accessibilityLabel("Your name")
         }
     }

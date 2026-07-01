@@ -5,6 +5,10 @@ struct SulavSleepApp: App {
     @State private var store = SulavSleepApp.makeStore()
     @Environment(\.scenePhase) private var scenePhase
 
+    init() {
+        SleepAssetCache.prewarmCriticalAssets()
+    }
+
     /// UI tests launch with `-uitest-reset` and get a throwaway, empty
     /// UserDefaults suite so every run starts at onboarding — never touching or
     /// depending on real persisted state.

@@ -135,10 +135,7 @@ private struct ScrollingPixelLayer: View {
 
         HStack(spacing: 0) {
             ForEach(0..<repeatCount, id: \.self) { _ in
-                Image(spec.assetName)
-                    .resizable()
-                    .interpolation(.none)
-                    .antialiased(false)
+                CachedPixelImage(assetName: spec.assetName)
                     .frame(width: tileWidth, height: size.height)
                     .clipped()
             }
@@ -151,6 +148,32 @@ private struct ScrollingPixelLayer: View {
         let raw = (t * Double(spec.speed) + Double(spec.phase * tileWidth))
             .truncatingRemainder(dividingBy: Double(tileWidth))
         return CGFloat(raw)
+    }
+}
+
+private struct CachedPixelImage: View {
+    let assetName: String
+
+    var body: some View {
+        #if canImport(UIKit)
+        if let image = SleepAssetCache.image(named: assetName) {
+            Image(uiImage: image)
+                .resizable()
+                .interpolation(.none)
+                .antialiased(false)
+        } else {
+            fallback
+        }
+        #else
+        fallback
+        #endif
+    }
+
+    private var fallback: some View {
+        Image(assetName)
+            .resizable()
+            .interpolation(.none)
+            .antialiased(false)
     }
 }
 
