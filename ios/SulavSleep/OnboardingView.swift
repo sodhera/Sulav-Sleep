@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct OnboardingView: View {
     var healthAvailable: Bool
@@ -15,45 +18,9 @@ struct OnboardingView: View {
         VStack(spacing: 0) {
             Spacer()
 
-            // All steps are built once, up front, and shown/hidden with
-            // opacity rather than swapped via `switch`. Lazily constructing a
-            // step (especially the wheel DatePickers) the first time it's
-            // shown caused a visible hitch right as the "Next" transition
-            // played; building them eagerly moves that cost to first appear,
-            // before the user is interacting.
-            ZStack {
-                OnboardingIntro()
-                    .opacity(step == 0 ? 1 : 0)
-                    .allowsHitTesting(step == 0)
-                    .accessibilityHidden(step != 0)
-                NameStep(name: $name)
-                    .opacity(step == 1 ? 1 : 0)
-                    .allowsHitTesting(step == 1)
-                    .accessibilityHidden(step != 1)
-                TimeStep(
-                    title: "When do you usually sleep?",
-                    subtitle: "Around \(SleepFormatting.clock(bedtime))",
-                    minutes: $bedtime
-                )
-                .opacity(step == 2 ? 1 : 0)
-                .allowsHitTesting(step == 2)
-                .accessibilityHidden(step != 2)
-                TimeStep(
-                    title: "And when do you wake?",
-                    subtitle: "Around \(SleepFormatting.clock(wakeTime))",
-                    minutes: $wakeTime
-                )
-                .opacity(step == 3 ? 1 : 0)
-                .allowsHitTesting(step == 3)
-                .accessibilityHidden(step != 3)
-                HealthStep(available: healthAvailable)
-                    .opacity(step == 4 ? 1 : 0)
-                    .allowsHitTesting(step == 4)
-                    .accessibilityHidden(step != 4)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal, SleepSpacing.xxl)
-            .animation(.easeInOut(duration: 0.25), value: step)
+            currentStep
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, SleepSpacing.xxl)
 
             Spacer()
 
@@ -63,6 +30,30 @@ struct OnboardingView: View {
         }
         .safeAreaPadding(.top)
         .safeAreaPadding(.bottom)
+    }
+
+    @ViewBuilder
+    private var currentStep: some View {
+        switch step {
+        case 0:
+            OnboardingIntro()
+        case 1:
+            NameStep(name: $name)
+        case 2:
+            TimeStep(
+                title: "When do you usually sleep?",
+                subtitle: "Around \(SleepFormatting.clock(bedtime))",
+                minutes: $bedtime
+            )
+        case 3:
+            TimeStep(
+                title: "And when do you wake?",
+                subtitle: "Around \(SleepFormatting.clock(wakeTime))",
+                minutes: $wakeTime
+            )
+        default:
+            HealthStep(available: healthAvailable)
+        }
     }
 
     @ViewBuilder
@@ -89,12 +80,12 @@ struct OnboardingView: View {
             }
 
             if step > 0 && step != lastStep {
-                Button("Back") { withAnimation { step -= 1 } }
+                Button("Back") { setStep(step - 1) }
                     .font(SleepFont.body(15))
                     .foregroundStyle(SleepColor.muted)
                     .frame(height: 44)
             } else if step == lastStep && healthAvailable {
-                Button("Back") { withAnimation { step -= 1 } }
+                Button("Back") { setStep(step - 1) }
                     .font(SleepFont.body(15))
                     .foregroundStyle(SleepColor.muted)
                     .frame(height: 36)
@@ -112,12 +103,28 @@ struct OnboardingView: View {
     private func advance() {
         if step == 1, name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return }
         Haptics.soft()
-        withAnimation { step += 1 }
+        let nextStep = min(step + 1, lastStep)
+        if step == 1 {
+            Keyboard.dismiss()
+            Task { @MainActor in
+                await Task.yield()
+                setStep(nextStep)
+            }
+            return
+        }
+        setStep(nextStep)
     }
 
     private func finish(connectHealth: Bool) {
+        Keyboard.dismiss()
         Haptics.success()
         onDone(name, bedtime, wakeTime, connectHealth)
+    }
+
+    private func setStep(_ nextStep: Int) {
+        withAnimation(.easeInOut(duration: 0.22)) {
+            step = max(0, min(lastStep, nextStep))
+        }
     }
 }
 
@@ -158,6 +165,7 @@ private struct NameStep: View {
                 .overlay(alignment: .bottom) {
                     Rectangle().fill(SleepColor.hairline).frame(height: 1)
                 }
+                .onSubmit { Keyboard.dismiss() }
                 .accessibilityLabel("Your name")
         }
     }
@@ -180,20 +188,193 @@ private struct TimeStep: View {
                     .foregroundStyle(SleepColor.muted)
             }
 
-            DatePicker(
-                "",
-                selection: Binding(
-                    get: { SleepFormatting.date(fromMinutes: minutes) },
-                    set: { minutes = SleepFormatting.minutes(from: $0) }
-                ),
-                displayedComponents: .hourAndMinute
-            )
-            .datePickerStyle(.wheel)
-            .labelsHidden()
-            .colorScheme(.dark)
-            .tint(SleepColor.amber)
-            .liquidGlass(cornerRadius: SleepRadius.xl)
+            TimeAdjuster(minutes: $minutes)
         }
+    }
+}
+
+struct TimeAdjuster: View {
+    @Binding var minutes: Int
+
+    var body: some View {
+        HStack(spacing: SleepSpacing.md) {
+            TimeAdjustColumn(
+                label: "Hour",
+                value: hourBinding.wrappedValue.formatted(),
+                incrementLabel: "Increase hour",
+                decrementLabel: "Decrease hour",
+                onIncrement: { hourBinding.wrappedValue = nextHour },
+                onDecrement: { hourBinding.wrappedValue = previousHour }
+            )
+
+            Text(":")
+                .font(SleepFont.title(24))
+                .foregroundStyle(SleepColor.faint)
+
+            TimeAdjustColumn(
+                label: "Minute",
+                value: String(format: "%02d", minuteBinding.wrappedValue),
+                incrementLabel: "Increase minute",
+                decrementLabel: "Decrease minute",
+                onIncrement: { minuteBinding.wrappedValue = nextMinute },
+                onDecrement: { minuteBinding.wrappedValue = previousMinute }
+            )
+
+            TimePeriodControl(selection: periodBinding)
+        }
+        .padding(.horizontal, SleepSpacing.lg)
+        .padding(.vertical, SleepSpacing.md)
+        .frame(height: 148)
+        .frame(maxWidth: .infinity)
+        .tint(SleepColor.amber)
+        .liquidGlass(cornerRadius: SleepRadius.xl)
+    }
+
+    private var normalizedMinutes: Int {
+        ((minutes % 1_440) + 1_440) % 1_440
+    }
+
+    private var hourBinding: Binding<Int> {
+        Binding(
+            get: {
+                let hour = normalizedMinutes / 60
+                let displayHour = hour % 12
+                return displayHour == 0 ? 12 : displayHour
+            },
+            set: { newHour in
+                let current = normalizedMinutes
+                let oldHour = current / 60
+                let minute = current % 60
+                let baseHour = newHour == 12 ? 0 : newHour
+                let hour = baseHour + (oldHour >= 12 ? 12 : 0)
+                minutes = hour * 60 + minute
+            }
+        )
+    }
+
+    private var nextHour: Int {
+        let hour = hourBinding.wrappedValue
+        return hour == 12 ? 1 : hour + 1
+    }
+
+    private var previousHour: Int {
+        let hour = hourBinding.wrappedValue
+        return hour == 1 ? 12 : hour - 1
+    }
+
+    private var minuteBinding: Binding<Int> {
+        Binding(
+            get: { normalizedMinutes % 60 },
+            set: { newMinute in
+                let hour = normalizedMinutes / 60
+                minutes = hour * 60 + newMinute
+            }
+        )
+    }
+
+    private var nextMinute: Int {
+        (minuteBinding.wrappedValue + 1) % 60
+    }
+
+    private var previousMinute: Int {
+        (minuteBinding.wrappedValue + 59) % 60
+    }
+
+    private var periodBinding: Binding<TimePeriod> {
+        Binding(
+            get: { normalizedMinutes / 60 >= 12 ? .pm : .am },
+            set: { newPeriod in
+                let current = normalizedMinutes
+                let hour12 = (current / 60) % 12
+                let minute = current % 60
+                minutes = (newPeriod == .pm ? hour12 + 12 : hour12) * 60 + minute
+            }
+        )
+    }
+}
+
+private struct TimeAdjustColumn: View {
+    let label: String
+    let value: String
+    let incrementLabel: String
+    let decrementLabel: String
+    let onIncrement: () -> Void
+    let onDecrement: () -> Void
+
+    var body: some View {
+        VStack(spacing: SleepSpacing.xs) {
+            Button(action: onIncrement) {
+                Image(systemName: "chevron.up")
+                    .font(.system(size: 15, weight: .semibold))
+                    .frame(width: 44, height: 34)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(SleepColor.dim)
+            .accessibilityLabel(incrementLabel)
+
+            Text(value)
+                .font(SleepFont.hero(34))
+                .monospacedDigit()
+                .foregroundStyle(SleepColor.ink)
+                .frame(width: 68, height: 38)
+                .accessibilityLabel(label)
+                .accessibilityValue(value)
+
+            Button(action: onDecrement) {
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 15, weight: .semibold))
+                    .frame(width: 44, height: 34)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(SleepColor.dim)
+            .accessibilityLabel(decrementLabel)
+        }
+        .frame(width: 72)
+    }
+}
+
+private struct TimePeriodControl: View {
+    @Binding var selection: TimePeriod
+
+    var body: some View {
+        VStack(spacing: SleepSpacing.xs) {
+            periodButton(.am)
+            periodButton(.pm)
+        }
+        .frame(width: 72)
+    }
+
+    private func periodButton(_ period: TimePeriod) -> some View {
+        Button {
+            selection = period
+        } label: {
+            Text(period.rawValue)
+                .font(SleepFont.label(13))
+                .frame(maxWidth: .infinity, minHeight: 38)
+                .foregroundStyle(selection == period ? SleepColor.background : SleepColor.dim)
+                .background {
+                    Capsule(style: .continuous)
+                        .fill(selection == period ? SleepColor.amber : SleepColor.glassFill)
+                }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(period == .am ? "AM" : "PM")
+        .accessibilityAddTraits(selection == period ? .isSelected : [])
+    }
+}
+
+private enum TimePeriod: String, CaseIterable, Identifiable {
+    case am = "AM"
+    case pm = "PM"
+
+    var id: String { rawValue }
+}
+
+private enum Keyboard {
+    static func dismiss() {
+        #if canImport(UIKit)
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        #endif
     }
 }
 

@@ -98,14 +98,15 @@ final class ScreenTimeService: ScreenTimeControlling {
 
     func scheduleLockdown(bedtimeMinutes: Int, wakeMinutes: Int, maxHours: Int) {
         guard isSupported else { return }
+        let selection = SleepScreenTime.decodeSelection(selectionData())
         let schedule = DeviceActivitySchedule(
             intervalStart: dateComponents(fromMinutes: bedtimeMinutes),
             intervalEnd: dateComponents(fromMinutes: wakeMinutes),
             repeats: true
         )
         let event = DeviceActivityEvent(
-            applications: SleepScreenTime.decodeSelection(selectionData()).applicationTokens,
-            categories: SleepScreenTime.decodeSelection(selectionData()).categoryTokens,
+            applications: selection.applicationTokens,
+            categories: selection.categoryTokens,
             threshold: DateComponents(hour: maxHours)
         )
         do {

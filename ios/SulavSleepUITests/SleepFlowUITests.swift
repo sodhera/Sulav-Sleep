@@ -31,6 +31,9 @@ final class SleepFlowUITests: XCTestCase {
         onboard(app)
 
         app.buttons["Sleep Now"].tap()
+        let tapToWake = app.staticTexts["Tap to wake"]
+        XCTAssertTrue(tapToWake.waitForExistence(timeout: 4), "Sleeping state should show Tap to wake")
+        tapToWake.tap()
         XCTAssertTrue(app.buttons["Wake up"].waitForExistence(timeout: 4), "Sleeping state should show Wake up")
 
         app.buttons["Wake up"].tap()
@@ -43,6 +46,9 @@ final class SleepFlowUITests: XCTestCase {
 
         // Log one real night.
         app.buttons["Sleep Now"].tap()
+        let tapToWake = app.staticTexts["Tap to wake"]
+        XCTAssertTrue(tapToWake.waitForExistence(timeout: 4))
+        tapToWake.tap()
         XCTAssertTrue(app.buttons["Wake up"].waitForExistence(timeout: 4))
         app.buttons["Wake up"].tap()
         XCTAssertTrue(app.buttons["Sleep Now"].waitForExistence(timeout: 4))

@@ -33,10 +33,8 @@ struct SulavSleepApp: App {
                     guard phase == .active else { return }
                     AppLog.app.info("Scene active")
                     Haptics.prepare()
-                    Task { await store.refreshHealthIfEnabled() }
-                }
-                .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification, object: UserDefaults.standard)) { _ in
                     store.reload()
+                    Task { await store.refreshHealthIfEnabled() }
                 }
         }
     }

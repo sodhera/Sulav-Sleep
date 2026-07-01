@@ -70,12 +70,14 @@ final class SleepStore {
 
     // MARK: - Lifecycle
 
-    func reload() {
+    func reload(refreshWidget: Bool = false) {
         let snapshot = persistence.load()
         profile = snapshot.profile
         sessions = snapshot.sessions
         activeSession = snapshot.activeSession
-        updateWidget()
+        if refreshWidget {
+            updateWidgetSoon()
+        }
     }
 
     /// Publish a compact summary to the App Group and refresh the home-screen
@@ -95,6 +97,13 @@ final class SleepStore {
         )
         SleepWidgetStore.save(summary)
         WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    private func updateWidgetSoon() {
+        guard !AppEnvironment.isTesting else { return }
+        DispatchQueue.main.async { [weak self] in
+            self?.updateWidget()
+        }
     }
 
     /// Called when the app becomes active. Pulls fresh nights from Health if the
@@ -124,7 +133,9 @@ final class SleepStore {
         persist()
         AppLog.store.info("Onboarding complete (connectHealth=\(connectHealth))")
         if connectHealth {
-            Task { await enableHealthSync() }
+            performAfterStateChange { [weak self] in
+                Task { await self?.enableHealthSync() }
+            }
         }
     }
 
@@ -135,9 +146,13 @@ final class SleepStore {
         activeSession = ActiveSleepSession(start: start)
         selectedTab = .home
         persist(refreshWidget: false)
-        if profile?.lockdownEnabled == true { screenTime.startLockdown() }
-        if !AppEnvironment.isTesting {
-            Task { SleepLiveActivity.start(startDate: start) }
+        let shouldStartLockdown = profile?.lockdownEnabled == true
+        performAfterStateChange { [weak self] in
+            guard let self else { return }
+            if shouldStartLockdown { self.screenTime.startLockdown() }
+            if !AppEnvironment.isTesting {
+                Task { SleepLiveActivity.start(startDate: start) }
+            }
         }
         AppLog.store.info("Sleep session started")
     }
@@ -146,9 +161,12 @@ final class SleepStore {
     /// it to peek or tapped Sleep Now by mistake.
     func cancelSleep() {
         activeSession = nil
-        screenTime.endLockdown()
-        if !AppEnvironment.isTesting { SleepLiveActivity.end() }
         persist(refreshWidget: false)
+        performAfterStateChange { [weak self] in
+            guard let self else { return }
+            self.screenTime.endLockdown()
+            if !AppEnvironment.isTesting { SleepLiveActivity.end() }
+        }
         AppLog.store.info("Sleep session canceled (not logged)")
     }
 
@@ -166,9 +184,12 @@ final class SleepStore {
         )
         sessions.append(session)
         self.activeSession = nil
-        screenTime.endLockdown()
-        if !AppEnvironment.isTesting { SleepLiveActivity.end() }
         persist()
+        performAfterStateChange { [weak self] in
+            guard let self else { return }
+            self.screenTime.endLockdown()
+            if !AppEnvironment.isTesting { SleepLiveActivity.end() }
+        }
         AppLog.store.info("Logged night: \(minutes)m, score \(session.score)")
 
         if profile?.healthSyncEnabled == true {
@@ -191,7 +212,7 @@ final class SleepStore {
         guard var profile else { return }
         profile.healthSyncEnabled = granted
         self.profile = profile
-        persist()
+        persist(refreshWidget: false)
         if granted {
             await refreshHealth()
         }
@@ -214,7 +235,7 @@ final class SleepStore {
         guard var profile else { return }
         profile.lockdownEnabled = granted
         self.profile = profile
-        persist()
+        persist(refreshWidget: false)
         if granted { rescheduleLockdown() }
         AppLog.store.info("Sleep lockdown \(granted ? "enabled" : "denied")")
     }
@@ -225,15 +246,16 @@ final class SleepStore {
         self.profile = profile
         screenTime.endLockdown()
         screenTime.cancelScheduledLockdown()
-        persist()
+        persist(refreshWidget: false)
         AppLog.store.info("Sleep lockdown disabled")
     }
 
     func setLockdownMaxHours(_ hours: Int) {
         guard var profile else { return }
+        guard profile.lockdownMaxHours != hours else { return }
         profile.lockdownMaxHours = hours
         self.profile = profile
-        persist()
+        persist(refreshWidget: false)
         if profile.lockdownEnabled { rescheduleLockdown() }
     }
 
@@ -262,13 +284,14 @@ final class SleepStore {
         defer { isImportingHealth = false }
         importedHealthSessions = await health.fetchNights(days: 30, targetMinutes: targetMinutes)
         AppLog.store.info("Display history now \(self.displaySessions.count) night(s)")
-        updateWidget()
+        updateWidgetSoon()
     }
 
     // MARK: - Profile edits
 
     func saveSchedule(bedtime: Int, wakeTime: Int) {
         guard var profile else { return }
+        guard profile.bedtime != bedtime || profile.wakeTime != wakeTime else { return }
         profile.bedtime = bedtime
         profile.wakeTime = wakeTime
         self.profile = profile
@@ -280,6 +303,7 @@ final class SleepStore {
         guard var profile else { return }
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        guard profile.name != trimmed else { return }
         profile.name = trimmed
         self.profile = profile
         persist(refreshWidget: false)
@@ -292,16 +316,36 @@ final class SleepStore {
         activeSession = nil
         selectedTab = .home
         persistence.reset()
-        updateWidget()
+        updateWidgetSoon()
         AppLog.store.info("All data reset")
     }
 
     private func persist(refreshWidget: Bool = true) {
+        if AppEnvironment.isTesting {
+            persistNow(refreshWidget: refreshWidget)
+            return
+        }
+        DispatchQueue.main.async { [weak self] in
+            self?.persistNow(refreshWidget: refreshWidget)
+        }
+    }
+
+    private func persistNow(refreshWidget: Bool = true) {
         persistence.save(
             SleepSnapshot(profile: profile, sessions: sessions, activeSession: activeSession)
         )
         if refreshWidget {
-            updateWidget()
+            updateWidgetSoon()
+        }
+    }
+
+    private func performAfterStateChange(_ work: @escaping () -> Void) {
+        if AppEnvironment.isTesting {
+            work()
+            return
+        }
+        DispatchQueue.main.async {
+            work()
         }
     }
 }

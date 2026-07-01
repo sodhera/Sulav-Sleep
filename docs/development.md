@@ -81,7 +81,10 @@ Filter with `-only-testing:SulavSleepTests` or `-only-testing:SulavSleepUITests`
 - `SleepStore.swift`: observable app state and user actions; also holds
   `SleepPersistence` (UserDefaults JSON, keys `sulav.profile.v1`,
   `sulav.sessions.v1`, `sulav.active.v1`), the pure `SleepMerge` (local/Health
-  dedupe), and `SleepMath`.
+  dedupe), and `SleepMath`. User-visible state mutates immediately; in normal app
+  runs persistence and side effects are deferred one main-queue turn so button
+  taps can render their transition before JSON/UserDefaults or Screen Time work.
+  Tests keep persistence synchronous for deterministic assertions.
 - `SleepModels.swift`: profile, sessions (`SleepSource` tagged), active session,
   tabs, sheet IDs, and `HealthSyncState`. Codable is decode-safe for records
   written before newer fields existed.
@@ -100,12 +103,14 @@ Filter with `-only-testing:SulavSleepTests` or `-only-testing:SulavSleepUITests`
 - `ReportsView.swift`: weekly chart, averages, history with source badges,
   empty state.
 - `OnboardingView.swift`: intro, name, bedtime, wake, and the Apple Health
-  connect step.
+  connect step. It renders only the active onboarding step and owns the shared
+  lightweight `TimeAdjuster`, used instead of UIKit `DatePicker`/wheel controls
+  to avoid first-use hitches during transitions.
 - `Sheets.swift`: schedule editor and settings (name, schedule, Health toggle,
   reset).
 - `LiquidGlass.swift`: native Liquid Glass wrappers with material fallbacks.
-- `SleepBackground.swift`: six-layer parallax Rainy Pixel Night scene +
-  `ParallaxController` (CoreMotion).
+- `SleepBackground.swift`: layered, infinitely scrolling Rainy Pixel Night scene
+  + `ParallaxController` (CoreMotion).
 - `SleepTheme.swift`: palette, spacing, radius, typography, `Haptics`.
 - `SleepFormatting.swift`: date/time/duration formatting.
 - `SleepIntents.swift`: App Intents (start sleep, open app).

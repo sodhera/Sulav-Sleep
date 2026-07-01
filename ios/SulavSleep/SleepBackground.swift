@@ -6,7 +6,7 @@ import CoreMotion
 // A real pixel-art night city (CraftPix, OGA-BY 3.0 — see CREDITS.md) forms the
 // static base: sky, moon, stars, clouds, warm-lit skyline. On top of it we keep
 // the app's own animated, gyro-parallaxed layers — street-glow bloom, rain,
-// drifting dust, and the foreground window with condensation — so the scene
+// drifting dust, and the foreground glass condensation — so the scene
 // stays alive and rainy. The pixel art is warm-tinted and darkened so UI text
 // stays legible over it. See DESIGN.md.
 
@@ -277,7 +277,7 @@ private struct RainLayer: View {
     }
 }
 
-// MARK: - Foreground window (condensation, sliding droplets, reflection)
+// MARK: - Foreground glass (condensation, sliding droplets, reflection)
 
 private struct WindowLayer: View {
     let t: TimeInterval
@@ -285,17 +285,6 @@ private struct WindowLayer: View {
 
     var body: some View {
         Canvas { context, size in
-            let inset: CGFloat = 10
-            let frame = CGRect(x: inset, y: inset, width: size.width - inset * 2, height: size.height - inset * 2)
-            let shape = Path(roundedRect: frame, cornerRadius: 26)
-
-            context.stroke(shape, with: .color(SleepColor.streetGlow.opacity(0.05)), lineWidth: 2)
-            context.stroke(
-                Path(roundedRect: frame.insetBy(dx: 1, dy: 1), cornerRadius: 25),
-                with: .color(.black.opacity(0.18)),
-                lineWidth: 8
-            )
-
             // Condensation speckle near the top corners.
             for i in 0..<70 {
                 let side = hash01(i, 41) > 0.5 ? 0.0 : 1.0

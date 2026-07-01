@@ -30,13 +30,13 @@ overlay) and darkened with a deep-navy scrim so UI text stays legible.
 On top of that base we keep the app's own animated, gyro-parallaxed layers, back
 to front, with their parallax travel (px):
 
-- **Pixel city base** (4px) — the sourced scene, warm-tinted + scrimmed.
+- **Pixel city layers** (2–14px) — sourced sky and skyline PNG layers, warm-tinted + scrimmed.
 - **Street glow** (10px) — soft orange bloom near the horizon, pulsing ±5%.
 - **Rain** (8px) — three depths: small/slow/faint, medium, and occasional
   bright close drops. Never perfectly vertical; some drops fade halfway.
 - **Atmosphere** (6px) — faint drifting dust for depth.
-- **Foreground window** (14px) — frame vignette, condensation speckle, droplets
-  sliding down the glass, a very faint diagonal reflection.
+- **Foreground glass** — condensation speckle and droplets sliding down the
+  glass. No hard inner window frame; device-edge strokes read as visual defects.
 
 The immersive sleep screen (`SleepModeView`) does **not** use this scene — it is
 true OLED black (`Color.black`, no glow, no gradient) with only the ember-red
@@ -46,12 +46,10 @@ state (bare timer, "Tap to wake"); tapping the screen reveals the controls.
 Parallax comes from the gyroscope (`CoreMotion`), low-pass filtered so it eases
 naturally with no snapping. When device motion is unavailable (e.g. Simulator) a
 drag gesture drives it instead, and the continuous animation carries the scene.
-On top of that, each layer also drifts on its own sine (~60s period), scaled
-by depth — like watching buildings drift past a car window at night. It reads
-clearly as motion, not a background hum: the foreground window layer swings
-tens of points; the city base still moves the least, keeping the depth order
-intact.
-Layers are overscanned (`scaleEffect(1.35)`) so parallax + drift never reveal an edge.
+On top of that, each pixel-art layer scrolls right-to-left with modulo wrapping,
+scaled by depth — like watching buildings drift past a car window at night. It
+never autoreverses or swings, so the scene does not expose source-image edges at
+turnaround points.
 The whole scene renders in a single `TimelineView` at ~30fps, and pauses
 entirely on tabs that aren't visible so it never costs frames off-screen.
 
@@ -86,7 +84,7 @@ heavy frosted glass.
 
 - Interactive glass only on tappable/focusable elements.
 - Capsules for buttons and the bottom nav; continuous rounded rectangles for
-  sheets and pickers.
+  sheets and compact time adjusters.
 - Primary button: amber→gold gradient fill, deep-navy ink, soft amber glow.
 - Secondary button: subtle glass, ink text, hairline border.
 - Do not build custom blur stacks when a native glass/material surface fits.

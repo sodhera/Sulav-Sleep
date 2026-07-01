@@ -29,21 +29,15 @@ struct ScheduleSheet: View {
             }
             .pickerStyle(.segmented)
 
-            DatePicker(
-                "",
-                selection: Binding(
-                    get: { SleepFormatting.date(fromMinutes: selectedMode == .bed ? draftBedtime : draftWakeTime) },
-                    set: { date in
-                        if selectedMode == .bed { draftBedtime = SleepFormatting.minutes(from: date) }
-                        else { draftWakeTime = SleepFormatting.minutes(from: date) }
+            TimeAdjuster(
+                minutes: Binding(
+                    get: { selectedMode == .bed ? draftBedtime : draftWakeTime },
+                    set: { minutes in
+                        if selectedMode == .bed { draftBedtime = minutes }
+                        else { draftWakeTime = minutes }
                     }
-                ),
-                displayedComponents: .hourAndMinute
+                )
             )
-            .datePickerStyle(.wheel)
-            .labelsHidden()
-            .colorScheme(.dark)
-            .tint(SleepColor.amber)
 
             LiquidPrimaryButton(title: "Save schedule", systemImage: "checkmark") {
                 Haptics.soft()

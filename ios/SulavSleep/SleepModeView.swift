@@ -20,9 +20,6 @@ struct SleepModeView: View {
     var body: some View {
         ZStack {
             SleepModeBackground()
-                .onTapGesture {
-                    withAnimation(.easeInOut(duration: 0.4)) { showControls = true }
-                }
 
             VStack(spacing: SleepSpacing.huge) {
                 Spacer()
@@ -71,6 +68,11 @@ struct SleepModeView: View {
                 }
             }
             .padding(.bottom, SleepSpacing.huge)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            guard !showControls else { return }
+            withAnimation(.easeInOut(duration: 0.4)) { showControls = true }
         }
         .task(id: activeSession.start) {
             while !Task.isCancelled {
