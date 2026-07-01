@@ -18,6 +18,10 @@ final class SleepStore {
     init(persistence: SleepPersistence = .shared, health: SleepHealthProviding? = nil) {
         self.persistence = persistence
         self.health = health ?? SleepHealth.makeDefault()
+        // UI tests launch with a clean slate so onboarding is deterministic.
+        if CommandLine.arguments.contains("-uitest-reset") {
+            persistence.reset()
+        }
         reload()
     }
 

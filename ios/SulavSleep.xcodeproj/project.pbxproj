@@ -25,6 +25,14 @@
 		CC3D146C5EAF5AB2266E9E6D /* SleepIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 116765E93C9E1F418AE0CB6A /* SleepIntents.swift */; };
 		E78D7CA5F0403ACA372B7DB8 /* Sheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE88F8599F33B6D90A64D2BA /* Sheets.swift */; };
 		FA831C765CABBEF773CE99ED /* SleepStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2248DEAF235A937EB6B1B2C7 /* SleepStore.swift */; };
+		F200000000000000000000C1 /* SleepMathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000000000000000000B1 /* SleepMathTests.swift */; };
+		F200000000000000000000C2 /* SleepNightBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000000000000000000B2 /* SleepNightBuilderTests.swift */; };
+		F200000000000000000000C3 /* SleepMergeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000000000000000000B3 /* SleepMergeTests.swift */; };
+		F200000000000000000000C4 /* SleepStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000000000000000000B4 /* SleepStoreTests.swift */; };
+		F200000000000000000000C5 /* SleepFormattingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000000000000000000B5 /* SleepFormattingTests.swift */; };
+		F200000000000000000000C6 /* TestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000000000000000000B6 /* TestSupport.swift */; };
+		F300000000000000000000C1 /* OnboardingUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F300000000000000000000B1 /* OnboardingUITests.swift */; };
+		F300000000000000000000C2 /* SleepFlowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F300000000000000000000B2 /* SleepFlowUITests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -48,10 +56,34 @@
 		EBB2CED1004A6A08D5A70F24 /* RootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RootView.swift; path = SulavSleep/RootView.swift; sourceTree = "<group>"; };
 		F0E16E05E315F1EE37C03F9C /* ReportsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReportsView.swift; path = SulavSleep/ReportsView.swift; sourceTree = "<group>"; };
 		F69F492AFB4609915E10F59C /* SleepTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepTheme.swift; path = SulavSleep/SleepTheme.swift; sourceTree = "<group>"; };
+		F200000000000000000000A2 /* SulavSleepTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SulavSleepTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F200000000000000000000B1 /* SleepMathTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SleepMathTests.swift; path = SulavSleepTests/SleepMathTests.swift; sourceTree = "<group>"; };
+		F200000000000000000000B2 /* SleepNightBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SleepNightBuilderTests.swift; path = SulavSleepTests/SleepNightBuilderTests.swift; sourceTree = "<group>"; };
+		F200000000000000000000B3 /* SleepMergeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SleepMergeTests.swift; path = SulavSleepTests/SleepMergeTests.swift; sourceTree = "<group>"; };
+		F200000000000000000000B4 /* SleepStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SleepStoreTests.swift; path = SulavSleepTests/SleepStoreTests.swift; sourceTree = "<group>"; };
+		F200000000000000000000B5 /* SleepFormattingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SleepFormattingTests.swift; path = SulavSleepTests/SleepFormattingTests.swift; sourceTree = "<group>"; };
+		F200000000000000000000B6 /* TestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TestSupport.swift; path = SulavSleepTests/TestSupport.swift; sourceTree = "<group>"; };
+		F300000000000000000000A2 /* SulavSleepUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SulavSleepUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F300000000000000000000B1 /* OnboardingUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OnboardingUITests.swift; path = SulavSleepUITests/OnboardingUITests.swift; sourceTree = "<group>"; };
+		F300000000000000000000B2 /* SleepFlowUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SleepFlowUITests.swift; path = SulavSleepUITests/SleepFlowUITests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		13B07F8C1A680F5B00A75B9A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F200000000000000000000A4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F300000000000000000000A4 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -99,6 +131,8 @@
 			isa = PBXGroup;
 			children = (
 				13B07FAE1A68108700A75B9A /* SulavSleep */,
+				F200000000000000000000A0 /* SulavSleepTests */,
+				F300000000000000000000A0 /* SulavSleepUITests */,
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 			);
@@ -111,8 +145,32 @@
 			isa = PBXGroup;
 			children = (
 				13B07F961A680F5B00A75B9A /* SulavSleep.app */,
+				F200000000000000000000A2 /* SulavSleepTests.xctest */,
+				F300000000000000000000A2 /* SulavSleepUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		F200000000000000000000A0 /* SulavSleepTests */ = {
+			isa = PBXGroup;
+			children = (
+				F200000000000000000000B6 /* TestSupport.swift */,
+				F200000000000000000000B1 /* SleepMathTests.swift */,
+				F200000000000000000000B2 /* SleepNightBuilderTests.swift */,
+				F200000000000000000000B3 /* SleepMergeTests.swift */,
+				F200000000000000000000B4 /* SleepStoreTests.swift */,
+				F200000000000000000000B5 /* SleepFormattingTests.swift */,
+			);
+			name = SulavSleepTests;
+			sourceTree = "<group>";
+		};
+		F300000000000000000000A0 /* SulavSleepUITests */ = {
+			isa = PBXGroup;
+			children = (
+				F300000000000000000000B1 /* OnboardingUITests.swift */,
+				F300000000000000000000B2 /* SleepFlowUITests.swift */,
+			);
+			name = SulavSleepUITests;
 			sourceTree = "<group>";
 		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
@@ -143,6 +201,40 @@
 			productReference = 13B07F961A680F5B00A75B9A /* SulavSleep.app */;
 			productType = "com.apple.product-type.application";
 		};
+		F200000000000000000000A1 /* SulavSleepTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F200000000000000000000A6 /* Build configuration list for PBXNativeTarget "SulavSleepTests" */;
+			buildPhases = (
+				F200000000000000000000A3 /* Sources */,
+				F200000000000000000000A4 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F200000000000000000000A9 /* PBXTargetDependency */,
+			);
+			name = SulavSleepTests;
+			productName = SulavSleepTests;
+			productReference = F200000000000000000000A2 /* SulavSleepTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		F300000000000000000000A1 /* SulavSleepUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F300000000000000000000A6 /* Build configuration list for PBXNativeTarget "SulavSleepUITests" */;
+			buildPhases = (
+				F300000000000000000000A3 /* Sources */,
+				F300000000000000000000A4 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F300000000000000000000A9 /* PBXTargetDependency */,
+			);
+			name = SulavSleepUITests;
+			productName = SulavSleepUITests;
+			productReference = F300000000000000000000A2 /* SulavSleepUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -153,6 +245,14 @@
 				TargetAttributes = {
 					13B07F861A680F5B00A75B9A = {
 						LastSwiftMigration = 1250;
+					};
+					F200000000000000000000A1 = {
+						CreatedOnToolsVersion = 26.5;
+						TestTargetID = 13B07F861A680F5B00A75B9A;
+					};
+					F300000000000000000000A1 = {
+						CreatedOnToolsVersion = 26.5;
+						TestTargetID = 13B07F861A680F5B00A75B9A;
 					};
 				};
 			};
@@ -170,6 +270,8 @@
 			projectRoot = "";
 			targets = (
 				13B07F861A680F5B00A75B9A /* SulavSleep */,
+				F200000000000000000000A1 /* SulavSleepTests */,
+				F300000000000000000000A1 /* SulavSleepUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -210,7 +312,59 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		F200000000000000000000A3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F200000000000000000000C6 /* TestSupport.swift in Sources */,
+				F200000000000000000000C1 /* SleepMathTests.swift in Sources */,
+				F200000000000000000000C2 /* SleepNightBuilderTests.swift in Sources */,
+				F200000000000000000000C3 /* SleepMergeTests.swift in Sources */,
+				F200000000000000000000C4 /* SleepStoreTests.swift in Sources */,
+				F200000000000000000000C5 /* SleepFormattingTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F300000000000000000000A3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F300000000000000000000C1 /* OnboardingUITests.swift in Sources */,
+				F300000000000000000000C2 /* SleepFlowUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXContainerItemProxy section */
+		F200000000000000000000AA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 13B07F861A680F5B00A75B9A;
+			remoteInfo = SulavSleep;
+		};
+		F300000000000000000000AA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 13B07F861A680F5B00A75B9A;
+			remoteInfo = SulavSleep;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		F200000000000000000000A9 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 13B07F861A680F5B00A75B9A /* SulavSleep */;
+			targetProxy = F200000000000000000000AA /* PBXContainerItemProxy */;
+		};
+		F300000000000000000000A9 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 13B07F861A680F5B00A75B9A /* SulavSleep */;
+			targetProxy = F300000000000000000000AA /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
@@ -377,6 +531,96 @@
 			};
 			name = Release;
 		};
+		F200000000000000000000A7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.anonymous.sulav-sleep.tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SulavSleep.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/SulavSleep";
+			};
+			name = Debug;
+		};
+		F200000000000000000000A8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.anonymous.sulav-sleep.tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SulavSleep.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/SulavSleep";
+			};
+			name = Release;
+		};
+		F300000000000000000000A7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.anonymous.sulav-sleep.uitests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = SulavSleep;
+			};
+			name = Debug;
+		};
+		F300000000000000000000A8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.anonymous.sulav-sleep.uitests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = SulavSleep;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -394,6 +638,24 @@
 			buildConfigurations = (
 				83CBBA201A601CBA00E9B192 /* Debug */,
 				83CBBA211A601CBA00E9B192 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F200000000000000000000A6 /* Build configuration list for PBXNativeTarget "SulavSleepTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F200000000000000000000A7 /* Debug */,
+				F200000000000000000000A8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F300000000000000000000A6 /* Build configuration list for PBXNativeTarget "SulavSleepUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F300000000000000000000A7 /* Debug */,
+				F300000000000000000000A8 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
