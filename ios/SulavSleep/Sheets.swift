@@ -139,6 +139,11 @@ struct SettingsSheet: View {
                     .padding(.vertical, SleepSpacing.md)
             }
             .buttonStyle(.plain)
+
+            Text("Pixel art by CraftPix.net · OGA-BY 3.0")
+                .font(SleepFont.body(11))
+                .foregroundStyle(SleepColor.faint)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .onDisappear(perform: saveName)
     }

@@ -17,21 +17,29 @@ itself is minimal, editorial, and built on native iOS **Liquid Glass**.
 
 ## The scene (background)
 
-The background is a living scene, not a flat color, built from six independent
-parallax layers in `SleepBackground.swift`. Everything keeps moving even when
-the phone is perfectly still; motion should read as weather, not software. If a
-user consciously notices an animation, it is too strong.
+The background is a living scene, not a flat color, composited in
+`SleepBackground.swift`. Everything keeps moving even when the phone is
+perfectly still; motion should read as weather, not software. If a user
+consciously notices an animation, it is too strong.
 
-Layers, back to front, with their parallax travel (px):
+The **base** is a real pixel-art night city (CraftPix, OGA-BY 3.0 — see
+`CREDITS.md`): sky, moon, stars, clouds, and a warm-lit skyline. We do not
+hand-draw the pixel art. It is warm-tinted (saturation pulled down, amber/ember
+overlay) and darkened with a deep-navy scrim so UI text stays legible.
 
-1. **Sky** (2px) — deep navy gradient, twinkling stars, slow clouds, warm moon.
-2. **Distant city** (5px) — pixel skyline with tiny windows that flicker warm.
-3. **Street glow** (10px) — soft orange bloom near the horizon, pulsing ±5%.
-4. **Rain** (8px) — three depths: small/slow/faint, medium, and occasional
-   bright close drops. Never perfectly vertical; some drops fade halfway.
-5. **Foreground window** (14px) — frame vignette, condensation speckle, droplets
-   sliding down the glass, a very faint diagonal reflection.
-6. **Atmosphere** (6px) — faint drifting dust for depth.
+On top of that base we keep the app's own animated, gyro-parallaxed layers, back
+to front, with their parallax travel (px):
+
+- **Pixel city base** (4px) — the sourced scene, warm-tinted + scrimmed.
+- **Street glow** (10px) — soft orange bloom near the horizon, pulsing ±5%.
+- **Rain** (8px) — three depths: small/slow/faint, medium, and occasional
+  bright close drops. Never perfectly vertical; some drops fade halfway.
+- **Atmosphere** (6px) — faint drifting dust for depth.
+- **Foreground window** (14px) — frame vignette, condensation speckle, droplets
+  sliding down the glass, a very faint diagonal reflection.
+
+The immersive sleep screen (`SleepModeView`) does **not** use this scene — it is
+pitch black with layered reds for night vision.
 
 Parallax comes from the gyroscope (`CoreMotion`), low-pass filtered so it eases
 naturally with no snapping. When device motion is unavailable (e.g. Simulator) a
