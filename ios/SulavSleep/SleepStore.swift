@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import WidgetKit
 
 @Observable
 final class SleepStore {
@@ -64,6 +65,26 @@ final class SleepStore {
         profile = snapshot.profile
         sessions = snapshot.sessions
         activeSession = snapshot.activeSession
+        updateWidget()
+    }
+
+    /// Publish a compact summary to the App Group and refresh the home-screen
+    /// widget. Called on every change to displayed history.
+    private func updateWidget() {
+        guard !AppEnvironment.isTesting else { return }
+        let recent = Array(displaySessions.suffix(7)).map {
+            WidgetNight(end: $0.end, durationMinutes: $0.durationMinutes, score: $0.score)
+        }
+        let summary = SleepWidgetSummary(
+            nights: recent,
+            latestScore: latestSession?.score,
+            latestDurationMinutes: latestSession?.durationMinutes,
+            streak: onTrackStreak,
+            targetMinutes: targetMinutes,
+            updated: Date()
+        )
+        SleepWidgetStore.save(summary)
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     /// Called when the app becomes active. Pulls fresh nights from Health if the
@@ -173,6 +194,7 @@ final class SleepStore {
         defer { isImportingHealth = false }
         importedHealthSessions = await health.fetchNights(days: 30, targetMinutes: targetMinutes)
         AppLog.store.info("Display history now \(self.displaySessions.count) night(s)")
+        updateWidget()
     }
 
     // MARK: - Profile edits
@@ -201,6 +223,7 @@ final class SleepStore {
         activeSession = nil
         selectedTab = .home
         persistence.reset()
+        updateWidget()
         AppLog.store.info("All data reset")
     }
 
@@ -208,6 +231,7 @@ final class SleepStore {
         persistence.save(
             SleepSnapshot(profile: profile, sessions: sessions, activeSession: activeSession)
         )
+        updateWidget()
     }
 }
 
