@@ -49,6 +49,12 @@ Filters or block other apps without user-controlled system permissions. Any
 future enforcement work must live behind native platform capabilities and be
 documented before implementation.
 
+The next major direction is **sleep enforcement**: after logging sleep, the phone
+becomes nearly useless (user-selected apps shielded) until wake or a set number
+of hours — plus a home-screen widget with a sleep graph and score. Both are
+planned in detail in `docs/roadmap-lockdown-and-widget.md` (Screen Time /
+Family Controls + WidgetKit, with their platform constraints).
+
 ## Visual direction — Rainy Pixel Night
 
 The app should feel like a warm apartment window on a rainy evening (see
