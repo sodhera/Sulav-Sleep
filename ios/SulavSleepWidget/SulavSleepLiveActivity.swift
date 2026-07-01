@@ -17,7 +17,7 @@ struct SulavSleepLiveActivity: Widget {
                         .foregroundStyle(SleepColor.ember)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    Text(timerInterval: context.state.startDate...Date.distantFuture, countsDown: false)
+                    Text(context.state.startDate, style: .timer)
                         .font(SleepFont.title(16))
                         .foregroundStyle(SleepColor.ember)
                         .monospacedDigit()
@@ -30,7 +30,7 @@ struct SulavSleepLiveActivity: Widget {
             } compactLeading: {
                 Image(systemName: "moon.fill").foregroundStyle(SleepColor.ember)
             } compactTrailing: {
-                Text(timerInterval: context.state.startDate...Date.distantFuture, countsDown: false)
+                Text(context.state.startDate, style: .timer)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(SleepColor.ember)
                     .monospacedDigit()
@@ -54,7 +54,7 @@ private struct LockScreenSleepView: View {
                 Text("Asleep")
                     .font(SleepFont.body(13))
                     .foregroundStyle(SleepColor.muted)
-                Text(timerInterval: startDate...Date.distantFuture, countsDown: false)
+                Text(startDate, style: .timer)
                     .font(SleepFont.title(24))
                     .foregroundStyle(SleepColor.ember)
                     .monospacedDigit()

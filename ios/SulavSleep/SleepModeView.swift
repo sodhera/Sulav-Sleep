@@ -1,17 +1,17 @@
 import SwiftUI
 
-// Immersive sleep mode. Pitch black with layered reds (red preserves night
-// vision). The timer is the only text. Controls are visible by default; "Go
-// back to sleep" collapses to the bare timer, and tapping the screen brings the
-// controls back. "Cancel & go back" leaves without logging, for someone who
-// only opened this to peek.
+// Immersive sleep mode. True OLED black; only the timer glows, in ember red
+// (red preserves night vision). It opens straight into the bare, minimal
+// timer — the same collapsed state "Go back to sleep" leaves you in — and
+// tapping the screen brings the controls back. "Cancel & go back" leaves
+// without logging, for someone who only opened this to peek.
 
 struct SleepModeView: View {
     var store: SleepStore
     let activeSession: ActiveSleepSession
 
     @State private var now = Date()
-    @State private var showControls = true
+    @State private var showControls = false
 
     private var elapsedMinutes: Int {
         max(0, Int(now.timeIntervalSince(activeSession.start) / 60))
@@ -131,36 +131,8 @@ private struct EmberButtonStyle: ButtonStyle {
 
 private struct SleepModeBackground: View {
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 20.0)) { timeline in
-            let t = timeline.date.timeIntervalSinceReferenceDate
-            Canvas { context, size in
-                // Pitch-black base.
-                context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(SleepColor.sleepBlack))
-
-                // Layered red glows in different tones, each pulsing slowly at
-                // its own rate — "different versions of red all throughout".
-                let glows: [(CGFloat, CGFloat, CGFloat, Color, Double)] = [
-                    (0.20, 0.18, 340, SleepColor.crimsonGlow, 13),
-                    (0.85, 0.32, 300, SleepColor.bloodGlow, 17),
-                    (0.50, 0.92, 460, SleepColor.crimsonGlow, 11),
-                    (0.12, 0.78, 280, SleepColor.bloodGlow, 19),
-                ]
-                for (i, g) in glows.enumerated() {
-                    let pulse = 1 + 0.06 * sin(t / g.4 + Double(i))
-                    let r = g.2 * pulse
-                    let center = CGPoint(x: size.width * g.0, y: size.height * g.1)
-                    context.fill(
-                        Path(ellipseIn: CGRect(x: center.x - r, y: center.y - r, width: r * 2, height: r * 2)),
-                        with: .radialGradient(
-                            Gradient(colors: [g.3.opacity(0.5 * pulse), .clear]),
-                            center: center, startRadius: 0, endRadius: r
-                        )
-                    )
-                }
-            }
-            .ignoresSafeArea()
-        }
-        .ignoresSafeArea()
-        .background(SleepColor.sleepBlack.ignoresSafeArea())
+        // True OLED black — no glow, no gradient, nothing to redraw. Only the
+        // ember-red timer text supplies color, preserving night vision.
+        Color.black.ignoresSafeArea()
     }
 }

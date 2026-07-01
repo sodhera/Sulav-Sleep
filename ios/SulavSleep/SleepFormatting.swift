@@ -47,4 +47,13 @@ enum SleepFormatting {
         components.minute = ((minutes % 60) + 60) % 60
         return Calendar.current.date(from: components) ?? Date()
     }
+
+    /// Time remaining until the next occurrence of a minute-of-day (e.g. a
+    /// bedtime), formatted as "Xh YYm". Always positive — if the target
+    /// already passed today, it rolls to tomorrow.
+    static func countdown(toMinuteOfDay target: Int, from now: Date) -> String {
+        let nowMinutes = minutes(from: now)
+        let delta = ((target - nowMinutes) % 1_440 + 1_440) % 1_440
+        return duration(delta == 0 ? 1_440 : delta)
+    }
 }

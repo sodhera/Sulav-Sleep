@@ -34,20 +34,22 @@ struct MainShellView: View {
 
     var body: some View {
         TabView(selection: $store.selectedTab) {
-            tab { HomeView(store: store, profile: profile) }
+            tab(active: store.selectedTab == .home) { HomeView(store: store, profile: profile) }
                 .tabItem { Label("Home", systemImage: "house") }
                 .tag(AppTab.home)
 
-            tab { ReportsView(store: store) }
+            tab(active: store.selectedTab == .reports) { ReportsView(store: store) }
                 .tabItem { Label("Reports", systemImage: "chart.xyaxis.line") }
                 .tag(AppTab.reports)
         }
         .tint(SleepColor.amber)
     }
 
-    private func tab<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+    // Only the visible tab's background animates; the hidden tab's clock
+    // pauses so it isn't silently costing frames in the background.
+    private func tab<Content: View>(active: Bool, @ViewBuilder _ content: () -> Content) -> some View {
         ZStack {
-            SleepBackground(showsMoon: true)
+            SleepBackground(showsMoon: true, isActive: active)
             content()
         }
     }

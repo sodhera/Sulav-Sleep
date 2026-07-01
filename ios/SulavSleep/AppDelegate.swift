@@ -31,7 +31,7 @@ struct SulavSleepApp: App {
                     AppLog.app.info("Scene active")
                     Task { await store.refreshHealthIfEnabled() }
                 }
-                .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in
+                .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification, object: UserDefaults.standard)) { _ in
                     store.reload()
                 }
         }

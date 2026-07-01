@@ -23,24 +23,20 @@ struct HomeView: View {
                 }
                 .padding(.top, SleepSpacing.huge * 1.6)
 
-                VStack(spacing: SleepSpacing.xs) {
-                    Text("Tonight").sectionLabel()
-                    Text("\(SleepFormatting.clock(profile.bedtime))  –  \(SleepFormatting.clock(profile.wakeTime))")
-                        .font(SleepFont.title(24))
-                        .foregroundStyle(SleepColor.ink)
+                TimelineView(.periodic(from: .now, by: 60)) { timeline in
+                    VStack(spacing: SleepSpacing.xs) {
+                        Text("Bedtime in").sectionLabel()
+                        Text(SleepFormatting.countdown(toMinuteOfDay: profile.bedtime, from: timeline.date))
+                            .font(SleepFont.title(24))
+                            .foregroundStyle(SleepColor.ink)
+                            .monospacedDigit()
+                    }
                 }
                 .padding(.top, SleepSpacing.huge)
 
-                VStack(spacing: SleepSpacing.md) {
-                    LiquidPrimaryButton(title: "Sleep Now", systemImage: "moon.fill") {
-                        Haptics.soft()
-                        store.startSleep()
-                    }
-                    LiquidSecondaryButton(
-                        title: "Set Bedtime",
-                        value: SleepFormatting.clock(profile.bedtime),
-                        systemImage: "clock"
-                    ) { presentedSheet = .schedule }
+                LiquidPrimaryButton(title: "Sleep Now", systemImage: "moon.fill") {
+                    Haptics.soft()
+                    store.startSleep()
                 }
                 .padding(.top, SleepSpacing.huge * 1.3)
 
@@ -97,9 +93,6 @@ private struct HomeHeader: View {
 
     var body: some View {
         HStack {
-            Text(SleepFormatting.longDate.string(from: Date()))
-                .font(SleepFont.body(14))
-                .foregroundStyle(SleepColor.muted)
             if isImporting {
                 ProgressView().controlSize(.mini).tint(SleepColor.amber)
             }

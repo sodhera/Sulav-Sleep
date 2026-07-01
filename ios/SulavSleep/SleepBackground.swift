@@ -13,14 +13,27 @@ import CoreMotion
 struct SleepBackground: View {
     /// Kept for call-site compatibility; the pixel scene includes its own moon.
     var showsMoon = true
+    /// When false (e.g. an off-screen tab) the animation clock pauses entirely
+    /// so we don't pay for redraws nobody sees.
+    var isActive = true
 
     @State private var parallax = ParallaxController()
     @State private var drag: CGSize = .zero
 
+    // Very slow, subtle autonomous pan — like watching buildings drift past a
+    // car window. Deeper layers (small depth) barely move; the foreground
+    // window layer drifts a little more. Bounded by a slow sine so it never
+    // runs past the overscan and reveals an edge.
+    private let driftPeriod: Double = 340
+
+    private func drift(_ t: Double, depth: CGFloat) -> CGFloat {
+        CGFloat(-sin(t / driftPeriod)) * depth * 1.1
+    }
+
     var body: some View {
         GeometryReader { geo in
             let size = geo.size
-            TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+            TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !isActive)) { timeline in
                 let t = timeline.date.timeIntervalSinceReferenceDate
                 let p = parallax.isActive ? parallax.offset : drag
 
@@ -28,16 +41,16 @@ struct SleepBackground: View {
                     SleepColor.background
 
                     PixelCityBase(size: size)
-                        .offset(x: p.width * 4, y: p.height * 3)
+                        .offset(x: p.width * 4 + drift(t, depth: 4), y: p.height * 3)
 
                     StreetGlowLayer(t: t, size: size)
-                        .offset(x: p.width * 10, y: p.height * 6)
+                        .offset(x: p.width * 10 + drift(t, depth: 10), y: p.height * 6)
                     RainLayer(t: t, size: size)
-                        .offset(x: p.width * 8, y: p.height * 4)
+                        .offset(x: p.width * 8 + drift(t, depth: 8), y: p.height * 4)
                     AtmosphereLayer(t: t, size: size)
-                        .offset(x: p.width * 6, y: p.height * 4)
+                        .offset(x: p.width * 6 + drift(t, depth: 6), y: p.height * 4)
                     WindowLayer(t: t, size: size)
-                        .offset(x: p.width * 14, y: p.height * 8)
+                        .offset(x: p.width * 14 + drift(t, depth: 14), y: p.height * 8)
                 }
                 // Overscan so a few pixels of parallax never reveal an edge.
                 .scaleEffect(1.12)
