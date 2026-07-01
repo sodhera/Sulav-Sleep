@@ -38,5 +38,11 @@ yarn-error.*
 *.tsbuildinfo
 
 # generated native folders
-/ios
 /android
+
+# iOS build/generated output
+/ios/Pods/
+/ios/build/
+/ios/Podfile.lock
+/ios/.xcode.env*
+/ios/DerivedData/
