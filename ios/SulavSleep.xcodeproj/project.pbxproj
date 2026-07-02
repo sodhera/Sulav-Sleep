@@ -31,6 +31,7 @@
 		F100000000000000000FB2 /* SleepActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000FB1 /* SleepActivityAttributes.swift */; };
 		F100000000000000000FC2 /* SleepLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000FC1 /* SleepLiveActivity.swift */; };
 		F100000000000000000FD2 /* SleepAssetCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000FD1 /* SleepAssetCache.swift */; };
+		F600000000000000000000B2 /* RainyNightLoop.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = F600000000000000000000B1 /* RainyNightLoop.mp4 */; };
 		F200000000000000000000C1 /* SleepMathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000000000000000000B1 /* SleepMathTests.swift */; };
 		F200000000000000000000C2 /* SleepNightBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000000000000000000B2 /* SleepNightBuilderTests.swift */; };
 		F200000000000000000000C3 /* SleepMergeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000000000000000000B3 /* SleepMergeTests.swift */; };
@@ -126,6 +127,7 @@
 		F100000000000000000FB1 /* SleepActivityAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepActivityAttributes.swift; path = SulavSleep/SleepActivityAttributes.swift; sourceTree = "<group>"; };
 		F100000000000000000FC1 /* SleepLiveActivity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepLiveActivity.swift; path = SulavSleep/SleepLiveActivity.swift; sourceTree = "<group>"; };
 		F100000000000000000FD1 /* SleepAssetCache.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepAssetCache.swift; path = SulavSleep/SleepAssetCache.swift; sourceTree = "<group>"; };
+		F600000000000000000000B1 /* RainyNightLoop.mp4 */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = video.mp4; name = RainyNightLoop.mp4; path = SulavSleep/Video/RainyNightLoop.mp4; sourceTree = "<group>"; };
 		F200000000000000000000A2 /* SulavSleepTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SulavSleepTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F200000000000000000000B1 /* SleepMathTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SleepMathTests.swift; path = SulavSleepTests/SleepMathTests.swift; sourceTree = "<group>"; };
 		F200000000000000000000B2 /* SleepNightBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SleepNightBuilderTests.swift; path = SulavSleepTests/SleepNightBuilderTests.swift; sourceTree = "<group>"; };
@@ -193,6 +195,7 @@
 			children = (
 				BB2F792B24A3F905000567C9 /* Supporting */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
+				F600000000000000000000B1 /* RainyNightLoop.mp4 */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
 				9EC3E675CCE9C41BC01DFFAE /* PrivacyInfo.xcprivacy */,
@@ -461,6 +464,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
+				F600000000000000000000B2 /* RainyNightLoop.mp4 in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
 				83B718F7C4B4F234291D6F95 /* PrivacyInfo.xcprivacy in Resources */,
 			);

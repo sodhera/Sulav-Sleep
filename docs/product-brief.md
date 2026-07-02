@@ -58,7 +58,7 @@ Family Controls + WidgetKit, with their platform constraints).
 ## Visual direction — Rainy Pixel Night
 
 The app should feel like a warm apartment window on a rainy evening (see
-`DESIGN.md`): a living, multi-layer parallax night scene behind a minimal,
+`DESIGN.md`): a living, video-backed rainy pixel night scene behind a minimal,
 editorial Liquid Glass interface. Warm amber indoor light against deep navy; no
 purple, no neon. Low stimulation at night, sparse during active sleep, and
 legible under a red night tint.

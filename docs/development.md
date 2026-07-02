@@ -21,6 +21,32 @@ truth.
 Defaults: `iPhone 17 Pro`, scheme `SulavSleep`, `Debug`, derived data in
 `ios/build/DerivedData`. Override the device with `IOS_SIMULATOR_DEVICE`.
 
+## Render the Background Video
+
+The app background uses a bundled HEVC loop instead of an in-process animation
+loop. The render script requires `ffmpeg` on macOS with VideoToolbox HEVC
+encoding available. Regenerate the asset after changing the pixel-city art or
+the baked rain/glow grade:
+
+```sh
+./scripts/render-rainy-night-video.sh
+```
+
+The script reads the credited CraftPix city artwork from
+`ios/SulavSleep/Images.xcassets`, writes
+`ios/SulavSleep/Video/RainyNightLoop.mp4`, and encodes an `hvc1` HEVC file sized
+for portrait aspect-fill playback. `SleepBackground.swift` loads that file with
+`AVPlayerLayer`/`AVPlayerLooper`, keeps a static `NightCity` image behind it as
+the fallback first frame, and applies `UIInterpolatingMotionEffect` to the
+oversized video host for subtle parallax without app-owned gyro polling.
+
+Environment overrides are available for local experiments:
+
+```sh
+VIDEO_WIDTH=1080 VIDEO_HEIGHT=2340 VIDEO_FPS=24 VIDEO_DURATION=10 \
+  ./scripts/render-rainy-night-video.sh
+```
+
 ## Build without launching
 
 ```sh
@@ -106,12 +132,17 @@ Filter with `-only-testing:SulavSleepTests` or `-only-testing:SulavSleepUITests`
   connect step. It renders only the active onboarding step and owns the shared
   lightweight `TimeAdjuster`, used instead of UIKit `DatePicker`/wheel controls
   to avoid first-use hitches during transitions. The name field reports focus to
-  `RootView`, which pauses the animated background while the keyboard is active.
+  `RootView`, which pauses the video background while the keyboard is active.
+  The intro step also pre-warms the UIKit keyboard stack with a hidden
+  `UITextField`, and the name step auto-focuses after the transition so the
+  first keyboard appearance is absorbed into the step change.
 - `Sheets.swift`: schedule editor and settings (name, schedule, Health toggle,
   reset).
 - `LiquidGlass.swift`: native Liquid Glass wrappers with material fallbacks.
-- `SleepBackground.swift`: layered, infinitely scrolling Rainy Pixel Night scene
-  + `ParallaxController` (CoreMotion).
+- `SleepBackground.swift`: video-backed Rainy Pixel Night scene. It plays
+  `RainyNightLoop.mp4` with `AVPlayerLayer`/`AVPlayerLooper`, pauses off-screen
+  or during onboarding text entry, uses `NightCity` as a static fallback, and
+  applies system motion-effect parallax instead of CoreMotion polling.
 - `SleepAssetCache.swift`: launch-time decode cache for the pixel city layers so
   the first interactive onboarding steps do not pay image decode cost.
 - `SleepTheme.swift`: palette, spacing, radius, typography, `Haptics`.

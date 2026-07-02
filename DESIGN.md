@@ -27,36 +27,26 @@ The **base** is a real pixel-art night city (CraftPix, OGA-BY 3.0 — see
 hand-draw the pixel art. It is warm-tinted (saturation pulled down, amber/ember
 overlay) and darkened with a deep-navy scrim so UI text stays legible.
 
-On top of that base we keep the app's own animated, gyro-parallaxed layers, back
-to front, with their parallax travel (px):
+The living scene is now baked into `RainyNightLoop.mp4`: the city art is
+warm-tinted, darkened, and composited with subtle rain and soft street glow. The
+loop is intentionally restrained and low-contrast; the motion should register as
+rain outside a window, not as an animation system asking for attention.
 
-- **Pixel city layers** (2–14px) — sourced sky and skyline PNG layers, warm-tinted + scrimmed.
-- **Street glow** (10px) — soft orange bloom near the horizon, pulsing ±5%.
-- **Rain** (8px) — three depths: small/slow/faint, medium, and occasional
-  bright close drops. Never perfectly vertical; some drops fade halfway.
-- **Atmosphere** (6px) — faint drifting dust for depth.
-- **Foreground glass** — condensation speckle and droplets sliding down the
-  glass. No hard inner window frame; device-edge strokes read as visual defects.
+The runtime layer still gets a small amount of depth from system parallax:
+`SleepBackground.swift` plays the loop slightly oversized and applies
+`UIInterpolatingMotionEffect` to the video host. This uses the system motion
+effect path rather than app-owned gyro polling.
 
 The immersive sleep screen (`SleepModeView`) does **not** use this scene — it is
 true OLED black (`Color.black`, no glow, no gradient) with only the ember-red
 timer text for night vision. It opens straight into the minimal, collapsed
 state (bare timer, "Tap to wake"); tapping the screen reveals the controls.
 
-Parallax comes from the gyroscope (`CoreMotion`), low-pass filtered so it eases
-naturally with no snapping. When device motion is unavailable (e.g. Simulator) a
-drag gesture drives it instead, and the continuous animation carries the scene.
-On top of that, each pixel-art layer scrolls right-to-left with modulo wrapping,
-scaled by depth — like watching buildings drift past a car window at night. It
-never autoreverses or swings, so the scene does not expose source-image edges at
-turnaround points.
-The whole scene runs on **SpriteKit** (`RainyNightScene` in `SleepBackground.swift`),
-completely outside SwiftUI's layout/diffing pipeline. City layers scroll via
-position updates in the `update()` loop, rain is three `SKEmitterNode` particle
-systems (GPU-accelerated), and glow circles pulse via `SKAction`. Everything
-renders on Metal at 60fps. The gyroscope is polled directly in the update loop
-(no main-thread callbacks). The only SwiftUI element is a single `SpriteView`.
-The background **never** pauses except on hidden tabs.
+The whole scene runs through **AVPlayerLayer** with `AVPlayerLooper`, so the
+continuous work is handled by the hardware video decoder instead of an
+in-process SwiftUI, SpriteKit, or CoreMotion render loop. The background pauses
+for hidden tabs and while the onboarding name field is focused, then resumes
+when the scene is active again.
 
 ## Palette
 

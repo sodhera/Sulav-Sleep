@@ -5,6 +5,7 @@ import UIKit
 
 struct OnboardingView: View {
     var healthAvailable: Bool
+    var onNameFocusChange: (Bool) -> Void = { _ in }
     let onDone: (String, Int, Int, Bool) -> Void
 
     @State private var step = 0
@@ -40,7 +41,7 @@ struct OnboardingView: View {
         case 0:
             OnboardingIntro()
         case 1:
-            NameStep(name: $name)
+            NameStep(name: $name, onFocusChange: onNameFocusChange)
         case 2:
             TimeStep(
                 title: "When do you usually sleep?",
@@ -147,6 +148,10 @@ private struct OnboardingIntro: View {
 
 private struct NameStep: View {
     @Binding var name: String
+    var onFocusChange: (Bool) -> Void
+
+    @FocusState private var isFocused: Bool
+    @State private var focusTask: Task<Void, Never>?
 
     var body: some View {
         VStack(spacing: SleepSpacing.lg) {
@@ -167,8 +172,25 @@ private struct NameStep: View {
                 .overlay(alignment: .bottom) {
                     Rectangle().fill(SleepColor.hairline).frame(height: 1)
                 }
+                .focused($isFocused)
                 .onSubmit { Keyboard.dismiss() }
+                .onChange(of: isFocused) { _, focused in
+                    onFocusChange(focused)
+                }
                 .accessibilityLabel("Your name")
+        }
+        .onAppear {
+            focusTask?.cancel()
+            focusTask = Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 260_000_000)
+                guard !Task.isCancelled else { return }
+                isFocused = true
+            }
+        }
+        .onDisappear {
+            focusTask?.cancel()
+            isFocused = false
+            onFocusChange(false)
         }
     }
 }
@@ -240,6 +262,10 @@ struct TimeAdjuster: View {
 }
 
 private enum Keyboard {
+    #if canImport(UIKit)
+    private static var warmupField: UITextField?
+    #endif
+
     static func dismiss() {
         #if canImport(UIKit)
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
@@ -248,23 +274,36 @@ private enum Keyboard {
 
     /// Force-load the keyboard framework into memory so the first real
     /// keyboard appearance is instant. Call once on the intro screen.
-    static func prewarm() {
+    static func prewarm(duration: TimeInterval = 0.55) {
         #if canImport(UIKit)
         DispatchQueue.main.async {
-            guard let window = UIApplication.shared.connectedScenes
+            guard warmupField == nil else { return }
+            guard let scene = UIApplication.shared.connectedScenes
                 .compactMap({ $0 as? UIWindowScene })
-                .first?.windows.first else { return }
-            let field = UITextField(frame: .zero)
+                .first(where: { $0.activationState == .foregroundActive }),
+                let window = scene.windows.first(where: { $0.isKeyWindow }) ?? scene.windows.first
+            else { return }
+
+            let field = UITextField(frame: CGRect(x: -1, y: -1, width: 1, height: 1))
+            field.alpha = 0.01
             field.autocorrectionType = .no
+            field.spellCheckingType = .no
+            field.smartQuotesType = .no
+            field.smartDashesType = .no
             field.inputAssistantItem.leadingBarButtonGroups = []
             field.inputAssistantItem.trailingBarButtonGroups = []
+            field.isAccessibilityElement = false
             window.addSubview(field)
+            warmupField = field
             field.becomeFirstResponder()
-            // Resign immediately on the next runloop tick so the keyboard
-            // is loaded but never visually appears.
-            DispatchQueue.main.async {
+
+            // Let the keyboard stack finish its async cold path before resigning.
+            DispatchQueue.main.asyncAfter(deadline: .now() + duration) {
                 field.resignFirstResponder()
                 field.removeFromSuperview()
+                if warmupField === field {
+                    warmupField = nil
+                }
             }
         }
         #endif
