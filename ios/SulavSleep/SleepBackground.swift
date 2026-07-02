@@ -5,9 +5,10 @@ import CoreMotion
 // MARK: - Rainy Pixel Night background (SpriteKit)
 //
 // The animated background runs entirely on SpriteKit's Metal-backed renderer,
-// completely outside SwiftUI's layout/diffing pipeline. Scrolling city layers,
-// falling rain particles, and pulsing glow all run at 60fps with zero SwiftUI
-// overhead. The only bridge is a single SpriteView in the SwiftUI hierarchy.
+// completely outside SwiftUI's layout/diffing pipeline. Scrolling city layers
+// and pulsing glow run at 30fps with zero SwiftUI overhead. Gyroscope parallax
+// is polled in the update loop (no main-thread callbacks). The only SwiftUI
+// bridge is a single SpriteView.
 //
 // The pixel art is the CraftPix night city (OGA-BY 3.0 — see CREDITS.md).
 // See DESIGN.md for the full scene description.
@@ -44,7 +45,7 @@ final class RainyNightScene: SKScene {
     private struct LayerSpec {
         let assetName: String
         let speed: CGFloat   // px/sec scrolling left
-        let xDepth: CGFloat  // parallax multiplier
+        let xDepth: CGFloat  // gyroscope parallax multiplier
         let yDepth: CGFloat
     }
 
@@ -103,7 +104,6 @@ final class RainyNightScene: SKScene {
         setupWarmOverlay()
         setupNightScrim()
         setupGlow()
-        setupRain()
     }
 
     // MARK: Update loop (SpriteKit render thread — no SwiftUI involvement)
@@ -235,64 +235,11 @@ final class RainyNightScene: SKScene {
         }
     }
 
-    // MARK: - Rain (SpriteKit particle emitters — GPU accelerated)
-
-    private func setupRain() {
-        let rainTex = makeRainTexture()
-
-        // Far rain: small, slow, faint
-        addRainEmitter(texture: rainTex, birthRate: 35, speed: 190,
-                       speedRange: 60, alpha: 0.08, scale: 0.35, zPos: 13)
-        // Mid rain
-        addRainEmitter(texture: rainTex, birthRate: 25, speed: 320,
-                       speedRange: 100, alpha: 0.14, scale: 0.6, zPos: 14)
-        // Close rain: large, fast, bright
-        addRainEmitter(texture: rainTex, birthRate: 8, speed: 520,
-                       speedRange: 140, alpha: 0.28, scale: 1.0, zPos: 15)
-    }
-
-    private func addRainEmitter(
-        texture: SKTexture, birthRate: CGFloat, speed: CGFloat,
-        speedRange: CGFloat, alpha: CGFloat, scale: CGFloat, zPos: CGFloat
-    ) {
-        let emitter = SKEmitterNode()
-        emitter.particleTexture = texture
-        emitter.particleBirthRate = birthRate
-
-        let travel = size.height + 100
-        emitter.particleLifetime = travel / speed + 0.5
-        emitter.particleLifetimeRange = emitter.particleLifetime * 0.2
-
-        // Position emitter above the screen, spanning full width
-        emitter.position = CGPoint(x: 0, y: size.height / 2 + 40)
-        emitter.particlePositionRange = CGVector(dx: size.width * 1.4, dy: 0)
-
-        emitter.particleSpeed = speed
-        emitter.particleSpeedRange = speedRange
-        emitter.emissionAngle = -.pi / 2 - 0.08  // Slightly off vertical
-
-        emitter.particleAlpha = alpha
-        emitter.particleAlphaRange = alpha * 0.3
-        emitter.particleAlphaSpeed = -alpha * 0.05
-
-        emitter.particleScale = scale
-        emitter.particleScaleRange = scale * 0.3
-
-        emitter.particleColor = UIColor(SleepColor.rain)
-        emitter.particleColorBlendFactor = 1
-        emitter.particleBlendMode = .add
-
-        emitter.zPosition = zPos
-        emitter.targetNode = self  // Particles live in scene space, not emitter space
-
-        addChild(emitter)
-    }
-
     // MARK: - Gyroscope (polled — no callbacks, no main thread work)
 
     private func startGyroscope() {
         guard motion.isDeviceMotionAvailable, !motion.isDeviceMotionActive else { return }
-        motion.deviceMotionUpdateInterval = 1.0 / 60.0
+        motion.deviceMotionUpdateInterval = 1.0 / 30.0
         // No handler — we poll in update(). Zero main-thread callbacks.
         motion.startDeviceMotionUpdates()
     }
@@ -312,18 +259,6 @@ final class RainyNightScene: SKScene {
     }
 
     // MARK: - Texture generation (called once during setup)
-
-    /// Thin white capsule for rain drops.
-    private func makeRainTexture() -> SKTexture {
-        let w: CGFloat = 2, h: CGFloat = 16
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: w, height: h))
-        let image = renderer.image { _ in
-            UIColor.white.setFill()
-            UIBezierPath(roundedRect: CGRect(x: 0, y: 0, width: w, height: h),
-                         cornerRadius: w / 2).fill()
-        }
-        return SKTexture(image: image)
-    }
 
     /// Soft radial gradient for glow circles (white — tinted via node.color).
     private func makeGlowTexture(radius: CGFloat) -> SKTexture {
