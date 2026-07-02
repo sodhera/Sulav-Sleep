@@ -1,367 +1,360 @@
 import SwiftUI
+import SpriteKit
 import CoreMotion
 
-// MARK: - Rainy Pixel Night background
+// MARK: - Rainy Pixel Night background (SpriteKit)
 //
-// A real pixel-art night city (CraftPix, OGA-BY 3.0 — see CREDITS.md) forms the
-// static base: sky, moon, stars, clouds, warm-lit skyline. On top of it we keep
-// the app's own animated, gyro-parallaxed layers — street-glow bloom, rain,
-// drifting dust, and the foreground glass condensation — so the scene
-// stays alive and rainy. The pixel art is warm-tinted and darkened so UI text
-// stays legible over it. See DESIGN.md.
+// The animated background runs entirely on SpriteKit's Metal-backed renderer,
+// completely outside SwiftUI's layout/diffing pipeline. Scrolling city layers,
+// falling rain particles, and pulsing glow all run at 60fps with zero SwiftUI
+// overhead. The only bridge is a single SpriteView in the SwiftUI hierarchy.
+//
+// The pixel art is the CraftPix night city (OGA-BY 3.0 — see CREDITS.md).
+// See DESIGN.md for the full scene description.
+
+// MARK: - SwiftUI wrapper
 
 struct SleepBackground: View {
     /// Kept for call-site compatibility; the pixel scene includes its own moon.
     var showsMoon = true
-    /// When false (e.g. an off-screen tab) the animation clock pauses entirely
-    /// so we don't pay for redraws nobody sees.
+    /// When false (e.g. an off-screen tab) the SpriteKit scene pauses entirely.
     var isActive = true
 
-    @State private var parallax = ParallaxController()
-    @State private var drag: CGSize = .zero
+    @State private var scene: RainyNightScene = {
+        let s = RainyNightScene(size: UIScreen.main.bounds.size)
+        s.scaleMode = .resizeFill
+        return s
+    }()
 
     var body: some View {
-        GeometryReader { geo in
-            let size = geo.size
-            TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !isActive)) { timeline in
-                let t = timeline.date.timeIntervalSinceReferenceDate
-                let p = parallax.isActive ? parallax.offset : drag
-
-                ZStack {
-                    SleepColor.background
-
-                    PixelCityBase(size: size, t: t, parallax: p)
-
-                    StreetGlowLayer(t: t, size: size)
-                    RainLayer(t: t, size: size)
-                    AtmosphereLayer(t: t, size: size)
-                    WindowLayer(t: t, size: size)
-                }
-            }
-            .contentShape(Rectangle())
-            .gesture(dragFallback(size: size))
-        }
-        .ignoresSafeArea()
-        .onAppear { parallax.start() }
-        .onDisappear { parallax.stop() }
-    }
-
-    private func dragFallback(size: CGSize) -> some Gesture {
-        DragGesture(minimumDistance: 0)
-            .onChanged { value in
-                guard !parallax.isActive else { return }
-                let nx = Double(value.translation.width / max(size.width, 1) * 2)
-                let ny = Double(value.translation.height / max(size.height, 1) * 2)
-                drag = CGSize(width: max(-1, min(1, nx)), height: max(-1, min(1, ny)))
-            }
-            .onEnded { _ in
-                withAnimation(.interpolatingSpring(stiffness: 40, damping: 10)) {
-                    drag = .zero
-                }
+        SpriteView(scene: scene)
+            .ignoresSafeArea()
+            .onChange(of: isActive) { _, active in
+                scene.isPaused = !active
             }
     }
 }
 
-// MARK: - Pixel-art city base (warm-tinted + darkened for legibility)
+// MARK: - SpriteKit scene
 
-private struct PixelCityBase: View {
-    let size: CGSize
-    let t: TimeInterval
-    let parallax: CGSize
+final class RainyNightScene: SKScene {
 
-    private let layers: [ScrollingPixelLayer.Spec] = [
-        .init(assetName: "NightCitySky", speed: 3, xDepth: 2, yDepth: 2, phase: 0.00),
-        .init(assetName: "NightCityFarSkyline", speed: 5, xDepth: 4, yDepth: 3, phase: 0.15),
-        .init(assetName: "NightCityMidSkyline", speed: 8, xDepth: 7, yDepth: 4, phase: 0.34),
-        .init(assetName: "NightCityNearSkyline", speed: 12, xDepth: 10, yDepth: 5, phase: 0.55),
-        .init(assetName: "NightCityFrontSkyline", speed: 17, xDepth: 14, yDepth: 6, phase: 0.78),
+    // MARK: Layer configuration
+
+    private struct LayerSpec {
+        let assetName: String
+        let speed: CGFloat   // px/sec scrolling left
+        let xDepth: CGFloat  // parallax multiplier
+        let yDepth: CGFloat
+    }
+
+    private let layerSpecs: [LayerSpec] = [
+        .init(assetName: "NightCitySky",          speed: 3,  xDepth: 2,  yDepth: 2),
+        .init(assetName: "NightCityFarSkyline",   speed: 5,  xDepth: 4,  yDepth: 3),
+        .init(assetName: "NightCityMidSkyline",   speed: 8,  xDepth: 7,  yDepth: 4),
+        .init(assetName: "NightCityNearSkyline",  speed: 12, xDepth: 10, yDepth: 5),
+        .init(assetName: "NightCityFrontSkyline", speed: 17, xDepth: 14, yDepth: 6),
     ]
 
-    var body: some View {
-        ZStack {
-            ForEach(layers) { layer in
-                ScrollingPixelLayer(spec: layer, size: size, t: t, parallax: parallax)
-            }
-        }
-            .frame(width: size.width, height: size.height)
-            .saturation(0.55) // pull the blue toward the warm palette
-            .overlay {
-                // Warm indoor cast: amber up top, ember low.
-                LinearGradient(
-                    colors: [SleepColor.amber.opacity(0.22), .clear, SleepColor.crimsonGlow.opacity(0.14)],
-                    startPoint: .top, endPoint: .bottom
-                )
-                .blendMode(.overlay)
-            }
-            .overlay {
-                // Deep-night scrim so headings and buttons stay readable.
-                LinearGradient(
-                    stops: [
-                        .init(color: SleepColor.background.opacity(0.55), location: 0),
-                        .init(color: SleepColor.background.opacity(0.18), location: 0.42),
-                        .init(color: SleepColor.background.opacity(0.66), location: 1),
-                    ],
-                    startPoint: .top, endPoint: .bottom
-                )
-            }
-            .clipped()
-    }
-}
+    // MARK: Runtime state
 
-private struct ScrollingPixelLayer: View {
-    struct Spec: Identifiable {
-        var assetName: String
-        var speed: CGFloat
-        var xDepth: CGFloat
-        var yDepth: CGFloat
-        var phase: CGFloat
-
-        var id: String { assetName }
+    private struct ScrollingLayer {
+        let container: SKNode
+        let tiles: [SKSpriteNode]
+        let spec: LayerSpec
     }
+
+    private var scrollingLayers: [ScrollingLayer] = []
+    private var lastUpdateTime: TimeInterval = 0
+
+    // Parallax (gyroscope, polled in update — zero callbacks to main thread)
+    private let motion = CMMotionManager()
+    private var parallax = CGPoint.zero
+
+    // MARK: Lifecycle
+
+    override func didMove(to view: SKView) {
+        backgroundColor = UIColor(SleepColor.background)
+        anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        buildScene()
+        startGyroscope()
+    }
+
+    override func willMove(from view: SKView) {
+        stopGyroscope()
+    }
+
+    override func didChangeSize(_ oldSize: CGSize) {
+        guard size.width > 0, size.height > 0, !scrollingLayers.isEmpty else { return }
+        removeAllChildren()
+        removeAllActions()
+        scrollingLayers.removeAll()
+        buildScene()
+    }
+
+    // MARK: Build scene
+
+    private func buildScene() {
+        setupCityLayers()
+        setupWarmOverlay()
+        setupNightScrim()
+        setupGlow()
+        setupRain()
+    }
+
+    // MARK: Update loop (SpriteKit render thread — no SwiftUI involvement)
+
+    override func update(_ currentTime: TimeInterval) {
+        let dt = lastUpdateTime == 0 ? 0 : min(currentTime - lastUpdateTime, 0.1)
+        lastUpdateTime = currentTime
+        guard dt > 0 else { return }
+
+        pollGyroscope(dt: dt)
+        scrollLayers(dt: dt)
+    }
+
+    // MARK: - City layers
 
     private static let assetAspect: CGFloat = 16.0 / 9.0
 
-    let spec: Spec
-    let size: CGSize
-    let t: TimeInterval
-    let parallax: CGSize
+    private func setupCityLayers() {
+        for spec in layerSpecs {
+            let container = SKNode()
+            addChild(container)
 
-    var body: some View {
-        let tileWidth = max(size.height * Self.assetAspect, 1)
-        let repeatCount = max(3, Int(ceil(size.width / tileWidth)) + 3)
-        let distance = travelDistance(tileWidth: tileWidth)
-        let xOffset = -tileWidth - distance + parallax.width * spec.xDepth
-        let yOffset = parallax.height * spec.yDepth
+            let tileW = max(size.height * Self.assetAspect, 1)
+            let texture = SKTexture(imageNamed: spec.assetName)
+            texture.filteringMode = .nearest  // Pixel art — no interpolation
 
-        HStack(spacing: 0) {
-            ForEach(0..<repeatCount, id: \.self) { _ in
-                CachedPixelImage(assetName: spec.assetName)
-                    .frame(width: tileWidth, height: size.height)
-                    .clipped()
+            var tiles: [SKSpriteNode] = []
+            for i in 0..<3 {
+                let tile = SKSpriteNode(texture: texture,
+                                        size: CGSize(width: tileW, height: size.height))
+                tile.anchorPoint = CGPoint(x: 0, y: 0.5)
+                // Position: tile 0 left of center, tile 1 at center, tile 2 right
+                tile.position = CGPoint(x: CGFloat(i - 1) * tileW, y: 0)
+                // Warm-desaturate the pixel art (replaces .saturation(0.55) + amber tint)
+                tile.colorBlendFactor = 0.25
+                tile.color = UIColor(SleepColor.navy)
+                container.addChild(tile)
+                tiles.append(tile)
+            }
+
+            scrollingLayers.append(ScrollingLayer(container: container,
+                                                   tiles: tiles, spec: spec))
+        }
+    }
+
+    private func scrollLayers(dt: TimeInterval) {
+        let halfW = size.width / 2
+
+        for layer in scrollingLayers {
+            // Per-layer parallax on the container (free in SpriteKit — just a float)
+            layer.container.position = CGPoint(
+                x: parallax.x * layer.spec.xDepth,
+                y: parallax.y * layer.spec.yDepth
+            )
+
+            // Scroll tiles left
+            let tileW = layer.tiles[0].size.width
+            for tile in layer.tiles {
+                tile.position.x -= layer.spec.speed * CGFloat(dt)
+
+                // Wrap: when tile's right edge passes the left screen edge (with buffer)
+                if tile.position.x + tileW < -halfW - 40 {
+                    tile.position.x += tileW * CGFloat(layer.tiles.count)
+                }
             }
         }
-        .frame(width: tileWidth * CGFloat(repeatCount), height: size.height, alignment: .leading)
-        .offset(x: xOffset, y: yOffset)
     }
 
-    private func travelDistance(tileWidth: CGFloat) -> CGFloat {
-        let raw = (t * Double(spec.speed) + Double(spec.phase * tileWidth))
-            .truncatingRemainder(dividingBy: Double(tileWidth))
-        return CGFloat(raw)
+    // MARK: - Warm overlay (amber top → clear → ember bottom)
+
+    private func setupWarmOverlay() {
+        let tex = makeVerticalGradient(size: size, stops: [
+            (UIColor(SleepColor.amber).withAlphaComponent(0.18), 0),
+            (.clear, 0.5),
+            (UIColor(SleepColor.crimsonGlow).withAlphaComponent(0.12), 1),
+        ])
+        let overlay = SKSpriteNode(texture: tex, size: size)
+        overlay.blendMode = .add
+        overlay.zPosition = 10
+        addChild(overlay)
     }
-}
 
-private struct CachedPixelImage: View {
-    let assetName: String
+    // MARK: - Night scrim (dark gradient for text legibility)
 
-    var body: some View {
-        #if canImport(UIKit)
-        if let image = SleepAssetCache.image(named: assetName) {
-            Image(uiImage: image)
-                .resizable()
-                .interpolation(.none)
-                .antialiased(false)
-        } else {
-            fallback
+    private func setupNightScrim() {
+        let bg = UIColor(SleepColor.background)
+        let tex = makeVerticalGradient(size: size, stops: [
+            (bg.withAlphaComponent(0.55), 0),
+            (bg.withAlphaComponent(0.18), 0.42),
+            (bg.withAlphaComponent(0.66), 1),
+        ])
+        let scrim = SKSpriteNode(texture: tex, size: size)
+        scrim.blendMode = .alpha
+        scrim.zPosition = 11
+        addChild(scrim)
+    }
+
+    // MARK: - Street glow (pulsing amber circles)
+
+    private func setupGlow() {
+        let configs: [(x: CGFloat, y: CGFloat, r: CGFloat, period: TimeInterval)] = [
+            (0.18, 0.18, 150, 8),   // relX/relY from center (0.5 = center)
+            (0.52, 0.12, 200, 12),
+            (0.84, 0.20, 170, 15),
+        ]
+
+        let glowTex = makeGlowTexture(radius: 128)
+
+        for g in configs {
+            let d = g.r * 2
+            let node = SKSpriteNode(texture: glowTex, size: CGSize(width: d, height: d))
+            node.position = CGPoint(
+                x: (g.x - 0.5) * size.width,
+                y: (g.y - 0.5) * size.height
+            )
+            node.color = UIColor(SleepColor.streetGlow)
+            node.colorBlendFactor = 1
+            node.alpha = 0.14
+            node.blendMode = .add
+            node.zPosition = 12
+
+            // GPU-driven pulse via SKAction
+            let pulse = SKAction.sequence([
+                SKAction.fadeAlpha(to: 0.20, duration: g.period / 2),
+                SKAction.fadeAlpha(to: 0.10, duration: g.period / 2),
+            ])
+            node.run(.repeatForever(pulse))
+            addChild(node)
         }
-        #else
-        fallback
-        #endif
     }
 
-    private var fallback: some View {
-        Image(assetName)
-            .resizable()
-            .interpolation(.none)
-            .antialiased(false)
+    // MARK: - Rain (SpriteKit particle emitters — GPU accelerated)
+
+    private func setupRain() {
+        let rainTex = makeRainTexture()
+
+        // Far rain: small, slow, faint
+        addRainEmitter(texture: rainTex, birthRate: 35, speed: 190,
+                       speedRange: 60, alpha: 0.08, scale: 0.35, zPos: 13)
+        // Mid rain
+        addRainEmitter(texture: rainTex, birthRate: 25, speed: 320,
+                       speedRange: 100, alpha: 0.14, scale: 0.6, zPos: 14)
+        // Close rain: large, fast, bright
+        addRainEmitter(texture: rainTex, birthRate: 8, speed: 520,
+                       speedRange: 140, alpha: 0.28, scale: 1.0, zPos: 15)
     }
-}
 
-// MARK: - Parallax controller (gyroscope, spring-smoothed)
+    private func addRainEmitter(
+        texture: SKTexture, birthRate: CGFloat, speed: CGFloat,
+        speedRange: CGFloat, alpha: CGFloat, scale: CGFloat, zPos: CGFloat
+    ) {
+        let emitter = SKEmitterNode()
+        emitter.particleTexture = texture
+        emitter.particleBirthRate = birthRate
 
-@Observable
-final class ParallaxController {
-    private(set) var offset: CGSize = .zero
-    private(set) var isActive = false
+        let travel = size.height + 100
+        emitter.particleLifetime = travel / speed + 0.5
+        emitter.particleLifetimeRange = emitter.particleLifetime * 0.2
 
-    private let motion = CMMotionManager()
+        // Position emitter above the screen, spanning full width
+        emitter.position = CGPoint(x: 0, y: size.height / 2 + 40)
+        emitter.particlePositionRange = CGVector(dx: size.width * 1.4, dy: 0)
 
-    func start() {
+        emitter.particleSpeed = speed
+        emitter.particleSpeedRange = speedRange
+        emitter.emissionAngle = -.pi / 2 - 0.08  // Slightly off vertical
+
+        emitter.particleAlpha = alpha
+        emitter.particleAlphaRange = alpha * 0.3
+        emitter.particleAlphaSpeed = -alpha * 0.05
+
+        emitter.particleScale = scale
+        emitter.particleScaleRange = scale * 0.3
+
+        emitter.particleColor = UIColor(SleepColor.rain)
+        emitter.particleColorBlendFactor = 1
+        emitter.particleBlendMode = .add
+
+        emitter.zPosition = zPos
+        emitter.targetNode = self  // Particles live in scene space, not emitter space
+
+        addChild(emitter)
+    }
+
+    // MARK: - Gyroscope (polled — no callbacks, no main thread work)
+
+    private func startGyroscope() {
         guard motion.isDeviceMotionAvailable, !motion.isDeviceMotionActive else { return }
-        motion.deviceMotionUpdateInterval = 1.0 / 30.0
-        isActive = true
-        motion.startDeviceMotionUpdates(to: .main) { [weak self] data, _ in
-            guard let self, let attitude = data?.attitude else { return }
-            let targetX = max(-1, min(1, attitude.roll / 0.6))
-            let targetY = max(-1, min(1, (attitude.pitch - 0.5) / 0.6))
-            let k = 0.10
-            offset.width += (CGFloat(targetX) - offset.width) * k
-            offset.height += (CGFloat(targetY) - offset.height) * k
-        }
+        motion.deviceMotionUpdateInterval = 1.0 / 60.0
+        // No handler — we poll in update(). Zero main-thread callbacks.
+        motion.startDeviceMotionUpdates()
     }
 
-    func stop() {
+    private func stopGyroscope() {
         guard motion.isDeviceMotionActive else { return }
         motion.stopDeviceMotionUpdates()
-        isActive = false
-    }
-}
-
-// MARK: - Deterministic pseudo-random (stable per element index)
-
-private func hash01(_ i: Int, _ salt: Int = 0) -> Double {
-    var x = UInt64(bitPattern: Int64(i &* 374_761_393 &+ salt &* 668_265_263 &+ 1))
-    x = (x ^ (x >> 13)) &* 1_274_126_177
-    x ^= x >> 16
-    return Double(x % 10_000) / 10_000.0
-}
-
-// MARK: - Street-light glow (soft orange bloom, slow pulse)
-
-private struct StreetGlowLayer: View {
-    let t: TimeInterval
-    let size: CGSize
-
-    var body: some View {
-        Canvas { context, size in
-            let glows: [(CGFloat, CGFloat, CGFloat, Double)] = [
-                (0.18, 0.82, 150, 8),
-                (0.52, 0.88, 200, 12),
-                (0.84, 0.80, 170, 15),
-            ]
-            for (i, g) in glows.enumerated() {
-                let pulse = 1 + 0.05 * sin(t / g.3 + Double(i))
-                let radius = g.2 * pulse
-                let center = CGPoint(x: size.width * g.0, y: size.height * g.1)
-                context.fill(
-                    Path(ellipseIn: CGRect(
-                        x: center.x - radius, y: center.y - radius,
-                        width: radius * 2, height: radius * 2
-                    )),
-                    with: .radialGradient(
-                        Gradient(colors: [SleepColor.streetGlow.opacity(0.14 * pulse), .clear]),
-                        center: center, startRadius: 0, endRadius: radius
-                    )
-                )
-            }
-        }
-        .blendMode(.plusLighter)
-    }
-}
-
-// MARK: - Rain (three depths)
-
-private struct RainLayer: View {
-    let t: TimeInterval
-    let size: CGSize
-
-    var body: some View {
-        Canvas { context, size in
-            drawPass(&context, size: size, count: 40, speed: 190, length: 9, width: 0.8, opacity: 0.10, angle: 0.06, salt: 100)
-            drawPass(&context, size: size, count: 30, speed: 320, length: 15, width: 1.1, opacity: 0.16, angle: 0.09, salt: 200)
-            drawPass(&context, size: size, count: 10, speed: 520, length: 26, width: 1.8, opacity: 0.30, angle: 0.12, salt: 300, bright: true)
-        }
     }
 
-    private func drawPass(
-        _ context: inout GraphicsContext,
-        size: CGSize, count: Int, speed: Double, length: CGFloat,
-        width: CGFloat, opacity: Double, angle: CGFloat, salt: Int, bright: Bool = false
-    ) {
-        let span = size.height + length + 60
-        for i in 0..<count {
-            let x0 = hash01(i, salt) * size.width
-            let phase = hash01(i, salt + 1)
-            let sp = speed * (0.8 + hash01(i, salt + 2) * 0.5)
-            var y = (t * sp).truncatingRemainder(dividingBy: Double(span)) + phase * Double(span)
-            y = y.truncatingRemainder(dividingBy: Double(span)) - 40
-            let top = CGPoint(x: x0 + CGFloat(y) * angle, y: CGFloat(y))
-            let bottom = CGPoint(x: top.x + length * angle * 3, y: top.y + length)
-            guard hash01(i, salt + 3) > (bright ? 0.35 : 0.08) else { continue }
-            var line = Path()
-            line.move(to: top)
-            line.addLine(to: bottom)
-            context.stroke(
-                line,
-                with: .linearGradient(
-                    Gradient(colors: [SleepColor.rain.opacity(0), SleepColor.rain.opacity(opacity)]),
-                    startPoint: top, endPoint: bottom
-                ),
-                style: StrokeStyle(lineWidth: width, lineCap: .round)
-            )
-            if bright, hash01(i, salt + 4) > 0.7 {
-                context.stroke(
-                    line,
-                    with: .color(.white.opacity(0.18)),
-                    style: StrokeStyle(lineWidth: width * 2.4, lineCap: .round)
-                )
-            }
-        }
+    private func pollGyroscope(dt: TimeInterval) {
+        guard let data = motion.deviceMotion else { return }
+        let targetX = max(-1, min(1, CGFloat(data.attitude.roll / 0.6)))
+        let targetY = max(-1, min(1, CGFloat((data.attitude.pitch - 0.5) / 0.6)))
+        let k: CGFloat = 0.12
+        parallax.x += (targetX - parallax.x) * k
+        parallax.y += (targetY - parallax.y) * k
     }
-}
 
-// MARK: - Foreground glass (condensation, sliding droplets, reflection)
+    // MARK: - Texture generation (called once during setup)
 
-private struct WindowLayer: View {
-    let t: TimeInterval
-    let size: CGSize
-
-    var body: some View {
-        Canvas { context, size in
-            // Condensation speckle near the top corners.
-            for i in 0..<70 {
-                let side = hash01(i, 41) > 0.5 ? 0.0 : 1.0
-                let x = (side == 0 ? hash01(i, 42) * 0.3 : 0.7 + hash01(i, 42) * 0.3) * size.width
-                let y = hash01(i, 43) * size.height * 0.42
-                let r = 0.6 + hash01(i, 44) * 1.2
-                let shimmer = 0.02 + 0.03 * (0.5 + 0.5 * sin(t * 0.5 + Double(i)))
-                context.fill(
-                    Path(ellipseIn: CGRect(x: x, y: y, width: r, height: r)),
-                    with: .color(.white.opacity(shimmer))
-                )
-            }
-
-            // Droplets sliding down the glass, each leaving a faint trail.
-            for i in 0..<5 {
-                let x = (0.14 + hash01(i, 51) * 0.72) * size.width
-                let period = 14.0 + hash01(i, 52) * 16
-                let progress = ((t / period) + hash01(i, 53)).truncatingRemainder(dividingBy: 1)
-                let y = CGFloat(progress) * (size.height + 40) - 20
-                let dropLen = 10 + hash01(i, 54) * 16
-
-                var trail = Path()
-                trail.move(to: CGPoint(x: x, y: y - dropLen))
-                trail.addLine(to: CGPoint(x: x, y: y))
-                context.stroke(trail, with: .color(.white.opacity(0.06)), style: StrokeStyle(lineWidth: 1.4, lineCap: .round))
-                context.fill(
-                    Path(ellipseIn: CGRect(x: x - 1.8, y: y - 1.8, width: 3.6, height: 4.4)),
-                    with: .color(.white.opacity(0.14))
-                )
-            }
+    /// Thin white capsule for rain drops.
+    private func makeRainTexture() -> SKTexture {
+        let w: CGFloat = 2, h: CGFloat = 16
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: w, height: h))
+        let image = renderer.image { _ in
+            UIColor.white.setFill()
+            UIBezierPath(roundedRect: CGRect(x: 0, y: 0, width: w, height: h),
+                         cornerRadius: w / 2).fill()
         }
+        return SKTexture(image: image)
     }
-}
 
-// MARK: - Floating atmosphere (faint drifting dust)
-
-private struct AtmosphereLayer: View {
-    let t: TimeInterval
-    let size: CGSize
-
-    var body: some View {
-        Canvas { context, size in
-            for i in 0..<26 {
-                let baseX = hash01(i, 61) * size.width
-                let baseY = hash01(i, 62) * size.height
-                let x = baseX + CGFloat(sin(t * (0.05 + hash01(i, 63) * 0.08) + Double(i)) * 18)
-                let y = baseY + CGFloat(cos(t * (0.04 + hash01(i, 64) * 0.06) + Double(i)) * 12)
-                let r = 0.6 + hash01(i, 65) * 1.4
-                context.fill(
-                    Path(ellipseIn: CGRect(x: x, y: y, width: r, height: r)),
-                    with: .color(SleepColor.gold.opacity(0.03 + hash01(i, 66) * 0.03))
-                )
-            }
+    /// Soft radial gradient for glow circles (white — tinted via node.color).
+    private func makeGlowTexture(radius: CGFloat) -> SKTexture {
+        let d = radius * 2
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: d, height: d))
+        let image = renderer.image { ctx in
+            let gc = ctx.cgContext
+            let center = CGPoint(x: radius, y: radius)
+            let colors = [UIColor.white.cgColor, UIColor.clear.cgColor]
+            guard let gradient = CGGradient(
+                colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                colors: colors as CFArray, locations: [0, 1]
+            ) else { return }
+            gc.drawRadialGradient(gradient, startCenter: center, startRadius: 0,
+                                  endCenter: center, endRadius: radius, options: [])
         }
-        .blendMode(.plusLighter)
+        return SKTexture(image: image)
+    }
+
+    /// Top-to-bottom vertical gradient for overlays.
+    private func makeVerticalGradient(size: CGSize,
+                                       stops: [(color: UIColor, location: CGFloat)]) -> SKTexture {
+        let renderer = UIGraphicsImageRenderer(size: size)
+        let image = renderer.image { ctx in
+            let gc = ctx.cgContext
+            let cgColors = stops.map { $0.color.cgColor }
+            let locations = stops.map { $0.location }
+            guard let gradient = CGGradient(
+                colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                colors: cgColors as CFArray, locations: locations
+            ) else { return }
+            // UIGraphicsImageRenderer uses UIKit coords (y-down: 0=top)
+            gc.drawLinearGradient(gradient, start: .zero,
+                                  end: CGPoint(x: 0, y: size.height), options: [])
+        }
+        return SKTexture(image: image)
     }
 }

@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 54;
+	objectVersion = 46;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -12,17 +12,6 @@
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		198E5870D78A269255C9D9C1 /* LiquidGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 512730D266670DD636BD803A /* LiquidGlass.swift */; };
 		1E5168B98C242B90B04B7D9C /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE73361F00ABDB639ED1D41A /* AppDelegate.swift */; };
-		F100000000000000000000A2 /* Log.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000000A1 /* Log.swift */; };
-		F100000000000000000000B2 /* SleepHealthKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000000B1 /* SleepHealthKit.swift */; };
-		F100000000000000000000D2 /* SleepModeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000000D1 /* SleepModeView.swift */; };
-		F100000000000000000000E2 /* SleepWidgetShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000000E1 /* SleepWidgetShared.swift */; };
-		F100000000000000000000F2 /* SleepScreenTime.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000000F1 /* SleepScreenTime.swift */; };
-		F100000000000000000FA2 /* SleepLockdownShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000FA1 /* SleepLockdownShared.swift */; };
-		F100000000000000000FB2 /* SleepActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000FB1 /* SleepActivityAttributes.swift */; };
-		F100000000000000000FD2 /* SleepAssetCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000FD1 /* SleepAssetCache.swift */; };
-		F100000000000000000FC2 /* SleepLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000FC1 /* SleepLiveActivity.swift */; };
-		F400000000000000000000C5 /* SleepActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000FB1 /* SleepActivityAttributes.swift */; };
-		F400000000000000000000C6 /* SulavSleepLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = F400000000000000000000B4 /* SulavSleepLiveActivity.swift */; };
 		30ABD308DAB8167D795A2D9D /* ReportsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0E16E05E315F1EE37C03F9C /* ReportsView.swift */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		47501ABFFD25AA9B7048E27C /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9234E0E1693C0FC11F33BD3A /* OnboardingView.swift */; };
@@ -33,7 +22,15 @@
 		AB28ABECC3ED7A36A911D0C8 /* SleepFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 316EF63C74A39E0CE6D1D1BE /* SleepFormatting.swift */; };
 		CC3D146C5EAF5AB2266E9E6D /* SleepIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 116765E93C9E1F418AE0CB6A /* SleepIntents.swift */; };
 		E78D7CA5F0403ACA372B7DB8 /* Sheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE88F8599F33B6D90A64D2BA /* Sheets.swift */; };
-		FA831C765CABBEF773CE99ED /* SleepStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2248DEAF235A937EB6B1B2C7 /* SleepStore.swift */; };
+		F100000000000000000000A2 /* Log.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000000A1 /* Log.swift */; };
+		F100000000000000000000B2 /* SleepHealthKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000000B1 /* SleepHealthKit.swift */; };
+		F100000000000000000000D2 /* SleepModeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000000D1 /* SleepModeView.swift */; };
+		F100000000000000000000E2 /* SleepWidgetShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000000E1 /* SleepWidgetShared.swift */; };
+		F100000000000000000000F2 /* SleepScreenTime.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000000F1 /* SleepScreenTime.swift */; };
+		F100000000000000000FA2 /* SleepLockdownShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000FA1 /* SleepLockdownShared.swift */; };
+		F100000000000000000FB2 /* SleepActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000FB1 /* SleepActivityAttributes.swift */; };
+		F100000000000000000FC2 /* SleepLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000FC1 /* SleepLiveActivity.swift */; };
+		F100000000000000000FD2 /* SleepAssetCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000FD1 /* SleepAssetCache.swift */; };
 		F200000000000000000000C1 /* SleepMathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000000000000000000B1 /* SleepMathTests.swift */; };
 		F200000000000000000000C2 /* SleepNightBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000000000000000000B2 /* SleepNightBuilderTests.swift */; };
 		F200000000000000000000C3 /* SleepMergeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000000000000000000B3 /* SleepMergeTests.swift */; };
@@ -42,16 +39,65 @@
 		F200000000000000000000C6 /* TestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000000000000000000B6 /* TestSupport.swift */; };
 		F300000000000000000000C1 /* OnboardingUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F300000000000000000000B1 /* OnboardingUITests.swift */; };
 		F300000000000000000000C2 /* SleepFlowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F300000000000000000000B2 /* SleepFlowUITests.swift */; };
+		F400000000000000000000AC /* SulavSleepWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F400000000000000000000A2 /* SulavSleepWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		F400000000000000000000C1 /* SulavSleepWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F400000000000000000000B1 /* SulavSleepWidget.swift */; };
 		F400000000000000000000C2 /* SleepWidgetShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000000E1 /* SleepWidgetShared.swift */; };
 		F400000000000000000000C3 /* SleepTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = F69F492AFB4609915E10F59C /* SleepTheme.swift */; };
 		F400000000000000000000C4 /* SleepFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 316EF63C74A39E0CE6D1D1BE /* SleepFormatting.swift */; };
-		F400000000000000000000AC /* SulavSleepWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F400000000000000000000A2 /* SulavSleepWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		F400000000000000000000C5 /* SleepActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000FB1 /* SleepActivityAttributes.swift */; };
+		F400000000000000000000C6 /* SulavSleepLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = F400000000000000000000B4 /* SulavSleepLiveActivity.swift */; };
+		F500000000000000000000AC /* SulavSleepMonitor.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F500000000000000000000A2 /* SulavSleepMonitor.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		F500000000000000000000C1 /* SulavSleepMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F500000000000000000000B1 /* SulavSleepMonitor.swift */; };
 		F500000000000000000000C2 /* SleepLockdownShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000FA1 /* SleepLockdownShared.swift */; };
 		F500000000000000000000C3 /* SleepWidgetShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000000E1 /* SleepWidgetShared.swift */; };
-		F500000000000000000000AC /* SulavSleepMonitor.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F500000000000000000000A2 /* SulavSleepMonitor.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		FA831C765CABBEF773CE99ED /* SleepStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2248DEAF235A937EB6B1B2C7 /* SleepStore.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		F200000000000000000000AA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 13B07F861A680F5B00A75B9A;
+			remoteInfo = SulavSleep;
+		};
+		F300000000000000000000AA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 13B07F861A680F5B00A75B9A;
+			remoteInfo = SulavSleep;
+		};
+		F400000000000000000000AA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F400000000000000000000A1;
+			remoteInfo = SulavSleepWidgetExtension;
+		};
+		F500000000000000000000AA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F500000000000000000000A1;
+			remoteInfo = SulavSleepMonitor;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		F400000000000000000000AB /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				F400000000000000000000AC /* SulavSleepWidgetExtension.appex in Embed Foundation Extensions */,
+				F500000000000000000000AC /* SulavSleepMonitor.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		116765E93C9E1F418AE0CB6A /* SleepIntents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepIntents.swift; path = SulavSleep/SleepIntents.swift; sourceTree = "<group>"; };
@@ -64,10 +110,13 @@
 		512730D266670DD636BD803A /* LiquidGlass.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LiquidGlass.swift; path = SulavSleep/LiquidGlass.swift; sourceTree = "<group>"; };
 		740A33B6E6D4861DF61CFBB1 /* SleepModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepModels.swift; path = SulavSleep/SleepModels.swift; sourceTree = "<group>"; };
 		9234E0E1693C0FC11F33BD3A /* OnboardingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingView.swift; path = SulavSleep/OnboardingView.swift; sourceTree = "<group>"; };
-		9EC3E675CCE9C41BC01DFFAE /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = SulavSleep/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		9EC3E675CCE9C41BC01DFFAE /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = SulavSleep/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		9F4311BA03CAD3F576F79BFC /* SleepBackground.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepBackground.swift; path = SulavSleep/SleepBackground.swift; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = SulavSleep/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BE73361F00ABDB639ED1D41A /* AppDelegate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = SulavSleep/AppDelegate.swift; sourceTree = "<group>"; };
+		DE88F8599F33B6D90A64D2BA /* Sheets.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Sheets.swift; path = SulavSleep/Sheets.swift; sourceTree = "<group>"; };
+		EBB2CED1004A6A08D5A70F24 /* RootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RootView.swift; path = SulavSleep/RootView.swift; sourceTree = "<group>"; };
+		F0E16E05E315F1EE37C03F9C /* ReportsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReportsView.swift; path = SulavSleep/ReportsView.swift; sourceTree = "<group>"; };
 		F100000000000000000000A1 /* Log.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Log.swift; path = SulavSleep/Log.swift; sourceTree = "<group>"; };
 		F100000000000000000000B1 /* SleepHealthKit.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepHealthKit.swift; path = SulavSleep/SleepHealthKit.swift; sourceTree = "<group>"; };
 		F100000000000000000000D1 /* SleepModeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepModeView.swift; path = SulavSleep/SleepModeView.swift; sourceTree = "<group>"; };
@@ -75,13 +124,8 @@
 		F100000000000000000000F1 /* SleepScreenTime.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepScreenTime.swift; path = SulavSleep/SleepScreenTime.swift; sourceTree = "<group>"; };
 		F100000000000000000FA1 /* SleepLockdownShared.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepLockdownShared.swift; path = SulavSleep/SleepLockdownShared.swift; sourceTree = "<group>"; };
 		F100000000000000000FB1 /* SleepActivityAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepActivityAttributes.swift; path = SulavSleep/SleepActivityAttributes.swift; sourceTree = "<group>"; };
-		F100000000000000000FD1 /* SleepAssetCache.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepAssetCache.swift; path = SulavSleep/SleepAssetCache.swift; sourceTree = "<group>"; };
 		F100000000000000000FC1 /* SleepLiveActivity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepLiveActivity.swift; path = SulavSleep/SleepLiveActivity.swift; sourceTree = "<group>"; };
-		F400000000000000000000B4 /* SulavSleepLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SulavSleepLiveActivity.swift; path = SulavSleepWidget/SulavSleepLiveActivity.swift; sourceTree = "<group>"; };
-		DE88F8599F33B6D90A64D2BA /* Sheets.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Sheets.swift; path = SulavSleep/Sheets.swift; sourceTree = "<group>"; };
-		EBB2CED1004A6A08D5A70F24 /* RootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RootView.swift; path = SulavSleep/RootView.swift; sourceTree = "<group>"; };
-		F0E16E05E315F1EE37C03F9C /* ReportsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReportsView.swift; path = SulavSleep/ReportsView.swift; sourceTree = "<group>"; };
-		F69F492AFB4609915E10F59C /* SleepTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepTheme.swift; path = SulavSleep/SleepTheme.swift; sourceTree = "<group>"; };
+		F100000000000000000FD1 /* SleepAssetCache.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepAssetCache.swift; path = SulavSleep/SleepAssetCache.swift; sourceTree = "<group>"; };
 		F200000000000000000000A2 /* SulavSleepTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SulavSleepTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F200000000000000000000B1 /* SleepMathTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SleepMathTests.swift; path = SulavSleepTests/SleepMathTests.swift; sourceTree = "<group>"; };
 		F200000000000000000000B2 /* SleepNightBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SleepNightBuilderTests.swift; path = SulavSleepTests/SleepNightBuilderTests.swift; sourceTree = "<group>"; };
@@ -96,11 +140,13 @@
 		F400000000000000000000B1 /* SulavSleepWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SulavSleepWidget.swift; path = SulavSleepWidget/SulavSleepWidget.swift; sourceTree = "<group>"; };
 		F400000000000000000000B2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = SulavSleepWidget/Info.plist; sourceTree = "<group>"; };
 		F400000000000000000000B3 /* SulavSleepWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = SulavSleepWidget.entitlements; path = SulavSleepWidget/SulavSleepWidget.entitlements; sourceTree = "<group>"; };
+		F400000000000000000000B4 /* SulavSleepLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SulavSleepLiveActivity.swift; path = SulavSleepWidget/SulavSleepLiveActivity.swift; sourceTree = "<group>"; };
 		F500000000000000000000A2 /* SulavSleepMonitor.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SulavSleepMonitor.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		F500000000000000000000B1 /* SulavSleepMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SulavSleepMonitor.swift; path = SulavSleepMonitor/SulavSleepMonitor.swift; sourceTree = "<group>"; };
 		F500000000000000000000B2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = SulavSleepMonitor/Info.plist; sourceTree = "<group>"; };
 		F500000000000000000000B3 /* SulavSleepMonitor.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = SulavSleepMonitor.entitlements; path = SulavSleepMonitor/SulavSleepMonitor.entitlements; sourceTree = "<group>"; };
 		F500000000000000000000B4 /* SulavSleepMonitor-device.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = "SulavSleepMonitor-device.entitlements"; path = "SulavSleepMonitor/SulavSleepMonitor-device.entitlements"; sourceTree = "<group>"; };
+		F69F492AFB4609915E10F59C /* SleepTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepTheme.swift; path = SulavSleep/SleepTheme.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -211,26 +257,12 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		F400000000000000000000A0 /* SulavSleepWidget */ = {
+		BB2F792B24A3F905000567C9 /* Supporting */ = {
 			isa = PBXGroup;
 			children = (
-				F400000000000000000000B1 /* SulavSleepWidget.swift */,
-				F400000000000000000000B4 /* SulavSleepLiveActivity.swift */,
-				F400000000000000000000B2 /* Info.plist */,
-				F400000000000000000000B3 /* SulavSleepWidget.entitlements */,
 			);
-			name = SulavSleepWidget;
-			sourceTree = "<group>";
-		};
-		F500000000000000000000A0 /* SulavSleepMonitor */ = {
-			isa = PBXGroup;
-			children = (
-				F500000000000000000000B1 /* SulavSleepMonitor.swift */,
-				F500000000000000000000B2 /* Info.plist */,
-				F500000000000000000000B3 /* SulavSleepMonitor.entitlements */,
-				F500000000000000000000B4 /* SulavSleepMonitor-device.entitlements */,
-			);
-			name = SulavSleepMonitor;
+			name = Supporting;
+			path = SulavSleep/Supporting;
 			sourceTree = "<group>";
 		};
 		F200000000000000000000A0 /* SulavSleepTests */ = {
@@ -255,12 +287,26 @@
 			name = SulavSleepUITests;
 			sourceTree = "<group>";
 		};
-		BB2F792B24A3F905000567C9 /* Supporting */ = {
+		F400000000000000000000A0 /* SulavSleepWidget */ = {
 			isa = PBXGroup;
 			children = (
+				F400000000000000000000B1 /* SulavSleepWidget.swift */,
+				F400000000000000000000B4 /* SulavSleepLiveActivity.swift */,
+				F400000000000000000000B2 /* Info.plist */,
+				F400000000000000000000B3 /* SulavSleepWidget.entitlements */,
 			);
-			name = Supporting;
-			path = SulavSleep/Supporting;
+			name = SulavSleepWidget;
+			sourceTree = "<group>";
+		};
+		F500000000000000000000A0 /* SulavSleepMonitor */ = {
+			isa = PBXGroup;
+			children = (
+				F500000000000000000000B1 /* SulavSleepMonitor.swift */,
+				F500000000000000000000B2 /* Info.plist */,
+				F500000000000000000000B3 /* SulavSleepMonitor.entitlements */,
+				F500000000000000000000B4 /* SulavSleepMonitor-device.entitlements */,
+			);
+			name = SulavSleepMonitor;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -285,38 +331,6 @@
 			productName = SulavSleep;
 			productReference = 13B07F961A680F5B00A75B9A /* SulavSleep.app */;
 			productType = "com.apple.product-type.application";
-		};
-		F400000000000000000000A1 /* SulavSleepWidgetExtension */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = F400000000000000000000A6 /* Build configuration list for PBXNativeTarget "SulavSleepWidgetExtension" */;
-			buildPhases = (
-				F400000000000000000000A3 /* Sources */,
-				F400000000000000000000A4 /* Frameworks */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = SulavSleepWidgetExtension;
-			productName = SulavSleepWidgetExtension;
-			productReference = F400000000000000000000A2 /* SulavSleepWidgetExtension.appex */;
-			productType = "com.apple.product-type.app-extension";
-		};
-		F500000000000000000000A1 /* SulavSleepMonitor */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = F500000000000000000000A6 /* Build configuration list for PBXNativeTarget "SulavSleepMonitor" */;
-			buildPhases = (
-				F500000000000000000000A3 /* Sources */,
-				F500000000000000000000A4 /* Frameworks */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = SulavSleepMonitor;
-			productName = SulavSleepMonitor;
-			productReference = F500000000000000000000A2 /* SulavSleepMonitor.appex */;
-			productType = "com.apple.product-type.app-extension";
 		};
 		F200000000000000000000A1 /* SulavSleepTests */ = {
 			isa = PBXNativeTarget;
@@ -352,6 +366,38 @@
 			productReference = F300000000000000000000A2 /* SulavSleepUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		F400000000000000000000A1 /* SulavSleepWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F400000000000000000000A6 /* Build configuration list for PBXNativeTarget "SulavSleepWidgetExtension" */;
+			buildPhases = (
+				F400000000000000000000A3 /* Sources */,
+				F400000000000000000000A4 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SulavSleepWidgetExtension;
+			productName = SulavSleepWidgetExtension;
+			productReference = F400000000000000000000A2 /* SulavSleepWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		F500000000000000000000A1 /* SulavSleepMonitor */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F500000000000000000000A6 /* Build configuration list for PBXNativeTarget "SulavSleepMonitor" */;
+			buildPhases = (
+				F500000000000000000000A3 /* Sources */,
+				F500000000000000000000A4 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SulavSleepMonitor;
+			productName = SulavSleepMonitor;
+			productReference = F500000000000000000000A2 /* SulavSleepMonitor.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -361,21 +407,29 @@
 				LastUpgradeCheck = 1130;
 				TargetAttributes = {
 					13B07F861A680F5B00A75B9A = {
+						DevelopmentTeam = 6LYZDNCM4M;
 						LastSwiftMigration = 1250;
+						ProvisioningStyle = Automatic;
 					};
 					F200000000000000000000A1 = {
 						CreatedOnToolsVersion = 26.5;
+						ProvisioningStyle = Automatic;
 						TestTargetID = 13B07F861A680F5B00A75B9A;
 					};
 					F300000000000000000000A1 = {
 						CreatedOnToolsVersion = 26.5;
+						ProvisioningStyle = Automatic;
 						TestTargetID = 13B07F861A680F5B00A75B9A;
 					};
 					F400000000000000000000A1 = {
 						CreatedOnToolsVersion = 26.5;
+						DevelopmentTeam = 6LYZDNCM4M;
+						ProvisioningStyle = Automatic;
 					};
 					F500000000000000000000A1 = {
 						CreatedOnToolsVersion = 26.5;
+						DevelopmentTeam = 6LYZDNCM4M;
+						ProvisioningStyle = Automatic;
 					};
 				};
 			};
@@ -491,52 +545,6 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
-/* Begin PBXCopyFilesBuildPhase section */
-		F400000000000000000000AB /* Embed Foundation Extensions */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 13;
-			files = (
-				F400000000000000000000AC /* SulavSleepWidgetExtension.appex in Embed Foundation Extensions */,
-				F500000000000000000000AC /* SulavSleepMonitor.appex in Embed Foundation Extensions */,
-			);
-			name = "Embed Foundation Extensions";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
-
-/* Begin PBXContainerItemProxy section */
-		F200000000000000000000AA /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 13B07F861A680F5B00A75B9A;
-			remoteInfo = SulavSleep;
-		};
-		F300000000000000000000AA /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 13B07F861A680F5B00A75B9A;
-			remoteInfo = SulavSleep;
-		};
-		F400000000000000000000AA /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = F400000000000000000000A1;
-			remoteInfo = SulavSleepWidgetExtension;
-		};
-		F500000000000000000000AA /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = F500000000000000000000A1;
-			remoteInfo = SulavSleepMonitor;
-		};
-/* End PBXContainerItemProxy section */
-
 /* Begin PBXTargetDependency section */
 		F200000000000000000000A9 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -570,14 +578,12 @@
 				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "SulavSleep/SulavSleep-device.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6LYZDNCM4M;
 				ENABLE_BITCODE = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SulavSleep/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 13.4;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.anonymous.sulav-sleep";
@@ -598,13 +604,11 @@
 				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "SulavSleep/SulavSleep-device.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6LYZDNCM4M;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SulavSleep/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 13.4;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.anonymous.sulav-sleep";
@@ -663,10 +667,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					/usr/lib/swift,
-					"$(inherited)",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "/usr/lib/swift $(inherited)";
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
@@ -716,10 +717,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					/usr/lib/swift,
-					"$(inherited)",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "/usr/lib/swift $(inherited)";
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
@@ -735,11 +733,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.anonymous.sulav-sleep.tests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -758,11 +752,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.anonymous.sulav-sleep.tests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -780,11 +770,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.anonymous.sulav-sleep.uitests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -802,11 +788,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.anonymous.sulav-sleep.uitests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -823,14 +805,11 @@
 				CODE_SIGN_ENTITLEMENTS = SulavSleepWidget/SulavSleepWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6LYZDNCM4M;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SulavSleepWidget/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@executable_path/../../Frameworks",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.anonymous.sulav-sleep.widget";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -847,14 +826,11 @@
 				CODE_SIGN_ENTITLEMENTS = SulavSleepWidget/SulavSleepWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6LYZDNCM4M;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SulavSleepWidget/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@executable_path/../../Frameworks",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.anonymous.sulav-sleep.widget";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -871,14 +847,11 @@
 				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "SulavSleepMonitor/SulavSleepMonitor-device.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6LYZDNCM4M;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SulavSleepMonitor/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@executable_path/../../Frameworks",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.anonymous.sulav-sleep.monitor";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -896,14 +869,11 @@
 				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "SulavSleepMonitor/SulavSleepMonitor-device.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6LYZDNCM4M;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = SulavSleepMonitor/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@executable_path/../../Frameworks",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.anonymous.sulav-sleep.monitor";
 				PRODUCT_NAME = "$(TARGET_NAME)";

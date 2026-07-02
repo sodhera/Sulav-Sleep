@@ -50,8 +50,13 @@ On top of that, each pixel-art layer scrolls right-to-left with modulo wrapping,
 scaled by depth — like watching buildings drift past a car window at night. It
 never autoreverses or swings, so the scene does not expose source-image edges at
 turnaround points.
-The whole scene renders in a single `TimelineView` at ~30fps, and pauses
-entirely on tabs that aren't visible so it never costs frames off-screen.
+The whole scene runs on **SpriteKit** (`RainyNightScene` in `SleepBackground.swift`),
+completely outside SwiftUI's layout/diffing pipeline. City layers scroll via
+position updates in the `update()` loop, rain is three `SKEmitterNode` particle
+systems (GPU-accelerated), and glow circles pulse via `SKAction`. Everything
+renders on Metal at 60fps. The gyroscope is polled directly in the update loop
+(no main-thread callbacks). The only SwiftUI element is a single `SpriteView`.
+The background **never** pauses except on hidden tabs.
 
 ## Palette
 

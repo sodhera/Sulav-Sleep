@@ -5,7 +5,6 @@ import UIKit
 
 struct OnboardingView: View {
     var healthAvailable: Bool
-    var onNameFocusChanged: (Bool) -> Void = { _ in }
     let onDone: (String, Int, Int, Bool) -> Void
 
     @State private var step = 0
@@ -31,11 +30,7 @@ struct OnboardingView: View {
         }
         .safeAreaPadding(.top)
         .safeAreaPadding(.bottom)
-        .onChange(of: step) { _, newStep in
-            if newStep != 1 {
-                onNameFocusChanged(false)
-            }
-        }
+
     }
 
     @ViewBuilder
@@ -44,7 +39,7 @@ struct OnboardingView: View {
         case 0:
             OnboardingIntro()
         case 1:
-            NameStep(name: $name, onFocusChanged: onNameFocusChanged)
+            NameStep(name: $name)
         case 2:
             TimeStep(
                 title: "When do you usually sleep?",
@@ -151,8 +146,6 @@ private struct OnboardingIntro: View {
 
 private struct NameStep: View {
     @Binding var name: String
-    let onFocusChanged: (Bool) -> Void
-    @FocusState private var isFocused: Bool
 
     var body: some View {
         VStack(spacing: SleepSpacing.lg) {
@@ -173,14 +166,7 @@ private struct NameStep: View {
                 .overlay(alignment: .bottom) {
                     Rectangle().fill(SleepColor.hairline).frame(height: 1)
                 }
-                .focused($isFocused)
-                .simultaneousGesture(TapGesture().onEnded {
-                    onFocusChanged(true)
-                })
                 .onSubmit { Keyboard.dismiss() }
-                .onChange(of: isFocused) { _, focused in
-                    onFocusChanged(focused)
-                }
                 .accessibilityLabel("Your name")
         }
     }
@@ -211,178 +197,45 @@ private struct TimeStep: View {
 struct TimeAdjuster: View {
     @Binding var minutes: Int
 
+    /// Reference date used to anchor the DatePicker. Only the time component matters.
+    private static let calendar = Calendar.current
+    private static let referenceDate: Date = {
+        calendar.startOfDay(for: Date())
+    }()
+
     var body: some View {
-        HStack(spacing: SleepSpacing.md) {
-            TimeAdjustColumn(
-                label: "Hour",
-                value: hourBinding.wrappedValue.formatted(),
-                incrementLabel: "Increase hour",
-                decrementLabel: "Decrease hour",
-                onIncrement: { hourBinding.wrappedValue = nextHour },
-                onDecrement: { hourBinding.wrappedValue = previousHour }
-            )
-
-            Text(":")
-                .font(SleepFont.title(24))
-                .foregroundStyle(SleepColor.faint)
-
-            TimeAdjustColumn(
-                label: "Minute",
-                value: String(format: "%02d", minuteBinding.wrappedValue),
-                incrementLabel: "Increase minute",
-                decrementLabel: "Decrease minute",
-                onIncrement: { minuteBinding.wrappedValue = nextMinute },
-                onDecrement: { minuteBinding.wrappedValue = previousMinute }
-            )
-
-            TimePeriodControl(selection: periodBinding)
-        }
-        .padding(.horizontal, SleepSpacing.lg)
-        .padding(.vertical, SleepSpacing.md)
-        .frame(height: 148)
-        .frame(maxWidth: .infinity)
+        DatePicker(
+            "Time",
+            selection: dateBinding,
+            displayedComponents: .hourAndMinute
+        )
+        .datePickerStyle(.wheel)
+        .labelsHidden()
         .tint(SleepColor.amber)
-        .liquidGlass(cornerRadius: SleepRadius.xl)
+        .frame(maxWidth: .infinity)
+        .frame(height: 160)
+        .accessibilityLabel("Select time")
     }
 
-    private var normalizedMinutes: Int {
-        ((minutes % 1_440) + 1_440) % 1_440
-    }
-
-    private var hourBinding: Binding<Int> {
+    /// Two-way binding that converts between total minutes-from-midnight (Int)
+    /// and a Date for the native DatePicker.
+    private var dateBinding: Binding<Date> {
         Binding(
             get: {
-                let hour = normalizedMinutes / 60
-                let displayHour = hour % 12
-                return displayHour == 0 ? 12 : displayHour
+                let normalized = ((minutes % 1_440) + 1_440) % 1_440
+                let hour = normalized / 60
+                let minute = normalized % 60
+                return Self.calendar.date(
+                    bySettingHour: hour, minute: minute, second: 0,
+                    of: Self.referenceDate
+                ) ?? Self.referenceDate
             },
-            set: { newHour in
-                let current = normalizedMinutes
-                let oldHour = current / 60
-                let minute = current % 60
-                let baseHour = newHour == 12 ? 0 : newHour
-                let hour = baseHour + (oldHour >= 12 ? 12 : 0)
-                minutes = hour * 60 + minute
+            set: { newDate in
+                let components = Self.calendar.dateComponents([.hour, .minute], from: newDate)
+                minutes = (components.hour ?? 0) * 60 + (components.minute ?? 0)
             }
         )
     }
-
-    private var nextHour: Int {
-        let hour = hourBinding.wrappedValue
-        return hour == 12 ? 1 : hour + 1
-    }
-
-    private var previousHour: Int {
-        let hour = hourBinding.wrappedValue
-        return hour == 1 ? 12 : hour - 1
-    }
-
-    private var minuteBinding: Binding<Int> {
-        Binding(
-            get: { normalizedMinutes % 60 },
-            set: { newMinute in
-                let hour = normalizedMinutes / 60
-                minutes = hour * 60 + newMinute
-            }
-        )
-    }
-
-    private var nextMinute: Int {
-        (minuteBinding.wrappedValue + 1) % 60
-    }
-
-    private var previousMinute: Int {
-        (minuteBinding.wrappedValue + 59) % 60
-    }
-
-    private var periodBinding: Binding<TimePeriod> {
-        Binding(
-            get: { normalizedMinutes / 60 >= 12 ? .pm : .am },
-            set: { newPeriod in
-                let current = normalizedMinutes
-                let hour12 = (current / 60) % 12
-                let minute = current % 60
-                minutes = (newPeriod == .pm ? hour12 + 12 : hour12) * 60 + minute
-            }
-        )
-    }
-}
-
-private struct TimeAdjustColumn: View {
-    let label: String
-    let value: String
-    let incrementLabel: String
-    let decrementLabel: String
-    let onIncrement: () -> Void
-    let onDecrement: () -> Void
-
-    var body: some View {
-        VStack(spacing: SleepSpacing.xs) {
-            Button(action: onIncrement) {
-                Image(systemName: "chevron.up")
-                    .font(.system(size: 15, weight: .semibold))
-                    .frame(width: 44, height: 34)
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(SleepColor.dim)
-            .accessibilityLabel(incrementLabel)
-
-            Text(value)
-                .font(SleepFont.hero(34))
-                .monospacedDigit()
-                .foregroundStyle(SleepColor.ink)
-                .frame(width: 68, height: 38)
-                .accessibilityLabel(label)
-                .accessibilityValue(value)
-
-            Button(action: onDecrement) {
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 15, weight: .semibold))
-                    .frame(width: 44, height: 34)
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(SleepColor.dim)
-            .accessibilityLabel(decrementLabel)
-        }
-        .frame(width: 72)
-    }
-}
-
-private struct TimePeriodControl: View {
-    @Binding var selection: TimePeriod
-
-    var body: some View {
-        VStack(spacing: SleepSpacing.xs) {
-            periodButton(.am)
-            periodButton(.pm)
-        }
-        .frame(width: 72)
-    }
-
-    private func periodButton(_ period: TimePeriod) -> some View {
-        Button {
-            selection = period
-        } label: {
-            Text(period.rawValue)
-                .font(SleepFont.label(13))
-                .frame(maxWidth: .infinity, minHeight: 38)
-                .foregroundStyle(selection == period ? SleepColor.background : SleepColor.dim)
-                .background {
-                    Capsule(style: .continuous)
-                        .fill(selection == period ? SleepColor.amber : SleepColor.glassFill)
-                }
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(period == .am ? "AM" : "PM")
-        .accessibilityAddTraits(selection == period ? .isSelected : [])
-    }
-}
-
-private enum TimePeriod: String, CaseIterable, Identifiable {
-    case am = "AM"
-    case pm = "PM"
-
-    var id: String { rawValue }
 }
 
 private enum Keyboard {
