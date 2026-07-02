@@ -264,10 +264,15 @@ private final class ScrollingCityLayerView: UIView {
         guard tileWidth > 0, spec.speed > 0 else { return }
         stripView.layer.removeAnimation(forKey: "city-scroll")
 
+        let duration = CFTimeInterval(tileWidth / spec.speed)
+        let localNow = stripView.layer.convertTime(CACurrentMediaTime(), from: nil)
+        let phase = localNow.truncatingRemainder(dividingBy: duration)
+
         let animation = CABasicAnimation(keyPath: "transform.translation.x")
         animation.fromValue = 0
         animation.toValue = -tileWidth
-        animation.duration = CFTimeInterval(tileWidth / spec.speed)
+        animation.duration = duration
+        animation.beginTime = localNow - phase
         animation.repeatCount = .infinity
         animation.timingFunction = CAMediaTimingFunction(name: .linear)
         animation.isRemovedOnCompletion = false

@@ -105,19 +105,21 @@ Filter with `-only-testing:SulavSleepTests` or `-only-testing:SulavSleepUITests`
 - `OnboardingView.swift`: intro, name, bedtime, wake, and the Apple Health
   connect step. It renders only the active onboarding step and owns the shared
   lightweight `TimeAdjuster`, used instead of UIKit `DatePicker`/wheel controls
-  to avoid first-use hitches during transitions. The name field reports focus to
-  `RootView`, which pauses the animated background while the keyboard is active.
-  The intro step also pre-warms the UIKit keyboard stack with a hidden
-  `UITextField`, and the name step auto-focuses after the transition so the
-  first keyboard appearance is absorbed into the step change.
+  to avoid first-use hitches during transitions. The intro step pre-warms the
+  UIKit keyboard stack with a hidden `UITextField`, and the name step
+  auto-focuses after the transition so the first keyboard appearance is absorbed
+  into the step change without stopping the background animation.
 - `Sheets.swift`: schedule editor and settings (name, schedule, Health toggle,
   reset).
 - `LiquidGlass.swift`: native Liquid Glass wrappers with material fallbacks.
 - `SleepBackground.swift`: Core Animation pixel-night scene. It keeps the pixel
-  city in separate scrolling/parallaxed depth planes, pauses off-screen or
-  during onboarding text entry, and uses system motion-effect parallax instead
-  of CoreMotion polling. Dragging empty background space manually drives the
-  same depth offsets for Simulator inspection, where real tilt is not available.
+  city in separate scrolling/parallaxed depth planes and uses system
+  motion-effect parallax instead of CoreMotion polling. Because native `TabView`
+  content is opaque, `MainShellView` renders one background inside each tab; the
+  scrolling layers use the same global Core Animation phase so switching between
+  Home and Reports does not restart the skyline. Dragging empty background space
+  manually drives the same depth offsets for Simulator inspection, where real
+  tilt is not available.
 - `SleepAssetCache.swift`: launch-time decode cache for the pixel city layers so
   the first interactive onboarding steps do not pay image decode cost.
 - `SleepTheme.swift`: palette, spacing, radius, typography, `Haptics`.

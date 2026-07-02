@@ -5,7 +5,6 @@ import UIKit
 
 struct OnboardingView: View {
     var healthAvailable: Bool
-    var onNameFocusChange: (Bool) -> Void = { _ in }
     let onDone: (String, Int, Int, Bool) -> Void
 
     @State private var step = 0
@@ -41,17 +40,15 @@ struct OnboardingView: View {
         case 0:
             OnboardingIntro()
         case 1:
-            NameStep(name: $name, onFocusChange: onNameFocusChange)
+            NameStep(name: $name)
         case 2:
             TimeStep(
                 title: "When do you usually sleep?",
-                subtitle: "Around \(SleepFormatting.clock(bedtime))",
                 minutes: $bedtime
             )
         case 3:
             TimeStep(
-                title: "And when do you wake?",
-                subtitle: "Around \(SleepFormatting.clock(wakeTime))",
+                title: "And when do you usually wake up?",
                 minutes: $wakeTime
             )
         default:
@@ -148,7 +145,6 @@ private struct OnboardingIntro: View {
 
 private struct NameStep: View {
     @Binding var name: String
-    var onFocusChange: (Bool) -> Void
 
     @FocusState private var isFocused: Bool
     @State private var focusTask: Task<Void, Never>?
@@ -174,9 +170,6 @@ private struct NameStep: View {
                 }
                 .focused($isFocused)
                 .onSubmit { Keyboard.dismiss() }
-                .onChange(of: isFocused) { _, focused in
-                    onFocusChange(focused)
-                }
                 .accessibilityLabel("Your name")
         }
         .onAppear {
@@ -190,27 +183,20 @@ private struct NameStep: View {
         .onDisappear {
             focusTask?.cancel()
             isFocused = false
-            onFocusChange(false)
         }
     }
 }
 
 private struct TimeStep: View {
     let title: String
-    let subtitle: String
     @Binding var minutes: Int
 
     var body: some View {
         VStack(spacing: SleepSpacing.xl) {
-            VStack(spacing: SleepSpacing.sm) {
-                Text(title)
-                    .font(SleepFont.title(24))
-                    .foregroundStyle(SleepColor.ink)
-                    .multilineTextAlignment(.center)
-                Text(subtitle)
-                    .font(SleepFont.body(14))
-                    .foregroundStyle(SleepColor.muted)
-            }
+            Text(title)
+                .font(SleepFont.title(24))
+                .foregroundStyle(SleepColor.ink)
+                .multilineTextAlignment(.center)
 
             TimeAdjuster(minutes: $minutes)
         }

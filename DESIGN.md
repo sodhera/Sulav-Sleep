@@ -44,8 +44,10 @@ timer text for night vision. It opens straight into the minimal, collapsed
 state (bare timer, "Tap to wake"); tapping the screen reveals the controls.
 
 The whole scene runs through **Core Animation** layers, so SwiftUI does not run
-a per-frame render loop. The background pauses for hidden tabs and while the
-onboarding name field is focused, then resumes when the scene is active again.
+a per-frame render loop. The native `TabView` host is opaque, so Home and
+Reports each keep an in-tab scene; their layer clocks are synchronized to the
+same global animation phase so tab switching does not reset the skyline motion.
+Onboarding keeps the scene active through the keyboard transition.
 
 ## Palette
 

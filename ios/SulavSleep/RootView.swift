@@ -2,7 +2,6 @@ import SwiftUI
 
 struct RootView: View {
     var store: SleepStore
-    @State private var onboardingNameFocused = false
 
     var body: some View {
         ZStack {
@@ -17,10 +16,9 @@ struct RootView: View {
                 MainShellView(store: store, profile: profile)
                     .transition(.opacity)
             } else {
-                SleepBackground(showsMoon: false, isActive: !onboardingNameFocused)
+                SleepBackground(showsMoon: false)
                 OnboardingView(
-                    healthAvailable: store.healthSyncState != .unavailable,
-                    onNameFocusChange: { onboardingNameFocused = $0 }
+                    healthAvailable: store.healthSyncState != .unavailable
                 ) { name, bedtime, wakeTime, connectHealth in
                     store.completeOnboarding(name: name, bedtime: bedtime, wakeTime: wakeTime, connectHealth: connectHealth)
                 }
@@ -38,22 +36,23 @@ struct MainShellView: View {
 
     var body: some View {
         TabView(selection: $store.selectedTab) {
-            tab(active: store.selectedTab == .home) { HomeView(store: store, profile: profile) }
+            tab { HomeView(store: store, profile: profile) }
                 .tabItem { Label("Home", systemImage: "house") }
                 .tag(AppTab.home)
 
-            tab(active: store.selectedTab == .reports) { ReportsView(store: store) }
+            tab { ReportsView(store: store) }
                 .tabItem { Label("Reports", systemImage: "chart.xyaxis.line") }
                 .tag(AppTab.reports)
         }
         .tint(SleepColor.amber)
     }
 
-    // Only the visible tab's background animates; the hidden tab's clock
-    // pauses so it isn't silently costing frames in the background.
-    private func tab<Content: View>(active: Bool, @ViewBuilder _ content: () -> Content) -> some View {
+    // The native TabView content host is opaque, so the scene must live inside
+    // each tab. SleepBackground synchronizes its Core Animation phase globally,
+    // which keeps Home/Reports switches from restarting the skyline motion.
+    private func tab<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         ZStack {
-            SleepBackground(showsMoon: true, isActive: active)
+            SleepBackground(showsMoon: true)
             content()
         }
     }
