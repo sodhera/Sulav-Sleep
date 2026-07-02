@@ -5,9 +5,9 @@ import UIKit
 
 // MARK: - Color tokens
 //
-// The palette is the "Rainy Pixel Night" system: a warm apartment window on a
-// rainy evening. Warm amber indoor light against a deep navy sky. No purple,
-// no neon, no saturated blues. See DESIGN.md for the full rationale.
+// The palette is the "Warm Pixel Night" system: a warm apartment window looking
+// over a quiet city night. Warm amber indoor light against a deep navy sky. No
+// purple, no neon, no saturated blues. See DESIGN.md for the full rationale.
 
 extension Color {
     /// Hex convenience, e.g. `Color(hex: 0xF4A261)`.
@@ -52,7 +52,6 @@ enum SleepColor {
     static let moon = Color(hex: 0xF4F1E9)
     static let streetGlow = Color(hex: 0xF4A261)
     static let windowGlow = Color(hex: 0xE9C46A)
-    static let rain = Color(hex: 0xBFD0E0)
 
     static let white = Color.white
 

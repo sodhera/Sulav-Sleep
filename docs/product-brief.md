@@ -55,10 +55,10 @@ of hours — plus a home-screen widget with a sleep graph and score. Both are
 planned in detail in `docs/roadmap-lockdown-and-widget.md` (Screen Time /
 Family Controls + WidgetKit, with their platform constraints).
 
-## Visual direction — Rainy Pixel Night
+## Visual direction — Warm Pixel Night
 
-The app should feel like a warm apartment window on a rainy evening (see
-`DESIGN.md`): a living, video-backed rainy pixel night scene behind a minimal,
-editorial Liquid Glass interface. Warm amber indoor light against deep navy; no
-purple, no neon. Low stimulation at night, sparse during active sleep, and
-legible under a red night tint.
+The app should feel like a warm apartment window over a quiet city night (see
+`DESIGN.md`): a living, layered pixel night scene behind a minimal, editorial
+Liquid Glass interface. Warm amber indoor light against deep navy; no purple, no
+neon. Low stimulation at night, sparse during active sleep, and legible under a
+red night tint.

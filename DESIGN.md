@@ -1,13 +1,13 @@
-# Sulav Sleep Design System — Rainy Pixel Night
+# Sulav Sleep Design System — Warm Pixel Night
 
-Sulav Sleep should feel like looking out the window of a warm apartment on a
-rainy evening while an old pixel-art game runs quietly in the background. It is a
+Sulav Sleep should feel like looking out the window of a warm apartment over a
+quiet city night while an old pixel-art game runs in the background. It is a
 bedside instrument, not a wellness dashboard. The interface exists to help
 someone put the phone down at night, so it stays low-stimulation, legible, and
 direct about the commitment window.
 
 The mood blends four references: **Anthropic's Claude interface, Eastward,
-Coffee Talk, and rainy Tokyo pixel art**. The pixel aesthetic lives in the
+Coffee Talk, and quiet Tokyo night pixel art**. The pixel aesthetic lives in the
 *environment* (the background scene), never in the usability layer. The UI
 itself is minimal, editorial, and built on native iOS **Liquid Glass**.
 
@@ -19,7 +19,7 @@ itself is minimal, editorial, and built on native iOS **Liquid Glass**.
 
 The background is a living scene, not a flat color, composited in
 `SleepBackground.swift`. Everything keeps moving even when the phone is
-perfectly still; motion should read as weather, not software. If a user
+perfectly still; motion should read as ambient city depth, not software. If a user
 consciously notices an animation, it is too strong.
 
 The **base** is a real pixel-art night city (CraftPix, OGA-BY 3.0 — see
@@ -27,26 +27,25 @@ The **base** is a real pixel-art night city (CraftPix, OGA-BY 3.0 — see
 hand-draw the pixel art. It is warm-tinted (saturation pulled down, amber/ember
 overlay) and darkened with a deep-navy scrim so UI text stays legible.
 
-The living scene is now baked into `RainyNightLoop.mp4`: the city art is
-warm-tinted, darkened, and composited with subtle rain and soft street glow. The
-loop is intentionally restrained and low-contrast; the motion should register as
-rain outside a window, not as an animation system asking for attention.
+The runtime scene keeps real depth planes instead of baking the whole image into
+a video. `SleepBackground.swift` composes separate sky/skyline layers, each
+slightly oversized, independently scrolling, and independently moved by
+`UIInterpolatingMotionEffect`. The sky barely moves; the front skyline moves
+most.
 
-The runtime layer still gets a small amount of depth from system parallax:
-`SleepBackground.swift` plays the loop slightly oversized and applies
-`UIInterpolatingMotionEffect` to the video host. This uses the system motion
-effect path rather than app-owned gyro polling.
+The city, sky, clouds, moon, warm windows, slow layer drift, and depth parallax
+carry the scene without extra visual noise or foreground weather effects.
+For Simulator inspection, dragging empty background space temporarily drives the
+same parallax offsets and eases them back to rest.
 
 The immersive sleep screen (`SleepModeView`) does **not** use this scene — it is
 true OLED black (`Color.black`, no glow, no gradient) with only the ember-red
 timer text for night vision. It opens straight into the minimal, collapsed
 state (bare timer, "Tap to wake"); tapping the screen reveals the controls.
 
-The whole scene runs through **AVPlayerLayer** with `AVPlayerLooper`, so the
-continuous work is handled by the hardware video decoder instead of an
-in-process SwiftUI, SpriteKit, or CoreMotion render loop. The background pauses
-for hidden tabs and while the onboarding name field is focused, then resumes
-when the scene is active again.
+The whole scene runs through **Core Animation** layers, so SwiftUI does not run
+a per-frame render loop. The background pauses for hidden tabs and while the
+onboarding name field is focused, then resumes when the scene is active again.
 
 ## Palette
 
@@ -73,8 +72,8 @@ survives a red night-shift tint.
 
 Centralized in `LiquidGlass.swift`. Native `glassEffect` on iOS 26+, with a
 `.ultraThinMaterial` fallback (same shape + hairline border) on earlier
-supported iOS. It should look like slightly fogged window glass on a rainy
-night: light blur, subtle transparency, warm reflection, thin border — never
+supported iOS. It should look like slightly fogged night-window glass: light
+blur, subtle transparency, warm reflection, thin border — never
 heavy frosted glass.
 
 - Interactive glass only on tappable/focusable elements.

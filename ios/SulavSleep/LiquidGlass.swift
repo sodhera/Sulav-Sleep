@@ -2,8 +2,8 @@ import SwiftUI
 
 // Centralized Liquid Glass behavior. Native `glassEffect` on iOS 26+, with a
 // `.ultraThinMaterial` fallback that keeps the same shape and hairline border.
-// Glass here reads like slightly fogged window glass on a rainy night: light
-// blur, subtle transparency, warm reflection, thin border. See DESIGN.md.
+// Glass here reads like slightly fogged night-window glass: light blur, subtle
+// transparency, warm reflection, thin border. See DESIGN.md.
 
 struct LiquidGlassSurface: ViewModifier {
     var cornerRadius: CGFloat
