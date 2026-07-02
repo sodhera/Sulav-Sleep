@@ -74,6 +74,10 @@ final class RainyNightScene: SKScene {
     // MARK: Lifecycle
 
     override func didMove(to view: SKView) {
+        // 30fps is plenty for slowly scrolling pixel art + rain.
+        // Halves GPU load vs 60fps, reducing thermal throttling
+        // that makes the keyboard and other UI feel sluggish.
+        view.preferredFramesPerSecond = 30
         backgroundColor = UIColor(SleepColor.background)
         anchorPoint = CGPoint(x: 0.5, y: 0.5)
         buildScene()

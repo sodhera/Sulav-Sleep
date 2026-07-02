@@ -30,6 +30,7 @@ struct OnboardingView: View {
         }
         .safeAreaPadding(.top)
         .safeAreaPadding(.bottom)
+        .onAppear { Keyboard.prewarm() }
 
     }
 
@@ -242,6 +243,30 @@ private enum Keyboard {
     static func dismiss() {
         #if canImport(UIKit)
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        #endif
+    }
+
+    /// Force-load the keyboard framework into memory so the first real
+    /// keyboard appearance is instant. Call once on the intro screen.
+    static func prewarm() {
+        #if canImport(UIKit)
+        DispatchQueue.main.async {
+            guard let window = UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene })
+                .first?.windows.first else { return }
+            let field = UITextField(frame: .zero)
+            field.autocorrectionType = .no
+            field.inputAssistantItem.leadingBarButtonGroups = []
+            field.inputAssistantItem.trailingBarButtonGroups = []
+            window.addSubview(field)
+            field.becomeFirstResponder()
+            // Resign immediately on the next runloop tick so the keyboard
+            // is loaded but never visually appears.
+            DispatchQueue.main.async {
+                field.resignFirstResponder()
+                field.removeFromSuperview()
+            }
+        }
         #endif
     }
 }
