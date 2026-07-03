@@ -61,9 +61,10 @@ Filter with `-only-testing:SulavSleepTests` or `-only-testing:SulavSleepUITests`
   - `AuthTests`: sign-in with each provider, manual sign-up/sign-in, sign-out,
     error surfacing, session-restore, and `AppAccount` persistence
     round-trips. Uses `MockAuthClient` (`Auth/MockAuthClient.swift`).
-- **SulavSleepUITests** (XCUITest) — onboarding → auth → Home, Sleep → Wake,
-  and log-a-night → Reports (`AuthUITests`, `OnboardingUITests`,
-  `SleepFlowUITests`). The app wipes persisted state when launched with
+- **SulavSleepUITests** (XCUITest) — the sign-up path (welcome → questions →
+  account → Home), the sign-in path (welcome → auth → quick setup → Home),
+  back navigation to welcome, Sleep → Wake, and log-a-night → Reports
+  (`AuthUITests`, `OnboardingUITests`, `SleepFlowUITests`). The app wipes persisted state when launched with
   `-uitest-reset`, and swaps in `MockAuthClient` when launched with
   `-uitest-mock-auth` so UI runs are deterministic and never hit the network.
 
@@ -102,13 +103,18 @@ Filter with `-only-testing:SulavSleepTests` or `-only-testing:SulavSleepUITests`
 - `SleepWidgetShared.swift`: App Group summary types + read/write, shared with
   the widget target.
 - `SleepModeView.swift`: immersive black/red sleep-mode takeover.
-- `RootView.swift`: single `RootScreen` enum (`onboarding` / `authLoading` /
+- `RootView.swift`: single `RootScreen` enum (`authLoading` / `onboarding` /
   `auth` / `main`) drives which top-level screen shows, with one animation
-  trigger for the crossfade between them. Entering `.main` is a hard cut
+  trigger for the crossfade between them. Auth readiness is checked first so
+  the onboarding gate knows whether to open on welcome or on the post-sign-in
+  quick setup. Entering `.main` is a hard cut
   (`.transaction { $0.disablesAnimations = true }`), not animated — see
   "Authentication" below for why.
-- `AuthView.swift`: the post-onboarding sign-up/sign-in screen (Apple,
-  Google, manual email/password).
+- `AuthView.swift`: the account screen (Apple, Google, manual email/password),
+  framed by `AuthIntent`: `.signUp` closes the sign-up questionnaire ("Save
+  your sleep plan"), `.signIn` is the returning-user path from the welcome
+  screen ("Welcome back"). The email form keeps a sign-up/sign-in toggle either
+  way.
 - `Auth/AuthModels.swift`, `Auth/SupabaseAuthClient.swift`,
   `Auth/MockAuthClient.swift`: `AuthProviding` protocol (mirrors
   `SleepHealthProviding`), the real Supabase-backed client, and the test
@@ -117,13 +123,21 @@ Filter with `-only-testing:SulavSleepTests` or `-only-testing:SulavSleepUITests`
   logging, last-night summary, empty states, Health import indicator.
 - `ReportsView.swift`: weekly chart, averages, history with source badges,
   empty state.
-- `OnboardingView.swift`: intro, name, bedtime, wake, and the Apple Health
-  connect step. It renders only the active onboarding step and owns the shared
-  lightweight `TimeAdjuster`, used instead of UIKit `DatePicker`/wheel controls
-  to avoid first-use hitches during transitions. The intro step pre-warms the
-  UIKit keyboard stack with a hidden `UITextField`, and the name step
-  auto-focuses after the transition so the first keyboard appearance is absorbed
-  into the step change without stopping the background animation.
+- `OnboardingView.swift`: `OnboardingGateView`, the whole pre-app gate. A
+  welcome screen offers two paths — "Get started" runs the sign-up
+  questionnaire (`OnboardingQuestionsView`: name, sleep struggles, bedtime,
+  wake with a live sleep-window readout, Apple Health) and only then asks for
+  an account; "I already have an account" goes straight to `AuthView` in
+  `.signIn` framing, followed by the same questions as a quick setup when the
+  device has no profile. The questionnaire renders only the active step
+  (directional slide transitions, thin amber progress bar, glass back chevron)
+  and owns the shared lightweight `TimeAdjuster`, used instead of UIKit
+  `DatePicker`/wheel controls to avoid first-use hitches during transitions.
+  The welcome screen pre-warms the UIKit keyboard stack with a hidden
+  `UITextField`, and the name step auto-focuses after the transition so the
+  first keyboard appearance is absorbed into the step change without stopping
+  the background animation. Struggle answers persist to
+  `Profile.sleepStruggles` for future personalization.
 - `Sheets.swift`: schedule editor and settings (name, schedule, Health toggle,
   reset).
 - `LiquidGlass.swift`: native Liquid Glass wrappers with material fallbacks.
@@ -144,8 +158,12 @@ Filter with `-only-testing:SulavSleepTests` or `-only-testing:SulavSleepUITests`
 
 ## Product mechanics
 
-- First launch shows onboarding: intro, name, bedtime, wake, Apple Health,
-  then sign-up/sign-in (see "Authentication").
+- First launch shows the welcome screen with two paths. Sign-up: name, sleep
+  struggles, bedtime, wake, Apple Health, then account creation — the
+  questions come first deliberately, since users who have invested in a few
+  answers complete sign-up at a higher rate. Sign-in: straight to auth, then
+  the same questions as a quick setup if the device has no profile (see
+  "Authentication").
 - **No seeding.** History is empty until the user logs a real night or Apple
   Health has real sleep to import.
 - `Sleep Now` writes an active session; `Wake up` logs duration + score, clears
@@ -155,8 +173,9 @@ Filter with `-only-testing:SulavSleepTests` or `-only-testing:SulavSleepUITests`
 
 ## Authentication
 
-Onboarding is followed by a sign-up/sign-in gate (Apple, Google, manual
-email/password), backed by a real Supabase project. Sleep data itself stays
+The account gate (Apple, Google, manual email/password) is backed by a real
+Supabase project. On the sign-up path it appears after the questionnaire; on
+the sign-in path it appears immediately from the welcome screen. Sleep data itself stays
 local-first (per `product-brief.md`) — this only adds account identity on top.
 See `docs/auth-setup.md` for the one-time external setup (Supabase project,
 Apple Developer capability, Google Cloud OAuth client).

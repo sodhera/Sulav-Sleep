@@ -6,9 +6,12 @@ review the rhythm of recent nights — using **real data only**.
 
 ## Current product
 
-- Onboarding collects name, usual bedtime, usual wake time, and offers to
-  connect Apple Health, then a sign-up/sign-in step (Apple, Google, or manual
-  email/password) gates entry into the main app.
+- A welcome screen offers two paths. **Sign up**: a questionnaire (name, what
+  gets in the way of sleep, usual bedtime, usual wake time, Apple Health)
+  followed by account creation framed as saving the plan — questions come
+  before the account step because invested users sign up at a higher rate.
+  **Sign in**: straight to auth (Apple, Google, or manual email/password),
+  then the same questions as a quick setup on a device with no profile.
 - Home shows a greeting, tonight's schedule, `Sleep Now`, `Set Bedtime`, and a
   last-night summary (duration, color-coded score, streak) — or an honest empty
   state when nothing has been logged yet.

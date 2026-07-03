@@ -106,6 +106,23 @@ functional clusters (sheets, pickers, tappable controls) and never nest cards.
 Most content is cardless: the schedule is open text, summaries are separated by a
 single hairline, history uses divided rows.
 
+## Onboarding & auth
+
+Two paths from a type-led welcome screen (kicker, brand hero, tagline, no
+artwork in the UI layer): a primary "Get started" and a quiet "I already have
+an account". Sign-up runs the questionnaire *before* asking for an account —
+users who have answered a few personal questions complete sign-up at a higher
+rate — and the account step is framed as saving the plan they just made.
+
+Questionnaire chrome: a 3pt amber-gradient progress capsule between a round
+glass back chevron and a matching spacer, editorial left-aligned questions
+(small-caps kicker → 28pt title → dim supporting line → control), and
+directional slide+fade step transitions (~280ms). Multi-select answers use
+full-width capsule glass rows — muted icon, ink label, trailing circle that
+fills amber when selected. No text "Back" buttons; the chevron is the only way
+back. The sign-in screen ("Welcome back") reuses the same chevron and layout so
+both paths read as one flow.
+
 ## Motion
 
 State changes fade/lift over ~260–320ms; presses scale subtly (~0.98). Nothing
