@@ -120,7 +120,14 @@ answered a few personal questions complete sign-up at a higher rate — and the
 account step is the *final step of that same flow*: it carries the same progress
 bar (now full) and back chevron as every other question, framed as saving the
 plan they just made. The profile is only committed once that step's auth
-succeeds, so "back" from it returns to the Apple Health step like any other.
+succeeds, so "back" from it returns to the wake-time question like any other.
+
+Onboarding stays short: name, sleep struggles, bedtime, wake, account. Apple
+Health is deliberately *not* asked here — a system permission sheet mid-sign-up
+is friction, and the ask lands better in context. Instead a warm, dismissable
+glass card in Reports (`HealthConnectCard`) invites the connection where the
+sleep data actually lives; it persists until connected or waved off, and
+Settings still has the toggle.
 
 Questionnaire chrome: a 3pt amber-gradient progress capsule between a round
 glass back chevron and a matching spacer, editorial left-aligned questions

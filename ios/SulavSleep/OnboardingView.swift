@@ -42,12 +42,11 @@ struct OnboardingGateView: View {
             case .questions:
                 OnboardingQuestionsView(
                     store: store,
-                    healthAvailable: store.healthSyncState != .unavailable,
                     onBack: store.isAuthenticated ? nil : { setRoute(.welcome) }
-                ) { name, bedtime, wakeTime, connectHealth, struggles in
+                ) { name, bedtime, wakeTime, struggles in
                     store.completeOnboarding(
                         name: name, bedtime: bedtime, wakeTime: wakeTime,
-                        connectHealth: connectHealth, struggles: struggles
+                        connectHealth: false, struggles: struggles
                     )
                 }
                 .transition(.opacity)
@@ -128,20 +127,20 @@ private struct WelcomeStep: View {
 
 // MARK: - Questionnaire
 
-/// The sign-up flow: who you are, what's in the way, your sleep window, Apple
-/// Health, and — as the final step — creating the account that saves it all.
-/// The account step is part of this flow (same progress bar and back button)
-/// and is only present when the user is not already signed in; the profile is
-/// committed via `onDone` only once that last step's auth succeeds. When the
-/// user arrives already authenticated (post-sign-in quick setup), the account
-/// step is dropped and Apple Health becomes the final step.
+/// The sign-up flow: who you are, what's in the way, your sleep window, and —
+/// as the final step — creating the account that saves it all. The account step
+/// is part of this flow (same progress bar and back button) and is only present
+/// when the user is not already signed in; the profile is committed via `onDone`
+/// only once that last step's auth succeeds. When the user arrives already
+/// authenticated (post-sign-in quick setup), the account step is dropped and
+/// the wake-time question becomes the final step. Apple Health is not asked here
+/// — it's offered later, in Reports (see `HealthConnectCard`).
 struct OnboardingQuestionsView: View {
     let store: SleepStore
-    var healthAvailable: Bool
     /// Back action from the first step (to the welcome screen), or `nil` when
     /// there is nowhere to go back to (post-sign-in quick setup).
     var onBack: (() -> Void)?
-    let onDone: (String, Int, Int, Bool, [String]) -> Void
+    let onDone: (String, Int, Int, [String]) -> Void
 
     @State private var step: Step = .name
     @State private var movingForward = true
@@ -149,36 +148,39 @@ struct OnboardingQuestionsView: View {
     @State private var struggles: Set<SleepStruggle> = []
     @State private var bedtime = 22 * 60 + 30
     @State private var wakeTime = 6 * 60 + 30
-    /// The Health choice from the Health step, applied when onboarding commits.
-    @State private var pendingConnectHealth = false
     /// Whether this run ends on the account step. Captured once so it does not
     /// flip mid-flow when auth flips `isAuthenticated`.
     @State private var includesAccount: Bool
 
     init(
         store: SleepStore,
-        healthAvailable: Bool,
         onBack: (() -> Void)? = nil,
-        onDone: @escaping (String, Int, Int, Bool, [String]) -> Void
+        onDone: @escaping (String, Int, Int, [String]) -> Void
     ) {
         self.store = store
-        self.healthAvailable = healthAvailable
         self.onBack = onBack
         self.onDone = onDone
         _includesAccount = State(initialValue: !store.isAuthenticated)
     }
 
     private enum Step {
-        case name, struggles, bedtime, wake, health, account
+        case name, struggles, bedtime, wake, account
     }
 
     private var steps: [Step] {
-        var result: [Step] = [.name, .struggles, .bedtime, .wake, .health]
+        var result: [Step] = [.name, .struggles, .bedtime, .wake]
         if includesAccount { result.append(.account) }
         return result
     }
 
     private var currentIndex: Int { steps.firstIndex(of: step) ?? 0 }
+
+    /// The last question step (i.e. not the account step). Its primary action
+    /// commits onboarding rather than advancing — only reachable on the
+    /// post-sign-in quick setup, where there is no account step.
+    private var isTerminalQuestion: Bool {
+        step != .account && currentIndex == steps.count - 1
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -215,7 +217,7 @@ struct OnboardingQuestionsView: View {
         // (with the fresh session) drops us into the main app.
         .onChange(of: store.isAuthenticated) { _, authenticated in
             if authenticated && step == .account {
-                finish(connectHealth: pendingConnectHealth)
+                finish()
             }
         }
     }
@@ -294,20 +296,6 @@ struct OnboardingQuestionsView: View {
             ) {
                 TimeAdjuster(minutes: $wakeTime)
             }
-        case .health:
-            QuestionLayout(
-                kicker: includesAccount ? "Almost there" : "Last step",
-                title: healthAvailable ? "Sync with Apple Health" : "Your plan is ready",
-                subtitle: healthAvailable
-                    ? "Your real nights fill in automatically, both ways. Change it anytime in Settings."
-                    : (includesAccount
-                        ? "Create an account next so your nights are backed up."
-                        : "Log a night and your reports fill in. No sample data, ever.")
-            ) {
-                Image(systemName: healthAvailable ? "heart.text.square.fill" : "checkmark.seal.fill")
-                    .font(.system(size: 40, weight: .regular))
-                    .foregroundStyle(SleepColor.amber)
-            }
         case .account:
             // Rendered by AuthMethodsView in the body, outside this scaffold.
             EmptyView()
@@ -323,19 +311,11 @@ struct OnboardingQuestionsView: View {
     @ViewBuilder
     private var actions: some View {
         VStack(spacing: SleepSpacing.md) {
-            if step == .health {
-                if healthAvailable {
-                    LiquidPrimaryButton(title: "Connect Apple Health", systemImage: "heart.fill") {
-                        leaveHealthStep(connectHealth: true)
-                    }
-                    Button("Maybe later") { leaveHealthStep(connectHealth: false) }
-                        .font(SleepFont.body(15))
-                        .foregroundStyle(SleepColor.dim)
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                } else {
-                    LiquidPrimaryButton(title: "Continue", systemImage: "arrow.right") {
-                        leaveHealthStep(connectHealth: false)
-                    }
+            if isTerminalQuestion {
+                // Quick-setup path (already signed in): the wake step is last,
+                // so its action commits onboarding instead of advancing.
+                LiquidPrimaryButton(title: "Finish", systemImage: "checkmark") {
+                    finish()
                 }
             } else {
                 LiquidPrimaryButton(title: "Next", systemImage: "arrow.right") {
@@ -373,19 +353,6 @@ struct OnboardingQuestionsView: View {
         setStep(next, forward: true)
     }
 
-    /// Leaving the Health step either advances to the account step (sign-up) or,
-    /// when there is no account step (already signed in), commits onboarding.
-    private func leaveHealthStep(connectHealth: Bool) {
-        pendingConnectHealth = connectHealth
-        if includesAccount {
-            Haptics.soft()
-            Keyboard.dismiss()
-            setStep(.account, forward: true)
-        } else {
-            finish(connectHealth: connectHealth)
-        }
-    }
-
     private func goBack() {
         Haptics.soft()
         let previousIndex = currentIndex - 1
@@ -397,10 +364,10 @@ struct OnboardingQuestionsView: View {
         }
     }
 
-    private func finish(connectHealth: Bool) {
+    private func finish() {
         Keyboard.dismiss()
         Haptics.success()
-        onDone(name, bedtime, wakeTime, connectHealth, struggles.map(\.rawValue))
+        onDone(name, bedtime, wakeTime, struggles.map(\.rawValue))
     }
 
     private func setStep(_ next: Step, forward: Bool) {

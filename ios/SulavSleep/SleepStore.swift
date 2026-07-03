@@ -82,6 +82,13 @@ final class SleepStore {
         return profile?.healthSyncEnabled == true ? .connected : .notConnected
     }
 
+    /// Whether to show the in-app "connect Apple Health" prompt (Reports). Only
+    /// when Health is available, not yet connected, and the user hasn't waved
+    /// the prompt off.
+    var shouldPromptHealthConnect: Bool {
+        healthSyncState == .notConnected && profile?.healthPromptDismissed != true
+    }
+
     var screenTimeState: ScreenTimeState { screenTime.authorizationState() }
     var lockdownEnabled: Bool { profile?.lockdownEnabled == true }
     var lockdownMaxHours: Int { profile?.lockdownMaxHours ?? 6 }
@@ -309,6 +316,16 @@ final class SleepStore {
         importedHealthSessions = []
         persist()
         AppLog.store.info("Health sync disabled")
+    }
+
+    /// Wave off the in-app Health prompt so it stops reappearing. Connecting via
+    /// Settings still works afterward.
+    func dismissHealthPrompt() {
+        guard var profile, !profile.healthPromptDismissed else { return }
+        profile.healthPromptDismissed = true
+        self.profile = profile
+        persist(refreshWidget: false)
+        AppLog.store.info("Health connect prompt dismissed")
     }
 
     // MARK: - Sleep lockdown (Screen Time)

@@ -32,17 +32,9 @@ final class AuthUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Next"].waitForExistence(timeout: 3))
         app.buttons["Next"].tap()
 
-        // Wake -> Next
+        // Wake -> Next, which advances to the account step (the final step).
         XCTAssertTrue(app.buttons["Next"].waitForExistence(timeout: 3))
         app.buttons["Next"].tap()
-
-        let maybeLater = app.buttons["Maybe later"]
-        let continueButton = app.buttons["Continue"]
-        if maybeLater.waitForExistence(timeout: 3) {
-            maybeLater.tap()
-        } else if continueButton.waitForExistence(timeout: 3) {
-            continueButton.tap()
-        }
     }
 
     func testAccountStepAppearsAfterQuestionnaireWithAllThreeOptions() {
@@ -104,8 +96,7 @@ final class AuthUITests: XCTestCase {
         passwordField.tap()
         passwordField.typeText("password123")
 
-        // The email form defaults to sign-in mode on this path; submit via the
-        // dedicated identifier since "Sign in" also names a segmented tab.
+        // The sign-in email form's submit button; use the dedicated identifier.
         app.buttons["authSubmit"].tap()
 
         // No profile on this device yet, so the quick setup runs.
@@ -115,18 +106,16 @@ final class AuthUITests: XCTestCase {
         nameField.typeText("Ada")
         app.buttons["Next"].tap()
 
-        for _ in 0..<3 { // struggles, bedtime, wake
+        for _ in 0..<2 { // struggles, bedtime -> wake
             XCTAssertTrue(app.buttons["Next"].waitForExistence(timeout: 3))
             app.buttons["Next"].tap()
         }
 
-        let maybeLater = app.buttons["Maybe later"]
-        let continueButton = app.buttons["Continue"]
-        if maybeLater.waitForExistence(timeout: 3) {
-            maybeLater.tap()
-        } else if continueButton.waitForExistence(timeout: 3) {
-            continueButton.tap()
-        }
+        // No account step on the quick-setup path, so the wake step is last and
+        // its button commits onboarding.
+        let finish = app.buttons["Finish"]
+        XCTAssertTrue(finish.waitForExistence(timeout: 3))
+        finish.tap()
 
         XCTAssertTrue(app.buttons["Sleep Now"].waitForExistence(timeout: 5), "Home should show after sign-in + quick setup")
     }

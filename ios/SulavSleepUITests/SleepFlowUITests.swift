@@ -17,18 +17,13 @@ final class SleepFlowUITests: XCTestCase {
         nameField.tap()
         nameField.typeText("Tester")
         app.buttons["Next"].tap()
-        for _ in 0..<3 { // struggles, bedtime, wake
+        for _ in 0..<3 { // struggles, bedtime, wake -> account
             XCTAssertTrue(app.buttons["Next"].waitForExistence(timeout: 3))
             app.buttons["Next"].tap()
         }
 
-        if app.buttons["Maybe later"].waitForExistence(timeout: 3) {
-            app.buttons["Maybe later"].tap()
-        } else if app.buttons["Continue"].waitForExistence(timeout: 3) {
-            app.buttons["Continue"].tap()
-        }
-
-        // The auth gate: sign up with a mocked account so the flow reaches Home.
+        // The account step (final step of the sign-up flow): sign up with a
+        // mocked account so the flow reaches Home.
         let continueWithEmail = app.buttons["Continue with email"]
         XCTAssertTrue(continueWithEmail.waitForExistence(timeout: 5))
         continueWithEmail.tap()

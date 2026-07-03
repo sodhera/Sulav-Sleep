@@ -19,6 +19,14 @@ struct ReportsView: View {
                 }
                 .padding(.top, SleepSpacing.lg)
 
+                if store.shouldPromptHealthConnect {
+                    HealthConnectCard(
+                        onConnect: { Task { await store.enableHealthSync() } },
+                        onDismiss: { store.dismissHealthPrompt() }
+                    )
+                    .padding(.top, SleepSpacing.xl)
+                }
+
                 if sessions.isEmpty {
                     EmptyReports(healthState: store.healthSyncState)
                 } else {
@@ -52,6 +60,75 @@ private struct EmptyReports: View {
                 .frame(maxWidth: 300, alignment: .leading)
         }
         .padding(.top, SleepSpacing.huge * 1.5)
+    }
+}
+
+/// Persistent, dismissable prompt inviting the user to connect Apple Health.
+/// Apple Health is offered here, in-app, rather than during onboarding — this
+/// is where sleep data lives, so the ask lands in context.
+private struct HealthConnectCard: View {
+    var onConnect: () -> Void
+    var onDismiss: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: SleepSpacing.md) {
+            Image(systemName: "heart.text.square.fill")
+                .font(.system(size: 26, weight: .regular))
+                .foregroundStyle(SleepColor.amber)
+
+            VStack(alignment: .leading, spacing: SleepSpacing.sm) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Connect Apple Health")
+                        .font(SleepFont.title(16))
+                        .foregroundStyle(SleepColor.ink)
+                    Text("Sync your real nights automatically, both ways.")
+                        .font(SleepFont.body(13))
+                        .foregroundStyle(SleepColor.dim)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Button {
+                    Haptics.soft()
+                    onConnect()
+                } label: {
+                    Text("Connect")
+                        .font(SleepFont.label(14))
+                        .foregroundStyle(SleepColor.background)
+                        .padding(.horizontal, SleepSpacing.lg)
+                        .padding(.vertical, SleepSpacing.sm)
+                        .background {
+                            Capsule(style: .continuous)
+                                .fill(LinearGradient(
+                                    colors: [SleepColor.gold, SleepColor.amber],
+                                    startPoint: .topLeading, endPoint: .bottomTrailing
+                                ))
+                        }
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 2)
+            }
+
+            Spacer(minLength: 0)
+
+            Button {
+                Haptics.soft()
+                onDismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(SleepColor.muted)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Dismiss")
+        }
+        .padding(SleepSpacing.lg)
+        .liquidGlass(cornerRadius: SleepRadius.lg, tint: SleepColor.glassWarm)
+        .overlay {
+            RoundedRectangle(cornerRadius: SleepRadius.lg, style: .continuous)
+                .stroke(SleepColor.border, lineWidth: 1)
+        }
     }
 }
 

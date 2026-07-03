@@ -36,11 +36,16 @@ struct Profile: Codable, Equatable {
     /// sign-up onboarding (raw values of `SleepStruggle`). Kept for future
     /// personalization; empty when the user skipped the question.
     var sleepStruggles: [String]
+    /// Whether the user has dismissed the "connect Apple Health" prompt shown
+    /// in Reports. Apple Health is no longer part of onboarding — it's offered
+    /// later, in-app, and this stops that prompt from reappearing once waved
+    /// off. Connecting via Settings still works regardless.
+    var healthPromptDismissed: Bool
 
     init(
         name: String, bedtime: Int, wakeTime: Int, onboarded: Bool,
         healthSyncEnabled: Bool = false, lockdownEnabled: Bool = false, lockdownMaxHours: Int = 6,
-        sleepStruggles: [String] = []
+        sleepStruggles: [String] = [], healthPromptDismissed: Bool = false
     ) {
         self.name = name
         self.bedtime = bedtime
@@ -50,6 +55,7 @@ struct Profile: Codable, Equatable {
         self.lockdownEnabled = lockdownEnabled
         self.lockdownMaxHours = lockdownMaxHours
         self.sleepStruggles = sleepStruggles
+        self.healthPromptDismissed = healthPromptDismissed
     }
 
     // Decode-safe: records written before these fields existed default sensibly.
@@ -63,6 +69,7 @@ struct Profile: Codable, Equatable {
         lockdownEnabled = try c.decodeIfPresent(Bool.self, forKey: .lockdownEnabled) ?? false
         lockdownMaxHours = try c.decodeIfPresent(Int.self, forKey: .lockdownMaxHours) ?? 6
         sleepStruggles = try c.decodeIfPresent([String].self, forKey: .sleepStruggles) ?? []
+        healthPromptDismissed = try c.decodeIfPresent(Bool.self, forKey: .healthPromptDismissed) ?? false
     }
 }
 

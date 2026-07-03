@@ -7,13 +7,16 @@ review the rhythm of recent nights — using **real data only**.
 ## Current product
 
 - A welcome screen offers two independent paths. **Sign up**: a questionnaire
-  (name, what gets in the way of sleep, usual bedtime, usual wake time, Apple
-  Health) whose final step is account creation, framed as saving the plan —
-  questions come first because invested users sign up at a higher rate, and the
-  account step carries the same progress bar and back button as the rest of the
-  flow. **Sign in**: a standalone screen (Apple, Google, or manual
-  email/password), then the same questions as a quick setup on a device with no
-  profile. The two paths don't cross-link — you choose on the welcome screen.
+  (name, what gets in the way of sleep, usual bedtime, usual wake time) whose
+  final step is account creation, framed as saving the plan — questions come
+  first because invested users sign up at a higher rate, and the account step
+  carries the same progress bar and back button as the rest of the flow. **Sign
+  in**: a standalone screen (Apple, Google, or manual email/password), then the
+  same questions as a quick setup on a device with no profile. The two paths
+  don't cross-link — you choose on the welcome screen.
+- Apple Health is offered *after* onboarding, via a dismissable prompt card at
+  the top of Reports (and always in Settings), rather than interrupting sign-up
+  with a permission sheet.
 - Home shows a greeting, tonight's schedule, `Sleep Now`, `Set Bedtime`, and a
   last-night summary (duration, color-coded score, streak) — or an honest empty
   state when nothing has been logged yet.

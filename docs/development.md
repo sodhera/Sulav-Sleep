@@ -126,24 +126,30 @@ Filter with `-only-testing:SulavSleepTests` or `-only-testing:SulavSleepUITests`
 - `HomeView.swift`: greeting, schedule, Sleep Now, active sleeping state, wake
   logging, last-night summary, empty states, Health import indicator.
 - `ReportsView.swift`: weekly chart, averages, history with source badges,
-  empty state.
+  empty state, and `HealthConnectCard` — the dismissable "connect Apple Health"
+  prompt shown at the top when `store.shouldPromptHealthConnect` (available, not
+  connected, not waved off). This is where Health is offered now that onboarding
+  no longer asks; "Connect" calls `enableHealthSync`, the ✕ calls
+  `dismissHealthPrompt` (persisted via `Profile.healthPromptDismissed`).
 - `OnboardingView.swift`: `OnboardingGateView`, the whole pre-app gate. A
   welcome screen offers two independent paths — "Get started" runs the sign-up
   flow (`OnboardingQuestionsView`: name, sleep struggles, bedtime, wake with a
-  live sleep-window readout, Apple Health, and — as the final step — the
-  account creation, embedding `AuthMethodsView`); "I already have an account"
-  goes straight to a standalone `AuthView` (`.signIn`), followed by the same
-  questions as a quick setup when the device has no profile. The two paths are
-  never linked. `OnboardingQuestionsView` builds its step list dynamically:
-  the account step is appended only when the user is not already signed in
-  (captured once via `includesAccount`), so it appears on the sign-up path but
-  is dropped on the post-sign-in quick setup, where Apple Health becomes the
-  final step. The profile is *not* committed until the account step's auth
-  succeeds — an `onChange(store.isAuthenticated)` inside the questionnaire
-  fires `completeOnboarding`, so the gate stays mounted (progress bar + back
-  chevron intact) through account creation and "back" from it returns to the
-  Health step. Navigation is array-index based so the conditional final step is
-  handled uniformly. The questionnaire renders only the active step
+  live sleep-window readout, and — as the final step — the account creation,
+  embedding `AuthMethodsView`); "I already have an account" goes straight to a
+  standalone `AuthView` (`.signIn`), followed by the same questions as a quick
+  setup when the device has no profile. The two paths are never linked. Apple
+  Health is not part of onboarding — it's offered later in Reports (see
+  `HealthConnectCard`). `OnboardingQuestionsView` builds its step list
+  dynamically: the account step is appended only when the user is not already
+  signed in (captured once via `includesAccount`), so it appears on the sign-up
+  path but is dropped on the post-sign-in quick setup, where the wake-time
+  question becomes the final step (its button reads "Finish" and commits). The
+  profile is *not* committed until the account step's auth succeeds — an
+  `onChange(store.isAuthenticated)` inside the questionnaire fires
+  `completeOnboarding`, so the gate stays mounted (progress bar + back chevron
+  intact) through account creation and "back" from it returns to the wake step.
+  Navigation is array-index based so the conditional final step is handled
+  uniformly. The questionnaire renders only the active step
   (directional slide transitions, thin amber progress bar, glass back chevron)
   and owns the shared lightweight `TimeAdjuster`, used instead of UIKit
   `DatePicker`/wheel controls to avoid first-use hitches during transitions.
@@ -173,14 +179,17 @@ Filter with `-only-testing:SulavSleepTests` or `-only-testing:SulavSleepUITests`
 ## Product mechanics
 
 - First launch shows the welcome screen with two independent paths. Sign-up:
-  name, sleep struggles, bedtime, wake, Apple Health, then account creation as
-  the final step of the same flow (progress bar + back throughout) — the
-  questions come first deliberately, since users who have invested in a few
-  answers complete sign-up at a higher rate, and the profile is committed only
-  once that final account step succeeds. Sign-in: a standalone screen, then the
-  same questions as a quick setup if the device has no profile (see
-  "Authentication"). The two paths do not cross-link; the choice is made on the
-  welcome screen.
+  name, sleep struggles, bedtime, wake, then account creation as the final step
+  of the same flow (progress bar + back throughout) — the questions come first
+  deliberately, since users who have invested in a few answers complete sign-up
+  at a higher rate, and the profile is committed only once that final account
+  step succeeds. Sign-in: a standalone screen, then the same questions as a
+  quick setup if the device has no profile (see "Authentication"). The two paths
+  do not cross-link; the choice is made on the welcome screen.
+- **Apple Health is offered in-app, not during onboarding.** A dismissable
+  prompt card sits at the top of Reports until the user connects (or waves it
+  off); Settings keeps the toggle. This avoids a system permission sheet
+  interrupting sign-up and puts the ask where sleep data is shown.
 - **No seeding.** History is empty until the user logs a real night or Apple
   Health has real sleep to import.
 - `Sleep Now` writes an active session; `Wake up` logs duration + score, clears

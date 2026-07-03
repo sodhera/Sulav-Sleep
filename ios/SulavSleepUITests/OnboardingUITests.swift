@@ -38,21 +38,13 @@ final class OnboardingUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Next"].waitForExistence(timeout: 3))
         app.buttons["Next"].tap()
 
-        // Wake (leave default) -> Next
+        // Wake (leave default) -> Next, which advances to the account step.
         XCTAssertTrue(app.buttons["Next"].waitForExistence(timeout: 3))
         app.buttons["Next"].tap()
 
-        // Health step: decline to avoid the system permission sheet.
-        let maybeLater = app.buttons["Maybe later"]
-        let continueButton = app.buttons["Continue"]
-        if maybeLater.waitForExistence(timeout: 3) {
-            maybeLater.tap()
-        } else if continueButton.waitForExistence(timeout: 3) {
-            continueButton.tap()
-        }
-
-        // Account step closes the sign-up path (see AuthUITests for dedicated
-        // coverage of the auth screen itself).
+        // Account step is the final step of the sign-up flow (see AuthUITests
+        // for dedicated coverage of the auth screen itself). Apple Health is no
+        // longer part of onboarding — it's offered later in Reports.
         let continueWithEmail = app.buttons["Continue with email"]
         XCTAssertTrue(continueWithEmail.waitForExistence(timeout: 5), "Account step should appear after the questionnaire")
         continueWithEmail.tap()
