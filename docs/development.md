@@ -1,6 +1,6 @@
 # Development
 
-Sulav Sleep is a native iOS SwiftUI app. The old Expo/React Native source was
+SleepBlock is a native iOS SwiftUI app. The old Expo/React Native source was
 removed during the Swift migration; `ios/SulavSleep.xcodeproj` is the source of
 truth.
 
@@ -74,7 +74,7 @@ Filter with `-only-testing:SulavSleepTests` or `-only-testing:SulavSleepUITests`
 - `AppLog` — category-scoped `os.Logger`s (`app`, `store`, `health`, `ui`,
   `scene`, `intents`). Stream them from the Simulator with:
   ```sh
-  xcrun simctl spawn booted log stream --predicate 'subsystem == "com.anonymous.sulav-sleep"'
+  xcrun simctl spawn booted log stream --predicate 'subsystem == "com.sulav.sleepblock"'
   ```
 - `AppSignpost` — `OSSignposter`s for Instruments. `OSSignposter.measure`
   wraps operations in signpost intervals; the HealthKit import is traced as
@@ -208,7 +208,7 @@ Apple Developer capability, Google Cloud OAuth client).
 ## Widget & App Group
 
 - `SulavSleepWidgetExtension` (WidgetKit) is embedded in the app and shares data
-  via App Group `group.com.anonymous.sulav-sleep`. `SleepWidgetShared.swift`
+  via App Group `group.com.sulav.sleepblock`. `SleepWidgetShared.swift`
   (the summary types + read/write) is a member of both targets.
 - `SleepStore` writes the summary and calls `WidgetCenter.reloadAllTimelines()`
   on every history change — **except under tests**. WidgetKit reloads / App
@@ -229,5 +229,5 @@ Apple Developer capability, Google Cloud OAuth client).
 ## App Intents
 
 - `StartSleepIntent`: starts a session without opening the app.
-- `OpenSleepHomeIntent`: opens Sulav Sleep.
+- `OpenSleepHomeIntent`: opens SleepBlock.
 - `SulavSleepShortcuts`: exposes both to Shortcuts/Siri/Spotlight.

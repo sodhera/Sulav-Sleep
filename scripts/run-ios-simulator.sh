@@ -54,4 +54,4 @@ if [[ -z "$APP_PATH" ]]; then
 fi
 
 xcrun simctl install "$SIM_ID" "$APP_PATH"
-xcrun simctl launch "$SIM_ID" com.anonymous.sulav-sleep
+xcrun simctl launch "$SIM_ID" com.sulav.sleepblock

@@ -1,6 +1,6 @@
-# Sulav Sleep Product Brief
+# SleepBlock Product Brief
 
-Sulav Sleep is a bedtime commitment app. The native iOS version focuses on a
+SleepBlock is a bedtime commitment app. The native iOS version focuses on a
 calm nightly loop: choose a sleep schedule, start a sleep session, wake up, and
 review the rhythm of recent nights — using **real data only**.
 

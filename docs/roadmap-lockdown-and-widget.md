@@ -14,7 +14,7 @@ capability.
 
 - **Home-screen widget** — `SulavSleepWidgetExtension` (WidgetKit): small
   (last score + mini bars) and medium (7-night bar graph + avg + streak),
-  reading a compact summary from the App Group `group.com.anonymous.sulav-sleep`.
+  reading a compact summary from the App Group `group.com.sulav.sleepblock`.
   `SleepStore` publishes the summary and reloads timelines on every change.
 - **Sleep lockdown** — `SleepScreenTime.swift`: `ScreenTimeService`
   (FamilyControls `AuthorizationCenter` + `ManagedSettings` shield), a
@@ -118,7 +118,7 @@ A home-screen widget showing the last-7-nights sleep graph and the latest sleep
 score, so the habit is visible without opening the app.
 
 ### Architecture
-1. **App Group** (`group.com.anonymous.sulav-sleep`) shared between the app and
+1. **App Group** (`group.com.sulav.sleepblock`) shared between the app and
    the widget. Move the persisted snapshot (or a compact widget summary:
    last 7 durations + latest score + streak) into the shared container so the
    widget can read it. Update `SleepPersistence` to write to the App Group.

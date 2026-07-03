@@ -7,7 +7,7 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
-    <string>Sulav Sleep</string>
+    <string>SleepBlock</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
@@ -27,13 +27,13 @@
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>com.anonymous.sulav-sleep</string>
+          <string>com.sulav.sleepblock</string>
         </array>
       </dict>
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>sulavsleep</string>
+          <string>sleepblock</string>
         </array>
       </dict>
     </array>
@@ -44,9 +44,9 @@
     <key>LSRequiresIPhoneOS</key>
     <true/>
     <key>NSHealthShareUsageDescription</key>
-    <string>Sulav Sleep reads your sleep history from Apple Health so your nightly reports reflect your real sleep.</string>
+    <string>SleepBlock reads your sleep history from Apple Health so your nightly reports reflect your real sleep.</string>
     <key>NSHealthUpdateUsageDescription</key>
-    <string>Sulav Sleep saves the nights you log to Apple Health so all your sleep data stays in one place.</string>
+    <string>SleepBlock saves the nights you log to Apple Health so all your sleep data stays in one place.</string>
     <key>NSSupportsLiveActivities</key>
     <true/>
     <key>SUPABASE_URL</key>

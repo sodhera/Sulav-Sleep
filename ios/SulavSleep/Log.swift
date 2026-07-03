@@ -24,7 +24,7 @@ enum AppEnvironment {
 }
 
 enum AppLog {
-    static let subsystem = "com.anonymous.sulav-sleep"
+    static let subsystem = "com.sulav.sleepblock"
 
     static let app = Logger(subsystem: subsystem, category: "app")
     static let store = Logger(subsystem: subsystem, category: "store")

@@ -3,7 +3,7 @@ import Foundation
 
 struct StartSleepIntent: AppIntent {
     static var title: LocalizedStringResource = "Start Sleep"
-    static var description = IntentDescription("Starts a Sulav Sleep session without opening the app.")
+    static var description = IntentDescription("Starts a SleepBlock session without opening the app.")
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         SleepPersistence.shared.startSleepFromIntent()
@@ -12,8 +12,8 @@ struct StartSleepIntent: AppIntent {
 }
 
 struct OpenSleepHomeIntent: AppIntent {
-    static var title: LocalizedStringResource = "Open Sulav Sleep"
-    static var description = IntentDescription("Opens Sulav Sleep to the main screen.")
+    static var title: LocalizedStringResource = "Open SleepBlock"
+    static var description = IntentDescription("Opens SleepBlock to the main screen.")
     static var openAppWhenRun = true
 
     func perform() async throws -> some IntentResult {
@@ -39,7 +39,7 @@ struct SulavSleepShortcuts: AppShortcutsProvider {
                 "Open \(.applicationName)",
                 "Show \(.applicationName)"
             ],
-            shortTitle: "Open Sulav Sleep",
+            shortTitle: "Open SleepBlock",
             systemImageName: "moon.stars.fill"
         )
     }

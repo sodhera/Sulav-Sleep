@@ -104,7 +104,7 @@ final class SupabaseAuthClient: AuthProviding {
         do {
             let session = try await client.signInWithOAuth(
                 provider: .google,
-                redirectTo: URL(string: "sulavsleep://auth-callback")
+                redirectTo: URL(string: "sleepblock://auth-callback")
             ) { url in
                 try await Self.presentOAuthSession(url: url)
             }
@@ -166,7 +166,7 @@ final class SupabaseAuthClient: AuthProviding {
     @MainActor
     private static func presentOAuthSession(url: URL) async throws -> URL {
         try await withCheckedThrowingContinuation { continuation in
-            let session = ASWebAuthenticationSession(url: url, callbackURLScheme: "sulavsleep") { callbackURL, error in
+            let session = ASWebAuthenticationSession(url: url, callbackURLScheme: "sleepblock") { callbackURL, error in
                 if let callbackURL {
                     continuation.resume(returning: callbackURL)
                 } else if let error {

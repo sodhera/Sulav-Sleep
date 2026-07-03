@@ -31,7 +31,7 @@ struct SleepWidgetSummary: Codable {
 
 /// Read/write the widget summary in the shared App Group container.
 enum SleepWidgetStore {
-    static let appGroup = "group.com.anonymous.sulav-sleep"
+    static let appGroup = "group.com.sulav.sleepblock"
     static let key = "sulav.widget.summary.v1"
 
     private static var encoder: JSONEncoder {

@@ -131,7 +131,7 @@ struct OnboardingView: View {
 private struct OnboardingIntro: View {
     var body: some View {
         VStack(spacing: SleepSpacing.md) {
-            Text("Sulav Sleep")
+            Text("SleepBlock")
                 .font(SleepFont.hero(34))
                 .foregroundStyle(SleepColor.ink)
             Text("Set a bedtime. Quiet the phone. Sleep.")

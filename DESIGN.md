@@ -1,6 +1,6 @@
-# Sulav Sleep Design System — Warm Pixel Night
+# SleepBlock Design System — Warm Pixel Night
 
-Sulav Sleep should feel like looking out the window of a warm apartment over a
+SleepBlock should feel like looking out the window of a warm apartment over a
 quiet city night while an old pixel-art game runs in the background. It is a
 bedside instrument, not a wellness dashboard. The interface exists to help
 someone put the phone down at night, so it stays low-stimulation, legible, and

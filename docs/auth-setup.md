@@ -1,6 +1,6 @@
 # Auth setup (Supabase + Apple + Google)
 
-Sulav Sleep gates the app behind sign-up/sign-in right after onboarding
+SleepBlock gates the app behind sign-up/sign-in right after onboarding
 (`AuthView.swift`), backed by a real [Supabase](https://supabase.com) project.
 Sleep data itself stays local-first (see `product-brief.md`) — this only adds
 account identity on top. This doc is the one-time external setup a developer
@@ -24,14 +24,14 @@ Email/password auth is enabled by default on a new Supabase project —
 
 ## 2. Enable Sign in with Apple
 
-Sulav Sleep uses the **native** Apple flow
+SleepBlock uses the **native** Apple flow
 (`ASAuthorizationAppleIDProvider` → Supabase's `signInWithIdToken`), so no
 Apple config is needed on the Supabase side — only in the Apple Developer
 portal and Xcode:
 
 1. [developer.apple.com](https://developer.apple.com) → **Certificates,
    Identifiers & Profiles → Identifiers** → select the app's App ID
-   (`com.anonymous.sulav-sleep` or whatever it's registered as).
+   (`com.sulav.sleepblock` or whatever it's registered as).
 2. Under **Capabilities**, enable **Sign In with Apple** → Save.
 3. In Xcode, the `SulavSleep.entitlements` file already declares
    `com.apple.developer.applesignin`; just make sure the target's signing
@@ -45,7 +45,7 @@ keys once we hand it the native token.
 
 ## 3. Enable Google sign-in
 
-Sulav Sleep uses Supabase's OAuth web flow (`ASWebAuthenticationSession`) for
+SleepBlock uses Supabase's OAuth web flow (`ASWebAuthenticationSession`) for
 Google, not the Google SDK, so setup lives entirely in Google Cloud Console +
 the Supabase dashboard:
 
@@ -60,12 +60,12 @@ the Supabase dashboard:
 5. In the Supabase dashboard: **Authentication → Providers → Google** →
    paste the Client ID/secret → Enable → Save.
 6. In the Supabase dashboard: **Authentication → URL Configuration →
-   Redirect URLs** → add `sulavsleep://auth-callback` (this is the app's
+   Redirect URLs** → add `sleepblock://auth-callback` (this is the app's
    custom URL scheme, already registered in `Info.plist`).
 
 With that, tapping "Continue with Google" in the app opens a system sheet,
 the user signs in with Google, and Supabase redirects back into the app via
-`sulavsleep://auth-callback`.
+`sleepblock://auth-callback`.
 
 ## Verifying it all works
 
