@@ -110,11 +110,15 @@ Filter with `-only-testing:SulavSleepTests` or `-only-testing:SulavSleepUITests`
   quick setup. Entering `.main` is a hard cut
   (`.transaction { $0.disablesAnimations = true }`), not animated — see
   "Authentication" below for why.
-- `AuthView.swift`: the account screen (Apple, Google, manual email/password),
-  framed by `AuthIntent`: `.signUp` closes the sign-up questionnaire ("Save
-  your sleep plan"), `.signIn` is the returning-user path from the welcome
-  screen ("Welcome back"). The email form keeps a sign-up/sign-in toggle either
-  way.
+- `AuthView.swift`: account methods (Apple, Google, manual email/password),
+  split into `AuthMethodsView` (the buttons + email form, single-purpose — the
+  mode is fixed by `AuthIntent`, no sign-up/sign-in toggle) and a thin
+  `AuthView` wrapper that adds an optional back chevron and safe-area padding.
+  `AuthMethodsView` is used two ways: embedded as the final step of the sign-up
+  questionnaire (`.signUp`, "Save your sleep plan"), and standalone via
+  `AuthView` for the returning-user sign-in path from welcome and the
+  post-sign-out gate (`.signIn`, "Welcome back"). The two paths never link to
+  each other.
 - `Auth/AuthModels.swift`, `Auth/SupabaseAuthClient.swift`,
   `Auth/MockAuthClient.swift`: `AuthProviding` protocol (mirrors
   `SleepHealthProviding`), the real Supabase-backed client, and the test
@@ -124,19 +128,28 @@ Filter with `-only-testing:SulavSleepTests` or `-only-testing:SulavSleepUITests`
 - `ReportsView.swift`: weekly chart, averages, history with source badges,
   empty state.
 - `OnboardingView.swift`: `OnboardingGateView`, the whole pre-app gate. A
-  welcome screen offers two paths — "Get started" runs the sign-up
-  questionnaire (`OnboardingQuestionsView`: name, sleep struggles, bedtime,
-  wake with a live sleep-window readout, Apple Health) and only then asks for
-  an account; "I already have an account" goes straight to `AuthView` in
-  `.signIn` framing, followed by the same questions as a quick setup when the
-  device has no profile. The questionnaire renders only the active step
+  welcome screen offers two independent paths — "Get started" runs the sign-up
+  flow (`OnboardingQuestionsView`: name, sleep struggles, bedtime, wake with a
+  live sleep-window readout, Apple Health, and — as the final step — the
+  account creation, embedding `AuthMethodsView`); "I already have an account"
+  goes straight to a standalone `AuthView` (`.signIn`), followed by the same
+  questions as a quick setup when the device has no profile. The two paths are
+  never linked. `OnboardingQuestionsView` builds its step list dynamically:
+  the account step is appended only when the user is not already signed in
+  (captured once via `includesAccount`), so it appears on the sign-up path but
+  is dropped on the post-sign-in quick setup, where Apple Health becomes the
+  final step. The profile is *not* committed until the account step's auth
+  succeeds — an `onChange(store.isAuthenticated)` inside the questionnaire
+  fires `completeOnboarding`, so the gate stays mounted (progress bar + back
+  chevron intact) through account creation and "back" from it returns to the
+  Health step. Navigation is array-index based so the conditional final step is
+  handled uniformly. The questionnaire renders only the active step
   (directional slide transitions, thin amber progress bar, glass back chevron)
   and owns the shared lightweight `TimeAdjuster`, used instead of UIKit
   `DatePicker`/wheel controls to avoid first-use hitches during transitions.
-  The welcome screen pre-warms the UIKit keyboard stack with a hidden
-  `UITextField`, and the name step auto-focuses after the transition so the
-  first keyboard appearance is absorbed into the step change without stopping
-  the background animation. Struggle answers persist to
+  The keyboard is pre-warmed with a hidden `UITextField` only while routing to
+  the questionnaire (whose name step auto-focuses), so no phantom keyboard
+  flashes on the welcome or account screens. Struggle answers persist to
   `Profile.sleepStruggles` for future personalization.
 - `Sheets.swift`: schedule editor and settings (name, schedule, Health toggle,
   reset).
@@ -159,12 +172,15 @@ Filter with `-only-testing:SulavSleepTests` or `-only-testing:SulavSleepUITests`
 
 ## Product mechanics
 
-- First launch shows the welcome screen with two paths. Sign-up: name, sleep
-  struggles, bedtime, wake, Apple Health, then account creation — the
+- First launch shows the welcome screen with two independent paths. Sign-up:
+  name, sleep struggles, bedtime, wake, Apple Health, then account creation as
+  the final step of the same flow (progress bar + back throughout) — the
   questions come first deliberately, since users who have invested in a few
-  answers complete sign-up at a higher rate. Sign-in: straight to auth, then
-  the same questions as a quick setup if the device has no profile (see
-  "Authentication").
+  answers complete sign-up at a higher rate, and the profile is committed only
+  once that final account step succeeds. Sign-in: a standalone screen, then the
+  same questions as a quick setup if the device has no profile (see
+  "Authentication"). The two paths do not cross-link; the choice is made on the
+  welcome screen.
 - **No seeding.** History is empty until the user logs a real night or Apple
   Health has real sleep to import.
 - `Sleep Now` writes an active session; `Wake up` logs duration + score, clears
@@ -174,10 +190,12 @@ Filter with `-only-testing:SulavSleepTests` or `-only-testing:SulavSleepUITests`
 
 ## Authentication
 
-The account gate (Apple, Google, manual email/password) is backed by a real
-Supabase project. On the sign-up path it appears after the questionnaire; on
-the sign-in path it appears immediately from the welcome screen. Sleep data itself stays
-local-first (per `product-brief.md`) — this only adds account identity on top.
+The account methods (Apple, Google, manual email/password) are backed by a real
+Supabase project. On the sign-up path they are the final step of the
+questionnaire; on the sign-in path they are a standalone screen from welcome
+(and the screen an onboarded-but-signed-out user lands on at the root). Sleep
+data itself stays local-first (per `product-brief.md`) — this only adds account
+identity on top.
 See `docs/auth-setup.md` for the one-time external setup (Supabase project,
 Apple Developer capability, Google Cloud OAuth client).
 

@@ -131,9 +131,9 @@ final class AuthUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Sleep Now"].waitForExistence(timeout: 5), "Home should show after sign-in + quick setup")
     }
 
-    /// Signing out lands on "Welcome back", and the footer toggle switches
-    /// between the sign-in and sign-up framings.
-    func testSignOutLandsOnWelcomeBackWithFramingToggle() {
+    /// Signing out lands on the standalone sign-in screen (the account is
+    /// already made), with no cross-link back to sign-up.
+    func testSignOutLandsOnSignIn() {
         let app = launchFresh()
         completeQuestionnaire(app)
 
@@ -156,15 +156,8 @@ final class AuthUITests: XCTestCase {
         XCTAssertTrue(signOut.waitForExistence(timeout: 3))
         signOut.tap()
 
-        XCTAssertTrue(app.staticTexts["Welcome back"].waitForExistence(timeout: 5), "Sign-out should land on the sign-in framing")
-
-        // The toggle flips to sign-up framing and back.
-        let toggle = app.buttons["authFramingToggle"]
-        XCTAssertTrue(toggle.waitForExistence(timeout: 3))
-        toggle.tap()
-        XCTAssertTrue(app.staticTexts["Save your sleep plan"].waitForExistence(timeout: 3))
-        toggle.tap()
-        XCTAssertTrue(app.staticTexts["Welcome back"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["Welcome back"].waitForExistence(timeout: 5), "Sign-out should land on the sign-in screen")
+        XCTAssertFalse(app.buttons["authFramingToggle"].exists, "There is no sign-up cross-link on the sign-in screen")
     }
 
     /// The sign-in screen's back chevron returns to welcome.

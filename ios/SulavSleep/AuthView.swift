@@ -1,48 +1,24 @@
 import SwiftUI
 import AuthenticationServices
 
-/// How the auth screen is framed. `.signUp` closes the sign-up questionnaire
-/// ("save the plan you just made"); `.signIn` is the returning-user path from
-/// the welcome screen. Both reach the same Supabase providers — the email form
-/// keeps a toggle so nobody gets stuck on the wrong side.
+/// Which single-purpose account screen this is. The two are never linked to
+/// each other — the user picks a path on the welcome screen, so there is no
+/// "already have an account?" cross-link on either. `.signUp` is the final step
+/// of the sign-up flow; `.signIn` is the standalone returning-user path.
 enum AuthIntent {
     case signUp
     case signIn
 }
 
-/// Account step: native Sign in with Apple, Google via a web OAuth sheet, and
-/// manual email/password. Mirrors the questionnaire's layout, spacing, and
-/// animation so the two screens read as one continuous flow.
+/// Standalone account screen used for the sign-in path (from welcome, with a
+/// back chevron) and the post-sign-out gate (no back — a returning user at the
+/// root). The sign-up flow embeds `AuthMethodsView` directly instead so it can
+/// carry the questionnaire's progress bar and back button.
 struct AuthView: View {
     @Bindable var store: SleepStore
+    var intent: AuthIntent = .signIn
     /// Back to the welcome screen, when this screen was reached from it.
     var onBack: (() -> Void)?
-
-    /// Live framing, seeded from the caller's intent. A footer link flips it
-    /// so nobody is ever stuck on the wrong side (e.g. after signing out).
-    @State private var framing: AuthIntent
-    @State private var showEmailForm = false
-    @State private var mode: EmailMode
-    @State private var email = ""
-    @State private var password = ""
-    @State private var appleNonce: String?
-    @FocusState private var focusedField: Field?
-
-    init(store: SleepStore, intent: AuthIntent = .signUp, onBack: (() -> Void)? = nil) {
-        self.store = store
-        self.onBack = onBack
-        _framing = State(initialValue: intent)
-        _mode = State(initialValue: intent == .signIn ? .signIn : .signUp)
-    }
-
-    private enum EmailMode: String, CaseIterable, Identifiable {
-        case signUp, signIn
-        var id: String { rawValue }
-        var title: String { self == .signUp ? "Sign up" : "Sign in" }
-        var actionTitle: String { self == .signUp ? "Create account" : "Sign in" }
-    }
-
-    private enum Field { case email, password }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -59,15 +35,52 @@ struct AuthView: View {
                 .padding(.top, SleepSpacing.md)
             }
 
+            AuthMethodsView(store: store, intent: intent)
+        }
+        .safeAreaPadding(.top)
+        .safeAreaPadding(.bottom)
+    }
+}
+
+/// The account methods themselves: native Sign in with Apple, Google via a web
+/// OAuth sheet, and manual email/password. Single-purpose — the mode is fixed
+/// by `intent`, with no sign-up/sign-in toggle. Rendered standalone by
+/// `AuthView` and embedded as the final step of the sign-up questionnaire.
+struct AuthMethodsView: View {
+    @Bindable var store: SleepStore
+    let intent: AuthIntent
+
+    @State private var showEmailForm = false
+    @State private var email = ""
+    @State private var password = ""
+    @State private var appleNonce: String?
+    @FocusState private var focusedField: Field?
+
+    private enum Field { case email, password }
+
+    private var title: String {
+        intent == .signIn ? "Welcome back" : "Save your sleep plan"
+    }
+
+    private var subtitle: String {
+        intent == .signIn
+            ? "Sign in to pick up where you left off."
+            : "Create a free account so your plan and your nights follow you across devices."
+    }
+
+    private var emailActionTitle: String {
+        intent == .signIn ? "Sign in" : "Create account"
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
             Spacer()
 
             VStack(spacing: SleepSpacing.md) {
-                Text(framing == .signIn ? "Welcome back" : "Save your sleep plan")
+                Text(title)
                     .font(SleepFont.hero(30))
                     .foregroundStyle(SleepColor.ink)
-                Text(framing == .signIn
-                     ? "Sign in to pick up where you left off."
-                     : "Create a free account so your plan and your nights follow you across devices.")
+                Text(subtitle)
                     .font(SleepFont.body(16))
                     .foregroundStyle(SleepColor.dim)
                     .multilineTextAlignment(.center)
@@ -97,8 +110,7 @@ struct AuthView: View {
             .padding(.horizontal, SleepSpacing.xxl)
             .padding(.bottom, SleepSpacing.xxl)
         }
-        .safeAreaPadding(.top)
-        .safeAreaPadding(.bottom)
+        .frame(maxHeight: .infinity)
         .animation(.easeInOut(duration: 0.22), value: showEmailForm)
     }
 
@@ -107,7 +119,7 @@ struct AuthView: View {
     @ViewBuilder
     private var providerButtons: some View {
         VStack(spacing: SleepSpacing.md) {
-            SignInWithAppleButton(framing == .signIn ? .signIn : .signUp) { request in
+            SignInWithAppleButton(intent == .signIn ? .signIn : .signUp) { request in
                 request.requestedScopes = [.email, .fullName]
                 let nonce = AppleSignInNonce.randomNonce()
                 appleNonce = nonce
@@ -140,38 +152,6 @@ struct AuthView: View {
                 withAnimation(.easeInOut(duration: 0.22)) { showEmailForm = true }
             }
             .disabled(store.isAuthenticating)
-
-            Button {
-                Haptics.soft()
-                store.authErrorMessage = nil
-                withAnimation(.easeInOut(duration: 0.22)) {
-                    framing = framing == .signIn ? .signUp : .signIn
-                    mode = framing == .signIn ? .signIn : .signUp
-                }
-            } label: {
-                framingToggleLabel
-            }
-            .frame(maxWidth: .infinity, minHeight: 44)
-            .accessibilityIdentifier("authFramingToggle")
-            .disabled(store.isAuthenticating)
-        }
-    }
-
-    private var framingToggleLabel: Text {
-        if framing == .signIn {
-            Text("New here? ")
-                .font(SleepFont.body(15))
-                .foregroundStyle(SleepColor.muted)
-            + Text("Create an account")
-                .font(SleepFont.label(15))
-                .foregroundStyle(SleepColor.amber)
-        } else {
-            Text("Already have an account? ")
-                .font(SleepFont.body(15))
-                .foregroundStyle(SleepColor.muted)
-            + Text("Sign in")
-                .font(SleepFont.label(15))
-                .foregroundStyle(SleepColor.amber)
         }
     }
 
@@ -180,13 +160,6 @@ struct AuthView: View {
     @ViewBuilder
     private var emailForm: some View {
         VStack(spacing: SleepSpacing.lg) {
-            Picker("Mode", selection: $mode) {
-                ForEach(EmailMode.allCases) { option in
-                    Text(option.title).tag(option)
-                }
-            }
-            .pickerStyle(.segmented)
-
             VStack(spacing: SleepSpacing.md) {
                 TextField("Email", text: $email)
                     .textInputAutocapitalization(.never)
@@ -217,7 +190,7 @@ struct AuthView: View {
                     // reliably dismissed from XCUITest and covers the app.
                     // `.oneTimeCode` opts out of that prompt without
                     // affecting the real content type users see.
-                    .textContentType(AppEnvironment.isTesting ? .oneTimeCode : .newPassword)
+                    .textContentType(AppEnvironment.isTesting ? .oneTimeCode : (intent == .signIn ? .password : .newPassword))
                     .font(SleepFont.body(17))
                     .foregroundStyle(SleepColor.ink)
                     .tint(SleepColor.amber)
@@ -230,11 +203,9 @@ struct AuthView: View {
                     .accessibilityLabel("Password")
             }
 
-            LiquidPrimaryButton(title: mode.actionTitle, systemImage: "arrow.right") {
+            LiquidPrimaryButton(title: emailActionTitle, systemImage: "arrow.right") {
                 submitEmailForm()
             }
-            // Distinguishes the submit button from the "Sign in" segmented tab
-            // for UI tests.
             .accessibilityIdentifier("authSubmit")
             .disabled(store.isAuthenticating || !isEmailFormValid)
 
@@ -263,7 +234,7 @@ struct AuthView: View {
         Haptics.soft()
         let email = self.email
         let password = self.password
-        switch mode {
+        switch intent {
         case .signUp:
             Task { await store.signUpEmail(email: email, password: password) }
         case .signIn:

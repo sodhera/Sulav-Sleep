@@ -109,11 +109,18 @@ single hairline, history uses divided rows.
 
 ## Onboarding & auth
 
-Two paths from a type-led welcome screen (kicker, brand hero, tagline, no
-artwork in the UI layer): a primary "Get started" and a quiet "I already have
-an account". Sign-up runs the questionnaire *before* asking for an account —
-users who have answered a few personal questions complete sign-up at a higher
-rate — and the account step is framed as saving the plan they just made.
+Two independent paths from a type-led welcome screen (kicker, brand hero,
+tagline, no artwork in the UI layer): a primary "Get started" and a quiet "I
+already have an account". The two paths are never linked to each other — the
+choice is made here, so neither downstream screen carries an "already have an
+account?" cross-link. Someone who picks wrong just backs out to welcome.
+
+Sign-up runs the questionnaire *before* asking for an account — people who have
+answered a few personal questions complete sign-up at a higher rate — and the
+account step is the *final step of that same flow*: it carries the same progress
+bar (now full) and back chevron as every other question, framed as saving the
+plan they just made. The profile is only committed once that step's auth
+succeeds, so "back" from it returns to the Apple Health step like any other.
 
 Questionnaire chrome: a 3pt amber-gradient progress capsule between a round
 glass back chevron and a matching spacer, editorial left-aligned questions
@@ -121,8 +128,9 @@ glass back chevron and a matching spacer, editorial left-aligned questions
 directional slide+fade step transitions (~280ms). Multi-select answers use
 full-width capsule glass rows — muted icon, ink label, trailing circle that
 fills amber when selected. No text "Back" buttons; the chevron is the only way
-back. The sign-in screen ("Welcome back") reuses the same chevron and layout so
-both paths read as one flow.
+back. The sign-in screen ("Welcome back") is a single standalone screen with
+the same chevron (back to welcome) and provider layout, so both paths read as
+one system.
 
 ## Motion
 

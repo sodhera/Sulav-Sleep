@@ -19,10 +19,6 @@ final class SleepStore {
     var isAuthReady = false
     var authErrorMessage: String?
     var isAuthenticating = false
-    /// True after an explicit sign-out this launch, so the auth screen opens
-    /// in "Welcome back" framing instead of sign-up. Not persisted — after a
-    /// relaunch the sign-up framing plus its sign-in toggle is fine.
-    var didJustSignOut = false
 
     private let persistence: SleepPersistence
     private let health: SleepHealthProviding
@@ -198,7 +194,6 @@ final class SleepStore {
         await auth.signOut()
         account = nil
         authErrorMessage = nil
-        didJustSignOut = true
         clearPersistedAccount()
         AppLog.store.info("Signed out")
     }
