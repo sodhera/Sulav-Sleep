@@ -15,10 +15,12 @@ enum AuthIntent {
 /// animation so the two screens read as one continuous flow.
 struct AuthView: View {
     @Bindable var store: SleepStore
-    var intent: AuthIntent = .signUp
     /// Back to the welcome screen, when this screen was reached from it.
     var onBack: (() -> Void)?
 
+    /// Live framing, seeded from the caller's intent. A footer link flips it
+    /// so nobody is ever stuck on the wrong side (e.g. after signing out).
+    @State private var framing: AuthIntent
     @State private var showEmailForm = false
     @State private var mode: EmailMode
     @State private var email = ""
@@ -28,8 +30,8 @@ struct AuthView: View {
 
     init(store: SleepStore, intent: AuthIntent = .signUp, onBack: (() -> Void)? = nil) {
         self.store = store
-        self.intent = intent
         self.onBack = onBack
+        _framing = State(initialValue: intent)
         _mode = State(initialValue: intent == .signIn ? .signIn : .signUp)
     }
 
@@ -60,10 +62,10 @@ struct AuthView: View {
             Spacer()
 
             VStack(spacing: SleepSpacing.md) {
-                Text(intent == .signIn ? "Welcome back" : "Save your sleep plan")
+                Text(framing == .signIn ? "Welcome back" : "Save your sleep plan")
                     .font(SleepFont.hero(30))
                     .foregroundStyle(SleepColor.ink)
-                Text(intent == .signIn
+                Text(framing == .signIn
                      ? "Sign in to pick up where you left off."
                      : "Create a free account so your plan and your nights follow you across devices.")
                     .font(SleepFont.body(16))
@@ -106,7 +108,7 @@ struct AuthView: View {
     @ViewBuilder
     private var providerButtons: some View {
         VStack(spacing: SleepSpacing.md) {
-            SignInWithAppleButton(intent == .signIn ? .signIn : .signUp) { request in
+            SignInWithAppleButton(framing == .signIn ? .signIn : .signUp) { request in
                 request.requestedScopes = [.email, .fullName]
                 let nonce = AppleSignInNonce.randomNonce()
                 appleNonce = nonce
@@ -139,6 +141,38 @@ struct AuthView: View {
                 withAnimation(.easeInOut(duration: 0.22)) { showEmailForm = true }
             }
             .disabled(store.isAuthenticating)
+
+            Button {
+                Haptics.soft()
+                store.authErrorMessage = nil
+                withAnimation(.easeInOut(duration: 0.22)) {
+                    framing = framing == .signIn ? .signUp : .signIn
+                    mode = framing == .signIn ? .signIn : .signUp
+                }
+            } label: {
+                framingToggleLabel
+            }
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .accessibilityIdentifier("authFramingToggle")
+            .disabled(store.isAuthenticating)
+        }
+    }
+
+    private var framingToggleLabel: Text {
+        if framing == .signIn {
+            Text("New here? ")
+                .font(SleepFont.body(15))
+                .foregroundStyle(SleepColor.muted)
+            + Text("Create an account")
+                .font(SleepFont.label(15))
+                .foregroundStyle(SleepColor.amber)
+        } else {
+            Text("Already have an account? ")
+                .font(SleepFont.body(15))
+                .foregroundStyle(SleepColor.muted)
+            + Text("Sign in")
+                .font(SleepFont.label(15))
+                .foregroundStyle(SleepColor.amber)
         }
     }
 

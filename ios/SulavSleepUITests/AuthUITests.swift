@@ -131,6 +131,42 @@ final class AuthUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Sleep Now"].waitForExistence(timeout: 5), "Home should show after sign-in + quick setup")
     }
 
+    /// Signing out lands on "Welcome back", and the footer toggle switches
+    /// between the sign-in and sign-up framings.
+    func testSignOutLandsOnWelcomeBackWithFramingToggle() {
+        let app = launchFresh()
+        completeQuestionnaire(app)
+
+        let continueWithEmail = app.buttons["Continue with email"]
+        XCTAssertTrue(continueWithEmail.waitForExistence(timeout: 5))
+        continueWithEmail.tap()
+        let emailField = app.textFields["Email"]
+        XCTAssertTrue(emailField.waitForExistence(timeout: 3))
+        emailField.tap()
+        emailField.typeText("ada@example.com")
+        let passwordField = app.secureTextFields["Password"]
+        XCTAssertTrue(passwordField.waitForExistence(timeout: 3))
+        passwordField.tap()
+        passwordField.typeText("password123")
+        app.buttons["Create account"].tap()
+        XCTAssertTrue(app.buttons["Sleep Now"].waitForExistence(timeout: 5))
+
+        app.buttons["Settings"].tap()
+        let signOut = app.buttons["Sign out"]
+        XCTAssertTrue(signOut.waitForExistence(timeout: 3))
+        signOut.tap()
+
+        XCTAssertTrue(app.staticTexts["Welcome back"].waitForExistence(timeout: 5), "Sign-out should land on the sign-in framing")
+
+        // The toggle flips to sign-up framing and back.
+        let toggle = app.buttons["authFramingToggle"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 3))
+        toggle.tap()
+        XCTAssertTrue(app.staticTexts["Save your sleep plan"].waitForExistence(timeout: 3))
+        toggle.tap()
+        XCTAssertTrue(app.staticTexts["Welcome back"].waitForExistence(timeout: 3))
+    }
+
     /// The sign-in screen's back chevron returns to welcome.
     func testSignInBackReturnsToWelcome() {
         let app = launchFresh()

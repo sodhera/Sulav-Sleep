@@ -58,10 +58,12 @@ struct RootView: View {
                         SleepBackground(showsMoon: false)
                         OnboardingGateView(store: store)
                     case .auth:
-                        // End of the sign-up path: the plan is made, now save
-                        // it to an account.
+                        // End of the sign-up path ("save the plan you just
+                        // made") — unless the user just signed out, in which
+                        // case they're a returning user and get "Welcome
+                        // back". Both framings carry a toggle to the other.
                         SleepBackground(showsMoon: false)
-                        AuthView(store: store, intent: .signUp)
+                        AuthView(store: store, intent: store.didJustSignOut ? .signIn : .signUp)
                     case .main:
                         EmptyView() // Handled by the branch above.
                     }
