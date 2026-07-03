@@ -91,6 +91,9 @@ enum SleepNightBuilder {
 
 protocol SleepHealthProviding {
     var isAvailable: Bool { get }
+    /// True once the user has explicitly denied access (so re-requesting would
+    /// no-op and the app should send them to Settings instead of re-prompting).
+    var isAccessDenied: Bool { get }
     func requestAuthorization() async -> Bool
     func fetchNights(days: Int, targetMinutes: Int) async -> [SleepSession]
     func save(session: SleepSession) async
@@ -107,6 +110,7 @@ enum SleepHealth {
 /// No-op provider used when HealthKit is unavailable or for previews.
 struct DisabledHealthService: SleepHealthProviding {
     var isAvailable: Bool { false }
+    var isAccessDenied: Bool { false }
     func requestAuthorization() async -> Bool { false }
     func fetchNights(days: Int, targetMinutes: Int) async -> [SleepSession] { [] }
     func save(session: SleepSession) async {}
@@ -120,13 +124,28 @@ final class HealthKitService: SleepHealthProviding {
 
     var isAvailable: Bool { HKHealthStore.isHealthDataAvailable() }
 
+    /// HealthKit hides *read* authorization for privacy, but exposes *share*
+    /// (write) status — and our two-way sync writes logged nights to Health, so
+    /// write access is genuinely required for a connection to mean anything.
+    /// A `.sharingDenied` here is the reliable "user said no" signal.
+    var isAccessDenied: Bool {
+        guard isAvailable else { return false }
+        return store.authorizationStatus(for: sleepType) == .sharingDenied
+    }
+
     func requestAuthorization() async -> Bool {
         guard isAvailable else { return false }
         let types: Set<HKSampleType> = [sleepType]
         do {
             try await store.requestAuthorization(toShare: types, read: types)
-            AppLog.health.info("Requested HealthKit sleep authorization")
-            return true
+            // `requestAuthorization` succeeds merely for *showing* the sheet — it
+            // returns without error even when the user taps "Don't Allow", and
+            // never reveals read grants. So don't treat a clean return as
+            // connected; check the share status, which does reflect the choice.
+            let status = store.authorizationStatus(for: sleepType)
+            let authorized = status == .sharingAuthorized
+            AppLog.health.info("HealthKit sleep authorization status=\(status.rawValue) authorized=\(authorized)")
+            return authorized
         } catch {
             AppLog.health.error("HealthKit authorization failed: \(error.localizedDescription, privacy: .public)")
             return false

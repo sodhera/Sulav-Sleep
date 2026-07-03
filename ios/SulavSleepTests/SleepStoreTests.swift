@@ -81,6 +81,23 @@ struct SleepStoreTests {
         #expect(store.importedHealthSessions.isEmpty)
     }
 
+    @Test func alreadyDeniedHealthAccessSkipsRepromptAndStaysOff() async {
+        // Once the OS has recorded a denial, re-requesting silently no-ops, so
+        // connectHealth must route to Settings instead of asking again — and it
+        // must never flip sync on.
+        let mock = MockHealthService(accessDenied: true)
+        let store = TestFactory.makeStore(health: mock)
+        store.completeOnboarding(name: "Ada", bedtime: 22 * 60, wakeTime: 6 * 60, connectHealth: false)
+
+        #expect(store.healthAccessDenied == true)
+
+        await store.connectHealth()
+
+        #expect(mock.authorizeCallCount == 0)
+        #expect(store.profile?.healthSyncEnabled == false)
+        #expect(store.healthSyncState == .notConnected)
+    }
+
     @Test func disablingHealthClearsImportedNights() async {
         let mock = MockHealthService(nights: [
             TestFactory.session(endingDaysAgo: 1, durationMinutes: 450, score: 88, source: .healthKit)

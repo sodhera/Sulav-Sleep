@@ -21,7 +21,7 @@ struct ReportsView: View {
 
                 if store.shouldPromptHealthConnect {
                     HealthConnectCard(
-                        onConnect: { Task { await store.enableHealthSync() } },
+                        onConnect: { Task { await store.connectHealth() } },
                         onDismiss: { store.dismissHealthPrompt() }
                     )
                     .padding(.top, SleepSpacing.xl)

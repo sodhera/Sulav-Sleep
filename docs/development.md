@@ -244,6 +244,17 @@ Apple Developer capability, Google Cloud OAuth client).
 - The app is fully functional if Health is denied or unavailable — local logging
   is always the fallback, which is why `HealthKitService` sits behind a protocol
   with a `DisabledHealthService` and a `MockHealthService` (tests).
+- **Authorization gotcha:** `HKHealthStore.requestAuthorization` returns *success*
+  merely for presenting the sheet — it returns without error even on "Don't
+  Allow", and never reveals *read* grants (privacy). So we do **not** treat a
+  clean return as connected; `requestAuthorization()` checks the *share* (write)
+  status (`authorizationStatus(for:)`), which HealthKit does expose, and only
+  reports connected on `.sharingAuthorized`. Write access is legitimately needed
+  anyway (two-way sync writes nights to Health). `isAccessDenied` surfaces
+  `.sharingDenied`; once denied, iOS won't re-prompt, so `store.connectHealth()`
+  opens system Settings instead of silently no-op'ing. The Settings toggle and
+  the Reports `HealthConnectCard` both derive from the real state, so a denial
+  never leaves the toggle stuck on.
 - In the Simulator, add sleep data in the Health app to see imported nights.
 
 ## Liquid Glass rules

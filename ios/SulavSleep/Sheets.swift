@@ -59,7 +59,6 @@ struct SettingsSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var name: String
-    @State private var healthOn: Bool
 
     init(
         profile: Profile,
@@ -80,7 +79,6 @@ struct SettingsSheet: View {
         self.onReset = onReset
         self.onSignOut = onSignOut
         _name = State(initialValue: profile.name)
-        _healthOn = State(initialValue: healthState == .connected)
     }
 
     var body: some View {
@@ -191,7 +189,16 @@ struct SettingsSheet: View {
             }
             .padding(.vertical, SleepSpacing.md)
         } else {
-            Toggle(isOn: $healthOn) {
+            // Derived from the store's actual connection state, not a local
+            // optimistic mirror: HealthKit can report "denied" after the sheet,
+            // and the toggle must reflect that rather than staying stuck on.
+            Toggle(isOn: Binding(
+                get: { healthState == .connected },
+                set: { newValue in
+                    Haptics.soft()
+                    onToggleHealth(newValue)
+                }
+            )) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Apple Health")
                         .font(SleepFont.body(16))
@@ -203,10 +210,6 @@ struct SettingsSheet: View {
             }
             .tint(SleepColor.amber)
             .padding(.vertical, SleepSpacing.sm)
-            .onChange(of: healthOn) { _, newValue in
-                Haptics.soft()
-                onToggleHealth(newValue)
-            }
         }
     }
 

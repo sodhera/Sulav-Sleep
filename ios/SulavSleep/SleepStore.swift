@@ -1,6 +1,9 @@
 import Foundation
 import Observation
 import WidgetKit
+#if canImport(UIKit)
+import UIKit
+#endif
 
 @Observable
 final class SleepStore {
@@ -293,6 +296,22 @@ final class SleepStore {
 
     // MARK: - Health sync
 
+    /// Whether the user has explicitly denied Health access. Once denied, iOS
+    /// won't re-show the permission sheet, so the app must send them to Settings.
+    var healthAccessDenied: Bool { health.isAccessDenied }
+
+    /// The entry point for the Connect button / Settings toggle. Requests
+    /// authorization the first time; if access was already denied at the OS
+    /// level (where a re-request silently no-ops), opens Settings instead.
+    @MainActor
+    func connectHealth() async {
+        if health.isAccessDenied {
+            openSystemSettings()
+            return
+        }
+        await enableHealthSync()
+    }
+
     @MainActor
     func enableHealthSync() async {
         guard health.isAvailable else {
@@ -306,7 +325,17 @@ final class SleepStore {
         persist(refreshWidget: false)
         if granted {
             await refreshHealth()
+        } else {
+            AppLog.health.notice("Health authorization not granted; sync stays off")
         }
+    }
+
+    private func openSystemSettings() {
+        guard !AppEnvironment.isTesting else { return }
+        #if canImport(UIKit)
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(url)
+        #endif
     }
 
     func disableHealthSync() {

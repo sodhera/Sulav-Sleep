@@ -62,7 +62,7 @@ struct HomeView: View {
                     onSaveName: store.saveName,
                     onOpenSchedule: { presentedSheet = .schedule },
                     onToggleHealth: { enabled in
-                        if enabled { Task { await store.enableHealthSync() } }
+                        if enabled { Task { await store.connectHealth() } }
                         else { store.disableHealthSync() }
                     },
                     onOpenLockdown: { presentedSheet = .lockdown },

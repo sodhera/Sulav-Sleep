@@ -5,19 +5,22 @@ import Foundation
 final class MockHealthService: SleepHealthProviding {
     var available: Bool
     var authorizeResult: Bool
+    var accessDenied: Bool
     var nights: [SleepSession]
 
     private(set) var saved: [SleepSession] = []
     private(set) var authorizeCallCount = 0
     private(set) var fetchCallCount = 0
 
-    init(available: Bool = true, authorizeResult: Bool = true, nights: [SleepSession] = []) {
+    init(available: Bool = true, authorizeResult: Bool = true, accessDenied: Bool = false, nights: [SleepSession] = []) {
         self.available = available
         self.authorizeResult = authorizeResult
+        self.accessDenied = accessDenied
         self.nights = nights
     }
 
     var isAvailable: Bool { available }
+    var isAccessDenied: Bool { accessDenied }
 
     func requestAuthorization() async -> Bool {
         authorizeCallCount += 1
