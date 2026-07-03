@@ -34,9 +34,10 @@ slightly oversized, independently scrolling, and independently moved by
 most.
 
 The city, sky, clouds, moon, warm windows, slow layer drift, and depth parallax
-carry the scene without extra visual noise or foreground weather effects.
-For Simulator inspection, dragging empty background space temporarily drives the
-same parallax offsets and eases them back to rest.
+carry the scene without extra visual noise or foreground weather effects. The
+scene is purely ambient and never reacts to touch — depth parallax comes from
+the device-tilt motion effect only, so the background can't shift under a tap or
+intercept input meant for the UI above it.
 
 The immersive sleep screen (`SleepModeView`) does **not** use this scene — it is
 true OLED black (`Color.black`, no glow, no gradient) with only the ember-red

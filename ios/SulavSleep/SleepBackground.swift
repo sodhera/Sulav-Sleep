@@ -52,15 +52,15 @@ private final class PixelNightUIView: UIView {
     private let warmOverlay = UIView()
     private let scrimLayer = CAGradientLayer()
     private var active = true
-    private var manualParallax = CGPoint.zero
-
     override init(frame: CGRect) {
         super.init(frame: frame)
-        isUserInteractionEnabled = true
+        // The scene is purely ambient: it never reacts to touch, so it can't
+        // intercept taps meant for the UI above it. Depth still comes from the
+        // device-tilt motion effect, not gestures.
+        isUserInteractionEnabled = false
         backgroundColor = UIColor(SleepColor.background)
         setupCityLayers()
         setupOverlays()
-        setupDragParallax()
     }
 
     @available(*, unavailable)
@@ -106,44 +106,6 @@ private final class PixelNightUIView: UIView {
         ]
         scrimLayer.locations = [0, 0.42, 1]
         layer.addSublayer(scrimLayer)
-    }
-
-    private func setupDragParallax() {
-        let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
-        pan.cancelsTouchesInView = false
-        addGestureRecognizer(pan)
-    }
-
-    @objc private func handlePan(_ recognizer: UIPanGestureRecognizer) {
-        switch recognizer.state {
-        case .began, .changed:
-            let translation = recognizer.translation(in: self)
-            let x = min(1, max(-1, translation.x / 140))
-            let y = min(1, max(-1, translation.y / 180))
-            applyManualParallax(CGPoint(x: x, y: y), animated: false)
-        case .ended, .cancelled, .failed:
-            applyManualParallax(.zero, animated: true)
-        default:
-            break
-        }
-    }
-
-    private func applyManualParallax(_ value: CGPoint, animated: Bool) {
-        manualParallax = value
-        let updates = {
-            self.cityViews.forEach { $0.setManualParallax(value) }
-        }
-
-        if animated {
-            UIView.animate(
-                withDuration: 0.38,
-                delay: 0,
-                options: [.curveEaseOut, .allowUserInteraction],
-                animations: updates
-            )
-        } else {
-            updates()
-        }
     }
 
     private func updateAnimationState() {
@@ -277,13 +239,6 @@ private final class ScrollingCityLayerView: UIView {
         animation.timingFunction = CAMediaTimingFunction(name: .linear)
         animation.isRemovedOnCompletion = false
         stripView.layer.add(animation, forKey: "city-scroll")
-    }
-
-    func setManualParallax(_ value: CGPoint) {
-        motionHost.transform = CGAffineTransform(
-            translationX: value.x * spec.parallaxX,
-            y: value.y * spec.parallaxY
-        )
     }
 }
 

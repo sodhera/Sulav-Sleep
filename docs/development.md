@@ -146,9 +146,10 @@ Filter with `-only-testing:SulavSleepTests` or `-only-testing:SulavSleepUITests`
   motion-effect parallax instead of CoreMotion polling. Because native `TabView`
   content is opaque, `MainShellView` renders one background inside each tab; the
   scrolling layers use the same global Core Animation phase so switching between
-  Home and Reports does not restart the skyline. Dragging empty background space
-  manually drives the same depth offsets for Simulator inspection, where real
-  tilt is not available.
+  Home and Reports does not restart the skyline. The view is
+  non-interactive (`isUserInteractionEnabled = false`) — it never reacts to
+  touch and can't intercept input meant for the UI above it; depth parallax
+  comes from the device-tilt motion effect only.
 - `SleepAssetCache.swift`: launch-time decode cache for the pixel city layers so
   the first interactive onboarding steps do not pay image decode cost.
 - `SleepTheme.swift`: palette, spacing, radius, typography, `Haptics`.
