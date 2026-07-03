@@ -69,6 +69,10 @@ struct OnboardingGateView: View {
     }
 
     private func setRoute(_ next: Route) {
+        // Warm the keyboard only while heading to the questionnaire, whose
+        // name step autofocuses — so the first keyboard appears instantly
+        // without a phantom flash on the welcome or account screens.
+        if next == .questions { Keyboard.prewarm() }
         withAnimation(.easeInOut(duration: 0.28)) { route = next }
     }
 }
@@ -118,7 +122,6 @@ private struct WelcomeStep: View {
         }
         .safeAreaPadding(.top)
         .safeAreaPadding(.bottom)
-        .onAppear { Keyboard.prewarm() }
     }
 }
 

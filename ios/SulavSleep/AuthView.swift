@@ -99,7 +99,6 @@ struct AuthView: View {
         }
         .safeAreaPadding(.top)
         .safeAreaPadding(.bottom)
-        .onAppear { Keyboard.prewarm() }
         .animation(.easeInOut(duration: 0.22), value: showEmailForm)
     }
 
