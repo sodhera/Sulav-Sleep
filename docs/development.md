@@ -58,9 +58,14 @@ Filter with `-only-testing:SulavSleepTests` or `-only-testing:SulavSleepUITests`
     enable/deny/disable, reset, and persistence round-trips. Uses
     `MockHealthService` and an isolated in-memory `UserDefaults` suite
     (`TestSupport.swift`).
-- **SulavSleepUITests** (XCUITest) — onboarding → Home, Sleep → Wake, and
-  log-a-night → Reports. The app wipes persisted state when launched with the
-  `-uitest-reset` argument, so UI runs are deterministic.
+  - `AuthTests`: sign-in with each provider, manual sign-up/sign-in, sign-out,
+    error surfacing, session-restore, and `AppAccount` persistence
+    round-trips. Uses `MockAuthClient` (`Auth/MockAuthClient.swift`).
+- **SulavSleepUITests** (XCUITest) — onboarding → auth → Home, Sleep → Wake,
+  and log-a-night → Reports (`AuthUITests`, `OnboardingUITests`,
+  `SleepFlowUITests`). The app wipes persisted state when launched with
+  `-uitest-reset`, and swaps in `MockAuthClient` when launched with
+  `-uitest-mock-auth` so UI runs are deterministic and never hit the network.
 
 ## Tracing
 
@@ -97,7 +102,17 @@ Filter with `-only-testing:SulavSleepTests` or `-only-testing:SulavSleepUITests`
 - `SleepWidgetShared.swift`: App Group summary types + read/write, shared with
   the widget target.
 - `SleepModeView.swift`: immersive black/red sleep-mode takeover.
-- `RootView.swift`: onboarding gate, tab shell, bottom navigation.
+- `RootView.swift`: single `RootScreen` enum (`onboarding` / `authLoading` /
+  `auth` / `main`) drives which top-level screen shows, with one animation
+  trigger for the crossfade between them. Entering `.main` is a hard cut
+  (`.transaction { $0.disablesAnimations = true }`), not animated — see
+  "Authentication" below for why.
+- `AuthView.swift`: the post-onboarding sign-up/sign-in screen (Apple,
+  Google, manual email/password).
+- `Auth/AuthModels.swift`, `Auth/SupabaseAuthClient.swift`,
+  `Auth/MockAuthClient.swift`: `AuthProviding` protocol (mirrors
+  `SleepHealthProviding`), the real Supabase-backed client, and the test
+  double. See "Authentication" below.
 - `HomeView.swift`: greeting, schedule, Sleep Now, active sleeping state, wake
   logging, last-night summary, empty states, Health import indicator.
 - `ReportsView.swift`: weekly chart, averages, history with source badges,
@@ -129,13 +144,49 @@ Filter with `-only-testing:SulavSleepTests` or `-only-testing:SulavSleepUITests`
 
 ## Product mechanics
 
-- First launch shows onboarding: intro, name, bedtime, wake, Apple Health.
+- First launch shows onboarding: intro, name, bedtime, wake, Apple Health,
+  then sign-up/sign-in (see "Authentication").
 - **No seeding.** History is empty until the user logs a real night or Apple
   Health has real sleep to import.
 - `Sleep Now` writes an active session; `Wake up` logs duration + score, clears
   active, and (if Health is connected) writes the night to Apple Health.
 - Reports/Home show a deduplicated merge of local + Health nights.
 - Schedule/name edits persist immediately. Reset clears everything.
+
+## Authentication
+
+Onboarding is followed by a sign-up/sign-in gate (Apple, Google, manual
+email/password), backed by a real Supabase project. Sleep data itself stays
+local-first (per `product-brief.md`) — this only adds account identity on top.
+See `docs/auth-setup.md` for the one-time external setup (Supabase project,
+Apple Developer capability, Google Cloud OAuth client).
+
+- **Apple** — native `ASAuthorizationAppleIDProvider` / `SignInWithAppleButton`
+  → Supabase's `signInWithIdToken`. No Supabase-side Apple config needed.
+- **Google** — Supabase's OAuth web flow (`ASWebAuthenticationSession`), not
+  the Google SDK. Avoids a second SPM dependency and a
+  `GoogleService-Info.plist`; opens a system sheet instead of app-switching to
+  the native Google app.
+- **Manual** — Supabase email/password (`signUp`/`signIn`).
+- **Config**: `Config.xcconfig` (gitignored; copy from
+  `Config.xcconfig.example`) holds `SUPABASE_URL`/`SUPABASE_ANON_KEY`, pulled
+  in via `Secrets.xcconfig` (committed, `#include?`s `Config.xcconfig` so the
+  project still builds without it — auth calls just fail until it exists) and
+  exposed to the app through `Info.plist` build-setting substitution, read at
+  runtime by `SupabaseConfig` in `Auth/SupabaseAuthClient.swift`.
+- **Session storage**: `supabase-swift`'s `AuthClient` stores the real session
+  token in the Keychain by default. `SleepStore` only persists the non-secret
+  `AppAccount` (id/email/provider) to the same UserDefaults-JSON pattern as
+  everything else (key `sulav.account.v1`), purely for optimistic UI paint
+  before the async Keychain session-restore check (`SleepStore.restoreSession`)
+  completes.
+- **UI test AutoFill gotcha**: a real `SecureField` triggers iOS's native
+  "Save Password?" sheet, which is a separate-process system overlay that
+  covers the app and can't be reliably dismissed via
+  `addUIInterruptionMonitor`. `AuthView`'s email/password fields use
+  `.textContentType(.oneTimeCode)` when `AppEnvironment.isTesting` to opt out
+  of that prompt in test builds only — production users still get the native
+  save-password experience.
 
 ## HealthKit
 

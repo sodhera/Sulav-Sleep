@@ -6,7 +6,7 @@ final class SleepFlowUITests: XCTestCase {
     }
 
     private func onboard(_ app: XCUIApplication) {
-        app.launchArguments += ["-uitest-reset"]
+        app.launchArguments += ["-uitest-reset", "-uitest-mock-auth"]
         app.launch()
 
         app.buttons["Begin"].tap()
@@ -23,6 +23,21 @@ final class SleepFlowUITests: XCTestCase {
         } else if app.buttons["Start sleeping well"].waitForExistence(timeout: 3) {
             app.buttons["Start sleeping well"].tap()
         }
+
+        // The auth gate: sign up with a mocked account so the flow reaches Home.
+        let continueWithEmail = app.buttons["Continue with email"]
+        XCTAssertTrue(continueWithEmail.waitForExistence(timeout: 5))
+        continueWithEmail.tap()
+        let emailField = app.textFields["Email"]
+        XCTAssertTrue(emailField.waitForExistence(timeout: 3))
+        emailField.tap()
+        emailField.typeText("tester@example.com")
+        let passwordField = app.secureTextFields["Password"]
+        XCTAssertTrue(passwordField.waitForExistence(timeout: 3))
+        passwordField.tap()
+        passwordField.typeText("password123")
+        app.buttons["Create account"].tap()
+
         XCTAssertTrue(app.buttons["Sleep Now"].waitForExistence(timeout: 5))
     }
 

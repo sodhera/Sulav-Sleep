@@ -55,6 +55,7 @@ struct SettingsSheet: View {
     let onToggleHealth: (Bool) -> Void
     let onOpenLockdown: () -> Void
     let onReset: () -> Void
+    let onSignOut: () -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var name: String
@@ -67,7 +68,8 @@ struct SettingsSheet: View {
         onOpenSchedule: @escaping () -> Void,
         onToggleHealth: @escaping (Bool) -> Void,
         onOpenLockdown: @escaping () -> Void,
-        onReset: @escaping () -> Void
+        onReset: @escaping () -> Void,
+        onSignOut: @escaping () -> Void
     ) {
         self.profile = profile
         self.healthState = healthState
@@ -76,6 +78,7 @@ struct SettingsSheet: View {
         self.onToggleHealth = onToggleHealth
         self.onOpenLockdown = onOpenLockdown
         self.onReset = onReset
+        self.onSignOut = onSignOut
         _name = State(initialValue: profile.name)
         _healthOn = State(initialValue: healthState == .connected)
     }
@@ -139,6 +142,18 @@ struct SettingsSheet: View {
                         .foregroundStyle(SleepColor.faint)
                 }
                 .padding(.vertical, SleepSpacing.md)
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                onSignOut()
+                dismiss()
+            } label: {
+                Text("Sign out")
+                    .font(SleepFont.label(15))
+                    .foregroundStyle(SleepColor.dim)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, SleepSpacing.md)
             }
             .buttonStyle(.plain)
 

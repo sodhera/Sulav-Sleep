@@ -1,0 +1,9 @@
+// Copy this file to Config.xcconfig (same folder) and fill in your real
+// Supabase project values. Config.xcconfig is gitignored — never commit real
+// credentials. See docs/auth-setup.md for where these values come from.
+//
+// The anon/public key is Supabase's client-safe key (RLS enforces security
+// server-side), so it is fine to ship inside the app binary.
+
+SUPABASE_URL = https:/$()/your-project-ref.supabase.co
+SUPABASE_ANON_KEY = your-anon-public-key-here

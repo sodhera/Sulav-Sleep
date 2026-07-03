@@ -69,6 +69,10 @@ struct HomeView: View {
                     onReset: {
                         presentedSheet = nil
                         store.resetAll()
+                    },
+                    onSignOut: {
+                        presentedSheet = nil
+                        Task { await store.signOut() }
                     }
                 )
             case .lockdown:

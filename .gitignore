@@ -46,3 +46,6 @@ yarn-error.*
 /ios/Podfile.lock
 /ios/.xcode.env*
 /ios/DerivedData/
+
+# iOS auth config (local Supabase project credentials, never committed)
+/ios/SulavSleep/Config.xcconfig

@@ -12,29 +12,47 @@ final class SleepStore {
     var activeSession: ActiveSleepSession?
     var selectedTab: AppTab = .home
     var isImportingHealth = false
+    /// The signed-in account, or `nil` before sign-in / after sign-out.
+    var account: AppAccount?
+    /// False until the initial session-restore check completes, so the UI can
+    /// show a brief neutral state instead of flashing the auth screen.
+    var isAuthReady = false
+    var authErrorMessage: String?
+    var isAuthenticating = false
 
     private let persistence: SleepPersistence
     private let health: SleepHealthProviding
     private let screenTime: ScreenTimeControlling
+    private let auth: AuthProviding
 
     init(
         persistence: SleepPersistence = .shared,
         health: SleepHealthProviding? = nil,
-        screenTime: ScreenTimeControlling? = nil
+        screenTime: ScreenTimeControlling? = nil,
+        auth: AuthProviding? = nil
     ) {
         self.persistence = persistence
         self.health = health ?? SleepHealth.makeDefault()
         self.screenTime = screenTime ?? SleepScreenTime.makeDefault()
+        if let auth {
+            self.auth = auth
+        } else if CommandLine.arguments.contains("-uitest-mock-auth") {
+            self.auth = MockAuthClient()
+        } else {
+            self.auth = SulavAuth.makeDefault()
+        }
         // UI tests launch with a clean slate so onboarding is deterministic.
         if CommandLine.arguments.contains("-uitest-reset") {
             persistence.reset()
         }
         reload()
+        Task { [weak self] in await self?.restoreSession() }
     }
 
     // MARK: - Derived state
 
     var isOnboarded: Bool { profile?.onboarded == true }
+    var isAuthenticated: Bool { account != nil }
 
     /// The single, deduplicated history shown across the app. Health wins over a
     /// local record for the same night so a night we wrote to Health isn't
@@ -75,6 +93,7 @@ final class SleepStore {
         profile = snapshot.profile
         sessions = snapshot.sessions
         activeSession = snapshot.activeSession
+        account = persistence.loadAccount()
         if refreshWidget {
             updateWidgetSoon()
         }
@@ -137,6 +156,69 @@ final class SleepStore {
                 Task { await self?.enableHealthSync() }
             }
         }
+    }
+
+    // MARK: - Auth
+
+    /// Checks for a Keychain-restored Supabase session at launch. Runs once.
+    @MainActor
+    func restoreSession() async {
+        account = await auth.currentAccount
+        isAuthReady = true
+        if let account { persistAccount(account) } else { clearPersistedAccount() }
+    }
+
+    @MainActor
+    func signInWithApple(idToken: String, nonce: String) async {
+        await performAuth { try await self.auth.signInWithApple(idToken: idToken, nonce: nonce) }
+    }
+
+    @MainActor
+    func signInWithGoogle() async {
+        await performAuth { try await self.auth.signInWithGoogle() }
+    }
+
+    @MainActor
+    func signUpEmail(email: String, password: String) async {
+        await performAuth { try await self.auth.signUp(email: email, password: password) }
+    }
+
+    @MainActor
+    func signInEmail(email: String, password: String) async {
+        await performAuth { try await self.auth.signIn(email: email, password: password) }
+    }
+
+    @MainActor
+    func signOut() async {
+        await auth.signOut()
+        account = nil
+        clearPersistedAccount()
+        AppLog.store.info("Signed out")
+    }
+
+    @MainActor
+    private func performAuth(_ work: @escaping () async throws -> AppAccount) async {
+        isAuthenticating = true
+        authErrorMessage = nil
+        defer { isAuthenticating = false }
+        do {
+            let resolved = try await work()
+            account = resolved
+            persistAccount(resolved)
+            AppLog.store.info("Signed in (provider=\(resolved.provider.rawValue))")
+        } catch let error as AuthError {
+            authErrorMessage = error.message
+        } catch {
+            authErrorMessage = AuthError.unknown(error.localizedDescription).message
+        }
+    }
+
+    private func persistAccount(_ account: AppAccount) {
+        persistence.saveAccount(account)
+    }
+
+    private func clearPersistedAccount() {
+        persistence.saveAccount(nil)
     }
 
     // MARK: - Sleep loop
@@ -393,6 +475,7 @@ struct SleepPersistence {
     private let profileKey = "sulav.profile.v1"
     private let sessionsKey = "sulav.sessions.v1"
     private let activeKey = "sulav.active.v1"
+    private let accountKey = "sulav.account.v1"
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -418,6 +501,15 @@ struct SleepPersistence {
         defaults.removeObject(forKey: profileKey)
         defaults.removeObject(forKey: sessionsKey)
         defaults.removeObject(forKey: activeKey)
+        defaults.removeObject(forKey: accountKey)
+    }
+
+    /// Non-secret account info only (id/email/provider) — the real session
+    /// token lives in the Keychain via the auth SDK, never here.
+    func loadAccount() -> AppAccount? { decode(AppAccount.self, forKey: accountKey) }
+
+    func saveAccount(_ account: AppAccount?) {
+        encode(account, forKey: accountKey)
     }
 
     func startSleepFromIntent() {

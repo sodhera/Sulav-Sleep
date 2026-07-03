@@ -247,7 +247,7 @@ struct TimeAdjuster: View {
     }
 }
 
-private enum Keyboard {
+enum Keyboard {
     #if canImport(UIKit)
     private static var warmupField: UITextField?
     #endif

@@ -7,7 +7,8 @@ review the rhythm of recent nights — using **real data only**.
 ## Current product
 
 - Onboarding collects name, usual bedtime, usual wake time, and offers to
-  connect Apple Health.
+  connect Apple Health, then a sign-up/sign-in step (Apple, Google, or manual
+  email/password) gates entry into the main app.
 - Home shows a greeting, tonight's schedule, `Sleep Now`, `Set Bedtime`, and a
   last-night summary (duration, color-coded score, streak) — or an honest empty
   state when nothing has been logged yet.
@@ -16,7 +17,8 @@ review the rhythm of recent nights — using **real data only**.
 - Reports shows a seven-night chart, average duration/score, and a history list
   where each night is tagged by source (in-app vs. Apple Health). Empty until
   there is real data.
-- Settings edits name and schedule, toggles Apple Health sync, or resets data.
+- Settings edits name and schedule, toggles Apple Health sync, signs out, or
+  resets data.
 
 ## No dummy data
 
@@ -30,13 +32,18 @@ never double counted.
 
 ## Storage & sync
 
-Local-first, with optional two-way Apple Health sync.
+Local-first, with optional two-way Apple Health sync. Accounts (Supabase
+Auth) exist alongside this purely as an identity gate — sleep data itself is
+not synced to a server today.
 
 - Local: UserDefaults-backed JSON, keys `sulav.profile.v1`,
-  `sulav.sessions.v1`, `sulav.active.v1`.
+  `sulav.sessions.v1`, `sulav.active.v1`, `sulav.account.v1`.
 - Apple Health: reads sleep history and writes logged nights via
   `HKCategoryType(.sleepAnalysis)`. Entirely optional — if the user declines or
   the device lacks HealthKit, the app works fully from local logging.
+- Accounts: Sign in with Apple, Google, or email/password via Supabase Auth,
+  required once after onboarding. The session token lives in the Keychain;
+  see `docs/development.md` and `docs/auth-setup.md`.
 
 ## Native direction
 

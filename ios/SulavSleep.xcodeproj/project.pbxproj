@@ -11,16 +11,23 @@
 		09AFEF368C3AA0418E7EE898 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 314F2F155CF97AAF34DA0A4C /* HomeView.swift */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		198E5870D78A269255C9D9C1 /* LiquidGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 512730D266670DD636BD803A /* LiquidGlass.swift */; };
+		1A87176D73C3EE6C7051ACFD /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = 71DA860F9B70BD0D45CF7857 /* Auth */; };
 		1E5168B98C242B90B04B7D9C /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE73361F00ABDB639ED1D41A /* AppDelegate.swift */; };
+		2A5FA239F942E95C025F0ECA /* AuthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6550DBA31F0E952985A48FCD /* AuthTests.swift */; };
+		2C9E3A52E958468A363D1635 /* AuthModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C52EBB56370FEA8572A95B0A /* AuthModels.swift */; };
 		30ABD308DAB8167D795A2D9D /* ReportsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0E16E05E315F1EE37C03F9C /* ReportsView.swift */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		47501ABFFD25AA9B7048E27C /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9234E0E1693C0FC11F33BD3A /* OnboardingView.swift */; };
+		60E68C3ACCC4786FCD348BFF /* AuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 907CE4E59D34D87F2C5A0321 /* AuthView.swift */; };
+		7114F43B85E6E229559E5013 /* SupabaseAuthClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE33A1B5EFCF17C5AC73271C /* SupabaseAuthClient.swift */; };
 		77C469E0A58F15200C2E9F6E /* SleepBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F4311BA03CAD3F576F79BFC /* SleepBackground.swift */; };
 		83B718F7C4B4F234291D6F95 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 9EC3E675CCE9C41BC01DFFAE /* PrivacyInfo.xcprivacy */; };
 		93BACAE13B0502CF9AD5202A /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBB2CED1004A6A08D5A70F24 /* RootView.swift */; };
 		9741BE20E4028E51160BDC75 /* SleepTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = F69F492AFB4609915E10F59C /* SleepTheme.swift */; };
 		AB28ABECC3ED7A36A911D0C8 /* SleepFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 316EF63C74A39E0CE6D1D1BE /* SleepFormatting.swift */; };
+		B71E8912ED9AB0A99BC40C7C /* MockAuthClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7F15F52D48CCC2AFD14689A /* MockAuthClient.swift */; };
 		CC3D146C5EAF5AB2266E9E6D /* SleepIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 116765E93C9E1F418AE0CB6A /* SleepIntents.swift */; };
+		DDD87BCAF5F0BBCF8DFDEE36 /* AuthUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A68B38ECB18CDF771B08CDB9 /* AuthUITests.swift */; };
 		E78D7CA5F0403ACA372B7DB8 /* Sheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE88F8599F33B6D90A64D2BA /* Sheets.swift */; };
 		F100000000000000000000A2 /* Log.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000000A1 /* Log.swift */; };
 		F100000000000000000000B2 /* SleepHealthKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000000B1 /* SleepHealthKit.swift */; };
@@ -108,12 +115,18 @@
 		314F2F155CF97AAF34DA0A4C /* HomeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeView.swift; path = SulavSleep/HomeView.swift; sourceTree = "<group>"; };
 		316EF63C74A39E0CE6D1D1BE /* SleepFormatting.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepFormatting.swift; path = SulavSleep/SleepFormatting.swift; sourceTree = "<group>"; };
 		512730D266670DD636BD803A /* LiquidGlass.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LiquidGlass.swift; path = SulavSleep/LiquidGlass.swift; sourceTree = "<group>"; };
+		6550DBA31F0E952985A48FCD /* AuthTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthTests.swift; path = SulavSleepTests/AuthTests.swift; sourceTree = "<group>"; };
 		740A33B6E6D4861DF61CFBB1 /* SleepModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepModels.swift; path = SulavSleep/SleepModels.swift; sourceTree = "<group>"; };
+		907CE4E59D34D87F2C5A0321 /* AuthView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthView.swift; path = SulavSleep/AuthView.swift; sourceTree = "<group>"; };
 		9234E0E1693C0FC11F33BD3A /* OnboardingView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingView.swift; path = SulavSleep/OnboardingView.swift; sourceTree = "<group>"; };
 		9EC3E675CCE9C41BC01DFFAE /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = SulavSleep/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		9F4311BA03CAD3F576F79BFC /* SleepBackground.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepBackground.swift; path = SulavSleep/SleepBackground.swift; sourceTree = "<group>"; };
+		A68B38ECB18CDF771B08CDB9 /* AuthUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthUITests.swift; path = SulavSleepUITests/AuthUITests.swift; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = SulavSleep/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BE73361F00ABDB639ED1D41A /* AppDelegate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = SulavSleep/AppDelegate.swift; sourceTree = "<group>"; };
+		C52EBB56370FEA8572A95B0A /* AuthModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AuthModels.swift; path = SulavSleep/Auth/AuthModels.swift; sourceTree = "<group>"; };
+		C7F15F52D48CCC2AFD14689A /* MockAuthClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MockAuthClient.swift; path = SulavSleep/Auth/MockAuthClient.swift; sourceTree = "<group>"; };
+		DE33A1B5EFCF17C5AC73271C /* SupabaseAuthClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SupabaseAuthClient.swift; path = SulavSleep/Auth/SupabaseAuthClient.swift; sourceTree = "<group>"; };
 		DE88F8599F33B6D90A64D2BA /* Sheets.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Sheets.swift; path = SulavSleep/Sheets.swift; sourceTree = "<group>"; };
 		EBB2CED1004A6A08D5A70F24 /* RootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RootView.swift; path = SulavSleep/RootView.swift; sourceTree = "<group>"; };
 		F0E16E05E315F1EE37C03F9C /* ReportsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ReportsView.swift; path = SulavSleep/ReportsView.swift; sourceTree = "<group>"; };
@@ -146,6 +159,7 @@
 		F500000000000000000000B2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = SulavSleepMonitor/Info.plist; sourceTree = "<group>"; };
 		F500000000000000000000B3 /* SulavSleepMonitor.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = SulavSleepMonitor.entitlements; path = SulavSleepMonitor/SulavSleepMonitor.entitlements; sourceTree = "<group>"; };
 		F500000000000000000000B4 /* SulavSleepMonitor-device.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = "SulavSleepMonitor-device.entitlements"; path = "SulavSleepMonitor/SulavSleepMonitor-device.entitlements"; sourceTree = "<group>"; };
+		F5DB00420EA2535786E040A3 /* Secrets.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = SulavSleep/Secrets.xcconfig; sourceTree = "<group>"; };
 		F69F492AFB4609915E10F59C /* SleepTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepTheme.swift; path = SulavSleep/SleepTheme.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -154,6 +168,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1A87176D73C3EE6C7051ACFD /* Auth in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -218,8 +233,21 @@
 				740A33B6E6D4861DF61CFBB1 /* SleepModels.swift */,
 				2248DEAF235A937EB6B1B2C7 /* SleepStore.swift */,
 				F69F492AFB4609915E10F59C /* SleepTheme.swift */,
+				F5DB00420EA2535786E040A3 /* Secrets.xcconfig */,
+				907CE4E59D34D87F2C5A0321 /* AuthView.swift */,
+				13CAC730E7CB269B04C769A7 /* Auth */,
 			);
 			name = SulavSleep;
+			sourceTree = "<group>";
+		};
+		13CAC730E7CB269B04C769A7 /* Auth */ = {
+			isa = PBXGroup;
+			children = (
+				C52EBB56370FEA8572A95B0A /* AuthModels.swift */,
+				DE33A1B5EFCF17C5AC73271C /* SupabaseAuthClient.swift */,
+				C7F15F52D48CCC2AFD14689A /* MockAuthClient.swift */,
+			);
+			name = Auth;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -274,6 +302,7 @@
 				F200000000000000000000B3 /* SleepMergeTests.swift */,
 				F200000000000000000000B4 /* SleepStoreTests.swift */,
 				F200000000000000000000B5 /* SleepFormattingTests.swift */,
+				6550DBA31F0E952985A48FCD /* AuthTests.swift */,
 			);
 			name = SulavSleepTests;
 			sourceTree = "<group>";
@@ -283,6 +312,7 @@
 			children = (
 				F300000000000000000000B1 /* OnboardingUITests.swift */,
 				F300000000000000000000B2 /* SleepFlowUITests.swift */,
+				A68B38ECB18CDF771B08CDB9 /* AuthUITests.swift */,
 			);
 			name = SulavSleepUITests;
 			sourceTree = "<group>";
@@ -328,6 +358,9 @@
 				F500000000000000000000A9 /* PBXTargetDependency */,
 			);
 			name = SulavSleep;
+			packageProductDependencies = (
+				71DA860F9B70BD0D45CF7857 /* Auth */,
+			);
 			productName = SulavSleep;
 			productReference = 13B07F961A680F5B00A75B9A /* SulavSleep.app */;
 			productType = "com.apple.product-type.application";
@@ -442,6 +475,9 @@
 				Base,
 			);
 			mainGroup = 83CBB9F61A601CBA00E9B192;
+			packageReferences = (
+				2F49F75CF32564D69E719168 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+			);
 			productRefGroup = 83CBBA001A601CBA00E9B192 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -495,6 +531,10 @@
 				05AC2F4B7D3F4F3896894861 /* SleepModels.swift in Sources */,
 				FA831C765CABBEF773CE99ED /* SleepStore.swift in Sources */,
 				9741BE20E4028E51160BDC75 /* SleepTheme.swift in Sources */,
+				60E68C3ACCC4786FCD348BFF /* AuthView.swift in Sources */,
+				2C9E3A52E958468A363D1635 /* AuthModels.swift in Sources */,
+				7114F43B85E6E229559E5013 /* SupabaseAuthClient.swift in Sources */,
+				B71E8912ED9AB0A99BC40C7C /* MockAuthClient.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -508,6 +548,7 @@
 				F200000000000000000000C3 /* SleepMergeTests.swift in Sources */,
 				F200000000000000000000C4 /* SleepStoreTests.swift in Sources */,
 				F200000000000000000000C5 /* SleepFormattingTests.swift in Sources */,
+				2A5FA239F942E95C025F0ECA /* AuthTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -517,6 +558,7 @@
 			files = (
 				F300000000000000000000C1 /* OnboardingUITests.swift in Sources */,
 				F300000000000000000000C2 /* SleepFlowUITests.swift in Sources */,
+				DDD87BCAF5F0BBCF8DFDEE36 /* AuthUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -571,6 +613,7 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = F5DB00420EA2535786E040A3 /* Secrets.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -597,6 +640,7 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = F5DB00420EA2535786E040A3 /* Secrets.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -941,6 +985,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		2F49F75CF32564D69E719168 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		71DA860F9B70BD0D45CF7857 /* Auth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2F49F75CF32564D69E719168 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Auth;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 83CBB9F71A601CBA00E9B192 /* Project object */;
 }

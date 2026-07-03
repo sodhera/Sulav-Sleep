@@ -37,11 +37,14 @@ final class MockHealthService: SleepHealthProviding {
 enum TestFactory {
     /// A fresh store backed by an isolated UserDefaults suite so tests never
     /// touch real persisted state or each other.
-    static func makeStore(health: SleepHealthProviding = MockHealthService()) -> SleepStore {
+    static func makeStore(
+        health: SleepHealthProviding = MockHealthService(),
+        auth: AuthProviding = MockAuthClient()
+    ) -> SleepStore {
         let suite = "test.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defaults.removePersistentDomain(forName: suite)
-        return SleepStore(persistence: SleepPersistence(defaults: defaults), health: health)
+        return SleepStore(persistence: SleepPersistence(defaults: defaults), health: health, auth: auth)
     }
 
     static func session(
