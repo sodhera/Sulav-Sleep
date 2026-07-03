@@ -83,6 +83,13 @@ struct AuthView: View {
             .signInWithAppleButtonStyle(.white)
             .frame(height: 58)
             .cornerRadius(SleepRadius.pill / 2)
+            .opacity(store.isAuthenticating ? 0.5 : 1)
+            .overlay {
+                if store.isAuthenticating {
+                    ProgressView()
+                        .tint(.black)
+                }
+            }
             .disabled(store.isAuthenticating)
 
             LiquidPrimaryButton(title: "Continue with Google", systemImage: "globe") {
@@ -98,12 +105,6 @@ struct AuthView: View {
                 withAnimation(.easeInOut(duration: 0.22)) { showEmailForm = true }
             }
             .disabled(store.isAuthenticating)
-
-            if store.isAuthenticating {
-                ProgressView()
-                    .tint(SleepColor.amber)
-                    .padding(.top, SleepSpacing.sm)
-            }
         }
     }
 
