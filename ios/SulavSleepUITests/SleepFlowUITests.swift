@@ -9,19 +9,23 @@ final class SleepFlowUITests: XCTestCase {
         app.launchArguments += ["-uitest-reset", "-uitest-mock-auth"]
         app.launch()
 
-        app.buttons["Begin"].tap()
+        let getStarted = app.buttons["Get started"]
+        XCTAssertTrue(getStarted.waitForExistence(timeout: 5))
+        getStarted.tap()
         let nameField = app.textFields["Your name"]
         XCTAssertTrue(nameField.waitForExistence(timeout: 3))
         nameField.tap()
         nameField.typeText("Tester")
         app.buttons["Next"].tap()
-        app.buttons["Next"].tap() // bedtime
-        app.buttons["Next"].tap() // wake
+        for _ in 0..<3 { // struggles, bedtime, wake
+            XCTAssertTrue(app.buttons["Next"].waitForExistence(timeout: 3))
+            app.buttons["Next"].tap()
+        }
 
         if app.buttons["Maybe later"].waitForExistence(timeout: 3) {
             app.buttons["Maybe later"].tap()
-        } else if app.buttons["Start sleeping well"].waitForExistence(timeout: 3) {
-            app.buttons["Start sleeping well"].tap()
+        } else if app.buttons["Continue"].waitForExistence(timeout: 3) {
+            app.buttons["Continue"].tap()
         }
 
         // The auth gate: sign up with a mocked account so the flow reaches Home.
