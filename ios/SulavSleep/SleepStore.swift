@@ -135,14 +135,15 @@ final class SleepStore {
 
     // MARK: - Onboarding
 
-    func completeOnboarding(name: String, bedtime: Int, wakeTime: Int, connectHealth: Bool) {
+    func completeOnboarding(name: String, bedtime: Int, wakeTime: Int, connectHealth: Bool, struggles: [String] = []) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         profile = Profile(
             name: trimmed.isEmpty ? "Friend" : trimmed,
             bedtime: bedtime,
             wakeTime: wakeTime,
             onboarded: true,
-            healthSyncEnabled: false
+            healthSyncEnabled: false,
+            sleepStruggles: struggles
         )
         // No seeding: the history is empty until the user logs a real night or
         // connects Apple Health.

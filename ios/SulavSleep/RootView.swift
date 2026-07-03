@@ -6,8 +6,8 @@ import SwiftUI
 /// modifiers on the same subtree let transitions race each other and left
 /// the outgoing screen briefly intercepting touches meant for the new one.
 private enum RootScreen: Equatable {
-    case onboarding
     case authLoading
+    case onboarding
     case auth
     case main
 }
@@ -15,9 +15,14 @@ private enum RootScreen: Equatable {
 struct RootView: View {
     var store: SleepStore
 
+    // Auth readiness is checked first so a signed-in user reinstalling the app
+    // never flashes the welcome screen: the gate needs to know whether to open
+    // on welcome (new user) or the quick-setup questions (signed in, no local
+    // profile). `.auth` is only reached with a finished profile — the end of
+    // the sign-up path, or an onboarded user who signed out.
     private var screen: RootScreen {
-        guard store.isOnboarded else { return .onboarding }
         guard store.isAuthReady else { return .authLoading }
+        guard store.isOnboarded else { return .onboarding }
         guard store.isAuthenticated else { return .auth }
         return .main
     }
@@ -42,21 +47,21 @@ struct RootView: View {
             } else {
                 Group {
                     switch screen {
-                    case .onboarding:
-                        SleepBackground(showsMoon: false)
-                        OnboardingView(
-                            healthAvailable: store.healthSyncState != .unavailable
-                        ) { name, bedtime, wakeTime, connectHealth in
-                            store.completeOnboarding(name: name, bedtime: bedtime, wakeTime: wakeTime, connectHealth: connectHealth)
-                        }
                     case .authLoading:
                         // Brief neutral state while the Keychain session
-                        // restore check runs, so we don't flash the auth
+                        // restore check runs, so we don't flash the welcome
                         // screen for already signed-in users.
                         SleepBackground(showsMoon: false)
-                    case .auth:
+                    case .onboarding:
+                        // Welcome → sign-up questionnaire, with a sign-in
+                        // escape for returning users. See OnboardingGateView.
                         SleepBackground(showsMoon: false)
-                        AuthView(store: store)
+                        OnboardingGateView(store: store)
+                    case .auth:
+                        // End of the sign-up path: the plan is made, now save
+                        // it to an account.
+                        SleepBackground(showsMoon: false)
+                        AuthView(store: store, intent: .signUp)
                     case .main:
                         EmptyView() // Handled by the branch above.
                     }

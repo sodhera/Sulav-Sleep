@@ -32,10 +32,15 @@ struct Profile: Codable, Equatable {
     var lockdownEnabled: Bool
     /// Max hours the lockdown stays active even if "Wake up" isn't tapped.
     var lockdownMaxHours: Int
+    /// What the user said gets between them and good sleep, captured during
+    /// sign-up onboarding (raw values of `SleepStruggle`). Kept for future
+    /// personalization; empty when the user skipped the question.
+    var sleepStruggles: [String]
 
     init(
         name: String, bedtime: Int, wakeTime: Int, onboarded: Bool,
-        healthSyncEnabled: Bool = false, lockdownEnabled: Bool = false, lockdownMaxHours: Int = 6
+        healthSyncEnabled: Bool = false, lockdownEnabled: Bool = false, lockdownMaxHours: Int = 6,
+        sleepStruggles: [String] = []
     ) {
         self.name = name
         self.bedtime = bedtime
@@ -44,6 +49,7 @@ struct Profile: Codable, Equatable {
         self.healthSyncEnabled = healthSyncEnabled
         self.lockdownEnabled = lockdownEnabled
         self.lockdownMaxHours = lockdownMaxHours
+        self.sleepStruggles = sleepStruggles
     }
 
     // Decode-safe: records written before these fields existed default sensibly.
@@ -56,6 +62,41 @@ struct Profile: Codable, Equatable {
         healthSyncEnabled = try c.decodeIfPresent(Bool.self, forKey: .healthSyncEnabled) ?? false
         lockdownEnabled = try c.decodeIfPresent(Bool.self, forKey: .lockdownEnabled) ?? false
         lockdownMaxHours = try c.decodeIfPresent(Int.self, forKey: .lockdownMaxHours) ?? 6
+        sleepStruggles = try c.decodeIfPresent([String].self, forKey: .sleepStruggles) ?? []
+    }
+}
+
+/// The onboarding "what's getting in the way of your sleep?" options. The
+/// question exists both to tailor future features and because answering a few
+/// personal questions before the account step measurably improves sign-up
+/// completion.
+enum SleepStruggle: String, CaseIterable, Identifiable {
+    case phoneInBed
+    case fallingAsleep
+    case wakingAtNight
+    case inconsistentSchedule
+    case wakingTired
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .phoneInBed: "Phone in bed"
+        case .fallingAsleep: "Trouble falling asleep"
+        case .wakingAtNight: "Waking up at night"
+        case .inconsistentSchedule: "Inconsistent schedule"
+        case .wakingTired: "Waking up tired"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .phoneInBed: "iphone.radiowaves.left.and.right"
+        case .fallingAsleep: "moon.zzz"
+        case .wakingAtNight: "eye"
+        case .inconsistentSchedule: "calendar.badge.exclamationmark"
+        case .wakingTired: "battery.25percent"
+        }
     }
 }
 
