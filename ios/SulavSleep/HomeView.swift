@@ -4,6 +4,8 @@ struct HomeView: View {
     var store: SleepStore
     let profile: Profile
 
+    @State private var showConfirmation = false
+
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 0) {
@@ -28,14 +30,32 @@ struct HomeView: View {
                 }
                 .padding(.top, SleepSpacing.huge)
 
-                LiquidPrimaryButton(title: "Sleep Now", systemImage: "moon.fill") {
-                    Haptics.soft()
-                    store.startSleep()
-                }
-                .padding(.top, SleepSpacing.huge * 1.3)
+                // — Action area: transitions between button+summary and confirmation panel —
+                if showConfirmation {
+                    SleepConfirmationPanel(store: store, profile: profile) {
+                        withAnimation(.easeInOut(duration: 0.3)) { showConfirmation = false }
+                    }
+                    .padding(.top, SleepSpacing.huge * 1.3)
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .move(edge: .bottom)),
+                        removal: .opacity
+                    ))
+                } else {
+                    VStack(spacing: 0) {
+                        LiquidPrimaryButton(title: "Sleep Now", systemImage: "moon.fill") {
+                            Haptics.soft()
+                            withAnimation(.easeInOut(duration: 0.3)) { showConfirmation = true }
+                        }
+                        .padding(.top, SleepSpacing.huge * 1.3)
 
-                LastNightSummary(lastSession: store.latestSession, streak: store.onTrackStreak)
-                    .padding(.top, SleepSpacing.huge * 1.4)
+                        LastNightSummary(lastSession: store.latestSession, streak: store.onTrackStreak)
+                            .padding(.top, SleepSpacing.huge * 1.4)
+                    }
+                    .transition(.asymmetric(
+                        insertion: .opacity,
+                        removal: .opacity.combined(with: .move(edge: .top))
+                    ))
+                }
             }
             .padding(.horizontal, SleepSpacing.xxl)
             .padding(.top, SleepSpacing.sm)
@@ -91,12 +111,9 @@ private struct LastNightSummary: View {
                         .foregroundStyle(SleepColor.gold)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-            } else {
-                Text("No nights logged yet.")
-                    .font(SleepFont.body(15))
-                    .foregroundStyle(SleepColor.muted)
-                    .frame(maxWidth: .infinity, alignment: .leading)
             }
+            // No empty-state "No nights logged yet" text — the summary
+            // simply doesn't render when there's no data.
         }
     }
 

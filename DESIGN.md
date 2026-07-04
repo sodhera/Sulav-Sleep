@@ -107,6 +107,14 @@ Two tabs, each with exactly one job:
 - **Home — go to bed.** Greeting, bedtime countdown, Sleep Now, last night's
   duration/score/streak. Nothing else: no settings affordance, no data dumps.
   The screen someone sees at 11pm must not offer anything to fiddle with.
+  Tapping "Sleep Now" does *not* start sleep immediately. Instead, the button
+  and last-night summary transition to a **confirmation panel** showing:
+  (1) which apps will be blocked during sleep, (2) the estimated sleep
+  duration if the user sleeps now and wakes at their configured time, and
+  (3) an iPhone-style **slide-to-sleep** capsule. Sliding the knob across
+  the full track starts the sleep session. A "Cancel" link springs back to
+  the initial state. This two-step flow makes the commitment deliberate and
+  gives the user a final review before locking their phone down.
 - **Profile — everything about you.** Identity (name only, display-only — no
   pencil, no email; both are edited/shown in Settings so the body stays
   read-only), a tappable **"Blocked while you sleep"** block previewing the
