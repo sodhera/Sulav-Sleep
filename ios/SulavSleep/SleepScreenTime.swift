@@ -162,14 +162,9 @@ extension SleepStore {
     var lockdownSelectionSummary: String {
         guard screenTimeState != .unavailable else { return "On device only" }
         guard lockdownEnabled else { return "Off" }
-        let selection = SleepScreenTime.decodeSelection(appSelectionData())
-        let apps = selection.applicationTokens.count
-        let cats = selection.categoryTokens.count
-        if apps == 0 && cats == 0 { return "Choose apps" }
-        var parts: [String] = []
-        if apps > 0 { parts.append("\(apps) app\(apps == 1 ? "" : "s")") }
-        if cats > 0 { parts.append("\(cats) category\(cats == 1 ? "" : "ies")") }
-        return parts.joined(separator: ", ")
+        let count = lockdownSelectionCount
+        if count == 0 { return "Choose apps" }
+        return "\(count) app\(count == 1 ? "" : "s")"
     }
 }
 
@@ -348,13 +343,9 @@ struct BlockedAppsScreen: View {
     }
 
     private var selectionSummary: String {
-        let apps = selection.applicationTokens.count
-        let cats = selection.categoryTokens.count
-        if apps == 0 && cats == 0 { return "None" }
-        var parts: [String] = []
-        if apps > 0 { parts.append("\(apps) app\(apps == 1 ? "" : "s")") }
-        if cats > 0 { parts.append("\(cats) category\(cats == 1 ? "" : "ies")") }
-        return parts.joined(separator: ", ")
+        let count = selection.applicationTokens.count + selection.categoryTokens.count
+        if count == 0 { return "None" }
+        return "\(count) app\(count == 1 ? "" : "s")"
     }
 
     private func infoBlock(title: String, body: String) -> some View {
