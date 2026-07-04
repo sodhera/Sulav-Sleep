@@ -15,18 +15,19 @@ review the rhythm of recent nights — using **real data only**.
   same questions as a quick setup on a device with no profile. The two paths
   don't cross-link — you choose on the welcome screen.
 - Apple Health is offered *after* onboarding, via a dismissable prompt card at
-  the top of Reports (and always in Settings), rather than interrupting sign-up
-  with a permission sheet.
-- Home shows a greeting, tonight's schedule, `Sleep Now`, `Set Bedtime`, and a
-  last-night summary (duration, color-coded score, streak) — or an honest empty
-  state when nothing has been logged yet.
+  the top of Profile (which also keeps the toggle), rather than interrupting
+  sign-up with a permission sheet.
+- Home is a pure "go to bed" screen: greeting, bedtime countdown, `Sleep Now`,
+  and a last-night summary (duration, color-coded score, streak) — or an honest
+  empty state when nothing has been logged yet.
 - Active sleep mode hides navigation, shows elapsed time, and offers a single
   `Wake up` action.
-- Reports shows a seven-night chart, average duration/score, and a history list
-  where each night is tagged by source (in-app vs. Apple Health). Empty until
-  there is real data.
-- Settings edits name and schedule, toggles Apple Health sync, signs out, or
-  resets data.
+- Profile is everything about the user: editable name and account email, a
+  seven-night chart, average duration/score, and a history list where each
+  night is tagged by source (in-app vs. Apple Health; empty until there is real
+  data) — plus settings as full pushed pages: sleep schedule, blocked apps
+  (Screen Time selection), Apple Health sync, and sign out. There is no
+  "reset all data" action.
 
 ## No dummy data
 

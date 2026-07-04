@@ -2,21 +2,21 @@ import Foundation
 
 enum AppTab: String, CaseIterable, Identifiable, Codable {
     case home
-    case reports
+    case profile
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .home: "Home"
-        case .reports: "Reports"
+        case .profile: "Profile"
         }
     }
 
     var symbol: String {
         switch self {
         case .home: "house"
-        case .reports: "chart.xyaxis.line"
+        case .profile: "person.crop.circle"
         }
     }
 }
@@ -37,9 +37,9 @@ struct Profile: Codable, Equatable {
     /// personalization; empty when the user skipped the question.
     var sleepStruggles: [String]
     /// Whether the user has dismissed the "connect Apple Health" prompt shown
-    /// in Reports. Apple Health is no longer part of onboarding — it's offered
+    /// on Profile. Apple Health is no longer part of onboarding — it's offered
     /// later, in-app, and this stops that prompt from reappearing once waved
-    /// off. Connecting via Settings still works regardless.
+    /// off. Connecting via the Profile toggle still works regardless.
     var healthPromptDismissed: Bool
 
     init(
@@ -144,14 +144,6 @@ struct SleepSession: Identifiable, Codable, Equatable {
 
 struct ActiveSleepSession: Codable, Equatable {
     var start: Date
-}
-
-enum PresentedSheet: String, Identifiable {
-    case schedule
-    case settings
-    case lockdown
-
-    var id: String { rawValue }
 }
 
 /// Authorization state for the Apple Health connection, surfaced to the UI.

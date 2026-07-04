@@ -42,20 +42,32 @@ extension View {
 struct LiquidPrimaryButton: View {
     let title: String
     var systemImage: String?
+    /// When true, the label is swapped for a centered spinner in place — the
+    /// pill keeps its size so the button doesn't jump. Matches the provider
+    /// buttons' in-button loading style.
+    var isLoading: Bool
     var action: () -> Void
 
-    init(title: String, systemImage: String? = nil, action: @escaping () -> Void) {
+    init(title: String, systemImage: String? = nil, isLoading: Bool = false, action: @escaping () -> Void) {
         self.title = title
         self.systemImage = systemImage
+        self.isLoading = isLoading
         self.action = action
     }
 
     var body: some View {
         Button(action: action) {
-            Label {
-                Text(title).font(SleepFont.label(16)).tracking(0.2)
-            } icon: {
-                if let systemImage { Image(systemName: systemImage) }
+            ZStack {
+                Label {
+                    Text(title).font(SleepFont.label(16)).tracking(0.2)
+                } icon: {
+                    if let systemImage { Image(systemName: systemImage) }
+                }
+                .opacity(isLoading ? 0 : 1)
+
+                if isLoading {
+                    ProgressView().tint(SleepColor.background)
+                }
             }
             .frame(maxWidth: .infinity, minHeight: 58)
         }
@@ -131,33 +143,5 @@ struct LiquidButtonStyle: ButtonStyle {
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
-    }
-}
-
-// MARK: - Sheet container
-
-struct LiquidSheetContainer<Content: View>: View {
-    @ViewBuilder var content: Content
-
-    var body: some View {
-        VStack(spacing: SleepSpacing.xl) {
-            Capsule()
-                .fill(SleepColor.hairline)
-                .frame(width: 42, height: 5)
-            content
-        }
-        .padding(.horizontal, SleepSpacing.xxl)
-        .padding(.top, SleepSpacing.lg)
-        .padding(.bottom, SleepSpacing.huge)
-        .frame(maxWidth: .infinity)
-        .background {
-            RoundedRectangle(cornerRadius: SleepRadius.xl, style: .continuous)
-                .fill(SleepColor.navy.opacity(0.92))
-                .ignoresSafeArea(edges: .bottom)
-        }
-        .liquidGlass(cornerRadius: SleepRadius.xl)
-        .presentationDetents([.medium])
-        .presentationDragIndicator(.hidden)
-        .presentationBackground(.clear)
     }
 }

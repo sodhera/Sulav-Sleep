@@ -8,7 +8,6 @@ import SwiftUI
 private enum RootScreen: Equatable {
     case authLoading
     case onboarding
-    case auth
     case main
 }
 
@@ -18,12 +17,13 @@ struct RootView: View {
     // Auth readiness is checked first so a signed-in user reinstalling the app
     // never flashes the welcome screen: the gate needs to know whether to open
     // on welcome (new user) or the quick-setup questions (signed in, no local
-    // profile). `.auth` is only reached with a finished profile — the end of
-    // the sign-up path, or an onboarded user who signed out.
+    // profile). Anyone not signed in — including an onboarded user who signed
+    // out — lands on the onboarding gate, which opens on the type-led welcome
+    // screen (Get started / I already have an account), not a sign-in wall.
     private var screen: RootScreen {
         guard store.isAuthReady else { return .authLoading }
+        guard store.isAuthenticated else { return .onboarding }
         guard store.isOnboarded else { return .onboarding }
-        guard store.isAuthenticated else { return .auth }
         return .main
     }
 
@@ -54,17 +54,11 @@ struct RootView: View {
                         SleepBackground(showsMoon: false)
                     case .onboarding:
                         // Welcome → sign-up questionnaire, with a sign-in
-                        // escape for returning users. See OnboardingGateView.
+                        // escape for returning users. Also where a signed-out
+                        // user lands, opening on the welcome screen. See
+                        // OnboardingGateView.
                         SleepBackground(showsMoon: false)
                         OnboardingGateView(store: store)
-                    case .auth:
-                        // Reached only when an onboarded user is signed out
-                        // (e.g. after tapping Sign out): they already have an
-                        // account, so this is purely the sign-in screen. The
-                        // sign-up account step lives inside the questionnaire,
-                        // not here.
-                        SleepBackground(showsMoon: false)
-                        AuthView(store: store, intent: .signIn)
                     case .main:
                         EmptyView() // Handled by the branch above.
                     }
@@ -84,19 +78,21 @@ struct MainShellView: View {
     var body: some View {
         TabView(selection: $store.selectedTab) {
             tab { HomeView(store: store, profile: profile) }
-                .tabItem { Label("Home", systemImage: "house") }
+                .tabItem { Label(AppTab.home.title, systemImage: AppTab.home.symbol) }
                 .tag(AppTab.home)
 
-            tab { ReportsView(store: store) }
-                .tabItem { Label("Reports", systemImage: "chart.xyaxis.line") }
-                .tag(AppTab.reports)
+            // Profile hosts its own NavigationStack; each of its screens embeds
+            // the scene itself so pushed pages stay on the night city.
+            ProfileView(store: store, profile: profile)
+                .tabItem { Label(AppTab.profile.title, systemImage: AppTab.profile.symbol) }
+                .tag(AppTab.profile)
         }
         .tint(SleepColor.amber)
     }
 
     // The native TabView content host is opaque, so the scene must live inside
     // each tab. SleepBackground synchronizes its Core Animation phase globally,
-    // which keeps Home/Reports switches from restarting the skyline motion.
+    // which keeps Home/Profile switches from restarting the skyline motion.
     private func tab<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         ZStack {
             SleepBackground(showsMoon: true)

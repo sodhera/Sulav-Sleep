@@ -146,23 +146,33 @@ final class ScreenTimeService: ScreenTimeControlling {
     }
 }
 
-// MARK: - Lockdown settings UI
+// MARK: - Store convenience
 
-struct LockdownSettingsView: View {
+// Lives here so FamilyControls stays out of the view layer that only needs a
+// count for the "Blocked apps" settings row.
+extension SleepStore {
+    var lockdownSelectionCount: Int {
+        let selection = SleepScreenTime.decodeSelection(appSelectionData())
+        return selection.applicationTokens.count + selection.categoryTokens.count
+    }
+}
+
+// MARK: - Blocked apps screen (pushed from Profile)
+
+struct BlockedAppsScreen: View {
     var store: SleepStore
 
-    @Environment(\.dismiss) private var dismiss
     @State private var selection = FamilyActivitySelection()
     @State private var showPicker = false
     @State private var enabled = false
-    @State private var requesting = false
     @State private var maxHours = 6
 
     var body: some View {
-        LiquidSheetContainer {
-            Text("Sleep lockdown")
-                .font(SleepFont.title(20))
-                .foregroundStyle(SleepColor.ink)
+        SceneScreen {
+            SubpageHeader(
+                title: "Blocked apps",
+                subtitle: "When you tap Sleep Now, the apps you choose stay locked until you wake up. Calls and emergencies always work."
+            )
 
             switch store.screenTimeState {
             case .unavailable:
@@ -170,57 +180,73 @@ struct LockdownSettingsView: View {
                     title: "Available on device",
                     body: "Screen Time app-blocking needs a real iPhone and Apple's Family Controls capability. Everything else works here."
                 )
+                .padding(.top, SleepSpacing.huge)
             default:
-                Text("When you tap Sleep Now, the apps you choose are blocked until you wake. Calls and emergencies always work.")
-                    .font(SleepFont.body(14))
-                    .foregroundStyle(SleepColor.muted)
-                    .lineSpacing(3)
-
-                Toggle(isOn: $enabled) {
-                    Text("Lock distracting apps while asleep")
-                        .font(SleepFont.body(16))
-                        .foregroundStyle(SleepColor.dim)
-                }
-                .tint(SleepColor.amber)
-                .onChange(of: enabled) { _, on in
-                    Haptics.soft()
-                    Task {
-                        requesting = true
-                        if on { await store.enableLockdown() } else { store.disableLockdown() }
-                        enabled = store.lockdownEnabled
-                        requesting = false
-                    }
-                }
-
-                Button {
-                    showPicker = true
-                } label: {
-                    HStack {
-                        Text("Choose apps to lock")
+                VStack(alignment: .leading, spacing: 0) {
+                    Toggle(isOn: $enabled) {
+                        Text("Block these apps while I sleep")
                             .font(SleepFont.body(16))
                             .foregroundStyle(SleepColor.dim)
-                        Spacer()
-                        Text(selectionSummary)
-                            .font(SleepFont.body(14))
-                            .foregroundStyle(SleepColor.muted)
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(SleepColor.faint)
                     }
-                    .padding(.vertical, SleepSpacing.sm)
-                }
-                .buttonStyle(.plain)
+                    .tint(SleepColor.amber)
+                    .padding(.vertical, SleepSpacing.md)
+                    .onChange(of: enabled) { _, on in
+                        Haptics.soft()
+                        Task {
+                            if on { await store.enableLockdown() } else { store.disableLockdown() }
+                            enabled = store.lockdownEnabled
+                        }
+                    }
 
-                Stepper(value: $maxHours, in: 1...12) {
-                    Text("Unlock after \(maxHours)h even if I don't wake up")
-                        .font(SleepFont.body(15))
-                        .foregroundStyle(SleepColor.dim)
+                    Rectangle().fill(SleepColor.hairline).frame(height: 1)
+
+                    Button {
+                        showPicker = true
+                    } label: {
+                        HStack {
+                            Text("Choose apps")
+                                .font(SleepFont.body(16))
+                                .foregroundStyle(SleepColor.dim)
+                            Spacer()
+                            Text(selectionSummary)
+                                .font(SleepFont.body(14))
+                                .foregroundStyle(SleepColor.muted)
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(SleepColor.faint)
+                        }
+                        .padding(.vertical, SleepSpacing.lg)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+
+                    if !selection.applicationTokens.isEmpty {
+                        // The chosen apps, rendered by the system (tokens are
+                        // opaque to us) so the user can see exactly what locks.
+                        VStack(alignment: .leading, spacing: SleepSpacing.md) {
+                            ForEach(Array(selection.applicationTokens), id: \.self) { token in
+                                Label(token)
+                                    .labelStyle(.titleAndIcon)
+                                    .font(SleepFont.body(15))
+                                    .foregroundStyle(SleepColor.dim)
+                            }
+                        }
+                        .padding(.bottom, SleepSpacing.lg)
+                    }
+
+                    Rectangle().fill(SleepColor.hairline).frame(height: 1)
+
+                    Stepper(value: $maxHours, in: 1...12) {
+                        Text("Unlock after \(maxHours)h even if I don't wake up")
+                            .font(SleepFont.body(15))
+                            .foregroundStyle(SleepColor.dim)
+                    }
+                    .tint(SleepColor.amber)
+                    .padding(.vertical, SleepSpacing.md)
+                    .onChange(of: maxHours) { _, hours in store.setLockdownMaxHours(hours) }
                 }
-                .tint(SleepColor.amber)
-                .onChange(of: maxHours) { _, hours in store.setLockdownMaxHours(hours) }
+                .padding(.top, SleepSpacing.xl)
             }
-
-            LiquidPrimaryButton(title: "Done", systemImage: "checkmark") { dismiss() }
         }
         .familyActivityPicker(isPresented: $showPicker, selection: $selection)
         .onChange(of: selection) { _, newValue in

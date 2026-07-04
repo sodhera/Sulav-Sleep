@@ -35,38 +35,16 @@ xcodebuild \
 
 ## Tests
 
-The `SulavSleep` scheme runs two test targets. Run everything with:
+The project currently ships **no test targets** — the `SulavSleepTests`
+(Swift Testing) and `SulavSleepUITests` (XCUITest) targets were removed to keep
+the build/CI loop fast, so `xcodebuild ... test` has nothing to run.
 
-```sh
-xcodebuild \
-  -project ios/SulavSleep.xcodeproj \
-  -scheme SulavSleep \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' \
-  -derivedDataPath ios/build/DerivedData \
-  test
-```
-
-Filter with `-only-testing:SulavSleepTests` or `-only-testing:SulavSleepUITests`.
-
-- **SulavSleepTests** (Swift Testing) — pure/unit coverage:
-  - `SleepMathTests`: sleep-window (incl. past-midnight) and score math.
-  - `SleepNightBuilderTests`: grouping Health samples into nights and the
-    overlap-safe union-minutes calculation.
-  - `SleepMergeTests`: local vs. HealthKit dedupe (Health wins per night).
-  - `SleepFormattingTests`: duration/clock formatting and minute round-trips.
-  - `SleepStoreTests`: onboarding (no seeded data), sleep/wake, streak, Health
-    enable/deny/disable, reset, and persistence round-trips. Uses
-    `MockHealthService` and an isolated in-memory `UserDefaults` suite
-    (`TestSupport.swift`).
-  - `AuthTests`: sign-in with each provider, manual sign-up/sign-in, sign-out,
-    error surfacing, session-restore, and `AppAccount` persistence
-    round-trips. Uses `MockAuthClient` (`Auth/MockAuthClient.swift`).
-- **SulavSleepUITests** (XCUITest) — the sign-up path (welcome → questions →
-  account → Home), the sign-in path (welcome → auth → quick setup → Home),
-  back navigation to welcome, Sleep → Wake, and log-a-night → Reports
-  (`AuthUITests`, `OnboardingUITests`, `SleepFlowUITests`). The app wipes persisted state when launched with
-  `-uitest-reset`, and swaps in `MockAuthClient` when launched with
-  `-uitest-mock-auth` so UI runs are deterministic and never hit the network.
+The app-side test seams were removed too: `MockAuthClient`, the `-uitest-reset`
+/ `-uitest-mock-auth` launch arguments, and the `AppEnvironment.isTesting`
+gates are gone, so the app always takes its real code paths (widget refresh,
+Live Activities, async persistence). `SleepStore.init` still accepts optional
+`persistence` / `health` / `screenTime` / `auth` dependencies, so a future test
+target can inject fakes without new hooks.
 
 ## Tracing
 
@@ -125,12 +103,21 @@ Filter with `-only-testing:SulavSleepTests` or `-only-testing:SulavSleepUITests`
   double. See "Authentication" below.
 - `HomeView.swift`: greeting, schedule, Sleep Now, active sleeping state, wake
   logging, last-night summary, empty states, Health import indicator.
-- `ReportsView.swift`: weekly chart, averages, history with source badges,
-  empty state, and `HealthConnectCard` — the dismissable "connect Apple Health"
-  prompt shown at the top when `store.shouldPromptHealthConnect` (available, not
-  connected, not waved off). This is where Health is offered now that onboarding
-  no longer asks; "Connect" calls `enableHealthSync`, the ✕ calls
-  `dismissHealthPrompt` (persisted via `Profile.healthPromptDismissed`).
+- `ProfileView.swift`: the Profile tab — the app's single "about you" surface.
+  Identity (editable name, account email), the sleep record (weekly chart,
+  averages, recent nights with source badges, an "All nights" pushed page when
+  history exceeds seven), and settings as full pushed pages inside the tab's
+  `NavigationStack`: Sleep schedule (`ScheduleScreen`), Blocked apps
+  (`BlockedAppsScreen`, in `SleepScreenTime.swift`), plus the Apple Health
+  toggle and a quiet Sign out. There is deliberately no "reset all data" action.
+  Shared scaffolding lives here too: `SceneScreen` (night scene + transparent
+  scroll, system nav bar hidden) and `SubpageHeader` (glass back chevron +
+  editorial title, same chrome as onboarding). Also hosts `HealthConnectCard` —
+  the dismissable "connect Apple Health" prompt shown when
+  `store.shouldPromptHealthConnect` (available, not connected, not waved off).
+  This is where Health is offered now that onboarding no longer asks; "Connect"
+  calls `enableHealthSync`, the ✕ calls `dismissHealthPrompt` (persisted via
+  `Profile.healthPromptDismissed`).
 - `OnboardingView.swift`: `OnboardingGateView`, the whole pre-app gate. A
   welcome screen offers two independent paths — "Get started" runs the sign-up
   flow (`OnboardingQuestionsView`: name, sleep struggles, bedtime, wake with a
@@ -138,7 +125,7 @@ Filter with `-only-testing:SulavSleepTests` or `-only-testing:SulavSleepUITests`
   embedding `AuthMethodsView`); "I already have an account" goes straight to a
   standalone `AuthView` (`.signIn`), followed by the same questions as a quick
   setup when the device has no profile. The two paths are never linked. Apple
-  Health is not part of onboarding — it's offered later in Reports (see
+  Health is not part of onboarding — it's offered later on Profile (see
   `HealthConnectCard`). `OnboardingQuestionsView` builds its step list
   dynamically: the account step is appended only when the user is not already
   signed in (captured once via `includesAccount`), so it appears on the sign-up
@@ -157,15 +144,14 @@ Filter with `-only-testing:SulavSleepTests` or `-only-testing:SulavSleepUITests`
   the questionnaire (whose name step auto-focuses), so no phantom keyboard
   flashes on the welcome or account screens. Struggle answers persist to
   `Profile.sleepStruggles` for future personalization.
-- `Sheets.swift`: schedule editor and settings (name, schedule, Health toggle,
-  reset).
 - `LiquidGlass.swift`: native Liquid Glass wrappers with material fallbacks.
 - `SleepBackground.swift`: Core Animation pixel-night scene. It keeps the pixel
   city in separate scrolling/parallaxed depth planes and uses system
   motion-effect parallax instead of CoreMotion polling. Because native `TabView`
   content is opaque, `MainShellView` renders one background inside each tab; the
   scrolling layers use the same global Core Animation phase so switching between
-  Home and Reports does not restart the skyline. The view is
+  Home and Profile (or pushing a Profile sub-page, each of which embeds its own
+  scene) does not restart the skyline. The view is
   non-interactive (`isUserInteractionEnabled = false`) — it never reacts to
   touch and can't intercept input meant for the UI above it; depth parallax
   comes from the device-tilt motion effect only.
@@ -187,15 +173,18 @@ Filter with `-only-testing:SulavSleepTests` or `-only-testing:SulavSleepUITests`
   quick setup if the device has no profile (see "Authentication"). The two paths
   do not cross-link; the choice is made on the welcome screen.
 - **Apple Health is offered in-app, not during onboarding.** A dismissable
-  prompt card sits at the top of Reports until the user connects (or waves it
-  off); Settings keeps the toggle. This avoids a system permission sheet
-  interrupting sign-up and puts the ask where sleep data is shown.
+  prompt card sits at the top of Profile until the user connects (or waves it
+  off); the Profile settings section keeps the toggle. This avoids a system
+  permission sheet interrupting sign-up and puts the ask where sleep data is
+  shown.
 - **No seeding.** History is empty until the user logs a real night or Apple
   Health has real sleep to import.
 - `Sleep Now` writes an active session; `Wake up` logs duration + score, clears
   active, and (if Health is connected) writes the night to Apple Health.
-- Reports/Home show a deduplicated merge of local + Health nights.
-- Schedule/name edits persist immediately. Reset clears everything.
+- Profile/Home show a deduplicated merge of local + Health nights.
+- Schedule/name edits persist immediately. There is no in-app "reset all data"
+  action — sign out is the only account-level exit, and it keeps the local
+  profile so signing back in skips the questionnaire.
 
 ## Authentication
 
@@ -253,7 +242,7 @@ Apple Developer capability, Google Cloud OAuth client).
   anyway (two-way sync writes nights to Health). `isAccessDenied` surfaces
   `.sharingDenied`; once denied, iOS won't re-prompt, so `store.connectHealth()`
   opens system Settings instead of silently no-op'ing. The Settings toggle and
-  the Reports `HealthConnectCard` both derive from the real state, so a denial
+  the Profile `HealthConnectCard` both derive from the real state, so a denial
   never leaves the toggle stuck on.
 - In the Simulator, add sleep data in the Health app to see imported nights.
 

@@ -46,9 +46,10 @@ state (bare timer, "Tap to wake"); tapping the screen reveals the controls.
 
 The whole scene runs through **Core Animation** layers, so SwiftUI does not run
 a per-frame render loop. The native `TabView` host is opaque, so Home and
-Reports each keep an in-tab scene; their layer clocks are synchronized to the
-same global animation phase so tab switching does not reset the skyline motion.
-Onboarding keeps the scene active through the keyboard transition.
+Profile each keep an in-tab scene (Profile's pushed sub-pages embed their own);
+their layer clocks are synchronized to the same global animation phase so tab
+switching and pushes do not reset the skyline motion. Onboarding keeps the
+scene active through the keyboard transition.
 
 ## Palette
 
@@ -99,6 +100,29 @@ hero moments. Small-caps section labels use open `.tracking`.
 - Body: `SleepFont.body` — regular, ~1.5–1.6 line height for long copy.
 - Labels / caps: `SleepFont.label` — medium, tracked via `.sectionLabel()`.
 
+## Navigation & structure
+
+Two tabs, each with exactly one job:
+
+- **Home — go to bed.** Greeting, bedtime countdown, Sleep Now, last night's
+  duration/score/streak. Nothing else: no settings affordance, no data dumps.
+  The screen someone sees at 11pm must not offer anything to fiddle with.
+- **Profile — everything about you.** Identity (editable name, account email),
+  the sleep record (weekly chart, averages, recent nights, an "All nights"
+  page once history grows), then settings, then account.
+
+Settings are full **pushed pages** inside Profile's `NavigationStack` (Sleep
+schedule, Blocked apps), never stacked modal sheets — a half-height modal
+implies a throwaway decision, and choosing which apps get locked all night is
+not one. Sub-pages reuse the onboarding chrome: round glass back chevron,
+left-aligned editorial title, supporting line. The only sheet left in the app
+is Apple's own `FamilyActivityPicker`.
+
+There is deliberately **no "reset all data" action**. A destructive escape
+hatch sitting among everyday settings invites disaster and signals distrust of
+the app's own record. Sign out is the only account-level exit, and it keeps
+the local profile.
+
 ## Layout & containers
 
 8pt grid (`4…40`), 24pt screen margins, 32–40 section gaps, ≥44pt touch targets,
@@ -125,9 +149,9 @@ succeeds, so "back" from it returns to the wake-time question like any other.
 Onboarding stays short: name, sleep struggles, bedtime, wake, account. Apple
 Health is deliberately *not* asked here — a system permission sheet mid-sign-up
 is friction, and the ask lands better in context. Instead a warm, dismissable
-glass card in Reports (`HealthConnectCard`) invites the connection where the
-sleep data actually lives; it persists until connected or waved off, and
-Settings still has the toggle.
+glass card on Profile (`HealthConnectCard`) invites the connection where the
+sleep data actually lives; it persists until connected or waved off, and the
+Profile settings section still has the toggle.
 
 Questionnaire chrome: a 3pt amber-gradient progress capsule between a round
 glass back chevron and a matching spacer, editorial left-aligned questions
@@ -138,6 +162,20 @@ fills amber when selected. No text "Back" buttons; the chevron is the only way
 back. The sign-in screen ("Welcome back") is a single standalone screen with
 the same chevron (back to welcome) and provider layout, so both paths read as
 one system.
+
+Provider stack: three buttons that read as one set — equal 58pt height and one
+shared SF label (20pt medium). Apple and Google are the two branded providers on
+matching white pills (Apple's `apple.logo`; the official multicolor Google "G"
+mark — never a generic globe or a hand-drawn logo). Email is the quiet glass
+path with an ink envelope. The amber→gold gradient is reserved for the app's
+*own* primary actions, so it is deliberately never used on a third-party
+provider button. Each button names the action being taken: "Sign up with …" in
+the sign-up flow, "Sign in with …" on the returning-user ("Welcome back") path.
+
+Signing out returns to the welcome screen, not a bare sign-in wall — the same
+type-led choice a first-time visitor sees. A signed-out user's local profile is
+retained, so if they sign back in the app goes straight to the main screen with
+no repeat questionnaire; picking "Get started" re-runs it only if they choose to.
 
 ## Motion
 

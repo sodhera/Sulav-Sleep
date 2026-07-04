@@ -37,17 +37,7 @@ final class SleepStore {
         self.persistence = persistence
         self.health = health ?? SleepHealth.makeDefault()
         self.screenTime = screenTime ?? SleepScreenTime.makeDefault()
-        if let auth {
-            self.auth = auth
-        } else if CommandLine.arguments.contains("-uitest-mock-auth") {
-            self.auth = MockAuthClient()
-        } else {
-            self.auth = SulavAuth.makeDefault()
-        }
-        // UI tests launch with a clean slate so onboarding is deterministic.
-        if CommandLine.arguments.contains("-uitest-reset") {
-            persistence.reset()
-        }
+        self.auth = auth ?? SulavAuth.makeDefault()
         reload()
         Task { [weak self] in await self?.restoreSession() }
     }
@@ -85,7 +75,7 @@ final class SleepStore {
         return profile?.healthSyncEnabled == true ? .connected : .notConnected
     }
 
-    /// Whether to show the in-app "connect Apple Health" prompt (Reports). Only
+    /// Whether to show the in-app "connect Apple Health" prompt (Profile). Only
     /// when Health is available, not yet connected, and the user hasn't waved
     /// the prompt off.
     var shouldPromptHealthConnect: Bool {
@@ -112,7 +102,6 @@ final class SleepStore {
     /// Publish a compact summary to the App Group and refresh the home-screen
     /// widget. Called on every change to displayed history.
     private func updateWidget() {
-        guard !AppEnvironment.isTesting else { return }
         let recent = Array(displaySessions.suffix(7)).map {
             WidgetNight(end: $0.end, durationMinutes: $0.durationMinutes, score: $0.score)
         }
@@ -129,7 +118,6 @@ final class SleepStore {
     }
 
     private func updateWidgetSoon() {
-        guard !AppEnvironment.isTesting else { return }
         DispatchQueue.main.async { [weak self] in
             self?.updateWidget()
         }
@@ -219,6 +207,8 @@ final class SleepStore {
             persistAccount(resolved)
             AppLog.store.info("Signed in (provider=\(resolved.provider.rawValue))")
         } catch let error as AuthError {
+            // Cancellation is a deliberate user action — show nothing.
+            guard error != .cancelled else { return }
             authErrorMessage = error.message
         } catch {
             authErrorMessage = AuthError.unknown(error.localizedDescription).message
@@ -244,9 +234,7 @@ final class SleepStore {
         performAfterStateChange { [weak self] in
             guard let self else { return }
             if shouldStartLockdown { self.screenTime.startLockdown() }
-            if !AppEnvironment.isTesting {
-                Task { SleepLiveActivity.start(startDate: start) }
-            }
+            Task { SleepLiveActivity.start(startDate: start) }
         }
         AppLog.store.info("Sleep session started")
     }
@@ -259,7 +247,7 @@ final class SleepStore {
         performAfterStateChange { [weak self] in
             guard let self else { return }
             self.screenTime.endLockdown()
-            if !AppEnvironment.isTesting { SleepLiveActivity.end() }
+            SleepLiveActivity.end()
         }
         AppLog.store.info("Sleep session canceled (not logged)")
     }
@@ -282,7 +270,7 @@ final class SleepStore {
         performAfterStateChange { [weak self] in
             guard let self else { return }
             self.screenTime.endLockdown()
-            if !AppEnvironment.isTesting { SleepLiveActivity.end() }
+            SleepLiveActivity.end()
         }
         AppLog.store.info("Logged night: \(minutes)m, score \(session.score)")
 
@@ -331,7 +319,6 @@ final class SleepStore {
     }
 
     private func openSystemSettings() {
-        guard !AppEnvironment.isTesting else { return }
         #if canImport(UIKit)
         guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
         UIApplication.shared.open(url)
@@ -439,22 +426,7 @@ final class SleepStore {
         persist(refreshWidget: false)
     }
 
-    func resetAll() {
-        profile = nil
-        sessions = []
-        importedHealthSessions = []
-        activeSession = nil
-        selectedTab = .home
-        persistence.reset()
-        updateWidgetSoon()
-        AppLog.store.info("All data reset")
-    }
-
     private func persist(refreshWidget: Bool = true) {
-        if AppEnvironment.isTesting {
-            persistNow(refreshWidget: refreshWidget)
-            return
-        }
         DispatchQueue.main.async { [weak self] in
             self?.persistNow(refreshWidget: refreshWidget)
         }
@@ -470,10 +442,6 @@ final class SleepStore {
     }
 
     private func performAfterStateChange(_ work: @escaping () -> Void) {
-        if AppEnvironment.isTesting {
-            work()
-            return
-        }
         DispatchQueue.main.async {
             work()
         }

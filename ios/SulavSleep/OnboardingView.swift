@@ -105,7 +105,7 @@ private struct WelcomeStep: View {
             Spacer()
 
             VStack(spacing: SleepSpacing.md) {
-                LiquidPrimaryButton(title: "Get started", systemImage: "arrow.right") {
+                LiquidPrimaryButton(title: "Get started") {
                     Haptics.soft()
                     onGetStarted()
                 }
@@ -134,7 +134,7 @@ private struct WelcomeStep: View {
 /// only once that last step's auth succeeds. When the user arrives already
 /// authenticated (post-sign-in quick setup), the account step is dropped and
 /// the wake-time question becomes the final step. Apple Health is not asked here
-/// — it's offered later, in Reports (see `HealthConnectCard`).
+/// — it's offered later, on Profile (see `HealthConnectCard`).
 struct OnboardingQuestionsView: View {
     let store: SleepStore
     /// Back action from the first step (to the welcome screen), or `nil` when
@@ -318,7 +318,7 @@ struct OnboardingQuestionsView: View {
                     finish()
                 }
             } else {
-                LiquidPrimaryButton(title: "Next", systemImage: "arrow.right") {
+                LiquidPrimaryButton(title: "Next") {
                     advance()
                 }
                 .disabled(!isStepValid)

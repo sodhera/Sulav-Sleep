@@ -4,15 +4,9 @@ struct HomeView: View {
     var store: SleepStore
     let profile: Profile
 
-    @State private var presentedSheet: PresentedSheet?
-
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 0) {
-                HomeHeader(isImporting: store.isImportingHealth) {
-                    presentedSheet = .settings
-                }
-
                 VStack(spacing: SleepSpacing.xs) {
                     Text(greeting)
                         .font(SleepFont.body(16))
@@ -21,7 +15,7 @@ struct HomeView: View {
                         .font(SleepFont.hero(36))
                         .foregroundStyle(SleepColor.ink)
                 }
-                .padding(.top, SleepSpacing.huge * 1.6)
+                .padding(.top, SleepSpacing.huge * 2.4)
 
                 TimelineView(.periodic(from: .now, by: 60)) { timeline in
                     VStack(spacing: SleepSpacing.xs) {
@@ -48,37 +42,6 @@ struct HomeView: View {
             .padding(.bottom, SleepSpacing.huge)
         }
         .safeAreaPadding(.top)
-        .sheet(item: $presentedSheet) { sheet in
-            switch sheet {
-            case .schedule:
-                ScheduleSheet(bedtime: profile.bedtime, wakeTime: profile.wakeTime) { bedtime, wakeTime in
-                    store.saveSchedule(bedtime: bedtime, wakeTime: wakeTime)
-                    presentedSheet = nil
-                }
-            case .settings:
-                SettingsSheet(
-                    profile: profile,
-                    healthState: store.healthSyncState,
-                    onSaveName: store.saveName,
-                    onOpenSchedule: { presentedSheet = .schedule },
-                    onToggleHealth: { enabled in
-                        if enabled { Task { await store.connectHealth() } }
-                        else { store.disableHealthSync() }
-                    },
-                    onOpenLockdown: { presentedSheet = .lockdown },
-                    onReset: {
-                        presentedSheet = nil
-                        store.resetAll()
-                    },
-                    onSignOut: {
-                        presentedSheet = nil
-                        Task { await store.signOut() }
-                    }
-                )
-            case .lockdown:
-                LockdownSettingsView(store: store)
-            }
-        }
     }
 
     private var greeting: String {
@@ -88,32 +51,6 @@ struct HomeView: View {
         case 17..<22: return "Good evening,"
         default: return "Good night,"
         }
-    }
-}
-
-private struct HomeHeader: View {
-    let isImporting: Bool
-    let onSettings: () -> Void
-
-    var body: some View {
-        HStack {
-            if isImporting {
-                ProgressView().controlSize(.mini).tint(SleepColor.amber)
-            }
-
-            Spacer()
-
-            Button(action: onSettings) {
-                Image(systemName: "slider.horizontal.3")
-                    .font(.system(size: 16, weight: .medium))
-                    .frame(width: 40, height: 40)
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(SleepColor.dim)
-            .liquidGlass(cornerRadius: SleepRadius.pill, interactive: true)
-            .accessibilityLabel("Settings")
-        }
-        .frame(minHeight: 44)
     }
 }
 

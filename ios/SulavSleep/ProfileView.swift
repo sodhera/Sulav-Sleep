@@ -1,0 +1,722 @@
+import SwiftUI
+
+// The Profile tab is the app's single "about you" surface: identity, the sleep
+// record (weekly chart, averages, night history), and configuration. Settings
+// live here as full pushed pages — never stacked modal sheets — and there is
+// deliberately no destructive "reset all data" action; Sign out is the only
+// account-level exit. Home stays a pure "go to bed" screen because of this.
+
+struct ProfileView: View {
+    var store: SleepStore
+    let profile: Profile
+
+    var body: some View {
+        NavigationStack {
+            ProfileRootScreen(store: store, profile: profile)
+                .navigationDestination(for: ProfileDestination.self) { destination in
+                    switch destination {
+                    case .schedule:
+                        ScheduleScreen(store: store, profile: profile)
+                    case .blockedApps:
+                        BlockedAppsScreen(store: store)
+                    case .allNights:
+                        AllNightsScreen(store: store)
+                    }
+                }
+        }
+    }
+}
+
+enum ProfileDestination: Hashable {
+    case schedule
+    case blockedApps
+    case allNights
+}
+
+// MARK: - Shared page scaffold
+
+/// Every Profile screen sits on the living night scene with a transparent
+/// scroll. The system navigation bar is hidden; sub-pages navigate back with
+/// the round glass chevron, matching onboarding.
+struct SceneScreen<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        ZStack {
+            SleepBackground(showsMoon: true)
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 0) {
+                    content
+                }
+                .padding(.horizontal, SleepSpacing.xxl)
+                .padding(.bottom, 140)
+            }
+            .safeAreaPadding(.top)
+        }
+        .toolbar(.hidden, for: .navigationBar)
+    }
+}
+
+/// Editorial sub-page header: glass back chevron above a left-aligned title,
+/// the same chrome language as the onboarding questionnaire.
+struct SubpageHeader: View {
+    let title: String
+    var subtitle: String?
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: SleepSpacing.xl) {
+            GlassBackButton { dismiss() }
+            VStack(alignment: .leading, spacing: SleepSpacing.sm) {
+                Text(title)
+                    .font(SleepFont.hero(28))
+                    .foregroundStyle(SleepColor.ink)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(SleepFont.body(15))
+                        .foregroundStyle(SleepColor.muted)
+                        .lineSpacing(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .padding(.top, SleepSpacing.lg)
+    }
+}
+
+// MARK: - Root screen
+
+private struct ProfileRootScreen: View {
+    var store: SleepStore
+    let profile: Profile
+
+    @State private var isEditingName = false
+    @State private var draftName = ""
+    @FocusState private var nameFieldFocused: Bool
+
+    private var sessions: [SleepSession] { store.displaySessions }
+
+    var body: some View {
+        SceneScreen {
+            identity
+
+            if store.shouldPromptHealthConnect {
+                HealthConnectCard(
+                    onConnect: { Task { await store.connectHealth() } },
+                    onDismiss: { store.dismissHealthPrompt() }
+                )
+                .padding(.top, SleepSpacing.xxl)
+            }
+
+            sleepSection
+            settingsSection
+            accountSection
+
+            Text("Pixel art by CraftPix.net · OGA-BY 3.0")
+                .font(SleepFont.body(11))
+                .foregroundStyle(SleepColor.faint)
+                .padding(.top, SleepSpacing.huge)
+        }
+    }
+
+    // MARK: Identity
+
+    private var identity: some View {
+        VStack(alignment: .leading, spacing: SleepSpacing.xs) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Profile").sectionLabel()
+                Spacer()
+                if store.isImportingHealth {
+                    ProgressView().controlSize(.small).tint(SleepColor.amber)
+                }
+            }
+            .padding(.bottom, SleepSpacing.md)
+
+            if isEditingName {
+                TextField("Your name", text: $draftName)
+                    .textInputAutocapitalization(.words)
+                    .autocorrectionDisabled(true)
+                    .font(SleepFont.hero(30))
+                    .foregroundStyle(SleepColor.ink)
+                    .tint(SleepColor.amber)
+                    .focused($nameFieldFocused)
+                    .submitLabel(.done)
+                    .onSubmit(commitName)
+                    .overlay(alignment: .bottom) {
+                        Rectangle().fill(SleepColor.hairline).frame(height: 1).offset(y: 4)
+                    }
+            } else {
+                HStack(spacing: SleepSpacing.sm) {
+                    Text(profile.name)
+                        .font(SleepFont.hero(30))
+                        .foregroundStyle(SleepColor.ink)
+                    Button {
+                        draftName = profile.name
+                        isEditingName = true
+                        nameFieldFocused = true
+                    } label: {
+                        Image(systemName: "pencil")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(SleepColor.muted)
+                            .frame(width: 32, height: 32)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Edit name")
+                }
+            }
+
+            if let email = store.account?.email {
+                Text(email)
+                    .font(SleepFont.body(14))
+                    .foregroundStyle(SleepColor.muted)
+            }
+        }
+        .padding(.top, SleepSpacing.lg)
+    }
+
+    private func commitName() {
+        store.saveName(draftName)
+        isEditingName = false
+    }
+
+    // MARK: Sleep record
+
+    private var lastSeven: [SleepSession] { Array(sessions.suffix(7)) }
+
+    private var averageDuration: Int {
+        guard !sessions.isEmpty else { return 0 }
+        return sessions.reduce(0) { $0 + $1.durationMinutes } / sessions.count
+    }
+
+    private var averageScore: Int {
+        guard !sessions.isEmpty else { return 0 }
+        return sessions.reduce(0) { $0 + $1.score } / sessions.count
+    }
+
+    @ViewBuilder
+    private var sleepSection: some View {
+        VStack(alignment: .leading, spacing: SleepSpacing.md) {
+            Text("Your sleep").sectionLabel()
+
+            if sessions.isEmpty {
+                Text("No nights yet. Tap Sleep Now tonight and your record starts here.")
+                    .font(SleepFont.body(15))
+                    .foregroundStyle(SleepColor.muted)
+                    .lineSpacing(3)
+                    .frame(maxWidth: 300, alignment: .leading)
+                    .padding(.top, SleepSpacing.xs)
+            } else {
+                WeeklyChart(sessions: lastSeven)
+                    .frame(height: 132)
+
+                HStack {
+                    ForEach(lastSeven) { session in
+                        Text(SleepFormatting.narrowWeekday.string(from: session.end))
+                            .font(SleepFont.body(11))
+                            .foregroundStyle(session.id == lastSeven.last?.id ? SleepColor.amber : SleepColor.faint)
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+
+                HStack(spacing: SleepSpacing.huge) {
+                    StatBlock(label: "Avg. duration", value: SleepFormatting.duration(averageDuration))
+                    StatBlock(label: "Avg. score", value: "\(averageScore)")
+                }
+                .padding(.top, SleepSpacing.xl)
+
+                historyList
+                    .padding(.top, SleepSpacing.xl)
+            }
+        }
+        .padding(.top, SleepSpacing.huge)
+    }
+
+    private var historyList: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("Recent nights")
+                    .font(SleepFont.body(13))
+                    .foregroundStyle(SleepColor.muted)
+                Spacer()
+                if sessions.contains(where: { $0.source == .healthKit }) {
+                    Label("Apple Health", systemImage: "heart.fill")
+                        .font(SleepFont.label(11))
+                        .foregroundStyle(SleepColor.muted)
+                }
+            }
+            .padding(.bottom, SleepSpacing.xs)
+
+            ForEach(Array(lastSeven.reversed().enumerated()), id: \.element.id) { index, session in
+                HistoryRow(session: session)
+                    .overlay(alignment: .top) {
+                        if index > 0 {
+                            Rectangle().fill(SleepColor.hairline).frame(height: 1)
+                        }
+                    }
+            }
+
+            if sessions.count > 7 {
+                NavigationLink(value: ProfileDestination.allNights) {
+                    HStack {
+                        Text("All \(sessions.count) nights")
+                            .font(SleepFont.label(14))
+                            .foregroundStyle(SleepColor.dim)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(SleepColor.faint)
+                    }
+                    .padding(.vertical, SleepSpacing.md)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .overlay(alignment: .top) {
+                    Rectangle().fill(SleepColor.hairline).frame(height: 1)
+                }
+            }
+        }
+    }
+
+    // MARK: Settings
+
+    private var settingsSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Settings")
+                .sectionLabel()
+                .padding(.bottom, SleepSpacing.xs)
+
+            NavigationLink(value: ProfileDestination.schedule) {
+                SettingsRow(
+                    title: "Sleep schedule",
+                    value: "\(SleepFormatting.clock(profile.bedtime)) – \(SleepFormatting.clock(profile.wakeTime))"
+                )
+            }
+            .buttonStyle(.plain)
+
+            divider
+
+            NavigationLink(value: ProfileDestination.blockedApps) {
+                SettingsRow(title: "Blocked apps", value: blockedAppsSummary)
+            }
+            .buttonStyle(.plain)
+
+            divider
+
+            healthRow
+        }
+        .padding(.top, SleepSpacing.huge)
+    }
+
+    private var blockedAppsSummary: String {
+        guard store.screenTimeState != .unavailable else { return "On device only" }
+        guard store.lockdownEnabled else { return "Off" }
+        let count = store.lockdownSelectionCount
+        return count == 0 ? "Choose apps" : "\(count) selected"
+    }
+
+    private var divider: some View {
+        Rectangle().fill(SleepColor.hairline).frame(height: 1)
+    }
+
+    @ViewBuilder
+    private var healthRow: some View {
+        if store.healthSyncState == .unavailable {
+            HStack {
+                Text("Apple Health")
+                    .font(SleepFont.body(16))
+                    .foregroundStyle(SleepColor.dim)
+                Spacer()
+                Text("Unavailable")
+                    .font(SleepFont.body(14))
+                    .foregroundStyle(SleepColor.faint)
+            }
+            .padding(.vertical, SleepSpacing.lg)
+        } else {
+            // Derived from the store's actual connection state, not a local
+            // optimistic mirror: HealthKit can report "denied" after the sheet,
+            // and the toggle must reflect that rather than staying stuck on.
+            Toggle(isOn: Binding(
+                get: { store.healthSyncState == .connected },
+                set: { enabled in
+                    Haptics.soft()
+                    if enabled { Task { await store.connectHealth() } }
+                    else { store.disableHealthSync() }
+                }
+            )) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Apple Health")
+                        .font(SleepFont.body(16))
+                        .foregroundStyle(SleepColor.dim)
+                    Text("Sync your real sleep history both ways")
+                        .font(SleepFont.body(12))
+                        .foregroundStyle(SleepColor.faint)
+                }
+            }
+            .tint(SleepColor.amber)
+            .padding(.vertical, SleepSpacing.md)
+        }
+    }
+
+    // MARK: Account
+
+    private var accountSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Account")
+                .sectionLabel()
+                .padding(.bottom, SleepSpacing.xs)
+
+            Button {
+                Haptics.soft()
+                Task { await store.signOut() }
+            } label: {
+                Text("Sign out")
+                    .font(SleepFont.body(16))
+                    .foregroundStyle(SleepColor.dim)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, SleepSpacing.lg)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.top, SleepSpacing.huge)
+    }
+}
+
+/// Cardless settings row: title, quiet trailing value, chevron. Rows are
+/// separated by hairlines, never wrapped in cards.
+private struct SettingsRow: View {
+    let title: String
+    var value: String?
+
+    var body: some View {
+        HStack {
+            Text(title)
+                .font(SleepFont.body(16))
+                .foregroundStyle(SleepColor.dim)
+            Spacer()
+            if let value {
+                Text(value)
+                    .font(SleepFont.body(15))
+                    .foregroundStyle(SleepColor.muted)
+            }
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(SleepColor.faint)
+        }
+        .padding(.vertical, SleepSpacing.lg)
+        .contentShape(Rectangle())
+    }
+}
+
+// MARK: - Sleep schedule (pushed)
+
+private struct ScheduleScreen: View {
+    var store: SleepStore
+    let profile: Profile
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var selectedMode: ScheduleMode = .bed
+    @State private var draftBedtime: Int
+    @State private var draftWakeTime: Int
+
+    init(store: SleepStore, profile: Profile) {
+        self.store = store
+        self.profile = profile
+        _draftBedtime = State(initialValue: profile.bedtime)
+        _draftWakeTime = State(initialValue: profile.wakeTime)
+    }
+
+    var body: some View {
+        SceneScreen {
+            SubpageHeader(
+                title: "Sleep schedule",
+                subtitle: "Your bedtime countdown, sleep score, and lockdown window all follow this."
+            )
+
+            Picker("Schedule field", selection: $selectedMode) {
+                Text("Bedtime · \(SleepFormatting.clock(draftBedtime))").tag(ScheduleMode.bed)
+                Text("Wake · \(SleepFormatting.clock(draftWakeTime))").tag(ScheduleMode.wake)
+            }
+            .pickerStyle(.segmented)
+            .padding(.top, SleepSpacing.huge)
+
+            TimeAdjuster(
+                minutes: Binding(
+                    get: { selectedMode == .bed ? draftBedtime : draftWakeTime },
+                    set: { minutes in
+                        if selectedMode == .bed { draftBedtime = minutes }
+                        else { draftWakeTime = minutes }
+                    }
+                )
+            )
+            .padding(.top, SleepSpacing.xl)
+
+            LiquidPrimaryButton(title: "Save schedule", systemImage: "checkmark") {
+                Haptics.soft()
+                store.saveSchedule(bedtime: draftBedtime, wakeTime: draftWakeTime)
+                dismiss()
+            }
+            .padding(.top, SleepSpacing.huge)
+        }
+    }
+}
+
+private enum ScheduleMode: String, CaseIterable, Identifiable {
+    case bed
+    case wake
+
+    var id: String { rawValue }
+}
+
+// MARK: - All nights (pushed)
+
+private struct AllNightsScreen: View {
+    var store: SleepStore
+
+    private var sessions: [SleepSession] { store.displaySessions }
+
+    var body: some View {
+        SceneScreen {
+            SubpageHeader(title: "All nights")
+
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(sessions.reversed().enumerated()), id: \.element.id) { index, session in
+                    HistoryRow(session: session)
+                        .overlay(alignment: .top) {
+                            if index > 0 {
+                                Rectangle().fill(SleepColor.hairline).frame(height: 1)
+                            }
+                        }
+                }
+            }
+            .padding(.top, SleepSpacing.xl)
+        }
+    }
+}
+
+// MARK: - Health connect prompt
+
+/// Persistent, dismissable prompt inviting the user to connect Apple Health.
+/// Apple Health is offered here, on Profile, rather than during onboarding —
+/// this is where sleep data lives, so the ask lands in context.
+private struct HealthConnectCard: View {
+    var onConnect: () -> Void
+    var onDismiss: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: SleepSpacing.md) {
+            Image(systemName: "heart.text.square.fill")
+                .font(.system(size: 26, weight: .regular))
+                .foregroundStyle(SleepColor.amber)
+
+            VStack(alignment: .leading, spacing: SleepSpacing.sm) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Connect Apple Health")
+                        .font(SleepFont.title(16))
+                        .foregroundStyle(SleepColor.ink)
+                    Text("Sync your real nights automatically, both ways.")
+                        .font(SleepFont.body(13))
+                        .foregroundStyle(SleepColor.dim)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Button {
+                    Haptics.soft()
+                    onConnect()
+                } label: {
+                    Text("Connect")
+                        .font(SleepFont.label(14))
+                        .foregroundStyle(SleepColor.background)
+                        .padding(.horizontal, SleepSpacing.lg)
+                        .padding(.vertical, SleepSpacing.sm)
+                        .background {
+                            Capsule(style: .continuous)
+                                .fill(LinearGradient(
+                                    colors: [SleepColor.gold, SleepColor.amber],
+                                    startPoint: .topLeading, endPoint: .bottomTrailing
+                                ))
+                        }
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 2)
+            }
+
+            Spacer(minLength: 0)
+
+            Button {
+                Haptics.soft()
+                onDismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(SleepColor.muted)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Dismiss")
+        }
+        .padding(SleepSpacing.lg)
+        .liquidGlass(cornerRadius: SleepRadius.lg, tint: SleepColor.glassWarm)
+        .overlay {
+            RoundedRectangle(cornerRadius: SleepRadius.lg, style: .continuous)
+                .stroke(SleepColor.border, lineWidth: 1)
+        }
+    }
+}
+
+// MARK: - Record components
+
+private struct StatBlock: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label)
+                .font(SleepFont.body(13))
+                .foregroundStyle(SleepColor.muted)
+            Text(value)
+                .font(SleepFont.title(26))
+                .foregroundStyle(SleepColor.ink)
+                .monospacedDigit()
+        }
+    }
+}
+
+private struct HistoryRow: View {
+    let session: SleepSession
+
+    var body: some View {
+        HStack(spacing: SleepSpacing.lg) {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: SleepSpacing.xs) {
+                    Text(SleepFormatting.historyDate.string(from: session.end))
+                        .font(SleepFont.label(15))
+                        .foregroundStyle(SleepColor.ink)
+                    Image(systemName: session.source == .healthKit ? "heart.fill" : "moon.fill")
+                        .font(.system(size: 9))
+                        .foregroundStyle(SleepColor.faint)
+                        .accessibilityLabel(session.source == .healthKit ? "From Apple Health" : "Logged in app")
+                }
+                Text(SleepFormatting.duration(session.durationMinutes))
+                    .font(SleepFont.body(13))
+                    .foregroundStyle(SleepColor.muted)
+            }
+
+            Spacer()
+
+            ProgressView(value: Double(session.score), total: 100)
+                .tint(SleepColor.gold)
+                .frame(width: 70)
+
+            Text("\(session.score)")
+                .font(SleepFont.title(17))
+                .foregroundStyle(SleepColor.ink)
+                .frame(width: 34, alignment: .trailing)
+                .monospacedDigit()
+        }
+        .padding(.vertical, SleepSpacing.lg)
+    }
+}
+
+private struct WeeklyChart: View {
+    let sessions: [SleepSession]
+
+    var body: some View {
+        GeometryReader { proxy in
+            Canvas { context, size in
+                let points = chartPoints(size: size)
+                guard points.count > 1 else {
+                    if let only = points.first {
+                        context.fill(
+                            Path(ellipseIn: CGRect(x: only.x - 5, y: only.y - 5, width: 10, height: 10)),
+                            with: .color(SleepColor.amber)
+                        )
+                    }
+                    return
+                }
+
+                for hour in [8.0, 7.0, 6.0, 5.0] {
+                    let y = yPosition(hours: hour, height: size.height)
+                    var grid = Path()
+                    grid.move(to: CGPoint(x: 0, y: y))
+                    grid.addLine(to: CGPoint(x: size.width, y: y))
+                    context.stroke(grid, with: .color(SleepColor.hairline), lineWidth: 1)
+                }
+
+                let line = smoothPath(points: points)
+                var fill = line
+                fill.addLine(to: CGPoint(x: points.last?.x ?? size.width, y: size.height - 16))
+                fill.addLine(to: CGPoint(x: points.first?.x ?? 0, y: size.height - 16))
+                fill.closeSubpath()
+
+                context.fill(
+                    fill,
+                    with: .linearGradient(
+                        Gradient(colors: [SleepColor.amber.opacity(0.24), SleepColor.amber.opacity(0)]),
+                        startPoint: .zero,
+                        endPoint: CGPoint(x: 0, y: size.height)
+                    )
+                )
+                context.stroke(
+                    line,
+                    with: .linearGradient(
+                        Gradient(colors: [SleepColor.gold, SleepColor.amber]),
+                        startPoint: .zero,
+                        endPoint: CGPoint(x: size.width, y: 0)
+                    ),
+                    style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round)
+                )
+
+                if let last = points.last {
+                    context.fill(
+                        Path(ellipseIn: CGRect(x: last.x - 5.5, y: last.y - 5.5, width: 11, height: 11)),
+                        with: .color(SleepColor.amber)
+                    )
+                    context.stroke(
+                        Path(ellipseIn: CGRect(x: last.x - 10, y: last.y - 10, width: 20, height: 20)),
+                        with: .color(SleepColor.amber.opacity(0.35)), lineWidth: 1.5
+                    )
+                }
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+        }
+    }
+
+    private func chartPoints(size: CGSize) -> [CGPoint] {
+        let values = sessions.map { Double($0.durationMinutes) / 60 }
+        return values.enumerated().map { index, value in
+            CGPoint(
+                x: CGFloat(index) / CGFloat(max(values.count - 1, 1)) * size.width,
+                y: yPosition(hours: min(9, max(4.5, value)), height: size.height)
+            )
+        }
+    }
+
+    private func yPosition(hours: Double, height: CGFloat) -> CGFloat {
+        let padTop: CGFloat = 14
+        let padBottom: CGFloat = 16
+        let plotHeight = height - padTop - padBottom
+        return padTop + (1 - CGFloat((hours - 4.5) / (9 - 4.5))) * plotHeight
+    }
+
+    private func smoothPath(points: [CGPoint]) -> Path {
+        var path = Path()
+        path.move(to: points[0])
+        for index in 0..<(points.count - 1) {
+            let p0 = points[max(index - 1, 0)]
+            let p1 = points[index]
+            let p2 = points[index + 1]
+            let p3 = points[min(index + 2, points.count - 1)]
+            path.addCurve(
+                to: p2,
+                control1: CGPoint(x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6),
+                control2: CGPoint(x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6)
+            )
+        }
+        return path
+    }
+}
