@@ -4,8 +4,9 @@ import SwiftUI
 // sleep record (weekly chart, averages, night history). Configuration lives in
 // a separate `SettingsModal`, opened from the gear top-right as a collapsible
 // full-height sheet, so the tab body stays clean. There is deliberately no
-// destructive "reset all data" action; Sign out is the only account-level exit.
-// Home stays a pure "go to bed" screen because of this.
+// destructive "reset all data" action; the only account-level exits are Sign
+// out and (faded, below it) Delete account. Home stays a pure "go to bed"
+// screen because of this.
 
 struct ProfileView: View {
     var store: SleepStore
@@ -18,6 +19,8 @@ struct ProfileView: View {
                     switch destination {
                     case .allNights:
                         AllNightsScreen(store: store)
+                    case .blockedApps:
+                        BlockedAppsScreen(store: store)
                     }
                 }
         }
@@ -26,6 +29,7 @@ struct ProfileView: View {
 
 enum ProfileDestination: Hashable {
     case allNights
+    case blockedApps
 }
 
 // MARK: - Shared page scaffold
@@ -87,10 +91,7 @@ private struct ProfileRootScreen: View {
     var store: SleepStore
     let profile: Profile
 
-    @State private var isEditingName = false
-    @State private var draftName = ""
     @State private var showsSettings = false
-    @FocusState private var nameFieldFocused: Bool
 
     private var sessions: [SleepSession] { store.displaySessions }
 
@@ -105,6 +106,12 @@ private struct ProfileRootScreen: View {
                 )
                 .padding(.top, SleepSpacing.xxl)
             }
+
+            NavigationLink(value: ProfileDestination.blockedApps) {
+                BlockedAppsPreview(store: store)
+            }
+            .buttonStyle(.plain)
+            .padding(.top, SleepSpacing.huge)
 
             sleepSection
         }
@@ -141,52 +148,14 @@ private struct ProfileRootScreen: View {
             .frame(minHeight: 44)
             .padding(.bottom, SleepSpacing.md)
 
-            if isEditingName {
-                TextField("Your name", text: $draftName)
-                    .textInputAutocapitalization(.words)
-                    .autocorrectionDisabled(true)
-                    .font(SleepFont.hero(30))
-                    .foregroundStyle(SleepColor.ink)
-                    .tint(SleepColor.amber)
-                    .focused($nameFieldFocused)
-                    .submitLabel(.done)
-                    .onSubmit(commitName)
-                    .overlay(alignment: .bottom) {
-                        Rectangle().fill(SleepColor.hairline).frame(height: 1).offset(y: 4)
-                    }
-            } else {
-                HStack(spacing: SleepSpacing.sm) {
-                    Text(profile.name)
-                        .font(SleepFont.hero(30))
-                        .foregroundStyle(SleepColor.ink)
-                    Button {
-                        draftName = profile.name
-                        isEditingName = true
-                        nameFieldFocused = true
-                    } label: {
-                        Image(systemName: "pencil")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(SleepColor.muted)
-                            .frame(width: 32, height: 32)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Edit name")
-                }
-            }
-
-            if let email = store.account?.email {
-                Text(email)
-                    .font(SleepFont.body(14))
-                    .foregroundStyle(SleepColor.muted)
-            }
+            // Name is display-only here; it's edited from Settings, so the
+            // Profile body stays a clean identity + record with nothing to
+            // fiddle with. Email lives in Settings too, not on this screen.
+            Text(profile.name)
+                .font(SleepFont.hero(30))
+                .foregroundStyle(SleepColor.ink)
         }
         .padding(.top, SleepSpacing.lg)
-    }
-
-    private func commitName() {
-        store.saveName(draftName)
-        isEditingName = false
     }
 
     // MARK: Sleep record
@@ -297,18 +266,24 @@ private struct ProfileRootScreen: View {
 /// and blocked-apps push as full pages inside it, and it hosts everything
 /// configuration- and account-related so the Profile screen underneath stays a
 /// clean identity + sleep record. There is deliberately no "reset all data";
-/// Sign out is the only account-level exit.
+/// the account-level exits are Sign out and, faded below it, Delete account.
 struct SettingsModal: View {
     var store: SleepStore
     let profile: Profile
 
     @Environment(\.dismiss) private var dismiss
+    @State private var confirmingDeleteAccount = false
+    @State private var deletingAccount = false
+    @State private var deleteFailedMessage: String?
+    @State private var isRenaming = false
+    @State private var draftName = ""
 
     var body: some View {
         NavigationStack {
             SceneScreen {
                 header
 
+                profileSection
                 configSection
                 accountSection
 
@@ -325,7 +300,54 @@ struct SettingsModal: View {
                     BlockedAppsScreen(store: store)
                 }
             }
+            .alert("Your name", isPresented: $isRenaming) {
+                TextField("Your name", text: $draftName)
+                    .textInputAutocapitalization(.words)
+                Button("Cancel", role: .cancel) {}
+                Button("Save") {
+                    let trimmed = draftName.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !trimmed.isEmpty else { return }
+                    store.saveName(trimmed)
+                }
+            } message: {
+                Text("This is how the app greets you.")
+            }
         }
+    }
+
+    private var profileSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Profile")
+                .sectionLabel()
+                .padding(.bottom, SleepSpacing.xs)
+
+            Button {
+                Haptics.soft()
+                draftName = store.profile?.name ?? profile.name
+                isRenaming = true
+            } label: {
+                // Read from the observed store so the row updates the instant a
+                // rename is saved, not just on next open.
+                SettingsRow(title: "Name", value: store.profile?.name ?? profile.name)
+            }
+            .buttonStyle(.plain)
+
+            divider
+
+            // Read-only: the account email comes from the auth provider and
+            // can't be changed in-app, so it shows without a chevron.
+            HStack {
+                Text("Email")
+                    .font(SleepFont.body(16))
+                    .foregroundStyle(SleepColor.dim)
+                Spacer()
+                Text(store.account?.email ?? "—")
+                    .font(SleepFont.body(15))
+                    .foregroundStyle(SleepColor.muted)
+            }
+            .padding(.vertical, SleepSpacing.lg)
+        }
+        .padding(.top, SleepSpacing.huge)
     }
 
     private var header: some View {
@@ -363,7 +385,7 @@ struct SettingsModal: View {
             divider
 
             NavigationLink(value: SettingsDestination.blockedApps) {
-                SettingsRow(title: "Blocked apps", value: blockedAppsSummary)
+                SettingsRow(title: "Blocked apps", value: store.lockdownSelectionSummary)
             }
             .buttonStyle(.plain)
 
@@ -374,12 +396,6 @@ struct SettingsModal: View {
         .padding(.top, SleepSpacing.huge)
     }
 
-    private var blockedAppsSummary: String {
-        guard store.screenTimeState != .unavailable else { return "On device only" }
-        guard store.lockdownEnabled else { return "Off" }
-        let count = store.lockdownSelectionCount
-        return count == 0 ? "Choose apps" : "\(count) selected"
-    }
 
     private var divider: some View {
         Rectangle().fill(SleepColor.hairline).frame(height: 1)
@@ -445,8 +461,65 @@ struct SettingsModal: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+
+            divider
+
+            // Deliberately faded: account deletion is a rare, irreversible exit,
+            // so it sits quietly below Sign out and never competes for attention.
+            Button(role: .destructive) {
+                Haptics.soft()
+                confirmingDeleteAccount = true
+            } label: {
+                HStack(spacing: SleepSpacing.sm) {
+                    Text("Delete account")
+                        .font(SleepFont.body(16))
+                        .foregroundStyle(SleepColor.faint)
+                    if deletingAccount {
+                        ProgressView().controlSize(.small).tint(SleepColor.faint)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, SleepSpacing.lg)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(deletingAccount)
         }
         .padding(.top, SleepSpacing.huge)
+        .alert("Delete account?", isPresented: $confirmingDeleteAccount) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                Task { await deleteAccount() }
+            }
+        } message: {
+            Text("This permanently deletes your account and sleep history from our servers and this device. This can't be undone.")
+        }
+        .alert(
+            "Couldn't delete account",
+            isPresented: Binding(
+                get: { deleteFailedMessage != nil },
+                set: { if !$0 { deleteFailedMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(deleteFailedMessage ?? "Please try again.")
+        }
+    }
+
+    /// Remote-first delete: purge the server account, and only on success wipe
+    /// local data. The cover is dismissed *before* the local wipe so the root's
+    /// Main → onboarding swap doesn't tear the sheet down mid-flight (mirrors the
+    /// Sign out ordering). On failure nothing local changes and we surface why.
+    private func deleteAccount() async {
+        deletingAccount = true
+        defer { deletingAccount = false }
+        if let error = await store.deleteAccountRemotely() {
+            deleteFailedMessage = error
+        } else {
+            dismiss()
+            store.finalizeAccountDeletion()
+        }
     }
 }
 

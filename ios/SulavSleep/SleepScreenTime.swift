@@ -155,6 +155,92 @@ extension SleepStore {
         let selection = SleepScreenTime.decodeSelection(appSelectionData())
         return selection.applicationTokens.count + selection.categoryTokens.count
     }
+
+    /// Human-readable summary of the lockdown selection for settings rows.
+    /// Shows "2 apps, 1 category" when categories are involved so the user
+    /// sees a count that matches what the system picker actually chose.
+    var lockdownSelectionSummary: String {
+        guard screenTimeState != .unavailable else { return "On device only" }
+        guard lockdownEnabled else { return "Off" }
+        let selection = SleepScreenTime.decodeSelection(appSelectionData())
+        let apps = selection.applicationTokens.count
+        let cats = selection.categoryTokens.count
+        if apps == 0 && cats == 0 { return "Choose apps" }
+        var parts: [String] = []
+        if apps > 0 { parts.append("\(apps) app\(apps == 1 ? "" : "s")") }
+        if cats > 0 { parts.append("\(cats) category\(cats == 1 ? "" : "ies")") }
+        return parts.joined(separator: ", ")
+    }
+}
+
+// MARK: - Blocked apps preview (Profile block)
+
+/// Compact, tappable lockdown summary for the Profile screen: a row of the
+/// chosen app icons (rendered by the system from opaque `ApplicationToken`s,
+/// which we can't inspect) with a chevron. The caller wraps it in a
+/// NavigationLink to `BlockedAppsScreen` for the full picker + options. Lives
+/// here so FamilyControls stays out of the general view layer.
+struct BlockedAppsPreview: View {
+    var store: SleepStore
+
+    private var selection: FamilyActivitySelection {
+        SleepScreenTime.decodeSelection(store.appSelectionData())
+    }
+
+    var body: some View {
+        let tokens = Array(selection.applicationTokens)
+        let categoryCount = selection.categoryTokens.count
+
+        return VStack(alignment: .leading, spacing: SleepSpacing.md) {
+            HStack {
+                Text("Blocked while you sleep").sectionLabel()
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(SleepColor.faint)
+            }
+
+            content(tokens: tokens, categoryCount: categoryCount)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+    }
+
+    @ViewBuilder
+    private func content(tokens: [ApplicationToken], categoryCount: Int) -> some View {
+        if store.screenTimeState == .unavailable {
+            Text("App blocking is available on a real iPhone.")
+                .font(SleepFont.body(14))
+                .foregroundStyle(SleepColor.muted)
+        } else if !store.lockdownEnabled || (tokens.isEmpty && categoryCount == 0) {
+            Text("No apps chosen yet — tap to pick which apps pause while you sleep.")
+                .font(SleepFont.body(14))
+                .foregroundStyle(SleepColor.muted)
+                .fixedSize(horizontal: false, vertical: true)
+        } else {
+            VStack(alignment: .leading, spacing: SleepSpacing.sm) {
+                Text("These apps lock when you start sleep.")
+                    .font(SleepFont.body(14))
+                    .foregroundStyle(SleepColor.muted)
+
+                HStack(spacing: SleepSpacing.md) {
+                    ForEach(tokens.prefix(6), id: \.self) { token in
+                        Label(token)
+                            .labelStyle(.iconOnly)
+                            .font(.system(size: 30))
+                            .frame(width: 34, height: 34)
+                    }
+                    let extra = max(0, tokens.count - 6) + categoryCount
+                    if extra > 0 {
+                        Text("+\(extra)")
+                            .font(SleepFont.body(15))
+                            .foregroundStyle(SleepColor.muted)
+                    }
+                    Spacer()
+                }
+            }
+        }
+    }
 }
 
 // MARK: - Blocked apps screen (pushed from Profile)
@@ -262,8 +348,13 @@ struct BlockedAppsScreen: View {
     }
 
     private var selectionSummary: String {
-        let count = selection.applicationTokens.count + selection.categoryTokens.count
-        return count == 0 ? "None" : "\(count) selected"
+        let apps = selection.applicationTokens.count
+        let cats = selection.categoryTokens.count
+        if apps == 0 && cats == 0 { return "None" }
+        var parts: [String] = []
+        if apps > 0 { parts.append("\(apps) app\(apps == 1 ? "" : "s")") }
+        if cats > 0 { parts.append("\(cats) category\(cats == 1 ? "" : "ies")") }
+        return parts.joined(separator: ", ")
     }
 
     private func infoBlock(title: String, body: String) -> some View {

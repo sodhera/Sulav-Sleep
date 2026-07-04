@@ -42,8 +42,14 @@ struct RootView: View {
                 // background layers) mounted alongside the new tab scenes for
                 // the duration of the fade, which briefly broke hit-testing
                 // on Home.
+                // Scope the hard-cut to the `screen` change only. A bare
+                // `.transaction { $0.disablesAnimations = true }` here disables
+                // animations for the *entire* Main subtree on every state
+                // change — which silently killed the settings sheet's slide-up.
+                // `transaction(value:)` applies the override only when `screen`
+                // itself changes, so sheets/alerts inside Main animate normally.
                 MainShellView(store: store, profile: profile)
-                    .transaction { $0.disablesAnimations = true }
+                    .transaction(value: screen) { $0.disablesAnimations = true }
             } else {
                 Group {
                     switch screen {

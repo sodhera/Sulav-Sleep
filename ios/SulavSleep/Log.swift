@@ -13,16 +13,6 @@ import os
 // Keep log lines terse and non-PII. Sleep times and names are the user's; we log
 // counts and durations, never the name or raw timestamps at anything above debug.
 
-/// Detects when the app is hosting or being driven by tests. WidgetKit reloads
-/// and App Group writes are skipped in this mode because they stall the
-/// XCTest-monitored app launch (they are fine in normal runs).
-enum AppEnvironment {
-    static var isTesting: Bool {
-        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
-            || CommandLine.arguments.contains("-uitest-reset")
-    }
-}
-
 enum AppLog {
     static let subsystem = "com.sulav.sleepblock"
 

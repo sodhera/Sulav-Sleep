@@ -196,6 +196,48 @@ final class SleepStore {
         AppLog.store.info("Signed out")
     }
 
+    /// Step 1 of account deletion: delete the Supabase user server-side (via the
+    /// `delete-account` Edge Function, which uses the service role to purge the
+    /// `auth.users` row and everything cascading off it). Returns `nil` on
+    /// success, or a user-facing error message on failure — in which case
+    /// nothing local is touched, so the user can retry. Kept separate from the
+    /// local wipe so the caller can dismiss the settings cover *before*
+    /// `finalizeAccountDeletion` nils `account` and swaps the root to onboarding
+    /// (same teardown-ordering reason as `signOut`). See `docs/auth-setup.md`.
+    @MainActor
+    func deleteAccountRemotely() async -> String? {
+        authErrorMessage = nil
+        do {
+            try await auth.deleteAccount()
+            return nil
+        } catch let error as AuthError {
+            AppLog.store.error("Account deletion failed: \(error.message, privacy: .public)")
+            authErrorMessage = error.message
+            return error.message
+        } catch {
+            let message = AuthError.unknown(error.localizedDescription).message
+            AppLog.store.error("Account deletion failed: \(error.localizedDescription, privacy: .public)")
+            authErrorMessage = message
+            return message
+        }
+    }
+
+    /// Step 2: wipe every on-device trace after a confirmed remote deletion —
+    /// profile, logged nights, imported Health copies, any active session, and
+    /// the cached account. Nilling `account` swaps the root to onboarding, so
+    /// call this only *after* dismissing the settings cover.
+    @MainActor
+    func finalizeAccountDeletion() {
+        profile = nil
+        sessions = []
+        importedHealthSessions = []
+        activeSession = nil
+        account = nil
+        authErrorMessage = nil
+        persistence.reset()
+        AppLog.store.info("Account deleted (local data wiped)")
+    }
+
     @MainActor
     private func performAuth(_ work: @escaping () async throws -> AppAccount) async {
         isAuthenticating = true

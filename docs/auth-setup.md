@@ -67,6 +67,38 @@ With that, tapping "Continue with Google" in the app opens a system sheet,
 the user signs in with Google, and Supabase redirects back into the app via
 `sleepblock://auth-callback`.
 
+## 4. Account deletion (Edge Function)
+
+The Settings sheet has a **Delete account** button. Deleting a Supabase user
+can't be done from the app (that needs the `service_role` key, which must never
+ship client-side), so it goes through a server-side Edge Function that runs with
+the service role and deletes the caller's own user. Deleting the `auth.users`
+row cascades to any table with an `ON DELETE CASCADE` foreign key to it, so this
+removes everything the user owns. Today SleepBlock is local-first (sleep history
+lives on-device), so the auth user is the only server record; the app wipes the
+on-device data itself once the server delete succeeds.
+
+The function lives at `supabase/functions/delete-account/index.ts`. To deploy:
+
+1. Install the [Supabase CLI](https://supabase.com/docs/guides/cli) and log in:
+   `supabase login`.
+2. From the repo root, link to your project (uses the `<project-ref>` from your
+   Project URL): `supabase link --project-ref <project-ref>`.
+3. Deploy: `supabase functions deploy delete-account`.
+   - `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` are
+     injected automatically for deployed functions — you do **not** set any
+     secret by hand.
+4. The client calls `POST <project-url>/functions/v1/delete-account` with the
+   user's access token; no app config beyond the existing `SUPABASE_URL` /
+   `SUPABASE_ANON_KEY` is needed.
+
+If you later add user-owned tables, either give their foreign key to
+`auth.users` `ON DELETE CASCADE`, or delete those rows explicitly inside the
+function before the user delete.
+
+**Until this function is deployed, the Delete account button will fail** with an
+error alert (the account is not touched) — it does not silently sign out.
+
 ## Verifying it all works
 
 1. Build and run via `./scripts/run-ios-simulator.sh`.

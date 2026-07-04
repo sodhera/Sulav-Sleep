@@ -107,10 +107,13 @@ Two tabs, each with exactly one job:
 - **Home — go to bed.** Greeting, bedtime countdown, Sleep Now, last night's
   duration/score/streak. Nothing else: no settings affordance, no data dumps.
   The screen someone sees at 11pm must not offer anything to fiddle with.
-- **Profile — everything about you.** Identity (editable name, account email)
-  and the sleep record (weekly chart, averages, recent nights, an "All nights"
-  page once history grows). A gear in the top-right opens Settings; the body
-  itself stays a clean identity + record, with no configuration mixed in.
+- **Profile — everything about you.** Identity (name only, display-only — no
+  pencil, no email; both are edited/shown in Settings so the body stays
+  read-only), a tappable **"Blocked while you sleep"** block previewing the
+  locked-app icons (opens the Blocked apps screen for changes), and the sleep
+  record (weekly chart, averages, recent nights, an "All nights" page once
+  history grows). A gear in the top-right opens Settings; the body itself stays
+  a clean identity + record, with no configuration mixed in.
 
 Settings live in a **collapsible full-height sheet** opened from the Profile
 gear — presented at the `.large` detent with a drag indicator, so it rises as a
@@ -119,8 +122,10 @@ in its top-right. It is not a half-height sheet (the throwaway-decision
 affordance the app avoids) and not inline rows on Profile. Inside, it carries
 its own `NavigationStack`, so Sleep schedule and Blocked apps push as full pages
 with the onboarding chrome (round glass back chevron, left-aligned editorial
-title, supporting line). The pixel-art credit sits quietly at the very bottom,
-below Sign out. The only other sheet in the app is Apple's own
+title, supporting line). A **Profile** group at the top holds the editable Name
+(tap → rename alert) and the read-only account Email (no chevron); these live in
+Settings, never on the Profile body. The pixel-art credit sits quietly at the
+very bottom, below Sign out (and the faded Delete account). The only other sheet in the app is Apple's own
 `FamilyActivityPicker`.
 
 There is deliberately **no "reset all data" action**. A destructive escape

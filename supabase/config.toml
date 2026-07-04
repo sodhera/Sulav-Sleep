@@ -1,0 +1,11 @@
+# Supabase CLI project config. Generated to hold Edge Function settings for
+# SleepBlock. Extend with `supabase init` output if you need local dev, DB
+# migrations, etc. — only the pieces the app relies on are pinned here.
+
+project_id = "sleepblock"
+
+# The account-deletion function must run only for a signed-in caller, so JWT
+# verification stays ON (the default). The function additionally re-checks the
+# token via getUser() before deleting. See functions/delete-account/index.ts.
+[functions.delete-account]
+verify_jwt = true

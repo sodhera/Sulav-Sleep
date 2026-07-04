@@ -21,6 +21,10 @@ protocol AuthProviding {
     func signUp(email: String, password: String) async throws -> AppAccount
     func signIn(email: String, password: String) async throws -> AppAccount
     func signOut() async
+
+    /// Permanently delete the signed-in user server-side, then end the local
+    /// session. Throws on any failure so the caller can leave local data intact.
+    func deleteAccount() async throws
 }
 
 enum SulavAuth {
@@ -45,6 +49,7 @@ struct DisabledAuthClient: AuthProviding {
     func signUp(email: String, password: String) async throws -> AppAccount { throw AuthError.unknown("Sign-in isn't configured yet.") }
     func signIn(email: String, password: String) async throws -> AppAccount { throw AuthError.unknown("Sign-in isn't configured yet.") }
     func signOut() async {}
+    func deleteAccount() async throws { throw AuthError.unknown("Account deletion isn't configured yet.") }
 }
 
 // MARK: - Config
@@ -69,6 +74,11 @@ enum SupabaseConfig {
 
 final class SupabaseAuthClient: AuthProviding {
     private let client: AuthClient
+    /// Project base URL (e.g. `https://<ref>.supabase.co`) and anon key, kept so
+    /// we can reach non-auth endpoints like `/functions/v1/...` directly; the
+    /// `AuthClient` above only speaks to `/auth/v1`.
+    private let baseURL: URL
+    private let anonKey: String
 
     var currentAccount: AppAccount? {
         get async {
@@ -78,6 +88,8 @@ final class SupabaseAuthClient: AuthProviding {
     }
 
     init(url: URL, anonKey: String) {
+        self.baseURL = url
+        self.anonKey = anonKey
         // Keychain-backed local storage, so session tokens are never written
         // into our own UserDefaults blob.
         client = AuthClient(
@@ -146,6 +158,42 @@ final class SupabaseAuthClient: AuthProviding {
         AppLog.app.info("Signed out")
     }
 
+    /// Calls the `delete-account` Edge Function with the user's own access token.
+    /// The function verifies that JWT and deletes exactly that user with the
+    /// service role key (never shipped in the app), which cascades to any table
+    /// keyed on `auth.users`. On success we drop the now-dead local session too.
+    func deleteAccount() async throws {
+        guard let session = try? await client.session else {
+            throw AuthError.unknown("You're not signed in.")
+        }
+
+        let endpoint = baseURL
+            .appendingPathComponent("functions/v1/delete-account")
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue(anonKey, forHTTPHeaderField: "apikey")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse else { throw AuthError.network }
+            guard (200..<300).contains(http.statusCode) else {
+                let body = String(data: data, encoding: .utf8) ?? ""
+                AppLog.app.error("delete-account failed (\(http.statusCode, privacy: .public)): \(body, privacy: .public)")
+                throw AuthError.unknown("Couldn't delete your account (\(http.statusCode)). Please try again.")
+            }
+        } catch let error as AuthError {
+            throw error
+        } catch {
+            throw Self.mapError(error)
+        }
+
+        // Server-side user is gone; clear the local Keychain session as well.
+        try? await client.signOut()
+        AppLog.app.info("Account deleted")
+    }
+
     private static func account(from session: Session) -> AppAccount {
         let provider = session.user.appMetadata["provider"]?.stringValue
         return AppAccount(
@@ -157,6 +205,11 @@ final class SupabaseAuthClient: AuthProviding {
 
     private static func mapError(_ error: Error) -> AuthError {
         if let urlError = error as? URLError { return urlError.code == .cancelled ? .cancelled : .network }
+        // ASWebAuthenticationSession error 1 is canceledLogin — user dismissed the browser popup.
+        let nsError = error as NSError
+        if nsError.domain == "com.apple.AuthenticationServices.WebAuthenticationSession" && nsError.code == 1 {
+            return .cancelled
+        }
         let text = error.localizedDescription.lowercased()
         if text.contains("invalid") || text.contains("credentials") { return .invalidCredentials }
         return .unknown(error.localizedDescription)

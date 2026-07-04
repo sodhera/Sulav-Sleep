@@ -2,24 +2,11 @@ import SwiftUI
 
 @main
 struct SulavSleepApp: App {
-    @State private var store = SulavSleepApp.makeStore()
+    @State private var store = SleepStore()
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
         SleepAssetCache.prewarmCriticalAssets()
-    }
-
-    /// UI tests launch with `-uitest-reset` and get a throwaway, empty
-    /// UserDefaults suite so every run starts at onboarding — never touching or
-    /// depending on real persisted state.
-    private static func makeStore() -> SleepStore {
-        if CommandLine.arguments.contains("-uitest-reset") {
-            let suite = "uitest.\(UUID().uuidString)"
-            let defaults = UserDefaults(suiteName: suite)!
-            defaults.removePersistentDomain(forName: suite)
-            return SleepStore(persistence: SleepPersistence(defaults: defaults))
-        }
-        return SleepStore()
     }
 
     var body: some Scene {

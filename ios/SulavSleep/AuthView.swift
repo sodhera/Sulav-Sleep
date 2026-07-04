@@ -54,9 +54,11 @@ struct AuthMethodsView: View {
     @State private var email = ""
     @State private var password = ""
     @State private var appleNonce: String?
+    @State private var loadingProvider: OAuthProvider? = nil
     @FocusState private var focusedField: Field?
 
     private enum Field { case email, password }
+    private enum OAuthProvider { case apple, google }
 
     private var title: String {
         intent == .signIn ? "Welcome back" : "Save your sleep plan"
@@ -66,6 +68,12 @@ struct AuthMethodsView: View {
         intent == .signIn
             ? "Sign in to pick up where you left off."
             : "Create a free account so your plan and your nights follow you across devices."
+    }
+
+    /// Names the action on each provider button: "Sign up with …" on the
+    /// sign-up flow, "Sign in with …" on the returning-user path.
+    private var providerActionPrefix: String {
+        intent == .signIn ? "Sign in with" : "Sign up with"
     }
 
     private var emailActionTitle: String {
@@ -118,40 +126,57 @@ struct AuthMethodsView: View {
 
     @ViewBuilder
     private var providerButtons: some View {
+        // A cohesive OAuth stack: all three buttons share the same height,
+        // font, and text format. Each button tracks its own loading state so
+        // a spinner only appears on the one that was tapped.
         VStack(spacing: SleepSpacing.md) {
-            SignInWithAppleButton(intent == .signIn ? .signIn : .signUp) { request in
-                request.requestedScopes = [.email, .fullName]
+            AuthButton(title: "\(providerActionPrefix) Apple", style: .light, isLoading: loadingProvider == .apple) {
+                Image(systemName: "apple.logo")
+                    .resizable()
+                    .scaledToFit()
+                    .foregroundStyle(SleepColor.background)
+            } action: {
+                guard !store.isAuthenticating else { return }
+                Haptics.soft()
+                store.authErrorMessage = nil
+                loadingProvider = .apple
                 let nonce = AppleSignInNonce.randomNonce()
                 appleNonce = nonce
-                request.nonce = AppleSignInNonce.sha256(nonce)
-            } onCompletion: { result in
-                handleAppleCompletion(result)
+                triggerAppleSignIn(nonce: nonce)
             }
-            .signInWithAppleButtonStyle(.white)
-            .frame(height: 58)
-            .cornerRadius(SleepRadius.pill / 2)
-            .opacity(store.isAuthenticating ? 0.5 : 1)
-            .overlay {
-                if store.isAuthenticating {
-                    ProgressView()
-                        .tint(.black)
+            .disabled(store.isAuthenticating)
+
+            AuthButton(title: "\(providerActionPrefix) Google", style: .light, isLoading: loadingProvider == .google) {
+                Image("GoogleLogo")
+                    .resizable()
+                    .renderingMode(.original)
+                    .scaledToFit()
+            } action: {
+                guard !store.isAuthenticating else { return }
+                Haptics.soft()
+                store.authErrorMessage = nil
+                loadingProvider = .google
+                Task {
+                    await store.signInWithGoogle()
+                    loadingProvider = nil
                 }
             }
             .disabled(store.isAuthenticating)
 
-            LiquidPrimaryButton(title: "Continue with Google", systemImage: "globe") {
-                Haptics.soft()
-                store.authErrorMessage = nil
-                Task { await store.signInWithGoogle() }
-            }
-            .disabled(store.isAuthenticating)
-
-            LiquidSecondaryButton(title: "Continue with email", systemImage: "envelope") {
+            AuthButton(title: "\(providerActionPrefix) email", style: .glass, isLoading: false) {
+                Image(systemName: "envelope.fill")
+                    .resizable()
+                    .scaledToFit()
+                    .foregroundStyle(SleepColor.ink)
+            } action: {
                 Haptics.soft()
                 store.authErrorMessage = nil
                 withAnimation(.easeInOut(duration: 0.22)) { showEmailForm = true }
             }
             .disabled(store.isAuthenticating)
+        }
+        .onChange(of: store.isAuthenticating) { _, isAuthenticating in
+            if !isAuthenticating { loadingProvider = nil }
         }
     }
 
@@ -165,11 +190,7 @@ struct AuthMethodsView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled(true)
                     .keyboardType(.emailAddress)
-                    // See the password field below: paired with a non-.email
-                    // content type here too, since iOS pairs the preceding
-                    // field as "username" when deciding to offer the Save
-                    // Password prompt.
-                    .textContentType(AppEnvironment.isTesting ? .oneTimeCode : .emailAddress)
+                    .textContentType(.emailAddress)
                     .submitLabel(.next)
                     .font(SleepFont.body(17))
                     .foregroundStyle(SleepColor.ink)
@@ -184,13 +205,7 @@ struct AuthMethodsView: View {
 
                 SecureField("Password", text: $password)
                     .submitLabel(.go)
-                    // In UI tests, a real password field triggers iOS's
-                    // native "Save Password?" AutoFill sheet, which is a
-                    // separate-process system overlay that can't be
-                    // reliably dismissed from XCUITest and covers the app.
-                    // `.oneTimeCode` opts out of that prompt without
-                    // affecting the real content type users see.
-                    .textContentType(AppEnvironment.isTesting ? .oneTimeCode : (intent == .signIn ? .password : .newPassword))
+                    .textContentType(intent == .signIn ? .password : .newPassword)
                     .font(SleepFont.body(17))
                     .foregroundStyle(SleepColor.ink)
                     .tint(SleepColor.amber)
@@ -203,15 +218,11 @@ struct AuthMethodsView: View {
                     .accessibilityLabel("Password")
             }
 
-            LiquidPrimaryButton(title: emailActionTitle, systemImage: "arrow.right") {
+            LiquidPrimaryButton(title: emailActionTitle, isLoading: store.isAuthenticating) {
                 submitEmailForm()
             }
             .accessibilityIdentifier("authSubmit")
             .disabled(store.isAuthenticating || !isEmailFormValid)
-
-            if store.isAuthenticating {
-                ProgressView().tint(SleepColor.amber)
-            }
 
             Button("Back") {
                 Keyboard.dismiss()
@@ -255,8 +266,133 @@ struct AuthMethodsView: View {
         case .failure(let error):
             let nsError = error as NSError
             // User cancelling the sheet isn't an error worth surfacing.
-            guard nsError.code != ASAuthorizationError.canceled.rawValue else { return }
+            guard nsError.code != ASAuthorizationError.canceled.rawValue else {
+                loadingProvider = nil
+                return
+            }
+            loadingProvider = nil
             store.authErrorMessage = AuthError.unknown(error.localizedDescription).message
         }
+    }
+
+    /// Programmatically presents the Sign in with Apple sheet without the
+    /// native `SignInWithAppleButton` widget (so we can use our own styled button).
+    private func triggerAppleSignIn(nonce: String) {
+        let provider = ASAuthorizationAppleIDProvider()
+        let request = provider.createRequest()
+        request.requestedScopes = [.email, .fullName]
+        request.nonce = AppleSignInNonce.sha256(nonce)
+        let controller = ASAuthorizationController(authorizationRequests: [request])
+        // Delegate is bridged via a one-shot coordinator so we stay in value types.
+        let coordinator = AppleSignInCoordinator { [self] result in
+            handleAppleCompletion(result)
+        }
+        controller.delegate = coordinator
+        controller.presentationContextProvider = coordinator
+        // Keep coordinator alive for the duration of the sheet.
+        objc_setAssociatedObject(controller, &AppleSignInCoordinator.key, coordinator, .OBJC_ASSOCIATION_RETAIN)
+        controller.performRequests()
+    }
+}
+
+// MARK: - Provider buttons
+
+/// Shared metrics for the sign-in provider stack. All three provider buttons
+/// (Apple, Google, email) share these values so they read as one consistent set.
+private enum AuthButtonMetrics {
+    static let height: CGFloat = 58
+    static let font: Font = .system(size: 20, weight: .medium)
+    static let iconSize: CGFloat = 22
+}
+
+/// One button in the sign-in provider stack (Apple, Google, email).
+/// `.light` is a white brand pill; `.glass` is the quiet, translucent email path.
+/// Pass `isLoading: true` to replace the icon+label with a spinner.
+private struct AuthButton<Icon: View>: View {
+    enum Style { case light, glass }
+
+    let title: String
+    let style: Style
+    var isLoading: Bool = false
+    @ViewBuilder var icon: () -> Icon
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                HStack(spacing: SleepSpacing.sm) {
+                    icon()
+                        .frame(width: AuthButtonMetrics.iconSize, height: AuthButtonMetrics.iconSize)
+                    Text(title).font(AuthButtonMetrics.font)
+                }
+                .opacity(isLoading ? 0 : 1)
+
+                if isLoading {
+                    ProgressView()
+                        .tint(style == .light ? SleepColor.background : SleepColor.ink)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: AuthButtonMetrics.height)
+            .foregroundStyle(style == .light ? SleepColor.background : SleepColor.ink)
+            .background {
+                Capsule(style: .continuous)
+                    .fill(style == .light ? AnyShapeStyle(SleepColor.white) : AnyShapeStyle(SleepColor.glassFill))
+            }
+            .overlay {
+                Capsule(style: .continuous)
+                    .stroke(style == .light ? Color.clear : SleepColor.border, lineWidth: 1)
+            }
+        }
+        .buttonStyle(AuthButtonPressStyle())
+    }
+}
+
+/// Subtle press feedback matching the app's other buttons.
+private struct AuthButtonPressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .opacity(configuration.isPressed ? 0.94 : 1)
+            .animation(.snappy(duration: 0.18), value: configuration.isPressed)
+    }
+}
+
+// MARK: - Apple sign-in coordinator
+
+/// Bridges `ASAuthorizationControllerDelegate` so we can present the Apple
+/// sign-in sheet programmatically from a SwiftUI value type (no native button).
+private final class AppleSignInCoordinator: NSObject,
+    ASAuthorizationControllerDelegate,
+    ASAuthorizationControllerPresentationContextProviding {
+
+    /// Stable key used by `objc_setAssociatedObject` to keep this coordinator
+    /// alive for the duration of the ASAuthorizationController sheet.
+    static var key: UInt8 = 0
+
+    private let completion: (Result<ASAuthorization, Error>) -> Void
+
+    init(completion: @escaping (Result<ASAuthorization, Error>) -> Void) {
+        self.completion = completion
+    }
+
+    func authorizationController(
+        controller: ASAuthorizationController,
+        didCompleteWithAuthorization authorization: ASAuthorization
+    ) {
+        completion(.success(authorization))
+    }
+
+    func authorizationController(
+        controller: ASAuthorizationController,
+        didCompleteWithError error: Error
+    ) {
+        completion(.failure(error))
+    }
+
+    func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+            .first { $0.isKeyWindow } ?? ASPresentationAnchor()
     }
 }
