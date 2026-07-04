@@ -164,7 +164,7 @@ extension SleepStore {
         guard lockdownEnabled else { return "Off" }
         let count = lockdownSelectionCount
         if count == 0 { return "Choose apps" }
-        return "Apps selected ✓"
+        return "\(count) app\(count == 1 ? "" : "s")"
     }
 }
 
@@ -184,7 +184,6 @@ struct BlockedAppsPreview: View {
 
     var body: some View {
         let tokens = Array(selection.applicationTokens)
-        let categoryCount = selection.categoryTokens.count
 
         return VStack(alignment: .leading, spacing: SleepSpacing.md) {
             HStack {
@@ -195,19 +194,19 @@ struct BlockedAppsPreview: View {
                     .foregroundStyle(SleepColor.faint)
             }
 
-            content(tokens: tokens, categoryCount: categoryCount)
+            content(tokens: tokens)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
     }
 
     @ViewBuilder
-    private func content(tokens: [ApplicationToken], categoryCount: Int) -> some View {
+    private func content(tokens: [ApplicationToken]) -> some View {
         if store.screenTimeState == .unavailable {
             Text("App blocking is available on a real iPhone.")
                 .font(SleepFont.body(14))
                 .foregroundStyle(SleepColor.muted)
-        } else if !store.lockdownEnabled || (tokens.isEmpty && categoryCount == 0) {
+        } else if !store.lockdownEnabled || tokens.isEmpty {
             Text("No apps chosen yet — tap to pick which apps pause while you sleep.")
                 .font(SleepFont.body(14))
                 .foregroundStyle(SleepColor.muted)
@@ -219,32 +218,14 @@ struct BlockedAppsPreview: View {
                     .foregroundStyle(SleepColor.muted)
 
                 HStack(spacing: SleepSpacing.md) {
-                    // Show individual app icons first, then category icons.
-                    // Both are rendered by the system from opaque tokens.
-                    let appTokens = Array(selection.applicationTokens)
-                    let catTokens = Array(selection.categoryTokens)
-                    let maxIcons = 6
-                    let appsToShow = Array(appTokens.prefix(maxIcons))
-                    let remaining = maxIcons - appsToShow.count
-                    let catsToShow = remaining > 0 ? Array(catTokens.prefix(remaining)) : []
-
-                    ForEach(appsToShow, id: \.self) { token in
+                    ForEach(tokens.prefix(6), id: \.self) { token in
                         Label(token)
                             .labelStyle(.iconOnly)
                             .font(.system(size: 30))
                             .frame(width: 34, height: 34)
                     }
-                    ForEach(catsToShow, id: \.self) { token in
-                        Label(token)
-                            .labelStyle(.iconOnly)
-                            .font(.system(size: 30))
-                            .frame(width: 34, height: 34)
-                    }
-                    let shown = appsToShow.count + catsToShow.count
-                    let total = appTokens.count + catTokens.count
-                    let extra = total - shown
-                    if extra > 0 {
-                        Text("+\(extra)")
+                    if tokens.count > 6 {
+                        Text("+\(tokens.count - 6)")
                             .font(SleepFont.body(15))
                             .foregroundStyle(SleepColor.muted)
                     }
@@ -318,18 +299,11 @@ struct BlockedAppsScreen: View {
                     }
                     .buttonStyle(.plain)
 
-                    if !selection.applicationTokens.isEmpty || !selection.categoryTokens.isEmpty {
-                        // The chosen apps and categories, rendered by the system
-                        // (tokens are opaque to us) so the user can see exactly
-                        // what locks.
+                    if !selection.applicationTokens.isEmpty {
+                        // The chosen apps, rendered by the system (tokens are
+                        // opaque to us) so the user can see exactly what locks.
                         VStack(alignment: .leading, spacing: SleepSpacing.md) {
                             ForEach(Array(selection.applicationTokens), id: \.self) { token in
-                                Label(token)
-                                    .labelStyle(.titleAndIcon)
-                                    .font(SleepFont.body(15))
-                                    .foregroundStyle(SleepColor.dim)
-                            }
-                            ForEach(Array(selection.categoryTokens), id: \.self) { token in
                                 Label(token)
                                     .labelStyle(.titleAndIcon)
                                     .font(SleepFont.body(15))
@@ -355,7 +329,14 @@ struct BlockedAppsScreen: View {
         }
         .familyActivityPicker(isPresented: $showPicker, selection: $selection)
         .onChange(of: selection) { _, newValue in
-            if let data = SleepScreenTime.encodeSelection(newValue) {
+            // Strip category tokens — we only store individual app tokens so
+            // the count and icons accurately reflect what the user picked.
+            // The picker still allows selecting categories (Apple doesn't let
+            // us hide them), but we keep only the individual apps.
+            var cleaned = newValue
+            cleaned.categoryTokens = []
+            selection = cleaned
+            if let data = SleepScreenTime.encodeSelection(cleaned) {
                 store.saveAppSelection(data)
             }
         }
@@ -367,9 +348,9 @@ struct BlockedAppsScreen: View {
     }
 
     private var selectionSummary: String {
-        let count = selection.applicationTokens.count + selection.categoryTokens.count
+        let count = selection.applicationTokens.count
         if count == 0 { return "None" }
-        return "Apps selected ✓"
+        return "\(count) app\(count == 1 ? "" : "s")"
     }
 
     private func infoBlock(title: String, body: String) -> some View {
