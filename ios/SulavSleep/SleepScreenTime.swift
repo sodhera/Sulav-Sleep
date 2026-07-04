@@ -219,30 +219,19 @@ struct BlockedAppsPreview: View {
                     .font(SleepFont.body(14))
                     .foregroundStyle(SleepColor.muted)
 
-                // Show up to 6 icons: individual app icons first, then
-                // category icons for any whole-category selections.
                 HStack(spacing: SleepSpacing.md) {
-                    let maxIcons = 6
-                    let appsToShow = Array(appTokens.prefix(maxIcons))
-                    let remaining = maxIcons - appsToShow.count
-                    let catsToShow = remaining > 0 ? Array(catTokens.prefix(remaining)) : []
-
-                    ForEach(appsToShow, id: \.self) { token in
+                    ForEach(appTokens.prefix(6), id: \.self) { token in
                         Label(token)
                             .labelStyle(.iconOnly)
                             .font(.system(size: 30))
                             .frame(width: 34, height: 34)
                     }
-                    ForEach(catsToShow, id: \.self) { token in
-                        Label(token)
-                            .labelStyle(.iconOnly)
-                            .font(.system(size: 30))
-                            .frame(width: 34, height: 34)
-                    }
-                    let shown = appsToShow.count + catsToShow.count
-                    let total = appTokens.count + catTokens.count
-                    if total > shown {
-                        Text("+\(total - shown)")
+                    // Categories contain many apps whose icons Apple
+                    // doesn't expose, so we show "+more" whenever
+                    // categories are selected, plus any overflow apps.
+                    let overflow = max(0, appTokens.count - 6)
+                    if catTokens.count > 0 || overflow > 0 {
+                        Text("+more")
                             .font(SleepFont.body(15))
                             .foregroundStyle(SleepColor.muted)
                     }
