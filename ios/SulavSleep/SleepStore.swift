@@ -22,6 +22,10 @@ final class SleepStore {
     var isAuthReady = false
     var authErrorMessage: String?
     var isAuthenticating = false
+    /// Revision counter bumped every time the lockdown app selection changes.
+    /// Views that read `appSelectionData()` also read this, which creates an
+    /// `@Observable` tracking dependency so SwiftUI re-renders on changes.
+    private(set) var appSelectionRevision = 0
 
     private let persistence: SleepPersistence
     private let health: SleepHealthProviding
@@ -419,9 +423,15 @@ final class SleepStore {
     }
 
     /// Opaque encoded app selection for the lockdown picker UI.
-    func appSelectionData() -> Data? { screenTime.selectionData() }
+    /// Reads `appSelectionRevision` to create an observation dependency so
+    /// SwiftUI views re-render when the selection changes.
+    func appSelectionData() -> Data? {
+        _ = appSelectionRevision  // touch the tracked property
+        return screenTime.selectionData()
+    }
     func saveAppSelection(_ data: Data) {
         screenTime.saveSelection(data: data)
+        appSelectionRevision += 1
         if profile?.lockdownEnabled == true { rescheduleLockdown() }
     }
 
