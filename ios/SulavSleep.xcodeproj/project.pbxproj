@@ -47,6 +47,10 @@
 		F500000000000000000000C2 /* SleepLockdownShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000FA1 /* SleepLockdownShared.swift */; };
 		F500000000000000000000C3 /* SleepWidgetShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000000E1 /* SleepWidgetShared.swift */; };
 		FA831C765CABBEF773CE99ED /* SleepStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2248DEAF235A937EB6B1B2C7 /* SleepStore.swift */; };
+		F600000000000000000000AC /* SulavSleepShieldConfig.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F600000000000000000000A2 /* SulavSleepShieldConfig.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		F600000000000000000000C1 /* ShieldConfigProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F600000000000000000000B1 /* ShieldConfigProvider.swift */; };
+		F700000000000000000000AC /* SulavSleepShieldAction.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F700000000000000000000A2 /* SulavSleepShieldAction.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		F700000000000000000000C1 /* ShieldActionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = F700000000000000000000B1 /* ShieldActionHandler.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -64,6 +68,20 @@
 			remoteGlobalIDString = F500000000000000000000A1;
 			remoteInfo = SulavSleepMonitor;
 		};
+		F600000000000000000000AA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F600000000000000000000A1;
+			remoteInfo = SulavSleepShieldConfig;
+		};
+		F700000000000000000000AA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F700000000000000000000A1;
+			remoteInfo = SulavSleepShieldAction;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -75,6 +93,8 @@
 			files = (
 				F400000000000000000000AC /* SulavSleepWidgetExtension.appex in Embed Foundation Extensions */,
 				F500000000000000000000AC /* SulavSleepMonitor.appex in Embed Foundation Extensions */,
+				F600000000000000000000AC /* SulavSleepShieldConfig.appex in Embed Foundation Extensions */,
+				F700000000000000000000AC /* SulavSleepShieldAction.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -121,6 +141,16 @@
 		F500000000000000000000B2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = SulavSleepMonitor/Info.plist; sourceTree = "<group>"; };
 		F500000000000000000000B3 /* SulavSleepMonitor.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = SulavSleepMonitor.entitlements; path = SulavSleepMonitor/SulavSleepMonitor.entitlements; sourceTree = "<group>"; };
 		F500000000000000000000B4 /* SulavSleepMonitor-device.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = "SulavSleepMonitor-device.entitlements"; path = "SulavSleepMonitor/SulavSleepMonitor-device.entitlements"; sourceTree = "<group>"; };
+		F600000000000000000000A2 /* SulavSleepShieldConfig.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SulavSleepShieldConfig.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		F600000000000000000000B1 /* ShieldConfigProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ShieldConfigProvider.swift; path = SulavSleepShieldConfig/ShieldConfigProvider.swift; sourceTree = "<group>"; };
+		F600000000000000000000B2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = SulavSleepShieldConfig/Info.plist; sourceTree = "<group>"; };
+		F600000000000000000000B3 /* SulavSleepShieldConfig.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = SulavSleepShieldConfig.entitlements; path = SulavSleepShieldConfig/SulavSleepShieldConfig.entitlements; sourceTree = "<group>"; };
+		F600000000000000000000B4 /* SulavSleepShieldConfig-device.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = "SulavSleepShieldConfig-device.entitlements"; path = "SulavSleepShieldConfig/SulavSleepShieldConfig-device.entitlements"; sourceTree = "<group>"; };
+		F700000000000000000000A2 /* SulavSleepShieldAction.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SulavSleepShieldAction.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		F700000000000000000000B1 /* ShieldActionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ShieldActionHandler.swift; path = SulavSleepShieldAction/ShieldActionHandler.swift; sourceTree = "<group>"; };
+		F700000000000000000000B2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = SulavSleepShieldAction/Info.plist; sourceTree = "<group>"; };
+		F700000000000000000000B3 /* SulavSleepShieldAction.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = SulavSleepShieldAction.entitlements; path = SulavSleepShieldAction/SulavSleepShieldAction.entitlements; sourceTree = "<group>"; };
+		F700000000000000000000B4 /* SulavSleepShieldAction-device.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = "SulavSleepShieldAction-device.entitlements"; path = "SulavSleepShieldAction/SulavSleepShieldAction-device.entitlements"; sourceTree = "<group>"; };
 		F5DB00420EA2535786E040A3 /* Secrets.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = SulavSleep/Secrets.xcconfig; sourceTree = "<group>"; };
 		F69F492AFB4609915E10F59C /* SleepTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepTheme.swift; path = SulavSleep/SleepTheme.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -210,6 +240,8 @@
 				13B07FAE1A68108700A75B9A /* SulavSleep */,
 				F400000000000000000000A0 /* SulavSleepWidget */,
 				F500000000000000000000A0 /* SulavSleepMonitor */,
+				F600000000000000000000A0 /* SulavSleepShieldConfig */,
+				F700000000000000000000A0 /* SulavSleepShieldAction */,
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 			);
@@ -224,6 +256,8 @@
 				13B07F961A680F5B00A75B9A /* SulavSleep.app */,
 				F400000000000000000000A2 /* SulavSleepWidgetExtension.appex */,
 				F500000000000000000000A2 /* SulavSleepMonitor.appex */,
+				F600000000000000000000A2 /* SulavSleepShieldConfig.appex */,
+				F700000000000000000000A2 /* SulavSleepShieldAction.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -258,6 +292,28 @@
 			name = SulavSleepMonitor;
 			sourceTree = "<group>";
 		};
+		F600000000000000000000A0 /* SulavSleepShieldConfig */ = {
+			isa = PBXGroup;
+			children = (
+				F600000000000000000000B1 /* ShieldConfigProvider.swift */,
+				F600000000000000000000B2 /* Info.plist */,
+				F600000000000000000000B3 /* SulavSleepShieldConfig.entitlements */,
+				F600000000000000000000B4 /* SulavSleepShieldConfig-device.entitlements */,
+			);
+			name = SulavSleepShieldConfig;
+			sourceTree = "<group>";
+		};
+		F700000000000000000000A0 /* SulavSleepShieldAction */ = {
+			isa = PBXGroup;
+			children = (
+				F700000000000000000000B1 /* ShieldActionHandler.swift */,
+				F700000000000000000000B2 /* Info.plist */,
+				F700000000000000000000B3 /* SulavSleepShieldAction.entitlements */,
+				F700000000000000000000B4 /* SulavSleepShieldAction-device.entitlements */,
+			);
+			name = SulavSleepShieldAction;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -275,6 +331,8 @@
 			dependencies = (
 				F400000000000000000000A9 /* PBXTargetDependency */,
 				F500000000000000000000A9 /* PBXTargetDependency */,
+				F600000000000000000000A9 /* PBXTargetDependency */,
+				F700000000000000000000A9 /* PBXTargetDependency */,
 			);
 			name = SulavSleep;
 			packageProductDependencies = (
@@ -316,6 +374,38 @@
 			productReference = F500000000000000000000A2 /* SulavSleepMonitor.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		F600000000000000000000A1 /* SulavSleepShieldConfig */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F600000000000000000000A6 /* Build configuration list for PBXNativeTarget "SulavSleepShieldConfig" */;
+			buildPhases = (
+				F600000000000000000000A3 /* Sources */,
+				F600000000000000000000A4 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SulavSleepShieldConfig;
+			productName = SulavSleepShieldConfig;
+			productReference = F600000000000000000000A2 /* SulavSleepShieldConfig.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		F700000000000000000000A1 /* SulavSleepShieldAction */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F700000000000000000000A6 /* Build configuration list for PBXNativeTarget "SulavSleepShieldAction" */;
+			buildPhases = (
+				F700000000000000000000A3 /* Sources */,
+				F700000000000000000000A4 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SulavSleepShieldAction;
+			productName = SulavSleepShieldAction;
+			productReference = F700000000000000000000A2 /* SulavSleepShieldAction.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -349,6 +439,16 @@
 						DevelopmentTeam = 6LYZDNCM4M;
 						ProvisioningStyle = Automatic;
 					};
+					F600000000000000000000A1 = {
+						CreatedOnToolsVersion = 26.5;
+						DevelopmentTeam = 6LYZDNCM4M;
+						ProvisioningStyle = Automatic;
+					};
+					F700000000000000000000A1 = {
+						CreatedOnToolsVersion = 26.5;
+						DevelopmentTeam = 6LYZDNCM4M;
+						ProvisioningStyle = Automatic;
+					};
 				};
 			};
 			buildConfigurationList = 83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "SulavSleep" */;
@@ -370,6 +470,8 @@
 				13B07F861A680F5B00A75B9A /* SulavSleep */,
 				F400000000000000000000A1 /* SulavSleepWidgetExtension */,
 				F500000000000000000000A1 /* SulavSleepMonitor */,
+				F600000000000000000000A1 /* SulavSleepShieldConfig */,
+				F700000000000000000000A1 /* SulavSleepShieldAction */,
 			);
 		};
 /* End PBXProject section */
@@ -443,6 +545,36 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		F600000000000000000000A3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F600000000000000000000C1 /* ShieldConfigProvider.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F600000000000000000000A4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F700000000000000000000A3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F700000000000000000000C1 /* ShieldActionHandler.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F700000000000000000000A4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -455,6 +587,16 @@
 			isa = PBXTargetDependency;
 			target = F500000000000000000000A1 /* SulavSleepMonitor */;
 			targetProxy = F500000000000000000000AA /* PBXContainerItemProxy */;
+		};
+		F600000000000000000000A9 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F600000000000000000000A1 /* SulavSleepShieldConfig */;
+			targetProxy = F600000000000000000000AA /* PBXContainerItemProxy */;
+		};
+		F700000000000000000000A9 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F700000000000000000000A1 /* SulavSleepShieldAction */;
+			targetProxy = F700000000000000000000AA /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -729,6 +871,108 @@
 			};
 			name = Release;
 		};
+		F600000000000000000000A7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = SulavSleepShieldConfig/SulavSleepShieldConfig.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "SulavSleepShieldConfig/SulavSleepShieldConfig-device.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6LYZDNCM4M;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = SulavSleepShieldConfig/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sulav.sleepblock.shield-config;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		F600000000000000000000A8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = SulavSleepShieldConfig/SulavSleepShieldConfig.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "SulavSleepShieldConfig/SulavSleepShieldConfig-device.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6LYZDNCM4M;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = SulavSleepShieldConfig/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sulav.sleepblock.shield-config;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		F700000000000000000000A7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = SulavSleepShieldAction/SulavSleepShieldAction.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "SulavSleepShieldAction/SulavSleepShieldAction-device.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6LYZDNCM4M;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = SulavSleepShieldAction/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sulav.sleepblock.shield-action;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		F700000000000000000000A8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = SulavSleepShieldAction/SulavSleepShieldAction.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "SulavSleepShieldAction/SulavSleepShieldAction-device.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6LYZDNCM4M;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = SulavSleepShieldAction/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sulav.sleepblock.shield-action;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -764,6 +1008,24 @@
 			buildConfigurations = (
 				F500000000000000000000A7 /* Debug */,
 				F500000000000000000000A8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F600000000000000000000A6 /* Build configuration list for PBXNativeTarget "SulavSleepShieldConfig" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F600000000000000000000A7 /* Debug */,
+				F600000000000000000000A8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F700000000000000000000A6 /* Build configuration list for PBXNativeTarget "SulavSleepShieldAction" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F700000000000000000000A7 /* Debug */,
+				F700000000000000000000A8 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
