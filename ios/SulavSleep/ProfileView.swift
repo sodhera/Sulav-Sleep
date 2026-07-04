@@ -1,10 +1,11 @@
 import SwiftUI
 
-// The Profile tab is the app's single "about you" surface: identity, the sleep
-// record (weekly chart, averages, night history), and configuration. Settings
-// live here as full pushed pages — never stacked modal sheets — and there is
-// deliberately no destructive "reset all data" action; Sign out is the only
-// account-level exit. Home stays a pure "go to bed" screen because of this.
+// The Profile tab is the app's single "about you" surface: identity plus the
+// sleep record (weekly chart, averages, night history). Configuration lives in
+// a separate `SettingsModal`, opened from the gear top-right as a collapsible
+// full-height sheet, so the tab body stays clean. There is deliberately no
+// destructive "reset all data" action; Sign out is the only account-level exit.
+// Home stays a pure "go to bed" screen because of this.
 
 struct ProfileView: View {
     var store: SleepStore
@@ -106,14 +107,11 @@ private struct ProfileRootScreen: View {
             }
 
             sleepSection
-
-            Text("Pixel art by CraftPix.net · OGA-BY 3.0")
-                .font(SleepFont.body(11))
-                .foregroundStyle(SleepColor.faint)
-                .padding(.top, SleepSpacing.huge)
         }
-        .fullScreenCover(isPresented: $showsSettings) {
+        .sheet(isPresented: $showsSettings) {
             SettingsModal(store: store, profile: profile)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
         }
     }
 
@@ -293,9 +291,10 @@ private struct ProfileRootScreen: View {
 
 // MARK: - Settings modal
 
-/// The full-screen settings surface, opened from the gear in Profile's top-right.
-/// It carries its own `NavigationStack` so schedule and blocked-apps push as
-/// full pages inside it (never stacked half-sheets), and it hosts everything
+/// The settings surface, opened from the gear in Profile's top-right as a
+/// collapsible full-height sheet (`.large` detent + drag indicator, so it can
+/// be swiped down to dismiss). It carries its own `NavigationStack` so schedule
+/// and blocked-apps push as full pages inside it, and it hosts everything
 /// configuration- and account-related so the Profile screen underneath stays a
 /// clean identity + sleep record. There is deliberately no "reset all data";
 /// Sign out is the only account-level exit.
@@ -312,6 +311,11 @@ struct SettingsModal: View {
 
                 configSection
                 accountSection
+
+                Text("Pixel art by CraftPix.net · OGA-BY 3.0")
+                    .font(SleepFont.body(11))
+                    .foregroundStyle(SleepColor.faint)
+                    .padding(.top, SleepSpacing.huge)
             }
             .navigationDestination(for: SettingsDestination.self) { destination in
                 switch destination {

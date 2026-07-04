@@ -112,13 +112,16 @@ Two tabs, each with exactly one job:
   page once history grows). A gear in the top-right opens Settings; the body
   itself stays a clean identity + record, with no configuration mixed in.
 
-Settings live in a **full-screen cover** opened from the Profile gear — not a
-half-height sheet (the throwaway-decision affordance the app deliberately
-avoids) and not inline rows on Profile. Inside, it carries its own
-`NavigationStack`, so Sleep schedule and Blocked apps push as full pages with
-the onboarding chrome (round glass back chevron, left-aligned editorial title,
-supporting line). The cover is dismissed by a glass ✕ in its top-right. The
-only true sheet left in the app is Apple's own `FamilyActivityPicker`.
+Settings live in a **collapsible full-height sheet** opened from the Profile
+gear — presented at the `.large` detent with a drag indicator, so it rises as a
+full-screen card that can be swiped down to collapse, and dismissed by a glass ✕
+in its top-right. It is not a half-height sheet (the throwaway-decision
+affordance the app avoids) and not inline rows on Profile. Inside, it carries
+its own `NavigationStack`, so Sleep schedule and Blocked apps push as full pages
+with the onboarding chrome (round glass back chevron, left-aligned editorial
+title, supporting line). The pixel-art credit sits quietly at the very bottom,
+below Sign out. The only other sheet in the app is Apple's own
+`FamilyActivityPicker`.
 
 There is deliberately **no "reset all data" action**. A destructive escape
 hatch sitting among everyday settings invites disaster and signals distrust of
