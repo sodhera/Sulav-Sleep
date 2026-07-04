@@ -45,7 +45,7 @@ class ShieldConfigProvider: ShieldConfigurationDataSource {
             ),
             primaryButtonLabel: ShieldConfiguration.Label(
                 text: "Open SleepBlock",
-                color: UIColor(red: 0.03, green: 0.07, blue: 0.12, alpha: 1) // dark ink on amber
+                color: .black
             ),
             primaryButtonBackgroundColor: UIColor(red: 0.96, green: 0.64, blue: 0.38, alpha: 1), // amber
             secondaryButtonLabel: ShieldConfiguration.Label(
