@@ -164,7 +164,7 @@ extension SleepStore {
         guard lockdownEnabled else { return "Off" }
         let count = lockdownSelectionCount
         if count == 0 { return "Choose apps" }
-        return "\(count) app\(count == 1 ? "" : "s")"
+        return "Apps selected ✓"
     }
 }
 
@@ -219,13 +219,30 @@ struct BlockedAppsPreview: View {
                     .foregroundStyle(SleepColor.muted)
 
                 HStack(spacing: SleepSpacing.md) {
-                    ForEach(tokens.prefix(6), id: \.self) { token in
+                    // Show individual app icons first, then category icons.
+                    // Both are rendered by the system from opaque tokens.
+                    let appTokens = Array(selection.applicationTokens)
+                    let catTokens = Array(selection.categoryTokens)
+                    let maxIcons = 6
+                    let appsToShow = Array(appTokens.prefix(maxIcons))
+                    let remaining = maxIcons - appsToShow.count
+                    let catsToShow = remaining > 0 ? Array(catTokens.prefix(remaining)) : []
+
+                    ForEach(appsToShow, id: \.self) { token in
                         Label(token)
                             .labelStyle(.iconOnly)
                             .font(.system(size: 30))
                             .frame(width: 34, height: 34)
                     }
-                    let extra = max(0, tokens.count - 6) + categoryCount
+                    ForEach(catsToShow, id: \.self) { token in
+                        Label(token)
+                            .labelStyle(.iconOnly)
+                            .font(.system(size: 30))
+                            .frame(width: 34, height: 34)
+                    }
+                    let shown = appsToShow.count + catsToShow.count
+                    let total = appTokens.count + catTokens.count
+                    let extra = total - shown
                     if extra > 0 {
                         Text("+\(extra)")
                             .font(SleepFont.body(15))
@@ -301,11 +318,18 @@ struct BlockedAppsScreen: View {
                     }
                     .buttonStyle(.plain)
 
-                    if !selection.applicationTokens.isEmpty {
-                        // The chosen apps, rendered by the system (tokens are
-                        // opaque to us) so the user can see exactly what locks.
+                    if !selection.applicationTokens.isEmpty || !selection.categoryTokens.isEmpty {
+                        // The chosen apps and categories, rendered by the system
+                        // (tokens are opaque to us) so the user can see exactly
+                        // what locks.
                         VStack(alignment: .leading, spacing: SleepSpacing.md) {
                             ForEach(Array(selection.applicationTokens), id: \.self) { token in
+                                Label(token)
+                                    .labelStyle(.titleAndIcon)
+                                    .font(SleepFont.body(15))
+                                    .foregroundStyle(SleepColor.dim)
+                            }
+                            ForEach(Array(selection.categoryTokens), id: \.self) { token in
                                 Label(token)
                                     .labelStyle(.titleAndIcon)
                                     .font(SleepFont.body(15))
@@ -345,7 +369,7 @@ struct BlockedAppsScreen: View {
     private var selectionSummary: String {
         let count = selection.applicationTokens.count + selection.categoryTokens.count
         if count == 0 { return "None" }
-        return "\(count) app\(count == 1 ? "" : "s")"
+        return "Apps selected ✓"
     }
 
     private func infoBlock(title: String, body: String) -> some View {
