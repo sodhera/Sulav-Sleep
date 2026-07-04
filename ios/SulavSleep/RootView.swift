@@ -96,6 +96,7 @@ struct MainShellView: View {
     private func tab<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         ZStack {
             SleepBackground(showsMoon: true)
+            SceneReadabilityScrim()
             content()
         }
     }

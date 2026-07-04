@@ -15,10 +15,6 @@ struct ProfileView: View {
             ProfileRootScreen(store: store, profile: profile)
                 .navigationDestination(for: ProfileDestination.self) { destination in
                     switch destination {
-                    case .schedule:
-                        ScheduleScreen(store: store, profile: profile)
-                    case .blockedApps:
-                        BlockedAppsScreen(store: store)
                     case .allNights:
                         AllNightsScreen(store: store)
                     }
@@ -28,8 +24,6 @@ struct ProfileView: View {
 }
 
 enum ProfileDestination: Hashable {
-    case schedule
-    case blockedApps
     case allNights
 }
 
@@ -44,6 +38,7 @@ struct SceneScreen<Content: View>: View {
     var body: some View {
         ZStack {
             SleepBackground(showsMoon: true)
+            SceneReadabilityScrim()
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 0) {
                     content
@@ -93,6 +88,7 @@ private struct ProfileRootScreen: View {
 
     @State private var isEditingName = false
     @State private var draftName = ""
+    @State private var showsSettings = false
     @FocusState private var nameFieldFocused: Bool
 
     private var sessions: [SleepSession] { store.displaySessions }
@@ -110,13 +106,14 @@ private struct ProfileRootScreen: View {
             }
 
             sleepSection
-            settingsSection
-            accountSection
 
             Text("Pixel art by CraftPix.net · OGA-BY 3.0")
                 .font(SleepFont.body(11))
                 .foregroundStyle(SleepColor.faint)
                 .padding(.top, SleepSpacing.huge)
+        }
+        .fullScreenCover(isPresented: $showsSettings) {
+            SettingsModal(store: store, profile: profile)
         }
     }
 
@@ -124,13 +121,26 @@ private struct ProfileRootScreen: View {
 
     private var identity: some View {
         VStack(alignment: .leading, spacing: SleepSpacing.xs) {
-            HStack(alignment: .firstTextBaseline) {
+            HStack(spacing: SleepSpacing.md) {
                 Text("Profile").sectionLabel()
                 Spacer()
                 if store.isImportingHealth {
                     ProgressView().controlSize(.small).tint(SleepColor.amber)
                 }
+                Button {
+                    Haptics.soft()
+                    showsSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(SleepColor.dim)
+                        .frame(width: 40, height: 40)
+                }
+                .buttonStyle(.plain)
+                .liquidGlass(cornerRadius: SleepRadius.pill, interactive: true)
+                .accessibilityLabel("Settings")
             }
+            .frame(minHeight: 44)
             .padding(.bottom, SleepSpacing.md)
 
             if isEditingName {
@@ -279,15 +289,66 @@ private struct ProfileRootScreen: View {
         }
     }
 
-    // MARK: Settings
+}
 
-    private var settingsSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
+// MARK: - Settings modal
+
+/// The full-screen settings surface, opened from the gear in Profile's top-right.
+/// It carries its own `NavigationStack` so schedule and blocked-apps push as
+/// full pages inside it (never stacked half-sheets), and it hosts everything
+/// configuration- and account-related so the Profile screen underneath stays a
+/// clean identity + sleep record. There is deliberately no "reset all data";
+/// Sign out is the only account-level exit.
+struct SettingsModal: View {
+    var store: SleepStore
+    let profile: Profile
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            SceneScreen {
+                header
+
+                configSection
+                accountSection
+            }
+            .navigationDestination(for: SettingsDestination.self) { destination in
+                switch destination {
+                case .schedule:
+                    ScheduleScreen(store: store, profile: profile)
+                case .blockedApps:
+                    BlockedAppsScreen(store: store)
+                }
+            }
+        }
+    }
+
+    private var header: some View {
+        HStack(alignment: .firstTextBaseline) {
             Text("Settings")
-                .sectionLabel()
-                .padding(.bottom, SleepSpacing.xs)
+                .font(SleepFont.hero(28))
+                .foregroundStyle(SleepColor.ink)
+            Spacer()
+            Button {
+                Haptics.soft()
+                dismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(SleepColor.ink)
+                    .frame(width: 36, height: 36)
+            }
+            .buttonStyle(.plain)
+            .liquidGlass(cornerRadius: SleepRadius.pill, interactive: true)
+            .accessibilityLabel("Close settings")
+        }
+        .padding(.top, SleepSpacing.lg)
+    }
 
-            NavigationLink(value: ProfileDestination.schedule) {
+    private var configSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            NavigationLink(value: SettingsDestination.schedule) {
                 SettingsRow(
                     title: "Sleep schedule",
                     value: "\(SleepFormatting.clock(profile.bedtime)) – \(SleepFormatting.clock(profile.wakeTime))"
@@ -297,7 +358,7 @@ private struct ProfileRootScreen: View {
 
             divider
 
-            NavigationLink(value: ProfileDestination.blockedApps) {
+            NavigationLink(value: SettingsDestination.blockedApps) {
                 SettingsRow(title: "Blocked apps", value: blockedAppsSummary)
             }
             .buttonStyle(.plain)
@@ -359,8 +420,6 @@ private struct ProfileRootScreen: View {
         }
     }
 
-    // MARK: Account
-
     private var accountSection: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Account")
@@ -369,6 +428,9 @@ private struct ProfileRootScreen: View {
 
             Button {
                 Haptics.soft()
+                // Close the cover first so it doesn't tear down mid-flight as
+                // the root swaps Main → onboarding on sign-out.
+                dismiss()
                 Task { await store.signOut() }
             } label: {
                 Text("Sign out")
@@ -382,6 +444,11 @@ private struct ProfileRootScreen: View {
         }
         .padding(.top, SleepSpacing.huge)
     }
+}
+
+enum SettingsDestination: Hashable {
+    case schedule
+    case blockedApps
 }
 
 /// Cardless settings row: title, quiet trailing value, chevron. Rows are

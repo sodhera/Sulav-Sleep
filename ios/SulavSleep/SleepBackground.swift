@@ -25,6 +25,29 @@ struct SleepBackground: View {
     }
 }
 
+/// A soft readability veil laid over the night scene, beneath UI content. The
+/// pixel skyline's lit windows are high-contrast and can swallow light text
+/// where it crosses them; this darkens the lower band — where most screen text
+/// sits — while leaving the upper sky and moon untouched. It is full-bleed with
+/// no edges or corners, so it reads as atmospheric haze rather than a card, and
+/// never intercepts touches. Layer it directly above `SleepBackground`.
+struct SceneReadabilityScrim: View {
+    var body: some View {
+        LinearGradient(
+            stops: [
+                .init(color: .clear, location: 0.0),
+                .init(color: .clear, location: 0.30),
+                .init(color: SleepColor.background.opacity(0.42), location: 0.58),
+                .init(color: SleepColor.background.opacity(0.80), location: 1.0),
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+    }
+}
+
 #if canImport(UIKit)
 private struct PixelNightLayeredView: UIViewRepresentable {
     var isActive: Bool

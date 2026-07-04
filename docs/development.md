@@ -104,16 +104,20 @@ target can inject fakes without new hooks.
 - `HomeView.swift`: greeting, schedule, Sleep Now, active sleeping state, wake
   logging, last-night summary, empty states, Health import indicator.
 - `ProfileView.swift`: the Profile tab — the app's single "about you" surface.
-  Identity (editable name, account email), the sleep record (weekly chart,
-  averages, recent nights with source badges, an "All nights" pushed page when
-  history exceeds seven), and settings as full pushed pages inside the tab's
+  The tab body (`ProfileRootScreen`) is identity (editable name, account email)
+  plus the sleep record (weekly chart, averages, recent nights with source
+  badges, an "All nights" pushed page when history exceeds seven). A gear in the
+  top-right opens `SettingsModal` via `.fullScreenCover`; the body carries no
+  configuration itself. `SettingsModal` is a full-screen cover with its own
   `NavigationStack`: Sleep schedule (`ScheduleScreen`), Blocked apps
-  (`BlockedAppsScreen`, in `SleepScreenTime.swift`), plus the Apple Health
-  toggle and a quiet Sign out. There is deliberately no "reset all data" action.
-  Shared scaffolding lives here too: `SceneScreen` (night scene + transparent
-  scroll, system nav bar hidden) and `SubpageHeader` (glass back chevron +
-  editorial title, same chrome as onboarding). Also hosts `HealthConnectCard` —
-  the dismissable "connect Apple Health" prompt shown when
+  (`BlockedAppsScreen`, in `SleepScreenTime.swift`) push as full pages inside
+  it, alongside the Apple Health toggle and a quiet Sign out (which dismisses
+  the cover before `signOut` so it doesn't tear down as the root swaps to
+  onboarding). There is deliberately no "reset all data" action. Shared
+  scaffolding lives here too: `SceneScreen` (night scene + readability scrim +
+  transparent scroll, system nav bar hidden) and `SubpageHeader` (glass back
+  chevron + editorial title, same chrome as onboarding). Also hosts
+  `HealthConnectCard` — the dismissable "connect Apple Health" prompt shown when
   `store.shouldPromptHealthConnect` (available, not connected, not waved off).
   This is where Health is offered now that onboarding no longer asks; "Connect"
   calls `enableHealthSync`, the ✕ calls `dismissHealthPrompt` (persisted via
@@ -145,8 +149,11 @@ target can inject fakes without new hooks.
   flashes on the welcome or account screens. Struggle answers persist to
   `Profile.sleepStruggles` for future personalization.
 - `LiquidGlass.swift`: native Liquid Glass wrappers with material fallbacks.
-- `SleepBackground.swift`: Core Animation pixel-night scene. It keeps the pixel
-  city in separate scrolling/parallaxed depth planes and uses system
+- `SleepBackground.swift`: Core Animation pixel-night scene, plus
+  `SceneReadabilityScrim` — a full-bleed vertical gradient (clear through the
+  upper sky, fading to ~80% deep-navy at the bottom) layered between the scene
+  and UI content so light text stays legible over the lit skyline. It keeps the
+  pixel city in separate scrolling/parallaxed depth planes and uses system
   motion-effect parallax instead of CoreMotion polling. Because native `TabView`
   content is opaque, `MainShellView` renders one background inside each tab; the
   scrolling layers use the same global Core Animation phase so switching between

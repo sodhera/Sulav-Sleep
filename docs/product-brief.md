@@ -25,9 +25,9 @@ review the rhythm of recent nights — using **real data only**.
 - Profile is everything about the user: editable name and account email, a
   seven-night chart, average duration/score, and a history list where each
   night is tagged by source (in-app vs. Apple Health; empty until there is real
-  data) — plus settings as full pushed pages: sleep schedule, blocked apps
-  (Screen Time selection), Apple Health sync, and sign out. There is no
-  "reset all data" action.
+  data). A gear in its top-right opens a full-screen Settings cover: sleep
+  schedule, blocked apps (Screen Time selection), Apple Health sync, and sign
+  out. There is no "reset all data" action.
 
 ## No dummy data
 

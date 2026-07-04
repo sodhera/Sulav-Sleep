@@ -107,21 +107,35 @@ Two tabs, each with exactly one job:
 - **Home — go to bed.** Greeting, bedtime countdown, Sleep Now, last night's
   duration/score/streak. Nothing else: no settings affordance, no data dumps.
   The screen someone sees at 11pm must not offer anything to fiddle with.
-- **Profile — everything about you.** Identity (editable name, account email),
-  the sleep record (weekly chart, averages, recent nights, an "All nights"
-  page once history grows), then settings, then account.
+- **Profile — everything about you.** Identity (editable name, account email)
+  and the sleep record (weekly chart, averages, recent nights, an "All nights"
+  page once history grows). A gear in the top-right opens Settings; the body
+  itself stays a clean identity + record, with no configuration mixed in.
 
-Settings are full **pushed pages** inside Profile's `NavigationStack` (Sleep
-schedule, Blocked apps), never stacked modal sheets — a half-height modal
-implies a throwaway decision, and choosing which apps get locked all night is
-not one. Sub-pages reuse the onboarding chrome: round glass back chevron,
-left-aligned editorial title, supporting line. The only sheet left in the app
-is Apple's own `FamilyActivityPicker`.
+Settings live in a **full-screen cover** opened from the Profile gear — not a
+half-height sheet (the throwaway-decision affordance the app deliberately
+avoids) and not inline rows on Profile. Inside, it carries its own
+`NavigationStack`, so Sleep schedule and Blocked apps push as full pages with
+the onboarding chrome (round glass back chevron, left-aligned editorial title,
+supporting line). The cover is dismissed by a glass ✕ in its top-right. The
+only true sheet left in the app is Apple's own `FamilyActivityPicker`.
 
 There is deliberately **no "reset all data" action**. A destructive escape
 hatch sitting among everyday settings invites disaster and signals distrust of
 the app's own record. Sign out is the only account-level exit, and it keeps
 the local profile.
+
+### Legibility over the scene
+
+Text sits directly on the living pixel scene, whose lit windows are
+high-contrast and can swallow light type where it crosses them. Every
+scene-bearing screen therefore layers a `SceneReadabilityScrim` *between* the
+background and the content: a full-bleed vertical gradient that stays clear
+through the upper sky (moon and clouds untouched) and fades to ~80% deep-navy
+by the bottom, where the busy skyline and most screen text live. Because it has
+no edges or corners it reads as atmospheric haze, never a card, and it never
+intercepts touches. Prefer this shared scrim over per-element text shadows or
+darkening the whole scene.
 
 ## Layout & containers
 
