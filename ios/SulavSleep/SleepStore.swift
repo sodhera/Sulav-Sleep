@@ -166,6 +166,17 @@ final class SleepStore {
     /// Checks for a Keychain-restored Supabase session at launch. Runs once.
     @MainActor
     func restoreSession() async {
+        // Reinstall gotcha: deleting the app wipes our container (the profile,
+        // and this launch marker) but iOS keeps Keychain items — so a stale
+        // Supabase session would silently sign the user back in on what looks
+        // like a fresh install, dropping them onto the nameless quick-setup
+        // instead of the welcome screen. Treat the first launch after install
+        // as a clean slate: if the marker is missing, clear any surviving
+        // Keychain session before restoring, then plant the marker.
+        if !persistence.hasLaunchedBefore {
+            await auth.clearLocalSession()
+            persistence.markLaunched()
+        }
         account = await auth.currentAccount
         isAuthReady = true
         if let account { persistAccount(account) } else { clearPersistedAccount() }
@@ -544,6 +555,10 @@ struct SleepPersistence {
     private let sessionsKey = "sulav.sessions.v1"
     private let activeKey = "sulav.active.v1"
     private let accountKey = "sulav.account.v1"
+    // Lives in the app container (wiped on delete), so its absence marks a
+    // fresh install. Deliberately not cleared by `reset()` — a sign-out within
+    // the same install is not a reinstall.
+    private let launchedKey = "sulav.hasLaunched.v1"
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -571,6 +586,13 @@ struct SleepPersistence {
         defaults.removeObject(forKey: activeKey)
         defaults.removeObject(forKey: accountKey)
     }
+
+    /// Whether the app has been launched before on this install. Backed by the
+    /// container, so a reinstall resets it to `false` even if the Keychain
+    /// session survives. See `SleepStore.restoreSession()`.
+    var hasLaunchedBefore: Bool { defaults.bool(forKey: launchedKey) }
+
+    func markLaunched() { defaults.set(true, forKey: launchedKey) }
 
     /// Non-secret account info only (id/email/provider) — the real session
     /// token lives in the Keychain via the auth SDK, never here.

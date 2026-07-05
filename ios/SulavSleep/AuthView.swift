@@ -282,16 +282,13 @@ struct AuthMethodsView: View {
         let request = provider.createRequest()
         request.requestedScopes = [.email, .fullName]
         request.nonce = AppleSignInNonce.sha256(nonce)
-        let controller = ASAuthorizationController(authorizationRequests: [request])
-        // Delegate is bridged via a one-shot coordinator so we stay in value types.
+        // The coordinator retains itself and the controller until the delegate
+        // fires, so neither is deallocated mid-flow (which would leave the
+        // button spinning forever with no callback). See AppleSignInCoordinator.
         let coordinator = AppleSignInCoordinator { [self] result in
             handleAppleCompletion(result)
         }
-        controller.delegate = coordinator
-        controller.presentationContextProvider = coordinator
-        // Keep coordinator alive for the duration of the sheet.
-        objc_setAssociatedObject(controller, &AppleSignInCoordinator.key, coordinator, .OBJC_ASSOCIATION_RETAIN)
-        controller.performRequests()
+        coordinator.start(request: request)
     }
 }
 
@@ -361,32 +358,56 @@ private struct AuthButtonPressStyle: ButtonStyle {
 
 /// Bridges `ASAuthorizationControllerDelegate` so we can present the Apple
 /// sign-in sheet programmatically from a SwiftUI value type (no native button).
+///
+/// `ASAuthorizationController` does not reliably keep itself alive between
+/// `performRequests()` and its delegate callback, so the coordinator holds a
+/// strong reference to both the controller and *itself* for the duration of the
+/// flow. Without this, a fast path (e.g. an already-authorized Apple ID that
+/// skips the consent sheet) can deallocate everything before the callback runs,
+/// leaving the sign-in button spinning forever. Both references are released the
+/// moment the delegate reports success or failure.
 private final class AppleSignInCoordinator: NSObject,
     ASAuthorizationControllerDelegate,
     ASAuthorizationControllerPresentationContextProviding {
 
-    /// Stable key used by `objc_setAssociatedObject` to keep this coordinator
-    /// alive for the duration of the ASAuthorizationController sheet.
-    static var key: UInt8 = 0
-
     private let completion: (Result<ASAuthorization, Error>) -> Void
+    private var controller: ASAuthorizationController?
+    private var selfRetain: AppleSignInCoordinator?
 
     init(completion: @escaping (Result<ASAuthorization, Error>) -> Void) {
         self.completion = completion
+    }
+
+    /// Presents the Apple sheet, keeping the controller and this coordinator
+    /// alive until the delegate fires.
+    func start(request: ASAuthorizationAppleIDRequest) {
+        let controller = ASAuthorizationController(authorizationRequests: [request])
+        controller.delegate = self
+        controller.presentationContextProvider = self
+        self.controller = controller
+        self.selfRetain = self
+        controller.performRequests()
+    }
+
+    /// Delivers the result once and drops the strong references so nothing leaks.
+    private func finish(_ result: Result<ASAuthorization, Error>) {
+        completion(result)
+        controller = nil
+        selfRetain = nil
     }
 
     func authorizationController(
         controller: ASAuthorizationController,
         didCompleteWithAuthorization authorization: ASAuthorization
     ) {
-        completion(.success(authorization))
+        finish(.success(authorization))
     }
 
     func authorizationController(
         controller: ASAuthorizationController,
         didCompleteWithError error: Error
     ) {
-        completion(.failure(error))
+        finish(.failure(error))
     }
 
     func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {

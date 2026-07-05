@@ -22,6 +22,11 @@ protocol AuthProviding {
     func signIn(email: String, password: String) async throws -> AppAccount
     func signOut() async
 
+    /// Drop the local Keychain session only, without a server round-trip. Used
+    /// to reset a stale session that survived an app reinstall (see
+    /// `SleepStore.restoreSession()`); must never block on the network.
+    func clearLocalSession() async
+
     /// Permanently delete the signed-in user server-side, then end the local
     /// session. Throws on any failure so the caller can leave local data intact.
     func deleteAccount() async throws
@@ -49,6 +54,7 @@ struct DisabledAuthClient: AuthProviding {
     func signUp(email: String, password: String) async throws -> AppAccount { throw AuthError.unknown("Sign-in isn't configured yet.") }
     func signIn(email: String, password: String) async throws -> AppAccount { throw AuthError.unknown("Sign-in isn't configured yet.") }
     func signOut() async {}
+    func clearLocalSession() async {}
     func deleteAccount() async throws { throw AuthError.unknown("Account deletion isn't configured yet.") }
 }
 
@@ -156,6 +162,13 @@ final class SupabaseAuthClient: AuthProviding {
     func signOut() async {
         try? await client.signOut()
         AppLog.app.info("Signed out")
+    }
+
+    func clearLocalSession() async {
+        // `.local` scope removes the stored session without revoking it on the
+        // server, so this can't stall on a missing/slow network at launch.
+        try? await client.signOut(scope: .local)
+        AppLog.app.info("Cleared local session (reinstall reset)")
     }
 
     /// Calls the `delete-account` Edge Function with the user's own access token.

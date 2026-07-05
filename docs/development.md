@@ -204,8 +204,15 @@ identity on top.
 See `docs/auth-setup.md` for the one-time external setup (Supabase project,
 Apple Developer capability, Google Cloud OAuth client).
 
-- **Apple** — native `ASAuthorizationAppleIDProvider` / `SignInWithAppleButton`
-  → Supabase's `signInWithIdToken`. No Supabase-side Apple config needed.
+- **Apple** — native `ASAuthorizationAppleIDProvider` (presented programmatically,
+  not via `SignInWithAppleButton`, so the button can be app-styled) →
+  Supabase's `signInWithIdToken`. No Supabase-side Apple config needed. The
+  `AppleSignInCoordinator` retains **both the `ASAuthorizationController` and
+  itself** until the delegate fires; `ASAuthorizationController` does not keep
+  itself alive between `performRequests()` and its callback, so without this an
+  already-authorized Apple ID (which skips the consent sheet and resolves fast)
+  could deallocate mid-flow and leave the button spinning forever with no
+  callback.
 - **Google** — Supabase's OAuth web flow (`ASWebAuthenticationSession`), not
   the Google SDK. Avoids a second SPM dependency and a
   `GoogleService-Info.plist`; opens a system sheet instead of app-switching to
@@ -223,6 +230,18 @@ Apple Developer capability, Google Cloud OAuth client).
   everything else (key `sulav.account.v1`), purely for optimistic UI paint
   before the async Keychain session-restore check (`SleepStore.restoreSession`)
   completes.
+- **Reset on reinstall**: iOS wipes the app container on delete but keeps
+  Keychain items, so a surviving Supabase session would otherwise silently sign
+  a user back in on a "fresh" install — dropping them onto the nameless
+  quick-setup instead of the welcome screen. `SleepStore.restoreSession` guards
+  on a launch marker (`sulav.hasLaunched.v1`, stored in the wiped container):
+  when it's absent (first launch after install), it clears the stale session
+  via `AuthProviding.clearLocalSession()` before restoring, then plants the
+  marker. `clearLocalSession` uses Supabase's `.local` sign-out scope — a
+  local-only Keychain clear with **no** server round-trip, so it can't stall
+  launch on a slow/missing network (unlike the global `signOut()` used for a
+  user-initiated sign-out). The marker is deliberately **not** cleared by
+  `SleepPersistence.reset()`: an in-app sign-out is not a reinstall.
 - **UI test AutoFill gotcha**: a real `SecureField` triggers iOS's native
   "Save Password?" sheet, which is a separate-process system overlay that
   covers the app and can't be reliably dismissed via
