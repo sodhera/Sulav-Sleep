@@ -675,15 +675,20 @@ private struct InlineAccessoryView: View {
 
 /// The 7-night rhythm: duration bars against a target hairline. The latest
 /// night is full-strength; earlier nights recede slightly, so "how did I do
-/// last night" reads first and the week reads second.
+/// last night" reads first and the week reads second. Each bar carries the
+/// hours slept that night as a small label riding its top.
 private struct SleepBars: View {
     let nights: [WidgetNight]
     let target: Int
     let height: CGFloat
     var showWeekdays: Bool = false
 
+    /// Vertical room reserved for the hour label above the tallest bar.
+    private let labelBand: CGFloat = 13
+
     var body: some View {
         let maxMinutes = max(target, nights.map(\.durationMinutes).max() ?? target)
+        let barArea = height - labelBand
         let targetFraction = CGFloat(target) / CGFloat(maxMinutes)
 
         VStack(spacing: 4) {
@@ -696,17 +701,26 @@ private struct SleepBars: View {
                 } else {
                     ForEach(Array(nights.enumerated()), id: \.element.id) { index, night in
                         let frac = max(0.08, CGFloat(night.durationMinutes) / CGFloat(maxMinutes))
-                        Capsule()
-                            .fill(
-                                LinearGradient(
-                                    colors: [SleepColor.gold, SleepColor.amber],
-                                    startPoint: .top, endPoint: .bottom
+                        let isLatest = index == nights.count - 1
+                        VStack(spacing: 3) {
+                            Text(hoursLabel(night.durationMinutes))
+                                .font(SleepFont.label(9))
+                                .foregroundStyle(isLatest ? SleepColor.dim : SleepColor.muted)
+                                .monospacedDigit()
+                                .minimumScaleFactor(0.7)
+                                .lineLimit(1)
+                            Capsule()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [SleepColor.gold, SleepColor.amber],
+                                        startPoint: .top, endPoint: .bottom
+                                    )
                                 )
-                            )
-                            .opacity(index == nights.count - 1 ? 1 : 0.62)
-                            .frame(height: height * frac)
-                            .frame(maxWidth: .infinity, alignment: .bottom)
-                            .widgetAccentable()
+                                .opacity(isLatest ? 1 : 0.62)
+                                .frame(height: barArea * frac)
+                                .widgetAccentable()
+                        }
+                        .frame(maxWidth: .infinity, alignment: .bottom)
                     }
                 }
             }
@@ -717,7 +731,7 @@ private struct SleepBars: View {
                     Rectangle()
                         .fill(SleepColor.ink.opacity(0.18))
                         .frame(height: 1)
-                        .offset(y: -height * targetFraction)
+                        .offset(y: -barArea * targetFraction)
                 }
             }
 
@@ -732,6 +746,15 @@ private struct SleepBars: View {
                 }
             }
         }
+    }
+
+    /// Compact hours for a bar top: "7.5h", "8h" — one decimal, no trailing .0.
+    private func hoursLabel(_ minutes: Int) -> String {
+        let hours = Double(minutes) / 60
+        let rounded = (hours * 10).rounded() / 10
+        return rounded == rounded.rounded()
+            ? "\(Int(rounded))h"
+            : String(format: "%.1fh", rounded)
     }
 }
 
