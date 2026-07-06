@@ -116,7 +116,13 @@ target can inject fakes without new hooks.
   onboarding). There is deliberately no "reset all data" action. Shared
   scaffolding lives here too: `SceneScreen` (night scene + readability scrim +
   transparent scroll, system nav bar hidden) and `SubpageHeader` (glass back
-  chevron + editorial title, same chrome as onboarding). Also hosts
+  chevron + editorial title, same chrome as onboarding). Because `SceneScreen`
+  hides the system nav bar, UIKit would normally disable the interactive
+  edge-swipe-back gesture (it's tied to the visible bar); a global
+  `UINavigationController: UIGestureRecognizerDelegate` extension in
+  `AppDelegate.swift` re-points the `interactivePopGestureRecognizer` delegate
+  so swipe-to-go-back works on every pushed page, while `gestureRecognizer`
+  `ShouldBegin` still refuses to fire at a stack root. Also hosts
   `HealthConnectCard` — the dismissable "connect Apple Health" prompt shown when
   `store.shouldPromptHealthConnect` (available, not connected, not waved off).
   This is where Health is offered now that onboarding no longer asks; "Connect"
@@ -204,6 +210,24 @@ identity on top.
 See `docs/auth-setup.md` for the one-time external setup (Supabase project,
 Apple Developer capability, Google Cloud OAuth client).
 
+- **Reusing an already-registered email/identity on the sign-up path**: Apple
+  and Google don't distinguish sign-up from sign-in server-side —
+  `signInWithIdToken`/`signInWithOAuth` find-or-create by provider identity, so
+  reusing an existing Apple/Google account on "Get started" silently signs the
+  user into their *existing* account instead of erroring. `SupabaseAuthClient`
+  detects this (`AuthResult.isNewAccount`, comparing the Supabase user's
+  `createdAt`/`lastSignInAt` — GoTrue has no explicit flag for this grant type)
+  and `OnboardingQuestionsView` discards the just-answered questionnaire in
+  that case rather than overwriting the original profile with it
+  (`onExistingAccountNeedsSetup`, `SleepStore.lastSignInWasNewAccount`). If the
+  device has no local profile at all (fresh device/reinstall), it falls back to
+  the same no-account-step quick setup used on the sign-in path, by remounting
+  `OnboardingQuestionsView` (`OnboardingGateView`'s `questionsInstanceID`).
+  Manual email/password can't do this silently — a duplicate `signUp` either
+  gets Supabase's no-session anti-enumeration response or an explicit
+  `user_already_exists` error, never a session, so the answers are already
+  discarded there with no extra handling needed; the user has to sign in with
+  their real password instead.
 - **Apple** — native `ASAuthorizationAppleIDProvider` (presented programmatically,
   not via `SignInWithAppleButton`, so the button can be app-styled) →
   Supabase's `signInWithIdToken`. No Supabase-side Apple config needed. The
