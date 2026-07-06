@@ -219,15 +219,13 @@ struct BlockedAppsPreview: View {
             glyphRow(
                 icon: "iphone.slash",
                 iconColor: SleepColor.muted,
-                title: "Not available here",
-                subtitle: "App blocking works on a real iPhone."
+                title: "Needs a real iPhone"
             )
         } else if !store.lockdownEnabled || !hasSelection {
             glyphRow(
                 icon: "lock.fill",
                 iconColor: SleepColor.amber,
-                title: "Choose your blocked apps",
-                subtitle: "Pick which apps pause while you sleep."
+                title: "Choose apps to block"
             )
         } else {
             VStack(alignment: .leading, spacing: SleepSpacing.md) {
@@ -249,16 +247,16 @@ struct BlockedAppsPreview: View {
                     }
                 }
 
-                Text("Lock when you start sleep.")
+                Text("Lock when you sleep")
                     .font(SleepFont.body(13))
                     .foregroundStyle(SleepColor.muted)
             }
         }
     }
 
-    /// Shared no-selection layout: a warm glyph in a soft circle beside a
-    /// title + one-line explanation, echoing `HealthConnectCard`.
-    private func glyphRow(icon: String, iconColor: Color, title: String, subtitle: String) -> some View {
+    /// Shared no-selection layout: a warm glyph in a soft circle beside one
+    /// short line — no explanatory copy; the row itself is the invitation.
+    private func glyphRow(icon: String, iconColor: Color, title: String) -> some View {
         HStack(spacing: SleepSpacing.md) {
             Image(systemName: icon)
                 .font(.system(size: 16, weight: .medium))
@@ -266,15 +264,9 @@ struct BlockedAppsPreview: View {
                 .frame(width: 40, height: 40)
                 .background { Circle().fill(SleepColor.glassWarm) }
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(SleepFont.title(16))
-                    .foregroundStyle(SleepColor.ink)
-                Text(subtitle)
-                    .font(SleepFont.body(13))
-                    .foregroundStyle(SleepColor.dim)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            Text(title)
+                .font(SleepFont.title(16))
+                .foregroundStyle(SleepColor.ink)
         }
     }
 }

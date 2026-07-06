@@ -104,42 +104,51 @@ hero moments. Small-caps section labels use open `.tracking`.
 
 Two tabs, each with exactly one job:
 
-- **Home — go to bed.** Greeting, bedtime countdown, Sleep Now, last night's
-  duration/score/streak. Nothing else: no settings affordance, no data dumps.
-  The screen someone sees at 11pm must not offer anything to fiddle with.
-  The greeting is an editorial small-caps kicker over the hero name — the same
-  kicker → title chrome as onboarding. The countdown is the screen's
-  instrument: hero numerals, with a quiet one-line `bedtime – wake` readout
-  beneath so the number stays anchored to the actual plan. For a few hours
-  after bedtime passes, the numerals give way to an amber "Past bedtime — wind
-  down" line (mirroring the small widget) instead of counting 20-odd hours to
-  *tomorrow's* bedtime. With no history the last-night summary renders nothing
-  at all — no hairline, no empty-state copy; the pixel scene carries the lower
-  half of the screen.
-  Tapping "Sleep Now" does *not* start sleep immediately. Instead, the button
-  and last-night summary transition to a **confirmation panel** showing:
-  (1) which apps will be blocked during sleep, (2) the estimated sleep
-  duration if the user sleeps now and wakes at their configured time, and
-  (3) an iPhone-style **slide-to-sleep** capsule. Sliding the knob across
-  the full track starts the sleep session. A "Cancel" link springs back to
-  the initial state. This two-step flow makes the commitment deliberate and
-  gives the user a final review before locking their phone down.
+- **Home — go to bed.** A near-wordless bedside instrument that never
+  scrolls: no settings affordance, no data dumps, nothing to fiddle with at
+  11pm. One centered column: an editorial small-caps greeting kicker over the
+  hero name (the same kicker → title chrome as onboarding), then the
+  **bedtime ring** — a 270° gauge arc (speedometer gap at the bottom) that
+  fills gold→amber as the waking day runs from wake time toward bedtime, a
+  glowing moon marker riding the arc tip, and the "Bedtime in" countdown
+  numerals in the center. For a few hours after bedtime the ring sits full
+  and amber and the numerals give way to a "Wind down" nudge (mirroring the
+  small widget) instead of counting 20-odd hours to *tomorrow's* bedtime.
+  Under the ring, two small non-interactive glass chips state tonight's
+  window (moon + bedtime, sun + wake) — read-only; the schedule is edited in
+  Settings. The Sleep Now capsule anchors low where a thumb rests, with last
+  night as one quiet centered strip beneath it (`Last night 7h 20m · 82 ·
+  🔥3`). With no history the strip renders nothing at all — no hairline, no
+  empty-state copy; the pixel scene carries the space.
+  Tapping "Sleep Now" does *not* start sleep immediately — the whole screen
+  transitions to a **confirmation** that is deliberately near-wordless: a
+  "Tonight" kicker, one hero gold number (the sleep you'd get sliding now),
+  a one-line `of sleep · wake 6:30 AM` sub, a single compact glass row for
+  the lockdown (lock glyph + the app icons themselves — icons over words; an
+  open lock + "No apps blocked tonight" otherwise), and the iPhone-style
+  **slide-to-sleep** capsule. Sliding the knob across the full track starts
+  the session; "Cancel" springs back. The slide gesture is what makes the
+  commitment deliberate — the screen doesn't need paragraphs on top of it.
 - **Profile — everything about you.** Identity (name only, display-only — no
   pencil, no email; both are edited/shown in Settings so the body stays
-  read-only), a tappable **"Blocked while you sleep"** block previewing the
-  locked-app icons (opens the Blocked apps screen for changes), and the sleep
-  record (weekly chart, averages, recent nights, an "All nights" page once
-  history grows). A gear in the top-right opens Settings; the body itself stays
-  a clean identity + record, with no configuration mixed in.
+  read-only), then a **stat band** straight under the name — Avg sleep, Avg
+  score, Streak as three big numerals over tiny labels, the dashboard read of
+  the record — then the tappable **"Blocked while you sleep"** block
+  previewing the locked-app icons (opens the Blocked apps screen for
+  changes), and the sleep record (weekly chart, recent nights, an "All
+  nights" page once history grows). A gear in the top-right opens Settings;
+  the body itself stays a clean identity + record, with no configuration
+  mixed in.
   The blocked block is a section label over an **interactive glass row** —
   containers are reserved for tappable controls, and the glass is what says
   "you can press this"; plain floating text read as static copy. Before any
-  apps are chosen it shows a warm lock glyph in a soft circle with a title +
-  one-line invitation (the `HealthConnectCard` glyph-row pattern); with a
-  selection it previews the app icons. Empty states across Profile use that
-  same glyph-row pattern (the sleep record opens with a moon-and-stars glyph
-  and "No nights yet") — composed and warm, but never ghost charts or sample
-  numbers: honest data only.
+  apps are chosen it shows a warm lock glyph in a soft circle beside one
+  short line ("Choose apps to block" — no explanatory copy; the row itself
+  is the invitation); with a selection it previews the app icons. Empty
+  states across Profile use that same glyph-row pattern (the sleep record
+  opens with a moon-and-stars glyph and "No nights yet / Your record starts
+  tonight.") — composed and warm, but never ghost charts or sample numbers:
+  honest data only.
 
 Settings live in a **collapsible full-height sheet** opened from the Profile
 gear — presented at the `.large` detent with a drag indicator, so it rises as a

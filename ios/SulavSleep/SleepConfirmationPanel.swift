@@ -1,9 +1,12 @@
 import SwiftUI
 import FamilyControls
 
-// Confirmation panel shown after tapping "Sleep Now". Replaces the button and
-// last-night summary with a blocked-apps preview, estimated sleep duration,
-// and an iPhone-style slide-to-sleep gesture so the commitment is deliberate.
+// Confirmation shown after tapping "Sleep Now" — it takes over the whole Home
+// composition. Deliberately near-wordless: a kicker, one hero gold number (the
+// sleep you'd get sliding now), a one-line sub anchoring it to the wake time,
+// a single compact glass row for the lockdown, and the slide-to-sleep capsule.
+// The slide gesture is what makes the commitment deliberate; the screen
+// doesn't need paragraphs on top of it.
 
 struct SleepConfirmationPanel: View {
     var store: SleepStore
@@ -22,24 +25,32 @@ struct SleepConfirmationPanel: View {
     }
 
     var body: some View {
-        VStack(spacing: SleepSpacing.xxl) {
-            // — Blocked apps section —
-            blockedAppsSection
+        VStack(spacing: 0) {
+            Spacer(minLength: SleepSpacing.huge)
 
-            Rectangle().fill(SleepColor.hairline).frame(height: 1)
+            // — The one number that matters tonight —
+            VStack(spacing: SleepSpacing.sm) {
+                Text("Tonight").sectionLabel()
+                Text(SleepFormatting.duration(estimatedMinutes))
+                    .font(SleepFont.hero(52))
+                    .foregroundStyle(SleepColor.gold)
+                    .monospacedDigit()
+                Text("of sleep · wake \(SleepFormatting.clock(profile.wakeTime))")
+                    .font(SleepFont.body(14))
+                    .foregroundStyle(SleepColor.muted)
+                    .monospacedDigit()
+            }
 
-            // — Sleep duration estimate —
-            sleepEstimateSection
+            lockdownRow
+                .padding(.top, SleepSpacing.huge)
 
-            Spacer().frame(height: SleepSpacing.sm)
+            Spacer(minLength: SleepSpacing.huge)
 
-            // — Slide to sleep —
             SlideToSleepButton {
                 Haptics.soft()
                 store.startSleep()
             }
 
-            // — Cancel —
             Button {
                 Haptics.soft()
                 onCancel()
@@ -50,86 +61,54 @@ struct SleepConfirmationPanel: View {
                     .frame(maxWidth: .infinity, minHeight: 44)
             }
             .buttonStyle(.plain)
+            .padding(.top, SleepSpacing.sm)
+
+            Spacer().frame(height: SleepSpacing.xl)
         }
     }
 
-    // MARK: - Blocked apps
+    // MARK: - Lockdown row
 
+    /// One compact glass line: a lock glyph and, when blocking, the app icons
+    /// themselves. Icons over words.
     @ViewBuilder
-    private var blockedAppsSection: some View {
+    private var lockdownRow: some View {
         let appTokens = Array(selection.applicationTokens)
         let catTokens = Array(selection.categoryTokens)
-        let hasApps = !appTokens.isEmpty || !catTokens.isEmpty
-        let lockdownOn = store.lockdownEnabled
+        let isBlocking = store.screenTimeState != .unavailable
+            && store.lockdownEnabled
+            && (!appTokens.isEmpty || !catTokens.isEmpty)
 
-        VStack(alignment: .leading, spacing: SleepSpacing.md) {
-            Text("Blocked while you sleep").sectionLabel()
+        HStack(spacing: SleepSpacing.md) {
+            Image(systemName: isBlocking ? "lock.fill" : "lock.open")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(isBlocking ? SleepColor.amber : SleepColor.muted)
 
-            if store.screenTimeState == .unavailable {
-                Text("App blocking is available on a real device.")
-                    .font(SleepFont.body(14))
-                    .foregroundStyle(SleepColor.muted)
-            } else if !lockdownOn || !hasApps {
-                Text("No apps will be blocked. You can choose apps to block in your profile settings.")
-                    .font(SleepFont.body(14))
-                    .foregroundStyle(SleepColor.muted)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else {
-                VStack(alignment: .leading, spacing: SleepSpacing.sm) {
-                    Text("These apps will lock until you wake up:")
-                        .font(SleepFont.body(14))
-                        .foregroundStyle(SleepColor.dim)
+            Text(isBlocking ? "Locked until you wake" : "No apps blocked tonight")
+                .font(SleepFont.body(14))
+                .foregroundStyle(SleepColor.dim)
 
-                    HStack(spacing: SleepSpacing.md) {
-                        ForEach(appTokens.prefix(6), id: \.self) { token in
-                            Label(token)
-                                .labelStyle(.iconOnly)
-                                .font(.system(size: 30))
-                                .frame(width: 34, height: 34)
-                        }
-                        let overflow = max(0, appTokens.count - 6)
-                        if catTokens.count > 0 || overflow > 0 {
-                            Text("+more")
-                                .font(SleepFont.body(15))
-                                .foregroundStyle(SleepColor.muted)
-                        }
-                        Spacer()
+            Spacer(minLength: SleepSpacing.md)
+
+            if isBlocking {
+                HStack(spacing: SleepSpacing.xs) {
+                    ForEach(appTokens.prefix(4), id: \.self) { token in
+                        Label(token)
+                            .labelStyle(.iconOnly)
+                            .font(.system(size: 20))
+                            .frame(width: 22, height: 22)
+                    }
+                    if !catTokens.isEmpty || appTokens.count > 4 {
+                        Text("+")
+                            .font(SleepFont.label(14))
+                            .foregroundStyle(SleepColor.muted)
                     }
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    // MARK: - Sleep estimate
-
-    @ViewBuilder
-    private var sleepEstimateSection: some View {
-        let wakeTimeString = SleepFormatting.clock(profile.wakeTime)
-        let durationString = SleepFormatting.duration(estimatedMinutes)
-
-        VStack(alignment: .leading, spacing: SleepSpacing.sm) {
-            Text("Sleep estimate").sectionLabel()
-
-            (Text("If you sleep now and wake at ")
-                .foregroundStyle(SleepColor.dim)
-            + Text(wakeTimeString)
-                .foregroundStyle(SleepColor.amber)
-            + Text(", you'll get")
-                .foregroundStyle(SleepColor.dim))
-                .font(SleepFont.body(15))
-                .fixedSize(horizontal: false, vertical: true)
-
-            Text(durationString)
-                .font(SleepFont.hero(36))
-                .foregroundStyle(SleepColor.gold)
-                .monospacedDigit()
-
-            Text("of sleep")
-                .font(SleepFont.body(15))
-                .foregroundStyle(SleepColor.dim)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, SleepSpacing.lg)
+        .frame(minHeight: 52)
+        .liquidGlass(cornerRadius: SleepRadius.lg)
     }
 }
 

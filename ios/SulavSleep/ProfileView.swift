@@ -99,6 +99,13 @@ private struct ProfileRootScreen: View {
         SceneScreen {
             identity
 
+            // Dashboard band: the three numbers that describe your sleep at a
+            // glance, big numerals over tiny labels, straight under the name.
+            if !sessions.isEmpty {
+                statBand
+                    .padding(.top, SleepSpacing.xxl)
+            }
+
             if store.shouldPromptHealthConnect {
                 HealthConnectCard(
                     onConnect: { Task { await store.connectHealth() } },
@@ -172,6 +179,17 @@ private struct ProfileRootScreen: View {
         return sessions.reduce(0) { $0 + $1.score } / sessions.count
     }
 
+    private var statBand: some View {
+        HStack(alignment: .top, spacing: 0) {
+            StatBlock(label: "Avg sleep", value: SleepFormatting.duration(averageDuration))
+                .frame(maxWidth: .infinity, alignment: .leading)
+            StatBlock(label: "Avg score", value: "\(averageScore)")
+                .frame(maxWidth: .infinity, alignment: .leading)
+            StatBlock(label: "Streak", value: "\(store.onTrackStreak)")
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
     @ViewBuilder
     private var sleepSection: some View {
         VStack(alignment: .leading, spacing: SleepSpacing.md) {
@@ -192,11 +210,9 @@ private struct ProfileRootScreen: View {
                         Text("No nights yet")
                             .font(SleepFont.title(16))
                             .foregroundStyle(SleepColor.ink)
-                        Text("Tap Sleep Now tonight and your record starts here.")
+                        Text("Your record starts tonight.")
                             .font(SleepFont.body(13))
                             .foregroundStyle(SleepColor.dim)
-                            .lineSpacing(3)
-                            .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(.top, 2)
                 }
@@ -213,12 +229,6 @@ private struct ProfileRootScreen: View {
                             .frame(maxWidth: .infinity)
                     }
                 }
-
-                HStack(spacing: SleepSpacing.huge) {
-                    StatBlock(label: "Avg. duration", value: SleepFormatting.duration(averageDuration))
-                    StatBlock(label: "Avg. score", value: "\(averageScore)")
-                }
-                .padding(.top, SleepSpacing.xl)
 
                 historyList
                     .padding(.top, SleepSpacing.xl)
