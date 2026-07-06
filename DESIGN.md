@@ -225,10 +225,11 @@ Widgets live in `SulavSleepWidget.swift` and split one job across surfaces:
   mirrors `SleepModeView`: true black container, ember timer, nothing else.
 - **Medium — the morning glance.** Last night's score as the hero numeral
   (colored by the score rules below), duration, streak/average, and the
-  7-night bar rhythm on the right.
+  7-night bar rhythm on the right, with a Sleep Now capsule anchoring the
+  left column.
 - **Large — both.** Stats + full-width bars with weekday initials, then a
   hairline and a single "tonight" footer line (bedtime countdown or asleep
-  timer).
+  timer) with the Sleep Now capsule on its trailing side.
 - **Lock-screen accessories** (circular / rectangular / inline) render in the
   system's vibrant material, so they use default foregrounds — no app palette.
   Circular is a score gauge (or a moon when asleep / no data); rectangular and
@@ -248,16 +249,20 @@ Rules:
   Each bar carries the hours slept that night as a 9pt navy-ink label set
   inside its *bottom* (the amber-fill/navy-ink pairing from the primary
   button) — bottom-anchored so every label sits on one shared baseline no
-  matter the bar heights: "7.5h" on the large widget, unit-less "7.5" in the
+  matter the bar heights: "7.5h" on the large widget, whole-number "7" in the
   medium widget's narrower columns. Bars too short to hold the label drop it
   rather than overflow.
 - Honest data only. A placed widget with no history shows "Log a night" /
   "Set a schedule" — never fake numbers. The one exception is the
   widget-gallery preview (`context.isPreview`), which shows sample content so
   the gallery isn't a blank tile.
-- Display-only: tapping opens the app. No `widgetURL` — `sleepblock://sleep`
-  *starts* a session, and a stray home-screen tap must never do that. Starting
-  sleep keeps the deliberate slide-to-sleep gesture in-app.
+- One action only: the **Sleep Now capsule** on medium/large (primary-button
+  style — amber→gold gradient, navy ink, moon glyph) rides the
+  `sleepblock://sleep` deep link, so a deliberate tap opens the app, starts
+  the session, and lands on the sleep screen. It hides while asleep (an ember
+  "Asleep" timer line takes its place). The widget *body* carries no
+  `widgetURL` — a stray tap just opens the app and must never start a
+  session.
 - Timers and countdowns use system-driven `Text(_, style:)` so they tick
   without timeline churn; timeline entries exist only to flip states at the
   bedtime and wake boundaries.

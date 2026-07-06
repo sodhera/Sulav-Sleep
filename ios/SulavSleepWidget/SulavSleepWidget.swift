@@ -14,8 +14,10 @@ import SwiftUI
 // change. Real data only — an empty summary renders an honest "log a night" /
 // "set a schedule" state. The one exception is the widget-gallery preview,
 // which shows sample content so the user can see what they're adding.
-// Display-only: tapping opens the app (no widgetURL — `sleepblock://sleep`
-// would *start* a session, which a stray tap must never do).
+// Tapping the widget body opens the app; the only deep link is the explicit
+// "Sleep Now" capsule on medium/large (`SleepNowButton`), because
+// `sleepblock://sleep` *starts* a session and a stray body tap must never
+// do that.
 
 struct SleepEntry: TimelineEntry {
     let date: Date
@@ -87,6 +89,11 @@ enum TonightState {
     case pastBedtime(bedtime: Date) // inside the window, not asleep
     case noSchedule
 
+    var isAsleep: Bool {
+        if case .asleep = self { return true }
+        return false
+    }
+
     static func from(_ summary: SleepWidgetSummary, at now: Date) -> TonightState {
         if let since = summary.asleepSince { return .asleep(since: since) }
         guard let bed = summary.bedtimeMinutes else { return .noSchedule }
@@ -152,7 +159,7 @@ private struct SleepWidgetView: View {
             LargeSleepView(summary: entry.summary, tonight: tonight)
                 .containerBackground(for: .widget) { NightBackground(tonight: tonight) }
         default:
-            MediumSleepView(summary: entry.summary)
+            MediumSleepView(summary: entry.summary, tonight: tonight)
                 .containerBackground(for: .widget) { NightBackground(tonight: nil) }
         }
     }
@@ -321,10 +328,11 @@ private struct AsleepView: View {
 
 private struct MediumSleepView: View {
     let summary: SleepWidgetSummary
+    let tonight: TonightState
 
     var body: some View {
         if summary.isEmpty {
-            EmptyStatsView()
+            EmptyStatsView(showSleepButton: !tonight.isAsleep)
         } else {
             HStack(alignment: .top, spacing: SleepSpacing.lg) {
                 VStack(alignment: .leading, spacing: 3) {
@@ -335,7 +343,7 @@ private struct MediumSleepView: View {
                     if let score = summary.latestScore {
                         HStack(alignment: .firstTextBaseline, spacing: 5) {
                             Text("\(score)")
-                                .font(SleepFont.hero(36))
+                                .font(SleepFont.hero(34))
                                 .foregroundStyle(scoreColor(score))
                                 .monospacedDigit()
                                 .widgetAccentable()
@@ -346,8 +354,6 @@ private struct MediumSleepView: View {
                             }
                         }
                     }
-
-                    Spacer(minLength: 2)
 
                     if summary.streak > 0 {
                         HStack(spacing: 4) {
@@ -363,11 +369,19 @@ private struct MediumSleepView: View {
                             .font(SleepFont.body(12))
                             .foregroundStyle(SleepColor.muted)
                     }
+
+                    Spacer(minLength: 4)
+
+                    if case .asleep(let since) = tonight {
+                        AsleepLine(since: since)
+                    } else {
+                        SleepNowButton()
+                    }
                 }
 
                 Spacer(minLength: 0)
 
-                SleepBars(nights: summary.nights, target: summary.targetMinutes, height: 66, hourUnit: false)
+                SleepBars(nights: summary.nights, target: summary.targetMinutes, height: 66, wholeHours: true)
                     .frame(maxWidth: 168)
             }
         }
@@ -380,6 +394,8 @@ private struct MediumSleepView: View {
 }
 
 private struct EmptyStatsView: View {
+    let showSleepButton: Bool
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 5) {
@@ -398,6 +414,10 @@ private struct EmptyStatsView: View {
             Text("Log a night to see your rhythm.")
                 .font(SleepFont.body(12))
                 .foregroundStyle(SleepColor.muted)
+            if showSleepButton {
+                Spacer(minLength: 4)
+                SleepNowButton()
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
@@ -471,7 +491,12 @@ private struct LargeSleepView: View {
                 .fill(SleepColor.hairline)
                 .frame(height: 1)
 
-            TonightFooter(tonight: tonight)
+            HStack(spacing: SleepSpacing.sm) {
+                TonightFooter(tonight: tonight)
+                if !tonight.isAsleep {
+                    SleepNowButton()
+                }
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
@@ -673,6 +698,56 @@ private struct InlineAccessoryView: View {
 
 // MARK: - Shared pieces
 
+/// The widget's one action: a deliberate, clearly-labeled "Sleep Now" capsule
+/// in the app's primary-button style. It rides the `sleepblock://sleep` deep
+/// link (same path as the shield action extension): the app opens, starts the
+/// session, and lands on the immersive sleep screen. Only this button carries
+/// the URL — tapping anywhere else on the widget just opens the app.
+private struct SleepNowButton: View {
+    var body: some View {
+        Link(destination: URL(string: "sleepblock://sleep")!) {
+            HStack(spacing: 5) {
+                Image(systemName: "moon.fill")
+                    .font(.system(size: 10))
+                Text("Sleep Now")
+                    .font(SleepFont.label(12))
+            }
+            .foregroundStyle(SleepColor.navy)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(
+                Capsule().fill(
+                    LinearGradient(
+                        colors: [SleepColor.amber, SleepColor.gold],
+                        startPoint: .leading, endPoint: .trailing
+                    )
+                )
+            )
+        }
+        .widgetAccentable()
+    }
+}
+
+/// Shown in the button's place while a session is running.
+private struct AsleepLine: View {
+    let since: Date
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "moon.stars.fill")
+                .font(.system(size: 11))
+                .foregroundStyle(SleepColor.ember)
+            Text("Asleep")
+                .font(SleepFont.body(12))
+                .foregroundStyle(SleepColor.dim)
+            Text(since, style: .timer)
+                .font(SleepFont.label(12))
+                .foregroundStyle(SleepColor.ember)
+                .monospacedDigit()
+        }
+    }
+}
+
 /// The 7-night rhythm: duration bars against a target hairline. The latest
 /// night is full-strength; earlier nights recede slightly, so "how did I do
 /// last night" reads first and the week reads second. Each bar carries the
@@ -684,9 +759,9 @@ private struct SleepBars: View {
     let target: Int
     let height: CGFloat
     var showWeekdays: Bool = false
-    /// Whether the in-bar label carries the "h" unit ("7.5h" vs "7.5").
-    /// The medium widget's narrow columns go without it.
-    var hourUnit: Bool = true
+    /// Whole hours, no unit ("7") for the medium widget's narrow columns;
+    /// the large widget keeps one decimal + unit ("7.5h").
+    var wholeHours: Bool = false
 
     var body: some View {
         let maxMinutes = max(target, nights.map(\.durationMinutes).max() ?? target)
@@ -756,15 +831,17 @@ private struct SleepBars: View {
         }
     }
 
-    /// Compact hours for a bar: "7.5h"/"8h" (or unit-less "7.5"/"8") — one
-    /// decimal, no trailing .0.
+    /// Hours for a bar: whole-number "7" when `wholeHours`, else "7.5h"
+    /// (one decimal, no trailing .0).
     private func hoursLabel(_ minutes: Int) -> String {
         let hours = Double(minutes) / 60
+        if wholeHours {
+            return "\(Int(hours.rounded()))"
+        }
         let rounded = (hours * 10).rounded() / 10
-        let number = rounded == rounded.rounded()
-            ? "\(Int(rounded))"
-            : String(format: "%.1f", rounded)
-        return hourUnit ? "\(number)h" : number
+        return rounded == rounded.rounded()
+            ? "\(Int(rounded))h"
+            : String(format: "%.1fh", rounded)
     }
 }
 
