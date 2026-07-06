@@ -245,8 +245,10 @@ Rules:
   always in a fixed position so the layout survives a night-shift tint.
 - Bars: gold→amber capsules against a faint target hairline; the latest night
   is full-strength, earlier nights recede to ~60% so "last night" reads first.
-  Each bar carries the hours slept that night ("7.5h") as a 9pt muted label
-  riding its top — the latest night's label steps up to `dim`.
+  Each bar carries the hours slept that night as a 9pt navy-ink label set
+  *inside* its top (the amber-fill/navy-ink pairing from the primary button):
+  "7.5h" on the large widget, unit-less "7.5" in the medium widget's narrower
+  columns. Bars too short to hold the label drop it rather than overflow.
 - Honest data only. A placed widget with no history shows "Log a night" /
   "Set a schedule" — never fake numbers. The one exception is the
   widget-gallery preview (`context.isPreview`), which shows sample content so
