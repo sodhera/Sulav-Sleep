@@ -75,9 +75,7 @@ struct SleepConfirmationPanel: View {
     private var lockdownRow: some View {
         let appTokens = Array(selection.applicationTokens)
         let catTokens = Array(selection.categoryTokens)
-        let isBlocking = store.screenTimeState != .unavailable
-            && store.lockdownEnabled
-            && (!appTokens.isEmpty || !catTokens.isEmpty)
+        let isBlocking = store.willLockDuringSleep
 
         HStack(spacing: SleepSpacing.md) {
             Image(systemName: isBlocking ? "lock.fill" : "lock.open")

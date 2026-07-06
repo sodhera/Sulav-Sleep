@@ -168,11 +168,23 @@ Apple's own `FamilyActivityPicker`.
 
 The **Blocked apps** page follows the same grammar: a one-line supporting
 sentence under the title ("Locked from Sleep Now until you wake. Calls always
-work."), then a single `GlassGroup` — Block-while-I-sleep toggle, Apps row
-(value "None"/"N chosen" → `FamilyActivityPicker`), and the "Unlock anyway
-after" safety stepper with its amber hour value. The chosen apps render below
-the group as a system-drawn **icon grid** (tokens are opaque, Apple draws
-them) — the user sees exactly what locks, without a text list.
+work."), then a single `GlassGroup` — an Apps row (value "None"/"N chosen" →
+`FamilyActivityPicker`) and the "Unlock anyway after" safety stepper with its
+amber hour value. The chosen apps render below the group as a system-drawn
+**icon grid** (tokens are opaque, Apple draws them) — the user sees exactly
+what locks, without a text list.
+
+There is deliberately **no enable/disable toggle**. Choosing apps *is* the
+commitment: whatever is selected always locks during sleep, and the only way
+to turn blocking off is to remove the apps (clearing the selection tears down
+the scheduled shield). A separate switch would be a second decision that just
+restates the first, and a picked-but-disabled state invites the exact
+"technically armed, actually off" confusion the app avoids. Screen Time
+authorization is requested lazily — the first tap on the Apps row — because
+the picker is useless without it and a granted request is what arms the
+lockdown. `SleepStore.willLockDuringSleep` (authorized *and* at least one app
+chosen) is the single source of truth for "are apps blocked" across Home, the
+confirmation panel, and the profile preview.
 
 There is deliberately **no "reset all data" action**. A destructive escape
 hatch sitting among everyday settings invites disaster and signals distrust of

@@ -22,6 +22,12 @@ final class SleepStore {
     var isAuthReady = false
     var authErrorMessage: String?
     var isAuthenticating = false
+    /// Whether the most recent successful sign-in created a brand-new account,
+    /// vs. matching an existing one (e.g. Apple/Google reusing an already-
+    /// registered identity). Read once, right after `isAuthenticated` flips, by
+    /// the onboarding flow to decide whether to keep or discard the
+    /// questionnaire answers just collected. See `OnboardingQuestionsView`.
+    var lastSignInWasNewAccount = false
     /// Revision counter bumped every time the lockdown app selection changes.
     /// Views that read `appSelectionData()` also read this, which creates an
     /// `@Observable` tracking dependency so SwiftUI re-renders on changes.
@@ -87,8 +93,19 @@ final class SleepStore {
     }
 
     var screenTimeState: ScreenTimeState { screenTime.authorizationState() }
+    /// True once Screen Time authorization has been granted. There is no
+    /// separate user-facing "blocking on/off" switch — picking apps is the
+    /// commitment — so this only tracks whether we're *allowed* to shield.
     var lockdownEnabled: Bool { profile?.lockdownEnabled == true }
     var lockdownMaxHours: Int { profile?.lockdownMaxHours ?? 6 }
+
+    /// Whether tapping Sleep Now will actually shield anything tonight:
+    /// authorized *and* at least one app/category chosen. This is the single
+    /// source of truth for "are apps blocked" across Home, the confirmation
+    /// panel, and the profile preview.
+    var willLockDuringSleep: Bool {
+        lockdownEnabled && lockdownSelectionCount > 0
+    }
 
     // MARK: - Lifecycle
 
@@ -257,15 +274,16 @@ final class SleepStore {
     }
 
     @MainActor
-    private func performAuth(_ work: @escaping () async throws -> AppAccount) async {
+    private func performAuth(_ work: @escaping () async throws -> AuthResult) async {
         isAuthenticating = true
         authErrorMessage = nil
         defer { isAuthenticating = false }
         do {
-            let resolved = try await work()
-            account = resolved
-            persistAccount(resolved)
-            AppLog.store.info("Signed in (provider=\(resolved.provider.rawValue))")
+            let result = try await work()
+            account = result.account
+            lastSignInWasNewAccount = result.isNewAccount
+            persistAccount(result.account)
+            AppLog.store.info("Signed in (provider=\(result.account.provider.rawValue), new=\(result.isNewAccount))")
         } catch let error as AuthError {
             // Cancellation is a deliberate user action — show nothing.
             guard error != .cancelled else { return }
@@ -291,7 +309,7 @@ final class SleepStore {
         selectedTab = .home
         // Refresh the widget so it flips into the asleep state immediately.
         persist()
-        let shouldStartLockdown = profile?.lockdownEnabled == true
+        let shouldStartLockdown = willLockDuringSleep
         performAfterStateChange { [weak self] in
             guard let self else { return }
             if shouldStartLockdown { self.screenTime.startLockdown() }
@@ -448,7 +466,16 @@ final class SleepStore {
     func saveAppSelection(_ data: Data) {
         screenTime.saveSelection(data: data)
         appSelectionRevision += 1
-        if profile?.lockdownEnabled == true { rescheduleLockdown() }
+        guard profile?.lockdownEnabled == true else { return }
+        // Clearing every app is how the user turns blocking off now that there
+        // is no toggle: with nothing selected, tear down any scheduled shield
+        // rather than registering an empty (no-op but lingering) window.
+        if lockdownSelectionCount > 0 {
+            rescheduleLockdown()
+        } else {
+            screenTime.endLockdown()
+            screenTime.cancelScheduledLockdown()
+        }
     }
 
     /// Re-registers the scheduled bedtime->wake DeviceActivityMonitor window so
