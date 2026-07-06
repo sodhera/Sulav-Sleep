@@ -18,6 +18,14 @@ struct SleepWidgetSummary: Codable {
     var latestDurationMinutes: Int?
     var streak: Int
     var targetMinutes: Int
+    // Tonight's schedule + live state, so widgets can show a bedtime countdown
+    // and flip into the asleep look. All optional: absent for signed-out /
+    // pre-onboarding users and for summaries written before these existed
+    // (synthesized Codable uses decodeIfPresent for optionals, so the v1 key
+    // still decodes).
+    var bedtimeMinutes: Int?
+    var wakeMinutes: Int?
+    var asleepSince: Date?
     var updated: Date
 
     var isEmpty: Bool { nights.isEmpty }
@@ -25,7 +33,9 @@ struct SleepWidgetSummary: Codable {
     /// Empty state used before any real night exists (honest — no fake data).
     static let empty = SleepWidgetSummary(
         nights: [], latestScore: nil, latestDurationMinutes: nil,
-        streak: 0, targetMinutes: 480, updated: Date(timeIntervalSince1970: 0)
+        streak: 0, targetMinutes: 480,
+        bedtimeMinutes: nil, wakeMinutes: nil, asleepSince: nil,
+        updated: Date(timeIntervalSince1970: 0)
     )
 }
 

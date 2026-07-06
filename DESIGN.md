@@ -214,6 +214,48 @@ bouncy or reward-like. Haptics (`Haptics`) are gentle and sparing: a soft tap
 entering/leaving sleep and on nav, a success notification when a night is
 logged.
 
+## Widgets
+
+Widgets live in `SulavSleepWidget.swift` and split one job across surfaces:
+
+- **Small (home screen) — tonight.** A bedtime instrument, not a stats tile.
+  Three states: before bed (moon glyph, "BEDTIME" caps label, hero clock time,
+  a system-driven "in Xh Ym" countdown, and a quiet last-night line), past
+  bedtime (amber "Past bedtime — wind down"), and asleep. The asleep state
+  mirrors `SleepModeView`: true black container, ember timer, nothing else.
+- **Medium — the morning glance.** Last night's score as the hero numeral
+  (colored by the score rules below), duration, streak/average, and the
+  7-night bar rhythm on the right.
+- **Large — both.** Stats + full-width bars with weekday initials, then a
+  hairline and a single "tonight" footer line (bedtime countdown or asleep
+  timer).
+- **Lock-screen accessories** (circular / rectangular / inline) render in the
+  system's vibrant material, so they use default foregrounds — no app palette.
+  Circular is a score gauge (or a moon when asleep / no data); rectangular and
+  inline lead with tonight's state.
+
+Rules:
+
+- Background is the *minimal night gradient* — `skyTop → background` with a
+  ~10% amber floor glow. No pixel-art scene in widgets: at widget size the
+  skyline reads as noise and fights legibility, and the flat gradient survives
+  iOS dark/tinted home-screen rendering. Key glyphs and numerals are marked
+  `widgetAccentable` for tinted mode.
+- Score numerals keep the app's coloring: gold ≥ 80, ink 60–79, danger < 60 —
+  always in a fixed position so the layout survives a night-shift tint.
+- Bars: gold→amber capsules against a faint target hairline; the latest night
+  is full-strength, earlier nights recede to ~60% so "last night" reads first.
+- Honest data only. A placed widget with no history shows "Log a night" /
+  "Set a schedule" — never fake numbers. The one exception is the
+  widget-gallery preview (`context.isPreview`), which shows sample content so
+  the gallery isn't a blank tile.
+- Display-only: tapping opens the app. No `widgetURL` — `sleepblock://sleep`
+  *starts* a session, and a stray home-screen tap must never do that. Starting
+  sleep keeps the deliberate slide-to-sleep gesture in-app.
+- Timers and countdowns use system-driven `Text(_, style:)` so they tick
+  without timeline churn; timeline entries exist only to flip states at the
+  bedtime and wake boundaries.
+
 ## What to avoid
 
 - Purple, neon, cyberpunk or blue-heavy identity.

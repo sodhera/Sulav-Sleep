@@ -115,6 +115,9 @@ final class SleepStore {
             latestDurationMinutes: latestSession?.durationMinutes,
             streak: onTrackStreak,
             targetMinutes: targetMinutes,
+            bedtimeMinutes: profile?.bedtime,
+            wakeMinutes: profile?.wakeTime,
+            asleepSince: activeSession?.start,
             updated: Date()
         )
         SleepWidgetStore.save(summary)
@@ -286,7 +289,8 @@ final class SleepStore {
         let start = Date()
         activeSession = ActiveSleepSession(start: start)
         selectedTab = .home
-        persist(refreshWidget: false)
+        // Refresh the widget so it flips into the asleep state immediately.
+        persist()
         let shouldStartLockdown = profile?.lockdownEnabled == true
         performAfterStateChange { [weak self] in
             guard let self else { return }
@@ -300,7 +304,8 @@ final class SleepStore {
     /// it to peek or tapped Sleep Now by mistake.
     func cancelSleep() {
         activeSession = nil
-        persist(refreshWidget: false)
+        // Refresh the widget so it leaves the asleep state immediately.
+        persist()
         performAfterStateChange { [weak self] in
             guard let self else { return }
             self.screenTime.endLockdown()

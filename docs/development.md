@@ -283,11 +283,21 @@ Apple Developer capability, Google Cloud OAuth client).
 - `SulavSleepWidgetExtension` (WidgetKit) is embedded in the app and shares data
   via App Group `group.com.sulav.sleepblock`. `SleepWidgetShared.swift`
   (the summary types + read/write) is a member of both targets.
+- Families: home-screen small (tonight: bedtime countdown → past-bedtime →
+  asleep), medium (last score + 7-night bars), large (stats + tonight footer),
+  and lock-screen accessories (circular/rectangular/inline). See the "Widgets"
+  section of `DESIGN.md` for the visual rules.
+- `SleepWidgetSummary` carries `bedtimeMinutes`/`wakeMinutes`/`asleepSince` on
+  top of the history fields; all three are optionals, so summaries written
+  before they existed still decode (key stays `v1`). `SleepStore.startSleep()`
+  and `cancelSleep()` refresh the widget so the asleep state flips immediately.
+- The provider emits at most two entries (now + next bedtime) and relies on
+  system-driven `Text(_, style: .timer/.relative)` for ticking text; the app
+  pushes reloads on real changes.
 - `SleepStore` writes the summary and calls `WidgetCenter.reloadAllTimelines()`
-  on every history change — **except under tests**. WidgetKit reloads / App
-  Group writes stall the XCTest-monitored app launch, so `updateWidget()` is
-  guarded by `AppEnvironment.isTesting` (set for the unit-test host env and the
-  `-uitest-reset` UI-test arg). Real runs are unaffected.
+  on every history change (via `persist()` → `updateWidgetSoon()`). A historical
+  note: an `AppEnvironment.isTesting` guard used to skip this under XCTest; that
+  guard no longer exists in the code.
 
 ## Sleep lockdown build specifics
 
