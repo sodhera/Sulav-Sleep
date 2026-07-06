@@ -107,6 +107,15 @@ Two tabs, each with exactly one job:
 - **Home — go to bed.** Greeting, bedtime countdown, Sleep Now, last night's
   duration/score/streak. Nothing else: no settings affordance, no data dumps.
   The screen someone sees at 11pm must not offer anything to fiddle with.
+  The greeting is an editorial small-caps kicker over the hero name — the same
+  kicker → title chrome as onboarding. The countdown is the screen's
+  instrument: hero numerals, with a quiet one-line `bedtime – wake` readout
+  beneath so the number stays anchored to the actual plan. For a few hours
+  after bedtime passes, the numerals give way to an amber "Past bedtime — wind
+  down" line (mirroring the small widget) instead of counting 20-odd hours to
+  *tomorrow's* bedtime. With no history the last-night summary renders nothing
+  at all — no hairline, no empty-state copy; the pixel scene carries the lower
+  half of the screen.
   Tapping "Sleep Now" does *not* start sleep immediately. Instead, the button
   and last-night summary transition to a **confirmation panel** showing:
   (1) which apps will be blocked during sleep, (2) the estimated sleep
@@ -122,6 +131,15 @@ Two tabs, each with exactly one job:
   record (weekly chart, averages, recent nights, an "All nights" page once
   history grows). A gear in the top-right opens Settings; the body itself stays
   a clean identity + record, with no configuration mixed in.
+  The blocked block is a section label over an **interactive glass row** —
+  containers are reserved for tappable controls, and the glass is what says
+  "you can press this"; plain floating text read as static copy. Before any
+  apps are chosen it shows a warm lock glyph in a soft circle with a title +
+  one-line invitation (the `HealthConnectCard` glyph-row pattern); with a
+  selection it previews the app icons. Empty states across Profile use that
+  same glyph-row pattern (the sleep record opens with a moon-and-stars glyph
+  and "No nights yet") — composed and warm, but never ghost charts or sample
+  numbers: honest data only.
 
 Settings live in a **collapsible full-height sheet** opened from the Profile
 gear — presented at the `.large` detent with a drag indicator, so it rises as a

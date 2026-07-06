@@ -23,8 +23,10 @@ protocol ScreenTimeControlling {
     func requestAuthorization() async -> Bool
     func startLockdown()
     func endLockdown()
-    /// Schedules a DeviceActivityMonitor interval so the shield applies/clears
-    /// even if the app isn't foregrounded, capped at `maxHours`.
+    /// Schedules a DeviceActivityMonitor interval that only *clears* the shield
+    /// — at the scheduled wake time, or after `maxHours` — even if the app
+    /// isn't foregrounded. The shield itself is only ever applied by
+    /// `startLockdown()`, called when the user taps Sleep Now.
     func scheduleLockdown(bedtimeMinutes: Int, wakeMinutes: Int, maxHours: Int)
     func cancelScheduledLockdown()
     var hasSelection: Bool { get }
@@ -170,9 +172,12 @@ extension SleepStore {
 
 // MARK: - Blocked apps preview (Profile block)
 
-/// Compact, tappable lockdown summary for the Profile screen: a row of the
-/// chosen app icons (rendered by the system from opaque `ApplicationToken`s,
-/// which we can't inspect) with a chevron. The caller wraps it in a
+/// Compact, tappable lockdown summary for the Profile screen: a section label
+/// above an interactive glass row (containers are reserved for tappable
+/// controls, and this is one — the glass is what says "you can press this").
+/// With a selection it previews the chosen app icons (rendered by the system
+/// from opaque `ApplicationToken`s, which we can't inspect); before one it
+/// shows a warm lock glyph and an invitation. The caller wraps it in a
 /// NavigationLink to `BlockedAppsScreen` for the full picker + options. Lives
 /// here so FamilyControls stays out of the general view layer.
 struct BlockedAppsPreview: View {
@@ -188,37 +193,44 @@ struct BlockedAppsPreview: View {
         let hasSelection = !appTokens.isEmpty || !catTokens.isEmpty
 
         return VStack(alignment: .leading, spacing: SleepSpacing.md) {
-            HStack {
-                Text("Blocked while you sleep").sectionLabel()
-                Spacer()
+            Text("Blocked while you sleep").sectionLabel()
+
+            HStack(spacing: SleepSpacing.lg) {
+                content(appTokens: appTokens, catTokens: catTokens, hasSelection: hasSelection)
+                Spacer(minLength: SleepSpacing.sm)
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(SleepColor.faint)
             }
-
-            content(appTokens: appTokens, catTokens: catTokens, hasSelection: hasSelection)
+            .padding(SleepSpacing.lg)
+            .contentShape(RoundedRectangle(cornerRadius: SleepRadius.lg, style: .continuous))
+            .liquidGlass(cornerRadius: SleepRadius.lg, interactive: true)
+            .overlay {
+                RoundedRectangle(cornerRadius: SleepRadius.lg, style: .continuous)
+                    .stroke(SleepColor.border, lineWidth: 1)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .contentShape(Rectangle())
     }
 
     @ViewBuilder
     private func content(appTokens: [ApplicationToken], catTokens: [ActivityCategoryToken], hasSelection: Bool) -> some View {
         if store.screenTimeState == .unavailable {
-            Text("App blocking is available on a real iPhone.")
-                .font(SleepFont.body(14))
-                .foregroundStyle(SleepColor.muted)
+            glyphRow(
+                icon: "iphone.slash",
+                iconColor: SleepColor.muted,
+                title: "Not available here",
+                subtitle: "App blocking works on a real iPhone."
+            )
         } else if !store.lockdownEnabled || !hasSelection {
-            Text("No apps chosen yet — tap to pick which apps pause while you sleep.")
-                .font(SleepFont.body(14))
-                .foregroundStyle(SleepColor.muted)
-                .fixedSize(horizontal: false, vertical: true)
+            glyphRow(
+                icon: "lock.fill",
+                iconColor: SleepColor.amber,
+                title: "Choose your blocked apps",
+                subtitle: "Pick which apps pause while you sleep."
+            )
         } else {
-            VStack(alignment: .leading, spacing: SleepSpacing.sm) {
-                Text("These apps lock when you start sleep.")
-                    .font(SleepFont.body(14))
-                    .foregroundStyle(SleepColor.muted)
-
+            VStack(alignment: .leading, spacing: SleepSpacing.md) {
                 HStack(spacing: SleepSpacing.md) {
                     ForEach(appTokens.prefix(6), id: \.self) { token in
                         Label(token)
@@ -235,8 +247,33 @@ struct BlockedAppsPreview: View {
                             .font(SleepFont.body(15))
                             .foregroundStyle(SleepColor.muted)
                     }
-                    Spacer()
                 }
+
+                Text("Lock when you start sleep.")
+                    .font(SleepFont.body(13))
+                    .foregroundStyle(SleepColor.muted)
+            }
+        }
+    }
+
+    /// Shared no-selection layout: a warm glyph in a soft circle beside a
+    /// title + one-line explanation, echoing `HealthConnectCard`.
+    private func glyphRow(icon: String, iconColor: Color, title: String, subtitle: String) -> some View {
+        HStack(spacing: SleepSpacing.md) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(iconColor)
+                .frame(width: 40, height: 40)
+                .background { Circle().fill(SleepColor.glassWarm) }
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(SleepFont.title(16))
+                    .foregroundStyle(SleepColor.ink)
+                Text(subtitle)
+                    .font(SleepFont.body(13))
+                    .foregroundStyle(SleepColor.dim)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }

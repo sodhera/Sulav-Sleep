@@ -152,7 +152,7 @@ private struct ProfileRootScreen: View {
             // Profile body stays a clean identity + record with nothing to
             // fiddle with. Email lives in Settings too, not on this screen.
             Text(profile.name)
-                .font(SleepFont.hero(30))
+                .font(SleepFont.hero(34))
                 .foregroundStyle(SleepColor.ink)
         }
         .padding(.top, SleepSpacing.lg)
@@ -178,12 +178,29 @@ private struct ProfileRootScreen: View {
             Text("Your sleep").sectionLabel()
 
             if sessions.isEmpty {
-                Text("No nights yet. Tap Sleep Now tonight and your record starts here.")
-                    .font(SleepFont.body(15))
-                    .foregroundStyle(SleepColor.muted)
-                    .lineSpacing(3)
-                    .frame(maxWidth: 300, alignment: .leading)
-                    .padding(.top, SleepSpacing.xs)
+                // Quiet, composed empty state — a warm moon beside the copy so
+                // the section reads as a place waiting for data, not a gap.
+                // No ghost charts or sample numbers: honest data only.
+                HStack(alignment: .top, spacing: SleepSpacing.md) {
+                    Image(systemName: "moon.stars.fill")
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundStyle(SleepColor.amber)
+                        .frame(width: 40, height: 40)
+                        .background { Circle().fill(SleepColor.glassWarm) }
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("No nights yet")
+                            .font(SleepFont.title(16))
+                            .foregroundStyle(SleepColor.ink)
+                        Text("Tap Sleep Now tonight and your record starts here.")
+                            .font(SleepFont.body(13))
+                            .foregroundStyle(SleepColor.dim)
+                            .lineSpacing(3)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(.top, 2)
+                }
+                .padding(.top, SleepSpacing.xs)
             } else {
                 WeeklyChart(sessions: lastSeven)
                     .frame(height: 132)

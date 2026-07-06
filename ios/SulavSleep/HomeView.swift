@@ -9,26 +9,20 @@ struct HomeView: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 0) {
-                VStack(spacing: SleepSpacing.xs) {
-                    Text(greeting)
-                        .font(SleepFont.body(16))
-                        .foregroundStyle(SleepColor.dim)
+                // Editorial kicker → hero name, the same chrome language as the
+                // onboarding questionnaire, so the app opens on one voice.
+                VStack(spacing: SleepSpacing.sm) {
+                    Text(greeting).sectionLabel()
                     Text(profile.name)
-                        .font(SleepFont.hero(36))
+                        .font(SleepFont.hero(40))
                         .foregroundStyle(SleepColor.ink)
                 }
-                .padding(.top, SleepSpacing.huge * 2.4)
+                .padding(.top, SleepSpacing.huge * 2)
 
                 TimelineView(.periodic(from: .now, by: 60)) { timeline in
-                    VStack(spacing: SleepSpacing.xs) {
-                        Text("Bedtime in").sectionLabel()
-                        Text(SleepFormatting.countdown(toMinuteOfDay: profile.bedtime, from: timeline.date))
-                            .font(SleepFont.title(24))
-                            .foregroundStyle(SleepColor.ink)
-                            .monospacedDigit()
-                    }
+                    BedtimeInstrument(profile: profile, now: timeline.date)
                 }
-                .padding(.top, SleepSpacing.huge)
+                .padding(.top, SleepSpacing.huge * 1.2)
 
                 // — Action area: transitions between button+summary and confirmation panel —
                 if showConfirmation {
@@ -66,10 +60,49 @@ struct HomeView: View {
 
     private var greeting: String {
         switch Calendar.current.component(.hour, from: Date()) {
-        case 5..<12: return "Good morning,"
-        case 12..<17: return "Good afternoon,"
-        case 17..<22: return "Good evening,"
-        default: return "Good night,"
+        case 5..<12: return "Good morning"
+        case 12..<17: return "Good afternoon"
+        case 17..<22: return "Good evening"
+        default: return "Good night"
+        }
+    }
+}
+
+/// The countdown is the screen's instrument: hero numerals until bedtime, an
+/// amber "wind down" state once bedtime has passed (mirroring the small
+/// widget), and a quiet one-line readout of tonight's window underneath so the
+/// numbers stay anchored to the actual plan.
+private struct BedtimeInstrument: View {
+    let profile: Profile
+    let now: Date
+
+    /// Minutes since bedtime last struck; inside this window the screen stops
+    /// counting to *tomorrow's* bedtime (which reads as "22h to bedtime" at
+    /// midnight — technically true, emotionally wrong) and nudges instead.
+    private static let windDownWindow = 4 * 60
+
+    var body: some View {
+        let sinceBedtime = ((SleepFormatting.minutes(from: now) - profile.bedtime) % 1_440 + 1_440) % 1_440
+        let isPastBedtime = sinceBedtime > 0 && sinceBedtime < Self.windDownWindow
+
+        VStack(spacing: SleepSpacing.sm) {
+            Text(isPastBedtime ? "Bedtime" : "Bedtime in").sectionLabel()
+
+            if isPastBedtime {
+                Text("Past bedtime — wind down")
+                    .font(SleepFont.title(24))
+                    .foregroundStyle(SleepColor.amber)
+            } else {
+                Text(SleepFormatting.countdown(toMinuteOfDay: profile.bedtime, from: now))
+                    .font(SleepFont.hero(44))
+                    .foregroundStyle(SleepColor.ink)
+                    .monospacedDigit()
+            }
+
+            Text("\(SleepFormatting.clock(profile.bedtime)) – \(SleepFormatting.clock(profile.wakeTime))")
+                .font(SleepFont.body(14))
+                .foregroundStyle(SleepColor.muted)
+                .monospacedDigit()
         }
     }
 }
@@ -79,10 +112,13 @@ private struct LastNightSummary: View {
     let streak: Int
 
     var body: some View {
-        VStack(spacing: SleepSpacing.lg) {
-            Rectangle().fill(SleepColor.hairline).frame(height: 1)
+        // Renders nothing at all without data — no hairline, no empty-state
+        // copy. A first night begins the record; until then the scene carries
+        // the bottom of the screen.
+        if let lastSession {
+            VStack(spacing: SleepSpacing.lg) {
+                Rectangle().fill(SleepColor.hairline).frame(height: 1)
 
-            if let lastSession {
                 HStack(alignment: .bottom) {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Last night")
@@ -112,8 +148,6 @@ private struct LastNightSummary: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
-            // No empty-state "No nights logged yet" text — the summary
-            // simply doesn't render when there's no data.
         }
     }
 
