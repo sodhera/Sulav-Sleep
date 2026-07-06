@@ -285,25 +285,31 @@ struct BlockedAppsScreen: View {
         SceneScreen {
             SubpageHeader(
                 title: "Blocked apps",
-                subtitle: "When you tap Sleep Now, the apps you choose stay locked until you wake up. Calls and emergencies always work."
+                subtitle: "Locked from Sleep Now until you wake. Calls always work."
             )
 
             switch store.screenTimeState {
             case .unavailable:
-                infoBlock(
-                    title: "Available on device",
-                    body: "Screen Time app-blocking needs a real iPhone and Apple's Family Controls capability. Everything else works here."
-                )
+                HStack(spacing: SleepSpacing.md) {
+                    GlassRowIcon(icon: "iphone.slash", color: SleepColor.muted)
+                    Text("Needs a real iPhone")
+                        .font(SleepFont.title(16))
+                        .foregroundStyle(SleepColor.ink)
+                }
                 .padding(.top, SleepSpacing.huge)
             default:
-                VStack(alignment: .leading, spacing: 0) {
-                    Toggle(isOn: $enabled) {
-                        Text("Block these apps while I sleep")
-                            .font(SleepFont.body(16))
-                            .foregroundStyle(SleepColor.dim)
+                GlassGroup {
+                    HStack(spacing: SleepSpacing.md) {
+                        GlassRowIcon(icon: "moon.zzz.fill")
+                        Toggle(isOn: $enabled) {
+                            Text("Block while I sleep")
+                                .font(SleepFont.body(16))
+                                .foregroundStyle(SleepColor.ink)
+                        }
+                        .tint(SleepColor.amber)
                     }
-                    .tint(SleepColor.amber)
                     .padding(.vertical, SleepSpacing.md)
+                    .frame(minHeight: 52)
                     .onChange(of: enabled) { _, on in
                         Haptics.soft()
                         Task {
@@ -312,61 +318,67 @@ struct BlockedAppsScreen: View {
                         }
                     }
 
-                    Rectangle().fill(SleepColor.hairline).frame(height: 1)
+                    GlassRowDivider()
 
                     Button {
                         showPicker = true
                     } label: {
-                        HStack {
-                            Text("Choose apps")
-                                .font(SleepFont.body(16))
-                                .foregroundStyle(SleepColor.dim)
-                            Spacer()
-                            Text(selectionSummary)
-                                .font(SleepFont.body(14))
-                                .foregroundStyle(SleepColor.muted)
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundStyle(SleepColor.faint)
-                        }
-                        .padding(.vertical, SleepSpacing.lg)
-                        .contentShape(Rectangle())
+                        GlassRow(
+                            icon: "square.grid.2x2.fill",
+                            title: "Apps",
+                            value: selectionSummary,
+                            showsChevron: true
+                        )
                     }
                     .buttonStyle(.plain)
 
-                    if !selection.applicationTokens.isEmpty || !selection.categoryTokens.isEmpty {
-                        // The chosen apps and categories, rendered by the
-                        // system (tokens are opaque) so the user sees exactly
-                        // what locks.
-                        VStack(alignment: .leading, spacing: SleepSpacing.md) {
-                            ForEach(Array(selection.applicationTokens), id: \.self) { token in
-                                Label(token)
-                                    .labelStyle(.titleAndIcon)
-                                    .font(SleepFont.body(15))
-                                    .foregroundStyle(SleepColor.dim)
-                            }
-                            ForEach(Array(selection.categoryTokens), id: \.self) { token in
-                                Label(token)
-                                    .labelStyle(.titleAndIcon)
-                                    .font(SleepFont.body(15))
-                                    .foregroundStyle(SleepColor.dim)
-                            }
-                        }
-                        .padding(.bottom, SleepSpacing.lg)
-                    }
+                    GlassRowDivider()
 
-                    Rectangle().fill(SleepColor.hairline).frame(height: 1)
-
-                    Stepper(value: $maxHours, in: 1...12) {
-                        Text("Unlock after \(maxHours)h even if I don't wake up")
-                            .font(SleepFont.body(15))
-                            .foregroundStyle(SleepColor.dim)
+                    // Safety valve: the shield always drops after this many
+                    // hours, even if the user never taps wake.
+                    HStack(spacing: SleepSpacing.md) {
+                        GlassRowIcon(icon: "alarm.fill")
+                        Text("Unlock anyway after")
+                            .font(SleepFont.body(16))
+                            .foregroundStyle(SleepColor.ink)
+                        Spacer(minLength: SleepSpacing.md)
+                        Text("\(maxHours)h")
+                            .font(SleepFont.label(16))
+                            .foregroundStyle(SleepColor.amber)
+                            .monospacedDigit()
+                        Stepper("", value: $maxHours, in: 1...12)
+                            .labelsHidden()
+                            .tint(SleepColor.amber)
+                            .onChange(of: maxHours) { _, hours in store.setLockdownMaxHours(hours) }
                     }
-                    .tint(SleepColor.amber)
                     .padding(.vertical, SleepSpacing.md)
-                    .onChange(of: maxHours) { _, hours in store.setLockdownMaxHours(hours) }
+                    .frame(minHeight: 52)
                 }
                 .padding(.top, SleepSpacing.xl)
+
+                // The chosen apps and categories, rendered by the system
+                // (tokens are opaque, so Apple draws them) as an icon grid —
+                // the user sees exactly what locks, without a text list.
+                if !selection.applicationTokens.isEmpty || !selection.categoryTokens.isEmpty {
+                    LazyVGrid(
+                        columns: [GridItem(.adaptive(minimum: 44), spacing: SleepSpacing.md)],
+                        spacing: SleepSpacing.md
+                    ) {
+                        ForEach(Array(selection.applicationTokens), id: \.self) { token in
+                            Label(token)
+                                .labelStyle(.iconOnly)
+                                .font(.system(size: 34))
+                                .frame(width: 44, height: 44)
+                        }
+                        ForEach(Array(selection.categoryTokens), id: \.self) { token in
+                            Label(token)
+                                .labelStyle(.iconOnly)
+                                .font(.system(size: 34))
+                                .frame(width: 44, height: 44)
+                        }
+                    }
+                    .padding(.top, SleepSpacing.xl)
+                }
             }
         }
         .familyActivityPicker(isPresented: $showPicker, selection: $selection)
@@ -383,17 +395,8 @@ struct BlockedAppsScreen: View {
     }
 
     private var selectionSummary: String {
-        let apps = selection.applicationTokens.count
-        let cats = selection.categoryTokens.count
-        if apps == 0 && cats == 0 { return "None" }
-        return "Apps selected ✓"
-    }
-
-    private func infoBlock(title: String, body: String) -> some View {
-        VStack(alignment: .leading, spacing: SleepSpacing.sm) {
-            Text(title).font(SleepFont.title(17)).foregroundStyle(SleepColor.ink)
-            Text(body).font(SleepFont.body(14)).foregroundStyle(SleepColor.muted).lineSpacing(3)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        let count = selection.applicationTokens.count + selection.categoryTokens.count
+        if count == 0 { return "None" }
+        return "\(count) chosen"
     }
 }

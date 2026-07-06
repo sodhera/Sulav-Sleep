@@ -36,6 +36,93 @@ extension View {
     }
 }
 
+// MARK: - Grouped glass rows (settings surfaces)
+
+/// A grouped glass container for a functional cluster of control rows —
+/// the settings-surface pattern. Rows inside separate themselves with
+/// `GlassRowDivider`; the group provides the shared glass, border, and
+/// horizontal inset. Never nested.
+struct GlassGroup<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            content
+        }
+        .padding(.horizontal, SleepSpacing.lg)
+        .liquidGlass(cornerRadius: SleepRadius.lg)
+        .overlay {
+            RoundedRectangle(cornerRadius: SleepRadius.lg, style: .continuous)
+                .stroke(SleepColor.border, lineWidth: 1)
+        }
+    }
+}
+
+/// Hairline between rows in a `GlassGroup`.
+struct GlassRowDivider: View {
+    var body: some View {
+        Rectangle().fill(SleepColor.hairline).frame(height: 1)
+    }
+}
+
+/// One row inside a `GlassGroup`: a small tinted icon chip, a short title,
+/// and an optional quiet trailing value + chevron. Kept to one line — rows
+/// name things, they don't explain them.
+struct GlassRow: View {
+    let icon: String
+    var iconColor: Color = SleepColor.amber
+    let title: String
+    var titleColor: Color = SleepColor.ink
+    var value: String?
+    var showsChevron = false
+
+    var body: some View {
+        HStack(spacing: SleepSpacing.md) {
+            GlassRowIcon(icon: icon, color: iconColor)
+
+            Text(title)
+                .font(SleepFont.body(16))
+                .foregroundStyle(titleColor)
+
+            Spacer(minLength: SleepSpacing.md)
+
+            if let value {
+                Text(value)
+                    .font(SleepFont.body(15))
+                    .foregroundStyle(SleepColor.muted)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            if showsChevron {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(SleepColor.faint)
+            }
+        }
+        .padding(.vertical, SleepSpacing.md)
+        .frame(minHeight: 52)
+        .contentShape(Rectangle())
+    }
+}
+
+/// The leading icon chip for a `GlassRow` — the symbol sits in a soft
+/// rounded square tinted from its own color, so rows scan by glyph first.
+struct GlassRowIcon: View {
+    let icon: String
+    var color: Color = SleepColor.amber
+
+    var body: some View {
+        Image(systemName: icon)
+            .font(.system(size: 14, weight: .medium))
+            .foregroundStyle(color)
+            .frame(width: 30, height: 30)
+            .background {
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(color.opacity(0.12))
+            }
+    }
+}
+
 // MARK: - Buttons
 
 /// Warm, primary action. Amber gradient fill, deep-navy ink, soft glow.

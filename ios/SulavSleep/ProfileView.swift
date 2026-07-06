@@ -343,36 +343,38 @@ struct SettingsModal: View {
     }
 
     private var profileSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("Profile")
-                .sectionLabel()
-                .padding(.bottom, SleepSpacing.xs)
+        VStack(alignment: .leading, spacing: SleepSpacing.md) {
+            Text("Profile").sectionLabel()
 
-            Button {
-                Haptics.soft()
-                draftName = store.profile?.name ?? profile.name
-                isRenaming = true
-            } label: {
-                // Read from the observed store so the row updates the instant a
-                // rename is saved, not just on next open.
-                SettingsRow(title: "Name", value: store.profile?.name ?? profile.name)
+            GlassGroup {
+                Button {
+                    Haptics.soft()
+                    draftName = store.profile?.name ?? profile.name
+                    isRenaming = true
+                } label: {
+                    // Read from the observed store so the row updates the
+                    // instant a rename is saved, not just on next open.
+                    GlassRow(
+                        icon: "person.fill",
+                        title: "Name",
+                        value: store.profile?.name ?? profile.name,
+                        showsChevron: true
+                    )
+                }
+                .buttonStyle(.plain)
+
+                GlassRowDivider()
+
+                // Read-only: the account email comes from the auth provider
+                // and can't be changed in-app, so it shows without a chevron.
+                // Middle truncation keeps long relay addresses on one line.
+                GlassRow(
+                    icon: "envelope.fill",
+                    iconColor: SleepColor.muted,
+                    title: "Email",
+                    value: store.account?.email ?? "—"
+                )
             }
-            .buttonStyle(.plain)
-
-            divider
-
-            // Read-only: the account email comes from the auth provider and
-            // can't be changed in-app, so it shows without a chevron.
-            HStack {
-                Text("Email")
-                    .font(SleepFont.body(16))
-                    .foregroundStyle(SleepColor.dim)
-                Spacer()
-                Text(store.account?.email ?? "—")
-                    .font(SleepFont.body(15))
-                    .foregroundStyle(SleepColor.muted)
-            }
-            .padding(.vertical, SleepSpacing.lg)
         }
         .padding(.top, SleepSpacing.huge)
     }
@@ -400,119 +402,121 @@ struct SettingsModal: View {
     }
 
     private var configSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            NavigationLink(value: SettingsDestination.schedule) {
-                SettingsRow(
-                    title: "Sleep schedule",
-                    value: "\(SleepFormatting.clock(profile.bedtime)) – \(SleepFormatting.clock(profile.wakeTime))"
-                )
+        VStack(alignment: .leading, spacing: SleepSpacing.md) {
+            Text("Sleep").sectionLabel()
+
+            GlassGroup {
+                NavigationLink(value: SettingsDestination.schedule) {
+                    GlassRow(
+                        icon: "moon.fill",
+                        title: "Schedule",
+                        value: "\(SleepFormatting.clock(profile.bedtime)) – \(SleepFormatting.clock(profile.wakeTime))",
+                        showsChevron: true
+                    )
+                }
+                .buttonStyle(.plain)
+
+                GlassRowDivider()
+
+                NavigationLink(value: SettingsDestination.blockedApps) {
+                    GlassRow(
+                        icon: "lock.fill",
+                        title: "Blocked apps",
+                        value: store.lockdownSelectionSummary,
+                        showsChevron: true
+                    )
+                }
+                .buttonStyle(.plain)
+
+                GlassRowDivider()
+
+                healthRow
             }
-            .buttonStyle(.plain)
-
-            divider
-
-            NavigationLink(value: SettingsDestination.blockedApps) {
-                SettingsRow(title: "Blocked apps", value: store.lockdownSelectionSummary)
-            }
-            .buttonStyle(.plain)
-
-            divider
-
-            healthRow
         }
-        .padding(.top, SleepSpacing.huge)
-    }
-
-
-    private var divider: some View {
-        Rectangle().fill(SleepColor.hairline).frame(height: 1)
+        .padding(.top, SleepSpacing.xxl)
     }
 
     @ViewBuilder
     private var healthRow: some View {
         if store.healthSyncState == .unavailable {
-            HStack {
-                Text("Apple Health")
-                    .font(SleepFont.body(16))
-                    .foregroundStyle(SleepColor.dim)
-                Spacer()
-                Text("Unavailable")
-                    .font(SleepFont.body(14))
-                    .foregroundStyle(SleepColor.faint)
-            }
-            .padding(.vertical, SleepSpacing.lg)
+            GlassRow(
+                icon: "heart.fill",
+                iconColor: SleepColor.muted,
+                title: "Apple Health",
+                value: "Unavailable"
+            )
         } else {
             // Derived from the store's actual connection state, not a local
             // optimistic mirror: HealthKit can report "denied" after the sheet,
             // and the toggle must reflect that rather than staying stuck on.
-            Toggle(isOn: Binding(
-                get: { store.healthSyncState == .connected },
-                set: { enabled in
-                    Haptics.soft()
-                    if enabled { Task { await store.connectHealth() } }
-                    else { store.disableHealthSync() }
-                }
-            )) {
-                VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: SleepSpacing.md) {
+                GlassRowIcon(icon: "heart.fill")
+                Toggle(isOn: Binding(
+                    get: { store.healthSyncState == .connected },
+                    set: { enabled in
+                        Haptics.soft()
+                        if enabled { Task { await store.connectHealth() } }
+                        else { store.disableHealthSync() }
+                    }
+                )) {
                     Text("Apple Health")
                         .font(SleepFont.body(16))
-                        .foregroundStyle(SleepColor.dim)
-                    Text("Sync your real sleep history both ways")
-                        .font(SleepFont.body(12))
-                        .foregroundStyle(SleepColor.faint)
+                        .foregroundStyle(SleepColor.ink)
                 }
+                .tint(SleepColor.amber)
             }
-            .tint(SleepColor.amber)
             .padding(.vertical, SleepSpacing.md)
+            .frame(minHeight: 52)
         }
     }
 
     private var accountSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("Account")
-                .sectionLabel()
-                .padding(.bottom, SleepSpacing.xs)
+        VStack(alignment: .leading, spacing: SleepSpacing.md) {
+            Text("Account").sectionLabel()
 
-            Button {
-                Haptics.soft()
-                // Close the cover first so it doesn't tear down mid-flight as
-                // the root swaps Main → onboarding on sign-out.
-                dismiss()
-                Task { await store.signOut() }
-            } label: {
-                Text("Sign out")
-                    .font(SleepFont.body(16))
-                    .foregroundStyle(SleepColor.dim)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, SleepSpacing.lg)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
+            GlassGroup {
+                Button {
+                    Haptics.soft()
+                    // Close the cover first so it doesn't tear down mid-flight
+                    // as the root swaps Main → onboarding on sign-out.
+                    dismiss()
+                    Task { await store.signOut() }
+                } label: {
+                    GlassRow(
+                        icon: "rectangle.portrait.and.arrow.right",
+                        iconColor: SleepColor.dim,
+                        title: "Sign out",
+                        titleColor: SleepColor.dim
+                    )
+                }
+                .buttonStyle(.plain)
 
-            divider
+                GlassRowDivider()
 
-            // Deliberately faded: account deletion is a rare, irreversible exit,
-            // so it sits quietly below Sign out and never competes for attention.
-            Button(role: .destructive) {
-                Haptics.soft()
-                confirmingDeleteAccount = true
-            } label: {
-                HStack(spacing: SleepSpacing.sm) {
-                    Text("Delete account")
-                        .font(SleepFont.body(16))
-                        .foregroundStyle(SleepColor.faint)
-                    if deletingAccount {
-                        ProgressView().controlSize(.small).tint(SleepColor.faint)
+                // Deliberately faded: account deletion is a rare, irreversible
+                // exit, so it sits quietly below Sign out and never competes
+                // for attention.
+                Button(role: .destructive) {
+                    Haptics.soft()
+                    confirmingDeleteAccount = true
+                } label: {
+                    HStack(spacing: SleepSpacing.sm) {
+                        GlassRow(
+                            icon: "trash",
+                            iconColor: SleepColor.faint,
+                            title: "Delete account",
+                            titleColor: SleepColor.faint
+                        )
+                        if deletingAccount {
+                            ProgressView().controlSize(.small).tint(SleepColor.faint)
+                        }
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, SleepSpacing.lg)
-                .contentShape(Rectangle())
+                .buttonStyle(.plain)
+                .disabled(deletingAccount)
             }
-            .buttonStyle(.plain)
-            .disabled(deletingAccount)
         }
-        .padding(.top, SleepSpacing.huge)
+        .padding(.top, SleepSpacing.xxl)
         .alert("Delete account?", isPresented: $confirmingDeleteAccount) {
             Button("Cancel", role: .cancel) {}
             Button("Delete", role: .destructive) {
@@ -553,32 +557,6 @@ struct SettingsModal: View {
 enum SettingsDestination: Hashable {
     case schedule
     case blockedApps
-}
-
-/// Cardless settings row: title, quiet trailing value, chevron. Rows are
-/// separated by hairlines, never wrapped in cards.
-private struct SettingsRow: View {
-    let title: String
-    var value: String?
-
-    var body: some View {
-        HStack {
-            Text(title)
-                .font(SleepFont.body(16))
-                .foregroundStyle(SleepColor.dim)
-            Spacer()
-            if let value {
-                Text(value)
-                    .font(SleepFont.body(15))
-                    .foregroundStyle(SleepColor.muted)
-            }
-            Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(SleepColor.faint)
-        }
-        .padding(.vertical, SleepSpacing.lg)
-        .contentShape(Rectangle())
-    }
 }
 
 // MARK: - Sleep schedule (pushed)

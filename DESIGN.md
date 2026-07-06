@@ -157,11 +157,22 @@ in its top-right. It is not a half-height sheet (the throwaway-decision
 affordance the app avoids) and not inline rows on Profile. Inside, it carries
 its own `NavigationStack`, so Sleep schedule and Blocked apps push as full pages
 with the onboarding chrome (round glass back chevron, left-aligned editorial
-title, supporting line). A **Profile** group at the top holds the editable Name
-(tap → rename alert) and the read-only account Email (no chevron); these live in
-Settings, never on the Profile body. The pixel-art credit sits quietly at the
-very bottom, below Sign out (and the faded Delete account). The only other sheet in the app is Apple's own
-`FamilyActivityPicker`.
+title, supporting line). The body is three kicker-titled `GlassGroup`s —
+**Profile** (editable Name: tap → rename alert; read-only account Email, no
+chevron, middle-truncated — both live here, never on the Profile body),
+**Sleep** (Schedule, Blocked apps, the Apple Health toggle — no explainer
+sublines), and **Account** (Sign out in dim; Delete account faded beneath it —
+a rare, irreversible exit that never competes for attention). The pixel-art
+credit sits quietly at the very bottom. The only other sheet in the app is
+Apple's own `FamilyActivityPicker`.
+
+The **Blocked apps** page follows the same grammar: a one-line supporting
+sentence under the title ("Locked from Sleep Now until you wake. Calls always
+work."), then a single `GlassGroup` — Block-while-I-sleep toggle, Apps row
+(value "None"/"N chosen" → `FamilyActivityPicker`), and the "Unlock anyway
+after" safety stepper with its amber hour value. The chosen apps render below
+the group as a system-drawn **icon grid** (tokens are opaque, Apple draws
+them) — the user sees exactly what locks, without a text list.
 
 There is deliberately **no "reset all data" action**. A destructive escape
 hatch sitting among everyday settings invites disaster and signals distrust of
@@ -185,8 +196,15 @@ darkening the whole scene.
 8pt grid (`4…40`), 24pt screen margins, 32–40 section gaps, ≥44pt touch targets,
 58–64pt primary/secondary actions. Cards are rare — use containers only for
 functional clusters (sheets, pickers, tappable controls) and never nest cards.
-Most content is cardless: the schedule is open text, summaries are separated by a
-single hairline, history uses divided rows.
+Most *content* is cardless: summaries are separated by a single hairline,
+history uses divided rows. *Controls* are the exception: settings surfaces
+group their rows into **`GlassGroup`** containers (`LiquidGlass.swift`) — a
+small-caps kicker above a glass rounded-rect holding `GlassRow`s divided by
+hairlines. Each row leads with a `GlassRowIcon` chip (the SF symbol in a soft
+rounded square tinted from its own color — amber for sleep things, dim/faint
+for account exits) so rows scan by glyph first, then one short title and a
+quiet trailing value/chevron. Rows name things, they never explain them: no
+subtitle lines inside rows.
 
 ## Onboarding & auth
 
