@@ -711,7 +711,9 @@ private struct SleepBars: View {
                                     startPoint: .top, endPoint: .bottom
                                 )
                             )
-                            .overlay(alignment: .top) {
+                            .overlay(alignment: .bottom) {
+                                // Bottom-anchored so every label sits on the
+                                // same baseline regardless of bar height.
                                 if barHeight >= 20 {
                                     Text(hoursLabel(night.durationMinutes))
                                         .font(SleepFont.label(9))
@@ -719,7 +721,7 @@ private struct SleepBars: View {
                                         .monospacedDigit()
                                         .minimumScaleFactor(0.6)
                                         .lineLimit(1)
-                                        .padding(.top, 5)
+                                        .padding(.bottom, 5)
                                         .padding(.horizontal, 1)
                                 }
                             }

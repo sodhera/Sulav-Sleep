@@ -246,9 +246,11 @@ Rules:
 - Bars: gold→amber capsules against a faint target hairline; the latest night
   is full-strength, earlier nights recede to ~60% so "last night" reads first.
   Each bar carries the hours slept that night as a 9pt navy-ink label set
-  *inside* its top (the amber-fill/navy-ink pairing from the primary button):
-  "7.5h" on the large widget, unit-less "7.5" in the medium widget's narrower
-  columns. Bars too short to hold the label drop it rather than overflow.
+  inside its *bottom* (the amber-fill/navy-ink pairing from the primary
+  button) — bottom-anchored so every label sits on one shared baseline no
+  matter the bar heights: "7.5h" on the large widget, unit-less "7.5" in the
+  medium widget's narrower columns. Bars too short to hold the label drop it
+  rather than overflow.
 - Honest data only. A placed widget with no history shows "Log a night" /
   "Set a schedule" — never fake numbers. The one exception is the
   widget-gallery preview (`context.isPreview`), which shows sample content so
