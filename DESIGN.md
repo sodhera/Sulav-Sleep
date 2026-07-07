@@ -126,14 +126,19 @@ Two tabs, each with exactly one job:
   a one-line `of sleep · wake 6:30 AM` sub, a single compact glass row for
   the lockdown (lock glyph + the app icons themselves — icons over words; an
   open lock + "No apps blocked tonight" otherwise), and the iPhone-style
-  **slide-to-sleep** capsule. The capsule is a *recessed night rail* — dark
-  navy with an inner shadow, so the knob visibly sits in something — whose
-  hint text carries the classic slide-to-unlock shimmer (a slow band of light
-  masked to the glyphs) beside three amber chevrons breathing in sequence
-  toward the destination. The knob drags a warm light trail across the rail,
-  and at the completion threshold a gold "ready" ring blooms around it (with
-  the firm haptic) while the rail's hairline warms; on completion the moon
-  glyph becomes `moon.zzz`. The confirmation *scrolls up* into view when
+  **slide-to-sleep** capsule. The capsule is deliberately the brightest
+  control in the app — it is the one thing to do on this screen, so it gets
+  to look like it and must never melt into the pixel skyline. It reads as a
+  *near-solid night rail*: tall (72pt), deep navy at ~90% opacity with an
+  inner shadow so the knob visibly sits in something, rimmed in a warm amber
+  gradient, and carrying its own resting amber glow plus a dark drop shadow
+  to separate from the scene. The hint is bright ink with the classic
+  slide-to-unlock shimmer (a gold band masked to the glyphs) beside three
+  gold chevrons breathing in sequence toward the destination. The knob drags
+  a warm light trail across the rail, its glow builds with progress, and at
+  the completion threshold a gold "ready" ring blooms around it (with the
+  heavy knock) while the rim brightens; on completion the moon glyph becomes
+  `moon.zzz`. The confirmation *scrolls up* into view when
   Sleep Now is tapped and — on "Cancel" — *scrolls back down* the same way it
   arrived (Home slides in from the top behind it), never a fade in place.
   Sliding the knob across the full track starts the session. The slide gesture
@@ -283,10 +288,12 @@ no repeat questionnaire; picking "Get started" re-runs it only if they choose to
 State changes fade/lift over ~260–320ms; presses scale subtly (~0.98). Nothing
 bouncy or reward-like. Haptics (`Haptics`) are gentle and sparing: a soft tap
 entering/leaving sleep and on nav, a success notification when a night is
-logged. The one deliberate exception is the **slide-to-sleep** knob, whose
-ratcheting detents / threshold cue / success tap are richer on purpose — the
-gesture is the night's commitment, so it earns tactile weight the rest of the
-app forgoes.
+logged. The one deliberate exception is the **slide-to-sleep** knob, which is
+richer on purpose — the gesture is the night's commitment, so it earns
+tactile weight the rest of the app forgoes: a rigid tap on grab, a
+medium-strength ratchet through eight detents that tick harder with
+progress, a heavy knock at the completion threshold, a soft tap on a
+released spring-back, and the success notification when the night begins.
 
 ## Widgets
 

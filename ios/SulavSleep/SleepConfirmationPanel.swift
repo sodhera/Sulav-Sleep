@@ -115,24 +115,31 @@ struct SleepConfirmationPanel: View {
 /// iPhone-style "slide to answer" capsule. The user drags a moon-icon knob
 /// from left to right; past ~80% it snaps to completion and fires `onComplete`.
 /// On release before the threshold the knob springs back.
+///
+/// Visually this is the brightest control in the app on purpose: a tall,
+/// near-solid night rail with an amber rim and a resting glow, so it never
+/// melts into the pixel skyline behind it. It is the one thing to do on this
+/// screen — it gets to look like it.
 struct SlideToSleepButton: View {
     let onComplete: () -> Void
 
     @State private var dragOffset: CGFloat = 0
     @State private var isCompleted = false
     @GestureState private var isDragging = false
-    // Haptic bookkeeping: which ratchet detent last fired, and whether the
-    // knob is currently past the completion threshold (so the firm "ready"
-    // cue fires once per crossing, not every frame).
+    // Haptic bookkeeping: whether the knob has been grabbed this gesture,
+    // which ratchet detent last fired, and whether the knob is currently past
+    // the completion threshold (so the heavy "ready" knock fires once per
+    // crossing, not every frame).
+    @State private var isGrabbed = false
     @State private var lastHapticStep = -1
     @State private var isPastThreshold = false
 
-    private let knobSize: CGFloat = 56
-    private let trackHeight: CGFloat = 64
-    private let trackPadding: CGFloat = 4
+    private let knobSize: CGFloat = 62
+    private let trackHeight: CGFloat = 72
+    private let trackPadding: CGFloat = 5
     private let completionThreshold: CGFloat = 0.80
     /// Number of detents the knob ratchets through across the full track.
-    private let hapticDetents: CGFloat = 6
+    private let hapticDetents: CGFloat = 8
 
     var body: some View {
         GeometryReader { geo in
@@ -140,21 +147,30 @@ struct SlideToSleepButton: View {
             let progress = maxOffset > 0 ? min(dragOffset / maxOffset, 1) : 0
 
             ZStack(alignment: .leading) {
-                // Track — a recessed night rail: dark navy with an inner
-                // shadow so the knob visibly sits *in* something, and a
-                // hairline that warms once the slide is past the threshold.
+                // Track — a near-solid night rail: deep navy with an inner
+                // shadow so the knob visibly sits *in* something, rimmed in
+                // warm amber that brightens past the threshold, and carrying
+                // its own resting glow so it separates from the scene.
                 Capsule(style: .continuous)
                     .fill(
-                        SleepColor.navy.opacity(0.55)
-                            .shadow(.inner(color: .black.opacity(0.45), radius: 6, y: 2))
+                        SleepColor.navy.opacity(0.88)
+                            .shadow(.inner(color: .black.opacity(0.55), radius: 7, y: 3))
                     )
                     .overlay {
                         Capsule(style: .continuous)
                             .stroke(
-                                isPastThreshold ? SleepColor.amber.opacity(0.35) : SleepColor.border,
-                                lineWidth: 1
+                                LinearGradient(
+                                    colors: isPastThreshold
+                                        ? [SleepColor.gold.opacity(0.95), SleepColor.amber.opacity(0.6)]
+                                        : [SleepColor.amber.opacity(0.5), SleepColor.amber.opacity(0.14)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                ),
+                                lineWidth: 1.5
                             )
                     }
+                    .shadow(color: SleepColor.amber.opacity(isPastThreshold ? 0.4 : 0.2), radius: 20, y: 6)
+                    .shadow(color: .black.opacity(0.35), radius: 14, y: 8)
                     .animation(.easeInOut(duration: 0.25), value: isPastThreshold)
 
                 // Light trail — the knob drags warm light across the rail,
@@ -163,9 +179,9 @@ struct SlideToSleepButton: View {
                     .fill(
                         LinearGradient(
                             colors: [
-                                SleepColor.amber.opacity(0.03),
-                                SleepColor.amber.opacity(0.22),
-                                SleepColor.gold.opacity(0.34),
+                                SleepColor.amber.opacity(0.06),
+                                SleepColor.amber.opacity(0.35),
+                                SleepColor.gold.opacity(0.55),
                             ],
                             startPoint: .leading,
                             endPoint: .trailing
@@ -196,28 +212,28 @@ struct SlideToSleepButton: View {
                     )
                     .overlay {
                         Circle()
-                            .stroke(Color.white.opacity(0.25), lineWidth: 1)
+                            .stroke(Color.white.opacity(0.35), lineWidth: 1)
                     }
                     .overlay {
                         Image(systemName: isCompleted ? "moon.zzz.fill" : "moon.fill")
-                            .font(.system(size: 20, weight: .medium))
+                            .font(.system(size: 24, weight: .medium))
                             .foregroundStyle(SleepColor.background)
                             .contentTransition(.symbolEffect(.replace))
                     }
                     .overlay {
                         // "Ready" ring — blooms the moment the slide crosses
-                        // the completion threshold, alongside the firm haptic.
+                        // the completion threshold, alongside the heavy knock.
                         Circle()
-                            .stroke(SleepColor.gold.opacity(isPastThreshold ? 0.85 : 0), lineWidth: 2)
-                            .scaleEffect(isPastThreshold ? 1.16 : 1.0)
+                            .stroke(SleepColor.gold.opacity(isPastThreshold ? 0.9 : 0), lineWidth: 2.5)
+                            .scaleEffect(isPastThreshold ? 1.18 : 1.0)
                             .animation(.spring(response: 0.32, dampingFraction: 0.6), value: isPastThreshold)
                     }
                     .frame(width: knobSize, height: knobSize)
-                    .scaleEffect(isDragging ? 1.05 : 1)
+                    .scaleEffect(isDragging ? 1.06 : 1)
                     .animation(.snappy(duration: 0.2), value: isDragging)
                     .shadow(
-                        color: SleepColor.amber.opacity(0.28 + Double(progress) * 0.3 + (isDragging ? 0.12 : 0)),
-                        radius: 10 + Double(progress) * 8,
+                        color: SleepColor.amber.opacity(0.4 + Double(progress) * 0.35 + (isDragging ? 0.1 : 0)),
+                        radius: 12 + Double(progress) * 10,
                         y: 4
                     )
                     .offset(x: trackPadding + dragOffset)
@@ -228,6 +244,12 @@ struct SlideToSleepButton: View {
                             }
                             .onChanged { value in
                                 guard !isCompleted else { return }
+                                if !isGrabbed {
+                                    // Grab acknowledgment: the knob answers
+                                    // the touch before it moves.
+                                    isGrabbed = true
+                                    Haptics.rigid()
+                                }
                                 let newOffset = min(max(0, value.translation.width), maxOffset)
                                 dragOffset = newOffset
                                 fireDragHaptics(progress: maxOffset > 0 ? newOffset / maxOffset : 0)
@@ -262,24 +284,25 @@ struct SlideToSleepButton: View {
         .frame(height: trackHeight)
     }
 
-    /// Ratchet the knob: a light tick at each detent (rising in strength with
-    /// progress) so the slide feels physical, plus one firmer tap the moment
-    /// it crosses the completion threshold — the "let go now" cue.
+    /// Ratchet the knob: a medium tick at each detent (rising in strength
+    /// with progress) so the slide feels physical through a firm grip, plus
+    /// one heavy knock the moment it crosses the completion threshold — the
+    /// unmistakable "let go now" cue.
     private func fireDragHaptics(progress: CGFloat) {
         let step = Int(progress * hapticDetents)
         if step != lastHapticStep {
             lastHapticStep = step
-            // Skip the tick at rest (step 0, progress ~0) so a stray touch is
-            // silent; every detent thereafter ticks a little harder.
+            // Skip the tick at rest (step 0, progress ~0) so resting the
+            // thumb is silent; every detent thereafter ticks harder.
             if step > 0 {
-                Haptics.tick(intensity: 0.35 + progress * 0.55)
+                Haptics.tick(intensity: 0.55 + progress * 0.45)
             }
         }
 
         if progress >= completionThreshold {
             if !isPastThreshold {
                 isPastThreshold = true
-                Haptics.rigid()
+                Haptics.heavy()
             }
         } else if isPastThreshold {
             isPastThreshold = false
@@ -287,6 +310,7 @@ struct SlideToSleepButton: View {
     }
 
     private func resetDragHaptics() {
+        isGrabbed = false
         lastHapticStep = -1
         isPastThreshold = false
     }
@@ -302,16 +326,16 @@ private struct ShimmeringHint: View {
 
     var body: some View {
         let label = Text(text)
-            .font(SleepFont.label(15))
-            .tracking(0.4)
+            .font(SleepFont.label(16))
+            .tracking(0.5)
 
         label
-            .foregroundStyle(SleepColor.dim)
+            .foregroundStyle(SleepColor.ink.opacity(0.85))
             .overlay {
                 GeometryReader { geo in
                     let band = geo.size.width * 0.45
                     LinearGradient(
-                        colors: [.clear, SleepColor.ink.opacity(0.9), .clear],
+                        colors: [.clear, SleepColor.gold, .clear],
                         startPoint: .leading,
                         endPoint: .trailing
                     )
@@ -334,12 +358,12 @@ private struct BreathingChevrons: View {
     @State private var breathing = false
 
     var body: some View {
-        HStack(spacing: 3) {
+        HStack(spacing: 4) {
             ForEach(0..<3, id: \.self) { index in
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(SleepColor.amber)
-                    .opacity(breathing ? 0.85 : 0.2)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(SleepColor.gold)
+                    .opacity(breathing ? 1.0 : 0.25)
                     .animation(
                         .easeInOut(duration: 0.9)
                             .repeatForever(autoreverses: true)
