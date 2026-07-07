@@ -22,6 +22,17 @@ protocol AuthProviding {
     func signIn(email: String, password: String) async throws -> AuthResult
     func signOut() async
 
+    /// The account's cloud profile from Supabase user metadata, or `nil` when
+    /// none was ever saved (pre-sync accounts) or nobody is signed in. Prefers
+    /// a fresh server read, falling back to the locally stored session's copy
+    /// when offline.
+    func fetchRemoteProfile() async -> RemoteProfile?
+
+    /// Best-effort push of the local profile into Supabase user metadata so it
+    /// follows the account across devices. Failures are logged, never surfaced
+    /// — the local profile remains the source of truth on this device.
+    func saveRemoteProfile(_ profile: RemoteProfile) async
+
     /// Drop the local Keychain session only, without a server round-trip. Used
     /// to reset a stale session that survived an app reinstall (see
     /// `SleepStore.restoreSession()`); must never block on the network.
@@ -54,6 +65,8 @@ struct DisabledAuthClient: AuthProviding {
     func signUp(email: String, password: String) async throws -> AuthResult { throw AuthError.unknown("Sign-in isn't configured yet.") }
     func signIn(email: String, password: String) async throws -> AuthResult { throw AuthError.unknown("Sign-in isn't configured yet.") }
     func signOut() async {}
+    func fetchRemoteProfile() async -> RemoteProfile? { nil }
+    func saveRemoteProfile(_ profile: RemoteProfile) async {}
     func clearLocalSession() async {}
     func deleteAccount() async throws { throw AuthError.unknown("Account deletion isn't configured yet.") }
 }
@@ -88,8 +101,16 @@ final class SupabaseAuthClient: AuthProviding {
 
     var currentAccount: AppAccount? {
         get async {
-            guard let session = try? await client.session else { return nil }
-            return Self.account(from: session)
+            // `client.session` refreshes an expired token, which needs the
+            // network — so a launch in airplane mode would throw here even
+            // though the user *is* signed in. Fall back to the locally stored
+            // session's identity in that case; the next authenticated call
+            // refreshes the token once the network is back. A session revoked
+            // server-side is also kept alive by this until a call fails, which
+            // is the standard trade-off.
+            if let session = try? await client.session { return Self.account(from: session) }
+            if let stored = client.currentSession { return Self.account(from: stored) }
+            return nil
         }
     }
 
@@ -111,7 +132,11 @@ final class SupabaseAuthClient: AuthProviding {
                 credentials: OpenIDConnectCredentials(provider: .apple, idToken: idToken, nonce: nonce)
             )
             AppLog.app.info("Signed in with Apple")
-            return AuthResult(account: Self.account(from: session), isNewAccount: Self.isNewAccount(session.user))
+            return AuthResult(
+                account: Self.account(from: session),
+                isNewAccount: Self.isNewAccount(session.user),
+                remoteProfile: Self.remoteProfile(from: session.user)
+            )
         } catch {
             throw Self.mapError(error)
         }
@@ -127,7 +152,11 @@ final class SupabaseAuthClient: AuthProviding {
                 try await Self.presentOAuthSession(url: url)
             }
             AppLog.app.info("Signed in with Google")
-            return AuthResult(account: Self.account(from: session), isNewAccount: Self.isNewAccount(session.user))
+            return AuthResult(
+                account: Self.account(from: session),
+                isNewAccount: Self.isNewAccount(session.user),
+                remoteProfile: Self.remoteProfile(from: session.user)
+            )
         } catch {
             throw Self.mapError(error)
         }
@@ -138,14 +167,15 @@ final class SupabaseAuthClient: AuthProviding {
             let response = try await client.signUp(email: email, password: password)
             guard let session = response.session else {
                 // Email confirmation required by the Supabase project settings.
-                throw AuthError.unknown("Check your email to confirm your account, then sign in.")
+                // Not a failure — surfaced as a calm notice, not an error.
+                throw AuthError.confirmationEmailSent
             }
             AppLog.app.info("Signed up with email")
             // A session is only ever returned here for a genuinely new user —
             // an already-registered email either comes back with no session
             // (see the guard above) or an explicit error, so reaching this
             // point always means a fresh account.
-            return AuthResult(account: Self.account(from: session), isNewAccount: true)
+            return AuthResult(account: Self.account(from: session), isNewAccount: true, remoteProfile: nil)
         } catch let authError as AuthError {
             throw authError
         } catch {
@@ -157,7 +187,11 @@ final class SupabaseAuthClient: AuthProviding {
         do {
             let session = try await client.signIn(email: email, password: password)
             AppLog.app.info("Signed in with email")
-            return AuthResult(account: Self.account(from: session), isNewAccount: false)
+            return AuthResult(
+                account: Self.account(from: session),
+                isNewAccount: false,
+                remoteProfile: Self.remoteProfile(from: session.user)
+            )
         } catch {
             throw Self.mapError(error)
         }
@@ -166,6 +200,30 @@ final class SupabaseAuthClient: AuthProviding {
     func signOut() async {
         try? await client.signOut()
         AppLog.app.info("Signed out")
+    }
+
+    func fetchRemoteProfile() async -> RemoteProfile? {
+        // Prefer a fresh server read (the profile may have been edited on
+        // another device since this session was stored); fall back to the
+        // stored session's copy offline.
+        if let user = try? await client.user() {
+            return Self.remoteProfile(from: user)
+        }
+        guard let stored = client.currentSession else { return nil }
+        return Self.remoteProfile(from: stored.user)
+    }
+
+    func saveRemoteProfile(_ profile: RemoteProfile) async {
+        do {
+            _ = try await client.update(user: UserAttributes(data: [
+                Self.profileMetadataKey: Self.metadataValue(from: profile)
+            ]))
+            AppLog.app.info("Cloud profile saved")
+        } catch {
+            // Best-effort by design: the local profile is the device's source
+            // of truth, and the next successful save re-syncs everything.
+            AppLog.app.error("Cloud profile save failed: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     func clearLocalSession() async {
@@ -206,9 +264,39 @@ final class SupabaseAuthClient: AuthProviding {
             throw Self.mapError(error)
         }
 
-        // Server-side user is gone; clear the local Keychain session as well.
-        try? await client.signOut()
+        // Server-side user is gone, so its tokens are already dead — a global
+        // sign-out round-trip would just fail against the deleted user. Only
+        // the local Keychain session needs clearing.
+        try? await client.signOut(scope: .local)
         AppLog.app.info("Account deleted")
+    }
+
+    // MARK: Cloud profile <-> user metadata
+
+    /// Key inside `auth.users.user_metadata` holding the synced profile. The
+    /// value is a small JSON object (see `metadataValue(from:)`); everything
+    /// else in the metadata is left untouched.
+    private static let profileMetadataKey = "sleep_profile"
+
+    private static func metadataValue(from profile: RemoteProfile) -> AnyJSON {
+        .object([
+            "name": .string(profile.name),
+            "bedtime_minutes": .integer(profile.bedtime),
+            "wake_minutes": .integer(profile.wakeTime),
+            "struggles": .array(profile.sleepStruggles.map { .string($0) }),
+        ])
+    }
+
+    private static func remoteProfile(from user: User) -> RemoteProfile? {
+        guard let object = user.userMetadata[profileMetadataKey]?.objectValue,
+              let name = object["name"]?.stringValue,
+              let bedtime = object["bedtime_minutes"]?.intValue,
+              let wakeTime = object["wake_minutes"]?.intValue
+        else { return nil }
+        // Reject garbage a different/older client version might have written.
+        guard (0..<1_440).contains(bedtime), (0..<1_440).contains(wakeTime) else { return nil }
+        let struggles = object["struggles"]?.arrayValue?.compactMap(\.stringValue) ?? []
+        return RemoteProfile(name: name, bedtime: bedtime, wakeTime: wakeTime, sleepStruggles: struggles)
     }
 
     private static func account(from session: Session) -> AppAccount {
@@ -236,6 +324,18 @@ final class SupabaseAuthClient: AuthProviding {
         let nsError = error as NSError
         if nsError.domain == "com.apple.AuthenticationServices.WebAuthenticationSession" && nsError.code == 1 {
             return .cancelled
+        }
+        // GoTrue's structured error codes, for the failures a user can actually
+        // cause; anything unmapped falls through with its server message.
+        if let authError = error as? Auth.AuthError {
+            switch authError.errorCode {
+            case .invalidCredentials: return .invalidCredentials
+            case .userAlreadyExists, .emailExists: return .emailAlreadyRegistered
+            case .emailNotConfirmed: return .emailNotConfirmed
+            case .weakPassword: return .weakPassword(authError.message)
+            case .overRequestRateLimit, .overEmailSendRateLimit: return .rateLimited
+            default: return .unknown(authError.message)
+            }
         }
         let text = error.localizedDescription.lowercased()
         if text.contains("invalid") || text.contains("credentials") { return .invalidCredentials }

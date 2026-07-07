@@ -68,10 +68,13 @@ struct OnboardingGateView: View {
             }
         }
         .animation(.easeInOut(duration: 0.28), value: route)
-        // Sign-in succeeded but there's no profile on this device yet: run the
-        // quick setup before entering the app.
+        // Sign-in succeeded but there's no profile on this device yet (no
+        // cloud copy to restore either): run the quick setup before entering
+        // the app. When the sign-in *did* restore a cloud profile, RootView
+        // swaps to Main on its own — routing to the questions here too would
+        // flash them during the crossfade.
         .onChange(of: store.isAuthenticated) { _, authenticated in
-            if authenticated && route == .signIn {
+            if authenticated && route == .signIn && store.profile == nil {
                 setRoute(.questions)
             }
         }

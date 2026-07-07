@@ -100,9 +100,10 @@ struct AuthMethodsView: View {
             Spacer()
 
             if let message = store.authErrorMessage {
+                // Amber for guidance (e.g. "check your email"), red for failures.
                 Text(message)
                     .font(SleepFont.body(14))
-                    .foregroundStyle(SleepColor.danger)
+                    .foregroundStyle(store.authMessageIsNotice ? SleepColor.amber : SleepColor.danger)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, SleepSpacing.xxl)
                     .padding(.bottom, SleepSpacing.md)
@@ -136,7 +137,11 @@ struct AuthMethodsView: View {
                     .scaledToFit()
                     .foregroundStyle(SleepColor.background)
             } action: {
-                guard !store.isAuthenticating else { return }
+                // `loadingProvider` also guards the window while the system
+                // sheet is up but `isAuthenticating` isn't set yet — a second
+                // tap there would regenerate the nonce out from under the
+                // in-flight request.
+                guard !store.isAuthenticating, loadingProvider == nil else { return }
                 Haptics.soft()
                 store.authErrorMessage = nil
                 loadingProvider = .apple
@@ -152,7 +157,7 @@ struct AuthMethodsView: View {
                     .renderingMode(.original)
                     .scaledToFit()
             } action: {
-                guard !store.isAuthenticating else { return }
+                guard !store.isAuthenticating, loadingProvider == nil else { return }
                 Haptics.soft()
                 store.authErrorMessage = nil
                 loadingProvider = .google
@@ -260,7 +265,13 @@ struct AuthMethodsView: View {
                   let tokenData = credential.identityToken,
                   let idToken = String(data: tokenData, encoding: .utf8),
                   let nonce = appleNonce
-            else { return }
+            else {
+                // A malformed credential must still release the button —
+                // returning silently here left the spinner stuck forever.
+                loadingProvider = nil
+                store.authErrorMessage = AuthError.unknown("Apple sign-in didn't return a usable credential. Try again.").message
+                return
+            }
             store.authErrorMessage = nil
             Task { await store.signInWithApple(idToken: idToken, nonce: nonce) }
         case .failure(let error):

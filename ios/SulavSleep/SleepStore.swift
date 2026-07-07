@@ -21,6 +21,10 @@ final class SleepStore {
     /// show a brief neutral state instead of flashing the auth screen.
     var isAuthReady = false
     var authErrorMessage: String?
+    /// Whether `authErrorMessage` is guidance about a normal next step (e.g.
+    /// "tap the confirmation link we emailed you") rather than a failure — the
+    /// auth screen tones down the color for these instead of showing red.
+    var authMessageIsNotice = false
     var isAuthenticating = false
     /// Whether the most recent successful sign-in created a brand-new account,
     /// vs. matching an existing one (e.g. Apple/Google reusing an already-
@@ -179,6 +183,7 @@ final class SleepStore {
                 Task { await self?.enableHealthSync() }
             }
         }
+        syncRemoteProfile()
     }
 
     // MARK: - Auth
@@ -198,8 +203,24 @@ final class SleepStore {
             persistence.markLaunched()
         }
         account = await auth.currentAccount
+        if let account {
+            persistAccount(account)
+            persistence.saveLastAccountID(account.id)
+            // Signed in but no profile on this device (e.g. a Keychain session
+            // synced from another device): restore the cloud copy so the user
+            // lands in the app, not back in onboarding. Runs before the ready
+            // flip so onboarding never flashes — but capped so a slow network
+            // can't hold the launch screen hostage; worst case the user gets
+            // the quick setup they'd have gotten anyway.
+            if profile == nil, let remote = await Self.withTimeout(seconds: 5, { [auth] in await auth.fetchRemoteProfile() }) {
+                profile = remote.asLocalProfile
+                persist(refreshWidget: false)
+                AppLog.store.info("Restored profile from cloud (launch)")
+            }
+        } else {
+            clearPersistedAccount()
+        }
         isAuthReady = true
-        if let account { persistAccount(account) } else { clearPersistedAccount() }
     }
 
     @MainActor
@@ -227,6 +248,7 @@ final class SleepStore {
         await auth.signOut()
         account = nil
         authErrorMessage = nil
+        authMessageIsNotice = false
         clearPersistedAccount()
         AppLog.store.info("Signed out")
     }
@@ -277,19 +299,77 @@ final class SleepStore {
     private func performAuth(_ work: @escaping () async throws -> AuthResult) async {
         isAuthenticating = true
         authErrorMessage = nil
+        authMessageIsNotice = false
         defer { isAuthenticating = false }
         do {
             let result = try await work()
-            account = result.account
             lastSignInWasNewAccount = result.isNewAccount
-            persistAccount(result.account)
+            adoptSignedInAccount(result.account, remoteProfile: result.remoteProfile)
             AppLog.store.info("Signed in (provider=\(result.account.provider.rawValue), new=\(result.isNewAccount))")
         } catch let error as AuthError {
             // Cancellation is a deliberate user action — show nothing.
             guard error != .cancelled else { return }
             authErrorMessage = error.message
+            authMessageIsNotice = error.isNotice
         } catch {
             authErrorMessage = AuthError.unknown(error.localizedDescription).message
+        }
+    }
+
+    /// Post-sign-in bookkeeping shared by every provider. Handles the two
+    /// device-vs-account mismatches:
+    /// - a *different* user signing in on this device (shared device / account
+    ///   switch) must never inherit the previous user's profile or nights;
+    /// - a *returning* user on a fresh device gets their profile restored from
+    ///   the account's cloud copy, skipping onboarding. The profile is set
+    ///   before `account` so `RootView` computes the destination screen from a
+    ///   consistent pair and never routes through onboarding on the way in.
+    @MainActor
+    private func adoptSignedInAccount(_ newAccount: AppAccount, remoteProfile: RemoteProfile?) {
+        if let previousID = persistence.lastAccountID, previousID != newAccount.id, profile != nil || !sessions.isEmpty {
+            profile = nil
+            sessions = []
+            importedHealthSessions = []
+            activeSession = nil
+            AppLog.store.notice("Different account signed in — previous user's local data cleared")
+        }
+        if profile == nil, let remoteProfile {
+            profile = remoteProfile.asLocalProfile
+            AppLog.store.info("Restored profile from cloud")
+        } else if remoteProfile == nil, let localCopy = RemoteProfile(profile: profile) {
+            // Account predates profile sync (or its cloud copy was lost): seed
+            // it from this device so the next fresh install skips onboarding.
+            Task { await auth.saveRemoteProfile(localCopy) }
+        }
+        account = newAccount
+        persistAccount(newAccount)
+        persistence.saveLastAccountID(newAccount.id)
+        persist(refreshWidget: true)
+    }
+
+    /// Push the local profile to the account's cloud copy, best-effort. Called
+    /// after every profile-shaping change (onboarding, name, schedule).
+    private func syncRemoteProfile() {
+        guard isAuthenticated, let remote = RemoteProfile(profile: profile) else { return }
+        Task { [auth] in await auth.saveRemoteProfile(remote) }
+    }
+
+    /// Race `operation` against a deadline, returning `nil` when the deadline
+    /// wins. Used only at launch, where blocking the UI beats nothing but a
+    /// bounded wait beats both.
+    private static func withTimeout<T: Sendable>(
+        seconds: Double,
+        _ operation: @escaping @Sendable () async -> T?
+    ) async -> T? {
+        await withTaskGroup(of: T?.self) { group in
+            group.addTask { await operation() }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                return nil
+            }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first
         }
     }
 
@@ -509,6 +589,7 @@ final class SleepStore {
         self.profile = profile
         persist()
         rescheduleLockdown()
+        syncRemoteProfile()
     }
 
     func saveName(_ name: String) {
@@ -519,6 +600,7 @@ final class SleepStore {
         profile.name = trimmed
         self.profile = profile
         persist(refreshWidget: false)
+        syncRemoteProfile()
     }
 
     private func persist(refreshWidget: Bool = true) {
@@ -591,6 +673,12 @@ struct SleepPersistence {
     // fresh install. Deliberately not cleared by `reset()` — a sign-out within
     // the same install is not a reinstall.
     private let launchedKey = "sulav.hasLaunched.v1"
+    // The id of the last account that signed in on this install. Unlike the
+    // cached account, this survives sign-out, so the *next* sign-in can tell a
+    // returning user (keep their local data) from a different user on a shared
+    // device (wipe it). Cleared by `reset()` — after account deletion there is
+    // no previous user left to protect.
+    private let lastAccountIDKey = "sulav.lastAccountID.v1"
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -617,6 +705,7 @@ struct SleepPersistence {
         defaults.removeObject(forKey: sessionsKey)
         defaults.removeObject(forKey: activeKey)
         defaults.removeObject(forKey: accountKey)
+        defaults.removeObject(forKey: lastAccountIDKey)
     }
 
     /// Whether the app has been launched before on this install. Backed by the
@@ -633,6 +722,10 @@ struct SleepPersistence {
     func saveAccount(_ account: AppAccount?) {
         encode(account, forKey: accountKey)
     }
+
+    var lastAccountID: String? { defaults.string(forKey: lastAccountIDKey) }
+
+    func saveLastAccountID(_ id: String) { defaults.set(id, forKey: lastAccountIDKey) }
 
     func startSleepFromIntent() {
         encode(ActiveSleepSession(start: Date()), forKey: activeKey)
