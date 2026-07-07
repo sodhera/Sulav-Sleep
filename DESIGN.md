@@ -68,11 +68,17 @@ lockdown, logs no night) is the same hold mechanic, quieter and shorter
 
 *Hold to wake* and *Back to sleep* share one footprint (58pt, the app's
 standard action height) so they read as two ways to leave the same screen —
-but never the same weight. Hold to wake carries a banked-coal resting tint
-under its fill, a warm border, and an ember glow shadow, so it reads warm
-and primary even before it's touched; Back to sleep stays flat, cool glass
-with a neutral hairline and dimmer ember text, so it reads as the free
-option at a glance, without needing to read either label.
+but never the same weight. Both are real interactive Liquid Glass on iOS 26+
+(the hand-drawn capsules of earlier revisions survive only as the pre-26
+fallback): Hold to wake is ember-tinted glass with an ember glow shadow, so
+it reads warm and primary even before it's touched — since it's a manual
+hold gesture rather than a `Button`, its press feedback comes from the
+existing ratchet-driven scale, with the glass adding the real material morph
+on top; Back to sleep is untinted, cool glass with dimmer ember text, so it
+reads as the free option at a glance, without needing to read either label.
+*Hold to cancel* stays deliberately chromeless — no glass, no fill — so it
+reads as a quiet text link that all but disappears until pressed, matching
+its role as a rare, irreversible exit (see "What to avoid").
 
 The whole scene runs through **Core Animation** layers, so SwiftUI does not run
 a per-frame render loop. The native `TabView` host is opaque, so Home and

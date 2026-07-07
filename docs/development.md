@@ -306,23 +306,42 @@ Apple Developer capability, Google Cloud OAuth client).
   surface — the glass owns its chrome on 26+, and the fallback draws its own
   hairline. Strokes at call sites are reserved for meaning (selection) or
   branding (the white provider pills, which are not glass).
-- Touch-driven controls drive their press reaction from a custom `ButtonStyle`
+- Touch-driven `Button`s drive their press reaction from a custom `ButtonStyle`
   that owns `configuration.isPressed`, NOT a `.buttonStyle(.plain)` button
   with a bare `.glassEffect(.interactive())` (the plain button swallows the
   touch, so the glass never sees the press and the control feels dead). The
   style layers a springy `isPressed` scale (guaranteed visible reaction) on
   top of interactive Liquid Glass (real material morph on device):
   `GlassCircleButtonStyle` for `GlassIconButton`, `GlassCapsuleButtonStyle`
-  for `LiquidPrimaryButton` (amber tint) / `LiquidSecondaryButton` (no tint).
-  The hand-drawn `LiquidButtonStyle` is the pre-26 fallback only. Buttons
-  squish on press; only the `SlideToSleepButton` knob (a real `DragGesture`
-  control) gets the finger-follow morph.
+  (internal, in `LiquidGlass.swift`) for `LiquidPrimaryButton` (amber tint),
+  `LiquidSecondaryButton` (no tint), and sleep mode's "Back to sleep" (no
+  tint). The hand-drawn `LiquidButtonStyle` is the pre-26 fallback only.
+  Controls that aren't a `Button` — `SlideToSleepButton`'s knob and
+  `EmberHoldButton`'s "Hold to wake", both driven by a manual `DragGesture` —
+  apply `.glassEffect(.interactive())` directly instead, since their own
+  gesture state (`isHolding`/drag offset) already guarantees the reaction the
+  same way `isPressed` does for a `ButtonStyle`.
+- Buttons squish-and-settle on press; only genuine drag controls
+  (`SlideToSleepButton`'s knob) get the finger-follow morph. `EmberHoldButton`
+  keeps its ratchet-driven scale for the same reason.
+- A `glassEffect` must be applied to an already-*sized* shape (frame set
+  before the modifier, or the shape passed to `in:` matches the intended
+  size) — applying it to a flexible/unsized shape renders as a displaced,
+  bright-rimmed "ghost" echo of the control (hit this on the slide-to-sleep
+  knob: the fix was framing the circle before `.glassEffect`, and dropping
+  the `GlassEffectContainer` around the track+knob since the track isn't
+  glass and the container was only producing the echo).
 - Sibling glass shapes that read as one set are wrapped in
   `LiquidGlassContainer` (`GlassEffectContainer` on 26+) so their glass
-  blends: Home's schedule chips, onboarding's struggle rows, the slide
-  track+knob.
+  blends: Home's schedule chips, onboarding's struggle rows. Don't wrap a
+  glass control together with a non-glass sibling (see the ghost-echo note
+  above) — only sibling glass shapes benefit.
 - `GlassIconButton`'s glass region is the full `size` circle (no content
   inset math). Sizes: 56pt gear/close, 44pt back chevron.
+- `EmberHoldButton`'s non-prominent case ("Hold to cancel") is deliberately
+  chromeless — no glass, no fill — so it reads as a quiet text link. Don't
+  add glass there; it would fight the "rare, irreversible exit" language in
+  DESIGN.md.
 
 ## Widget & App Group
 
