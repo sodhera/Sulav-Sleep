@@ -146,10 +146,6 @@ struct SlideToSleepButton: View {
             let maxOffset = geo.size.width - knobSize - trackPadding * 2
             let progress = maxOffset > 0 ? min(dragOffset / maxOffset, 1) : 0
 
-            // One glass set: the interactive knob is Liquid Glass, so pairing
-            // it with the rail in a container lets its glass lens and morph
-            // over the rail as it slides. Passthrough pre-26.
-            LiquidGlassContainer {
             ZStack(alignment: .leading) {
                 // Track — a near-solid night rail: deep navy with an inner
                 // shadow so the knob visibly sits *in* something, rimmed in
@@ -275,7 +271,6 @@ struct SlideToSleepButton: View {
                     )
             }
             .frame(height: trackHeight)
-            }
         }
         .frame(height: trackHeight)
     }
@@ -287,8 +282,12 @@ struct SlideToSleepButton: View {
     @ViewBuilder
     private var knobSurface: some View {
         if #available(iOS 26.0, *) {
+            // The circle must be sized *before* `glassEffect`, otherwise the
+            // glass computes its geometry on a flexible (full-width) circle
+            // and renders as a displaced, bright-rimmed echo behind the knob.
             Circle()
                 .fill(SleepColor.amber.opacity(0.55))
+                .frame(width: knobSize, height: knobSize)
                 .glassEffect(.regular.tint(SleepColor.gold).interactive(), in: .circle)
         } else {
             Circle()
