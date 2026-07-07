@@ -32,6 +32,14 @@ struct AppAccount: Codable, Equatable {
     }
 }
 
+/// What a successful sign-in/sign-up call resolved to, so callers can tell a
+/// brand-new account from one that already existed (e.g. Apple/Google sign-in
+/// silently matching an existing identity instead of creating a new user).
+struct AuthResult {
+    var account: AppAccount
+    var isNewAccount: Bool
+}
+
 /// Errors surfaced to the auth screen. Kept small and user-facing rather than
 /// exposing raw SDK/network errors.
 enum AuthError: Error, Equatable {

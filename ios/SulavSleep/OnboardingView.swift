@@ -13,6 +13,12 @@ struct OnboardingGateView: View {
     @Bindable var store: SleepStore
 
     @State private var route: Route
+    /// Bumped to force a fresh `OnboardingQuestionsView` when a sign-up run
+    /// resolves to an existing account with no local profile yet — the new
+    /// instance is created with `includesAccount == false` since `store` is
+    /// already authenticated by then, i.e. the same quick-setup shown after
+    /// signing in from the welcome screen. See `onExistingAccountNeedsSetup`.
+    @State private var questionsInstanceID = UUID()
 
     private enum Route: Equatable {
         case welcome
@@ -48,7 +54,10 @@ struct OnboardingGateView: View {
                         name: name, bedtime: bedtime, wakeTime: wakeTime,
                         connectHealth: false, struggles: struggles
                     )
+                } onExistingAccountNeedsSetup: {
+                    questionsInstanceID = UUID()
                 }
+                .id(questionsInstanceID)
                 .transition(.opacity)
             case .signIn:
                 AuthView(store: store, intent: .signIn, onBack: {
@@ -141,6 +150,14 @@ struct OnboardingQuestionsView: View {
     /// there is nowhere to go back to (post-sign-in quick setup).
     var onBack: (() -> Void)?
     let onDone: (String, Int, Int, [String]) -> Void
+    /// The account step's sign-up call matched an existing account (Apple/
+    /// Google reusing an already-registered identity) instead of creating a
+    /// new one. The just-answered questions belong to whoever originally
+    /// signed up, not this run, so they're discarded rather than passed to
+    /// `onDone`. Called only when there's no local profile yet to fall back
+    /// on (fresh device/reinstall) — `RootView` handles the case where a
+    /// profile already exists on its own once `isAuthenticated` flips.
+    var onExistingAccountNeedsSetup: () -> Void = {}
 
     @State private var step: Step = .name
     @State private var movingForward = true
@@ -155,11 +172,13 @@ struct OnboardingQuestionsView: View {
     init(
         store: SleepStore,
         onBack: (() -> Void)? = nil,
-        onDone: @escaping (String, Int, Int, [String]) -> Void
+        onDone: @escaping (String, Int, Int, [String]) -> Void,
+        onExistingAccountNeedsSetup: @escaping () -> Void = {}
     ) {
         self.store = store
         self.onBack = onBack
         self.onDone = onDone
+        self.onExistingAccountNeedsSetup = onExistingAccountNeedsSetup
         _includesAccount = State(initialValue: !store.isAuthenticated)
     }
 
@@ -213,11 +232,19 @@ struct OnboardingQuestionsView: View {
         .safeAreaPadding(.top)
         .safeAreaPadding(.bottom)
         .animation(.easeInOut(duration: 0.28), value: step)
-        // The account step's auth succeeded: now commit the profile, which
-        // (with the fresh session) drops us into the main app.
+        // The account step's auth succeeded. A brand-new account commits the
+        // just-answered profile as before. An existing account (Apple/Google
+        // silently matching an already-registered identity) discards these
+        // answers instead — see `onExistingAccountNeedsSetup`.
         .onChange(of: store.isAuthenticated) { _, authenticated in
-            if authenticated && step == .account {
+            guard authenticated, step == .account else { return }
+            if store.lastSignInWasNewAccount {
                 finish()
+            } else {
+                Keyboard.dismiss()
+                if store.profile == nil {
+                    onExistingAccountNeedsSetup()
+                }
             }
         }
     }

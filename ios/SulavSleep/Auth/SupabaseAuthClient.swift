@@ -16,10 +16,10 @@ protocol AuthProviding {
     /// until the initial check completes.
     var currentAccount: AppAccount? { get async }
 
-    func signInWithApple(idToken: String, nonce: String) async throws -> AppAccount
-    func signInWithGoogle() async throws -> AppAccount
-    func signUp(email: String, password: String) async throws -> AppAccount
-    func signIn(email: String, password: String) async throws -> AppAccount
+    func signInWithApple(idToken: String, nonce: String) async throws -> AuthResult
+    func signInWithGoogle() async throws -> AuthResult
+    func signUp(email: String, password: String) async throws -> AuthResult
+    func signIn(email: String, password: String) async throws -> AuthResult
     func signOut() async
 
     /// Drop the local Keychain session only, without a server round-trip. Used
@@ -49,10 +49,10 @@ enum SulavAuth {
 /// No-op provider used when Supabase credentials aren't configured yet.
 struct DisabledAuthClient: AuthProviding {
     var currentAccount: AppAccount? { get async { nil } }
-    func signInWithApple(idToken: String, nonce: String) async throws -> AppAccount { throw AuthError.unknown("Sign-in isn't configured yet.") }
-    func signInWithGoogle() async throws -> AppAccount { throw AuthError.unknown("Sign-in isn't configured yet.") }
-    func signUp(email: String, password: String) async throws -> AppAccount { throw AuthError.unknown("Sign-in isn't configured yet.") }
-    func signIn(email: String, password: String) async throws -> AppAccount { throw AuthError.unknown("Sign-in isn't configured yet.") }
+    func signInWithApple(idToken: String, nonce: String) async throws -> AuthResult { throw AuthError.unknown("Sign-in isn't configured yet.") }
+    func signInWithGoogle() async throws -> AuthResult { throw AuthError.unknown("Sign-in isn't configured yet.") }
+    func signUp(email: String, password: String) async throws -> AuthResult { throw AuthError.unknown("Sign-in isn't configured yet.") }
+    func signIn(email: String, password: String) async throws -> AuthResult { throw AuthError.unknown("Sign-in isn't configured yet.") }
     func signOut() async {}
     func clearLocalSession() async {}
     func deleteAccount() async throws { throw AuthError.unknown("Account deletion isn't configured yet.") }
@@ -105,20 +105,20 @@ final class SupabaseAuthClient: AuthProviding {
         )
     }
 
-    func signInWithApple(idToken: String, nonce: String) async throws -> AppAccount {
+    func signInWithApple(idToken: String, nonce: String) async throws -> AuthResult {
         do {
             let session = try await client.signInWithIdToken(
                 credentials: OpenIDConnectCredentials(provider: .apple, idToken: idToken, nonce: nonce)
             )
             AppLog.app.info("Signed in with Apple")
-            return Self.account(from: session)
+            return AuthResult(account: Self.account(from: session), isNewAccount: Self.isNewAccount(session.user))
         } catch {
             throw Self.mapError(error)
         }
     }
 
     @MainActor
-    func signInWithGoogle() async throws -> AppAccount {
+    func signInWithGoogle() async throws -> AuthResult {
         do {
             let session = try await client.signInWithOAuth(
                 provider: .google,
@@ -127,13 +127,13 @@ final class SupabaseAuthClient: AuthProviding {
                 try await Self.presentOAuthSession(url: url)
             }
             AppLog.app.info("Signed in with Google")
-            return Self.account(from: session)
+            return AuthResult(account: Self.account(from: session), isNewAccount: Self.isNewAccount(session.user))
         } catch {
             throw Self.mapError(error)
         }
     }
 
-    func signUp(email: String, password: String) async throws -> AppAccount {
+    func signUp(email: String, password: String) async throws -> AuthResult {
         do {
             let response = try await client.signUp(email: email, password: password)
             guard let session = response.session else {
@@ -141,7 +141,11 @@ final class SupabaseAuthClient: AuthProviding {
                 throw AuthError.unknown("Check your email to confirm your account, then sign in.")
             }
             AppLog.app.info("Signed up with email")
-            return Self.account(from: session)
+            // A session is only ever returned here for a genuinely new user —
+            // an already-registered email either comes back with no session
+            // (see the guard above) or an explicit error, so reaching this
+            // point always means a fresh account.
+            return AuthResult(account: Self.account(from: session), isNewAccount: true)
         } catch let authError as AuthError {
             throw authError
         } catch {
@@ -149,11 +153,11 @@ final class SupabaseAuthClient: AuthProviding {
         }
     }
 
-    func signIn(email: String, password: String) async throws -> AppAccount {
+    func signIn(email: String, password: String) async throws -> AuthResult {
         do {
             let session = try await client.signIn(email: email, password: password)
             AppLog.app.info("Signed in with email")
-            return Self.account(from: session)
+            return AuthResult(account: Self.account(from: session), isNewAccount: false)
         } catch {
             throw Self.mapError(error)
         }
@@ -214,6 +218,16 @@ final class SupabaseAuthClient: AuthProviding {
             email: session.user.email,
             provider: AuthProvider(rawValue: provider ?? "email") ?? .email
         )
+    }
+
+    /// GoTrue's `id_token`/OAuth grant finds-or-creates by provider identity and
+    /// doesn't expose an explicit "new user" flag, so this compares timestamps:
+    /// a brand-new user's first sign-in coincides with its creation, while an
+    /// existing account being matched into has a `lastSignInAt` well after
+    /// `createdAt`.
+    private static func isNewAccount(_ user: User) -> Bool {
+        guard let lastSignInAt = user.lastSignInAt else { return true }
+        return abs(lastSignInAt.timeIntervalSince(user.createdAt)) < 5
     }
 
     private static func mapError(_ error: Error) -> AuthError {
