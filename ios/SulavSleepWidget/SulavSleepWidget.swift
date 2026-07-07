@@ -369,8 +369,14 @@ private struct MediumSleepView: View {
                             .font(SleepFont.body(12))
                             .foregroundStyle(SleepColor.muted)
                     }
+                }
 
-                    Spacer(minLength: 4)
+                Spacer(minLength: 0)
+
+                VStack(alignment: .trailing, spacing: 0) {
+                    SleepBars(nights: summary.nights, target: summary.targetMinutes, height: 66, wholeHours: true)
+
+                    Spacer(minLength: 6)
 
                     if case .asleep(let since) = tonight {
                         AsleepLine(since: since)
@@ -378,11 +384,7 @@ private struct MediumSleepView: View {
                         SleepNowButton()
                     }
                 }
-
-                Spacer(minLength: 0)
-
-                SleepBars(nights: summary.nights, target: summary.targetMinutes, height: 66, wholeHours: true)
-                    .frame(maxWidth: 168)
+                .frame(maxWidth: 168, maxHeight: .infinity)
             }
         }
     }

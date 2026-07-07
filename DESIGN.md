@@ -399,9 +399,9 @@ Widgets live in `SulavSleepWidget.swift` and split one job across surfaces:
   bedtime (amber "Past bedtime — wind down"), and asleep. The asleep state
   mirrors `SleepModeView`: true black container, ember timer, nothing else.
 - **Medium — the morning glance.** Last night's score as the hero numeral
-  (colored by the score rules below), duration, streak/average, and the
-  7-night bar rhythm on the right, with a Sleep Now capsule anchoring the
-  left column.
+  (colored by the score rules below), duration, and streak/average in the
+  left column; the 7-night bar rhythm on the right with the Sleep Now
+  capsule anchored below it, on the trailing edge.
 - **Large — both.** Stats + full-width bars with weekday initials, then a
   hairline and a single "tonight" footer line (bedtime countdown or asleep
   timer) with the Sleep Now capsule on its trailing side.
