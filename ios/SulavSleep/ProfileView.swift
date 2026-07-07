@@ -144,9 +144,9 @@ private struct ProfileRootScreen: View {
                     showsSettings = true
                 } label: {
                     Image(systemName: "gearshape")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.system(size: 20, weight: .medium))
                         .foregroundStyle(SleepColor.dim)
-                        .frame(width: 40, height: 40)
+                        .frame(width: 48, height: 48)
                 }
                 .buttonStyle(.plain)
                 .liquidGlass(cornerRadius: SleepRadius.pill, interactive: true)
