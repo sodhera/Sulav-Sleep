@@ -53,7 +53,12 @@ sunrise-glyph wake target at its center — "how far into the night am I" at
 half-asleep glance distance. Oversleeping simply holds the ring full. It
 opens straight into this collapsed instrument; the "Tap to wake" hint
 breathes very slowly at the bottom, and tapping the dark toggles the
-controls in and out.
+controls in and out. The screen's one ornament is a slow chain of ember
+z's rising off the ring's upper shoulder — the app icon's ZZZ, alive:
+each z drifts up the same diagonal, swells a touch, and fades before the
+next follows, staying `emberDim` and quieter than the timer so it reads
+as breathing, not motion (under Reduce Motion it freezes into the icon's
+static diagonal).
 
 Sleep-mode controls follow one grammar: **deliberate exits are held,
 harmless returns are taps.** Entering sleep took a deliberate slide, so

@@ -87,6 +87,13 @@ struct SleepModeView: View {
                         }
                     }
                 }
+                .overlay(alignment: .topTrailing) {
+                    // Rising z's off the ring's upper shoulder — the app
+                    // icon's ZZZ, alive. Anchored just outside the arc so
+                    // they drift up and away from the instrument.
+                    RisingZs()
+                        .offset(x: -36, y: 22)
+                }
 
                 Spacer()
 
@@ -256,6 +263,100 @@ private struct NightRing<Content: View>: View {
                 x: radius * CGFloat(cos(angle.radians)),
                 y: radius * CGFloat(sin(angle.radians))
             )
+    }
+}
+
+// MARK: - Rising Zs
+
+/// The sleep screen's one ornament: soft ember z's rising off the night
+/// ring's shoulder — the app icon's ZZZ, alive. Each z drifts up the same
+/// diagonal, swells a touch, and fades out; three staggered cycles mean at
+/// most two are ever visible, so it reads as slow breathing rather than
+/// motion. Everything stays `emberDim` and quieter than the timer — if it
+/// draws the eye, it is too strong. Under Reduce Motion the chain freezes
+/// into the icon's static diagonal.
+private struct RisingZs: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        ZStack(alignment: .bottomLeading) {
+            if reduceMotion {
+                ForEach(Array([12.0, 14.0, 16.0].enumerated()), id: \.offset) { i, size in
+                    Text("z")
+                        .font(.system(size: size, weight: .semibold))
+                        .foregroundStyle(SleepColor.emberDim)
+                        .opacity(0.2 + Double(i) * 0.11)
+                        .offset(x: CGFloat(i) * 11, y: CGFloat(i) * -19)
+                }
+            } else {
+                RisingZ(startDelay: 0)
+                RisingZ(startDelay: 2.5)
+                RisingZ(startDelay: 5.0)
+            }
+        }
+        .accessibilityHidden(true)
+        .allowsHitTesting(false)
+    }
+}
+
+/// One z of the chain. The loop itself is a repeating `keyframeAnimator`
+/// (fade in → rise, swell, and fade → hold dark); the stagger comes from
+/// delaying each z's *start* — once running, all three share the same cycle
+/// length, so their relative phase holds forever.
+private struct RisingZ: View {
+    let startDelay: Double
+
+    @State private var started = false
+
+    private struct Phase {
+        var rise: CGFloat = 0
+        var drift: CGFloat = 0
+        var scale: CGFloat = 0.85
+        var opacity: Double = 0
+    }
+
+    /// Seconds a z is visibly rising, and the dark rest before its next turn.
+    private static let active: Double = 4.5
+    private static let rest: Double = 3.0
+
+    var body: some View {
+        Group {
+            if started {
+                Text("z")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(SleepColor.emberDim)
+                    .keyframeAnimator(initialValue: Phase(), repeating: true) { view, phase in
+                        view
+                            .scaleEffect(phase.scale)
+                            .opacity(phase.opacity)
+                            .offset(x: phase.drift, y: phase.rise)
+                    } keyframes: { _ in
+                        KeyframeTrack(\.opacity) {
+                            CubicKeyframe(0.5, duration: 1.1)
+                            LinearKeyframe(0.42, duration: 1.6)
+                            CubicKeyframe(0, duration: Self.active - 2.7)
+                            LinearKeyframe(0, duration: Self.rest)
+                        }
+                        KeyframeTrack(\.rise) {
+                            CubicKeyframe(-46, duration: Self.active)
+                            LinearKeyframe(-46, duration: Self.rest)
+                        }
+                        KeyframeTrack(\.drift) {
+                            CubicKeyframe(14, duration: Self.active)
+                            LinearKeyframe(14, duration: Self.rest)
+                        }
+                        KeyframeTrack(\.scale) {
+                            CubicKeyframe(1.15, duration: Self.active)
+                            LinearKeyframe(1.15, duration: Self.rest)
+                        }
+                    }
+            }
+        }
+        .task {
+            guard startDelay > 0 else { started = true; return }
+            try? await Task.sleep(for: .seconds(startDelay))
+            started = true
+        }
     }
 }
 
