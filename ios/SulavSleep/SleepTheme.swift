@@ -137,12 +137,16 @@ extension View {
 enum Haptics {
     #if canImport(UIKit)
     private static let softGenerator = UIImpactFeedbackGenerator(style: .soft)
+    private static let lightGenerator = UIImpactFeedbackGenerator(style: .light)
+    private static let rigidGenerator = UIImpactFeedbackGenerator(style: .rigid)
     private static let successGenerator = UINotificationFeedbackGenerator()
     #endif
 
     static func prepare() {
         #if canImport(UIKit)
         softGenerator.prepare()
+        lightGenerator.prepare()
+        rigidGenerator.prepare()
         successGenerator.prepare()
         #endif
     }
@@ -151,6 +155,24 @@ enum Haptics {
         #if canImport(UIKit)
         softGenerator.impactOccurred()
         softGenerator.prepare()
+        #endif
+    }
+
+    /// A light, variable-strength tick — used to ratchet the slide-to-sleep
+    /// knob so the commitment gesture has a physical, detented feel.
+    static func tick(intensity: CGFloat) {
+        #if canImport(UIKit)
+        lightGenerator.impactOccurred(intensity: max(0, min(1, intensity)))
+        lightGenerator.prepare()
+        #endif
+    }
+
+    /// A firmer single tap — the "you can let go now" cue when the slide
+    /// crosses its completion threshold.
+    static func rigid() {
+        #if canImport(UIKit)
+        rigidGenerator.impactOccurred()
+        rigidGenerator.prepare()
         #endif
     }
 

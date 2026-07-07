@@ -14,17 +14,20 @@ struct HomeView: View {
     var body: some View {
         ZStack {
             if showConfirmation {
+                // Scrolls up into view when Sleep Now is tapped, and — on
+                // Cancel — scrolls back down the same way it arrived, rather
+                // than fading in place.
                 SleepConfirmationPanel(store: store, profile: profile) {
-                    withAnimation(.easeInOut(duration: 0.3)) { showConfirmation = false }
+                    withAnimation(.easeInOut(duration: 0.32)) { showConfirmation = false }
                 }
                 .transition(.asymmetric(
                     insertion: .opacity.combined(with: .move(edge: .bottom)),
-                    removal: .opacity
+                    removal: .opacity.combined(with: .move(edge: .bottom))
                 ))
             } else {
                 homeContent
                     .transition(.asymmetric(
-                        insertion: .opacity,
+                        insertion: .opacity.combined(with: .move(edge: .top)),
                         removal: .opacity.combined(with: .move(edge: .top))
                     ))
             }

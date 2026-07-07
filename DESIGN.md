@@ -126,9 +126,16 @@ Two tabs, each with exactly one job:
   a one-line `of sleep · wake 6:30 AM` sub, a single compact glass row for
   the lockdown (lock glyph + the app icons themselves — icons over words; an
   open lock + "No apps blocked tonight" otherwise), and the iPhone-style
-  **slide-to-sleep** capsule. Sliding the knob across the full track starts
-  the session; "Cancel" springs back. The slide gesture is what makes the
-  commitment deliberate — the screen doesn't need paragraphs on top of it.
+  **slide-to-sleep** capsule. The confirmation *scrolls up* into view when
+  Sleep Now is tapped and — on "Cancel" — *scrolls back down* the same way it
+  arrived (Home slides in from the top behind it), never a fade in place.
+  Sliding the knob across the full track starts the session. The slide gesture
+  is what makes the commitment deliberate — the screen doesn't need paragraphs
+  on top of it — and it's the one place haptics are deliberately *rich* rather
+  than sparing: the knob ratchets through light detents that strengthen with
+  progress, a firmer tap fires the moment it crosses the completion threshold
+  ("let go now"), releasing short of it gives a soft acknowledging tap, and a
+  success notification lands when the night begins.
 - **Profile — everything about you.** Identity (name only, display-only — no
   pencil, no email; both are edited/shown in Settings so the body stays
   read-only), then a **stat band** straight under the name — Avg sleep, Avg
@@ -269,7 +276,10 @@ no repeat questionnaire; picking "Get started" re-runs it only if they choose to
 State changes fade/lift over ~260–320ms; presses scale subtly (~0.98). Nothing
 bouncy or reward-like. Haptics (`Haptics`) are gentle and sparing: a soft tap
 entering/leaving sleep and on nav, a success notification when a night is
-logged.
+logged. The one deliberate exception is the **slide-to-sleep** knob, whose
+ratcheting detents / threshold cue / success tap are richer on purpose — the
+gesture is the night's commitment, so it earns tactile weight the rest of the
+app forgoes.
 
 ## Widgets
 

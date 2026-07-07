@@ -121,11 +121,18 @@ struct SlideToSleepButton: View {
     @State private var dragOffset: CGFloat = 0
     @State private var isCompleted = false
     @GestureState private var isDragging = false
+    // Haptic bookkeeping: which ratchet detent last fired, and whether the
+    // knob is currently past the completion threshold (so the firm "ready"
+    // cue fires once per crossing, not every frame).
+    @State private var lastHapticStep = -1
+    @State private var isPastThreshold = false
 
     private let knobSize: CGFloat = 56
     private let trackHeight: CGFloat = 64
     private let trackPadding: CGFloat = 4
     private let completionThreshold: CGFloat = 0.80
+    /// Number of detents the knob ratchets through across the full track.
+    private let hapticDetents: CGFloat = 6
 
     var body: some View {
         GeometryReader { geo in
@@ -203,7 +210,9 @@ struct SlideToSleepButton: View {
                             }
                             .onChanged { value in
                                 guard !isCompleted else { return }
-                                dragOffset = min(max(0, value.translation.width), maxOffset)
+                                let newOffset = min(max(0, value.translation.width), maxOffset)
+                                dragOffset = newOffset
+                                fireDragHaptics(progress: maxOffset > 0 ? newOffset / maxOffset : 0)
                             }
                             .onEnded { value in
                                 guard !isCompleted else { return }
@@ -220,7 +229,9 @@ struct SlideToSleepButton: View {
                                         onComplete()
                                     }
                                 } else {
-                                    // Spring back
+                                    // Spring back — a soft tap acknowledges the release.
+                                    Haptics.soft()
+                                    resetDragHaptics()
                                     withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
                                         dragOffset = 0
                                     }
@@ -231,5 +242,34 @@ struct SlideToSleepButton: View {
             .frame(height: trackHeight)
         }
         .frame(height: trackHeight)
+    }
+
+    /// Ratchet the knob: a light tick at each detent (rising in strength with
+    /// progress) so the slide feels physical, plus one firmer tap the moment
+    /// it crosses the completion threshold — the "let go now" cue.
+    private func fireDragHaptics(progress: CGFloat) {
+        let step = Int(progress * hapticDetents)
+        if step != lastHapticStep {
+            lastHapticStep = step
+            // Skip the tick at rest (step 0, progress ~0) so a stray touch is
+            // silent; every detent thereafter ticks a little harder.
+            if step > 0 {
+                Haptics.tick(intensity: 0.35 + progress * 0.55)
+            }
+        }
+
+        if progress >= completionThreshold {
+            if !isPastThreshold {
+                isPastThreshold = true
+                Haptics.rigid()
+            }
+        } else if isPastThreshold {
+            isPastThreshold = false
+        }
+    }
+
+    private func resetDragHaptics() {
+        lastHapticStep = -1
+        isPastThreshold = false
     }
 }
