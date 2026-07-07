@@ -62,14 +62,19 @@ struct GlassIconButton: View {
 
     var body: some View {
         if #available(iOS 26.0, *) {
+            // `.buttonStyle(.glass)` pads its label with its own default
+            // content insets before drawing the glass, so sizing only the
+            // inner `Image` left the rendered circle noticeably bigger than
+            // `size`. The frame has to land on the button itself, *after*
+            // the style, to override that padding rather than add to it.
             Button(action: action) {
                 Image(systemName: systemImage)
                     .font(.system(size: iconSize, weight: .medium))
                     .foregroundStyle(tint)
-                    .frame(width: size, height: size)
             }
             .buttonStyle(.glass)
             .buttonBorderShape(.circle)
+            .frame(width: size, height: size)
         } else {
             Button(action: action) {
                 Image(systemName: systemImage)
