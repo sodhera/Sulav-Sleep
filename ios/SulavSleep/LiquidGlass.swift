@@ -93,9 +93,10 @@ struct GlassIconButton: View {
     var tint: Color = SleepColor.dim
     let action: () -> Void
 
-    /// The glass style's default circular content insets, measured on iOS 26.
+    /// The glass style's default circular content insets, measured on iOS 26
+    /// (screenshot-verified: a 18pt label renders a ~30pt circle).
     /// Label frame + these insets = the rendered circle.
-    private static let glassInsets: CGFloat = 26
+    private static let glassInsets: CGFloat = 12
 
     var body: some View {
         if #available(iOS 26.0, *) {
@@ -245,9 +246,10 @@ struct LiquidPrimaryButton: View {
         if #available(iOS 26.0, *) {
             Button(action: action) {
                 labelContent
-                    // The style pads vertically on its own; 58pt total comes
-                    // from label height + the prominent style's insets.
-                    .frame(maxWidth: .infinity, minHeight: 34)
+                    // The style adds ~14pt of its own vertical insets
+                    // (measured on iOS 26), so a 46pt label lands the button
+                    // at the app's ~60pt primary-action height.
+                    .frame(maxWidth: .infinity, minHeight: 46)
             }
             .buttonStyle(.glassProminent)
             .buttonBorderShape(.capsule)
@@ -298,7 +300,9 @@ struct LiquidSecondaryButton: View {
         if #available(iOS 26.0, *) {
             Button(action: action) {
                 labelContent
-                    .frame(maxWidth: .infinity, minHeight: 34)
+                    // Same 46 + ~14pt style insets math as the primary, so
+                    // the two action heights stay identical.
+                    .frame(maxWidth: .infinity, minHeight: 46)
             }
             .buttonStyle(.glass)
             .buttonBorderShape(.capsule)
