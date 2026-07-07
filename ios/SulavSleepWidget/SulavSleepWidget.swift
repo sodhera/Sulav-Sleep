@@ -754,6 +754,11 @@ private struct AsleepLine: View {
 /// hours slept that night as a small navy-ink label set *inside* its top —
 /// the amber-fill/navy-ink pairing from the primary button. Bars too short
 /// to hold the label drop it rather than overflow.
+///
+/// The chart always lays out exactly 7 fixed-width columns. Nights the user
+/// hasn't logged yet render as the quiet hairline stubs from the empty state,
+/// so one logged night is one narrow bar in its slot — not a lone capsule
+/// stretched across the full chart width.
 private struct SleepBars: View {
     let nights: [WidgetNight]
     let target: Int
@@ -763,22 +768,28 @@ private struct SleepBars: View {
     /// the large widget keeps one decimal + unit ("7.5h").
     var wholeHours: Bool = false
 
+    private static let slotCount = 7
+
+    /// Fixed 7 columns, latest night in the rightmost slot; missing nights
+    /// lead-pad as nil.
+    private var slots: [WidgetNight?] {
+        let recent = Array(nights.suffix(Self.slotCount))
+        return Array(repeating: nil, count: Self.slotCount - recent.count) + recent
+    }
+
     var body: some View {
-        let maxMinutes = max(target, nights.map(\.durationMinutes).max() ?? target)
-        let targetFraction = CGFloat(target) / CGFloat(maxMinutes)
+        // 15% headroom above the tallest value keeps the target hairline a
+        // reference line *inside* the chart, not a stray rule flush against
+        // its top edge (target is usually the max, i.e. fraction 1.0).
+        let maxNight = nights.map(\.durationMinutes).max() ?? target
+        let scaleMinutes = CGFloat(max(target, maxNight)) * 1.15
+        let targetFraction = CGFloat(target) / scaleMinutes
 
         VStack(spacing: 4) {
             HStack(alignment: .bottom, spacing: 5) {
-                if nights.isEmpty {
-                    ForEach(0..<7, id: \.self) { _ in
-                        Capsule().fill(SleepColor.hairline).frame(height: 4)
-                            .frame(maxWidth: .infinity, alignment: .bottom)
-                    }
-                } else {
-                    ForEach(Array(nights.enumerated()), id: \.element.id) { index, night in
-                        let frac = max(0.08, CGFloat(night.durationMinutes) / CGFloat(maxMinutes))
-                        let barHeight = height * frac
-                        let isLatest = index == nights.count - 1
+                ForEach(Array(slots.enumerated()), id: \.offset) { index, night in
+                    if let night {
+                        let barHeight = max(6, height * CGFloat(night.durationMinutes) / scaleMinutes)
                         Capsule()
                             .fill(
                                 LinearGradient(
@@ -800,10 +811,13 @@ private struct SleepBars: View {
                                         .padding(.horizontal, 1)
                                 }
                             }
-                            .opacity(isLatest ? 1 : 0.62)
+                            .opacity(index == Self.slotCount - 1 ? 1 : 0.62)
                             .frame(height: barHeight)
                             .frame(maxWidth: .infinity, alignment: .bottom)
                             .widgetAccentable()
+                    } else {
+                        Capsule().fill(SleepColor.hairline).frame(height: 4)
+                            .frame(maxWidth: .infinity, alignment: .bottom)
                     }
                 }
             }
@@ -820,8 +834,8 @@ private struct SleepBars: View {
 
             if showWeekdays, !nights.isEmpty {
                 HStack(spacing: 5) {
-                    ForEach(nights) { night in
-                        Text(SleepFormatting.narrowWeekday.string(from: night.end))
+                    ForEach(Array(slots.enumerated()), id: \.offset) { _, night in
+                        Text(night.map { SleepFormatting.narrowWeekday.string(from: $0.end) } ?? " ")
                             .font(SleepFont.label(10))
                             .foregroundStyle(SleepColor.muted)
                             .frame(maxWidth: .infinity)

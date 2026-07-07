@@ -421,6 +421,13 @@ Rules:
   always in a fixed position so the layout survives a night-shift tint.
 - Bars: gold→amber capsules against a faint target hairline; the latest night
   is full-strength, earlier nights recede to ~60% so "last night" reads first.
+  The chart always lays out **exactly 7 fixed-width columns** — nights not yet
+  logged render as the empty state's quiet hairline stubs, so one logged night
+  is one narrow bar in the rightmost slot, never a lone capsule stretched
+  across the full chart width. The vertical scale carries ~15% headroom above
+  the tallest value (usually the target), so the target hairline reads as a
+  reference line *inside* the chart rather than a stray rule flush against
+  its top edge.
   Each bar carries the hours slept that night as a 9pt navy-ink label set
   inside its *bottom* (the amber-fill/navy-ink pairing from the primary
   button) — bottom-anchored so every label sits on one shared baseline no
