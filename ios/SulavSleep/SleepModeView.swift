@@ -1,5 +1,11 @@
 import SwiftUI
 
+/// Shared height for the sleep screen's two visually-equal actions — Hold to
+/// wake (the primary hold) and Back to sleep (the quiet tap). Equal size says
+/// "these are two ways to end this screen"; fill, glow, and color say which
+/// one actually commits to something.
+private let sleepControlHeight: CGFloat = 58
+
 // Immersive sleep mode. True OLED black; everything lit is ember — the day's
 // amber banked down to coals (warm, long-wavelength light that is kind to
 // night vision and reads as the same identity as the rest of the app). The
@@ -97,6 +103,10 @@ struct SleepModeView: View {
                         }
 
                         // A tap, not a hold: returning to sleep costs nothing.
+                        // Same footprint as "Hold to wake" right above it —
+                        // but plain, cool glass instead of warm ember fill and
+                        // glow, so the eye reads "this one is free" at a
+                        // glance without needing to read the label.
                         Button {
                             Haptics.soft()
                             withAnimation(.easeInOut(duration: 0.4)) { showControls = false }
@@ -106,15 +116,19 @@ struct SleepModeView: View {
                             } icon: {
                                 Image(systemName: "moon.fill")
                             }
-                            .foregroundStyle(SleepColor.ember)
-                            .frame(maxWidth: .infinity, minHeight: 52)
+                            .foregroundStyle(SleepColor.emberDim)
+                            .frame(maxWidth: .infinity, minHeight: sleepControlHeight, maxHeight: sleepControlHeight)
                             .background {
                                 Capsule(style: .continuous)
                                     .fill(Color.white.opacity(0.04))
                             }
                             .overlay {
+                                // Neutral hairline, not ember-tinted — brighter
+                                // than the app's usual 5% since it sits on
+                                // pure black rather than navy, but still cool
+                                // glass rather than warm ember.
                                 Capsule(style: .continuous)
-                                    .stroke(SleepColor.emberDim, lineWidth: 1)
+                                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
                             }
                             .contentShape(Capsule(style: .continuous))
                         }
@@ -244,9 +258,9 @@ private struct BreathingHint: View {
 
 /// Press-and-hold action for the half-asleep hand: zero precision required,
 /// impossible to fire with a stray tap. A rigid tap answers the press, a
-/// ratchet of medium ticks climbs while the ember fill sweeps across the
-/// capsule, and a heavy knock lands at completion. Released early, the fill
-/// sighs back with a soft tap.
+/// ratchet of heavy ticks climbs while the ember fill sweeps across the
+/// capsule, and a double heavy knock lands at completion. Released early,
+/// the fill sighs back with a soft tap.
 private struct EmberHoldButton: View {
     let title: String
     var systemImage: String?
@@ -263,7 +277,7 @@ private struct EmberHoldButton: View {
     /// Detents the hold ratchets through on its way to completion.
     private let hapticDetents = 5.0
 
-    private var height: CGFloat { prominent ? 60 : 44 }
+    private var height: CGFloat { prominent ? sleepControlHeight : 44 }
 
     var body: some View {
         GeometryReader { geo in
@@ -278,6 +292,22 @@ private struct EmberHoldButton: View {
                                 lineWidth: 1
                             )
                     }
+
+                // Resting warmth — a banked-coal tint under the progress
+                // fill so the primary hold reads warm even at 0% held, the
+                // main visual signal (alongside the glow shadow below) that
+                // distinguishes it at a glance from the same-size, cool-glass
+                // "Back to sleep" capsule beside it.
+                if prominent {
+                    Capsule(style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [SleepColor.emberDeep.opacity(0.55), SleepColor.emberGlow.opacity(0.22)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                }
 
                 // Ember fill sweeping with the hold. Deep tones so the ember
                 // label stays readable until the completion flash.
@@ -342,12 +372,12 @@ private struct EmberHoldButton: View {
                 let step = Int(p * hapticDetents)
                 if step != lastTick {
                     lastTick = step
-                    if step > 0 { Haptics.tick(intensity: 0.45 + p * 0.55) }
+                    if step > 0 { Haptics.tick(intensity: 0.7 + p * 0.3) }
                 }
 
                 if p >= 1 {
                     isComplete = true
-                    Haptics.heavy()
+                    Haptics.doubleHeavy()
                     onComplete()
                     break
                 }

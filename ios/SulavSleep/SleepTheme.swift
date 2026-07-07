@@ -163,13 +163,15 @@ enum Haptics {
         #endif
     }
 
-    /// A medium, variable-strength tick — used to ratchet the slide-to-sleep
-    /// knob so the commitment gesture has a physical, detented feel. Medium
-    /// (not light) on purpose: the ratchet must read through a firm grip.
+    /// A heavy, variable-strength tick — used to ratchet the slide-to-sleep
+    /// knob and the sleep screen's hold buttons so the night's two commitment
+    /// gestures read as genuinely forceful, even through a firm, half-asleep
+    /// grip. Heavy (not medium) on purpose: these are the strongest
+    /// repeating cues in the app.
     static func tick(intensity: CGFloat) {
         #if canImport(UIKit)
-        mediumGenerator.impactOccurred(intensity: max(0, min(1, intensity)))
-        mediumGenerator.prepare()
+        heavyGenerator.impactOccurred(intensity: max(0, min(1, intensity)))
+        heavyGenerator.prepare()
         #endif
     }
 
@@ -181,12 +183,25 @@ enum Haptics {
         #endif
     }
 
-    /// The heavy "knock" — the unmistakable "you can let go now" cue when the
-    /// slide crosses its completion threshold.
+    /// A single heavy knock.
     static func heavy() {
         #if canImport(UIKit)
         heavyGenerator.impactOccurred()
         heavyGenerator.prepare()
+        #endif
+    }
+
+    /// Two heavy knocks back to back — the strongest, most unmistakable cue
+    /// in the app. Reserved for the instant a commitment threshold is
+    /// crossed (the slide completes, a hold completes): it needs to read
+    /// through a blanket.
+    static func doubleHeavy() {
+        #if canImport(UIKit)
+        heavyGenerator.impactOccurred()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.09) {
+            heavyGenerator.impactOccurred()
+            heavyGenerator.prepare()
+        }
         #endif
     }
 

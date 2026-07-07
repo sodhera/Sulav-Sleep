@@ -59,12 +59,20 @@ Sleep-mode controls follow one grammar: **deliberate exits are held,
 harmless returns are taps.** Entering sleep took a deliberate slide, so
 ending the night is *Hold to wake* — a 1.2s press-and-hold capsule that
 needs zero precision from a half-asleep hand and cannot fire from a stray
-tap: a rigid tap answers the press, medium ticks ratchet up while a deep
-ember fill sweeps the capsule, and a heavy knock + success lands at
+tap: a rigid tap answers the press, heavy ticks ratchet up while a deep
+ember fill sweeps the capsule, and a double heavy knock + success lands at
 completion (released early, the fill sighs back with a soft tap). *Back to
 sleep* is a plain tap — it costs nothing. *Hold to cancel* (drops the
 lockdown, logs no night) is the same hold mechanic, quieter and shorter
 (0.8s). There is no single-tap way out of a night.
+
+*Hold to wake* and *Back to sleep* share one footprint (58pt, the app's
+standard action height) so they read as two ways to leave the same screen —
+but never the same weight. Hold to wake carries a banked-coal resting tint
+under its fill, a warm border, and an ember glow shadow, so it reads warm
+and primary even before it's touched; Back to sleep stays flat, cool glass
+with a neutral hairline and dimmer ember text, so it reads as the free
+option at a glance, without needing to read either label.
 
 The whole scene runs through **Core Animation** layers, so SwiftUI does not run
 a per-frame render loop. The native `TabView` host is opaque, so Home and
@@ -311,14 +319,18 @@ State changes fade/lift over ~260–320ms; presses scale subtly (~0.98). Nothing
 bouncy or reward-like. Haptics (`Haptics`) are gentle and sparing: a soft tap
 entering/leaving sleep and on nav, a success notification when a night is
 logged. The deliberate exceptions are the night's two commitment gestures,
-which are richer on purpose: the **slide-to-sleep** knob (a rigid tap on
-grab, a medium-strength ratchet through eight detents that tick harder with
-progress, a heavy knock at the completion threshold, a soft tap on a
-released spring-back, and the success notification when the night begins)
-and the sleep screen's **hold buttons** (rigid tap on press, a five-detent
-medium ratchet while the ember fill sweeps, heavy knock at completion — plus
-success when waking). Entering and leaving a night should feel like moving
-something with real weight.
+which are the strongest, most forceful haptics in the app on purpose: the
+**slide-to-sleep** knob (a rigid tap on grab, a heavy ratchet through eight
+detents climbing from 70% to 100% intensity, a double heavy knock at the
+completion threshold, a soft tap on a released spring-back, and the success
+notification when the night begins) and the sleep screen's **hold buttons**
+(rigid tap on press, a five-detent heavy ratchet at the same climbing
+intensity while the ember fill sweeps, a double heavy knock at completion —
+plus success when waking). Both ratchets deliberately run on the `heavy`
+generator, not `medium`, so they read through a firm, half-asleep grip;
+the double knock is the single strongest cue in the app, reserved for these
+two moments. Entering and leaving a night should feel like moving something
+with real weight.
 
 ## Widgets
 

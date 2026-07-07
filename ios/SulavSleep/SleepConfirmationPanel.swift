@@ -284,10 +284,10 @@ struct SlideToSleepButton: View {
         .frame(height: trackHeight)
     }
 
-    /// Ratchet the knob: a medium tick at each detent (rising in strength
-    /// with progress) so the slide feels physical through a firm grip, plus
-    /// one heavy knock the moment it crosses the completion threshold — the
-    /// unmistakable "let go now" cue.
+    /// Ratchet the knob: a heavy tick at each detent (rising in strength with
+    /// progress) so the slide feels forceful through a firm grip, plus a
+    /// double heavy knock the moment it crosses the completion threshold —
+    /// the unmistakable "let go now" cue.
     private func fireDragHaptics(progress: CGFloat) {
         let step = Int(progress * hapticDetents)
         if step != lastHapticStep {
@@ -295,14 +295,14 @@ struct SlideToSleepButton: View {
             // Skip the tick at rest (step 0, progress ~0) so resting the
             // thumb is silent; every detent thereafter ticks harder.
             if step > 0 {
-                Haptics.tick(intensity: 0.55 + progress * 0.45)
+                Haptics.tick(intensity: 0.7 + progress * 0.3)
             }
         }
 
         if progress >= completionThreshold {
             if !isPastThreshold {
                 isPastThreshold = true
-                Haptics.heavy()
+                Haptics.doubleHeavy()
             }
         } else if isPastThreshold {
             isPastThreshold = false
