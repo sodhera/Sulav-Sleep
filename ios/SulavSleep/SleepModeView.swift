@@ -299,14 +299,15 @@ private struct RisingZs: View {
     }
 }
 
-/// One z of the chain. The loop itself is a repeating `keyframeAnimator`
-/// (fade in → rise, swell, and fade → hold dark); the stagger comes from
-/// delaying each z's *start* — once running, all three share the same cycle
-/// length, so their relative phase holds forever.
+/// One z of the chain. The z is *always* in the hierarchy (invisible between
+/// rides — a conditionally-inserted view would never run its start-delay
+/// task while empty); each ride is a one-shot `keyframeAnimator` fired by a
+/// trigger, and a task loop beats that trigger every `cycle` seconds, first
+/// fire delayed by `startDelay` so the three z's hold their stagger forever.
 private struct RisingZ: View {
     let startDelay: Double
 
-    @State private var started = false
+    @State private var beat = 0
 
     private struct Phase {
         var rise: CGFloat = 0
@@ -315,48 +316,44 @@ private struct RisingZ: View {
         var opacity: Double = 0
     }
 
-    /// Seconds a z is visibly rising, and the dark rest before its next turn.
+    /// Seconds a z is visibly rising, and the full loop length.
     private static let active: Double = 4.5
-    private static let rest: Double = 3.0
+    private static let cycle: Double = 7.5
 
     var body: some View {
-        Group {
-            if started {
-                Text("z")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(SleepColor.emberDim)
-                    .keyframeAnimator(initialValue: Phase(), repeating: true) { view, phase in
-                        view
-                            .scaleEffect(phase.scale)
-                            .opacity(phase.opacity)
-                            .offset(x: phase.drift, y: phase.rise)
-                    } keyframes: { _ in
-                        KeyframeTrack(\.opacity) {
-                            CubicKeyframe(0.5, duration: 1.1)
-                            LinearKeyframe(0.42, duration: 1.6)
-                            CubicKeyframe(0, duration: Self.active - 2.7)
-                            LinearKeyframe(0, duration: Self.rest)
-                        }
-                        KeyframeTrack(\.rise) {
-                            CubicKeyframe(-46, duration: Self.active)
-                            LinearKeyframe(-46, duration: Self.rest)
-                        }
-                        KeyframeTrack(\.drift) {
-                            CubicKeyframe(14, duration: Self.active)
-                            LinearKeyframe(14, duration: Self.rest)
-                        }
-                        KeyframeTrack(\.scale) {
-                            CubicKeyframe(1.15, duration: Self.active)
-                            LinearKeyframe(1.15, duration: Self.rest)
-                        }
-                    }
+        Text("z")
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(SleepColor.emberDim)
+            .keyframeAnimator(initialValue: Phase(), trigger: beat) { view, phase in
+                view
+                    .scaleEffect(phase.scale)
+                    .opacity(phase.opacity)
+                    .offset(x: phase.drift, y: phase.rise)
+            } keyframes: { _ in
+                KeyframeTrack(\.opacity) {
+                    CubicKeyframe(0.55, duration: 1.1)
+                    LinearKeyframe(0.46, duration: 1.6)
+                    CubicKeyframe(0, duration: Self.active - 2.7)
+                }
+                KeyframeTrack(\.rise) {
+                    CubicKeyframe(-46, duration: Self.active)
+                }
+                KeyframeTrack(\.drift) {
+                    CubicKeyframe(14, duration: Self.active)
+                }
+                KeyframeTrack(\.scale) {
+                    CubicKeyframe(1.15, duration: Self.active)
+                }
             }
-        }
-        .task {
-            guard startDelay > 0 else { started = true; return }
-            try? await Task.sleep(for: .seconds(startDelay))
-            started = true
-        }
+            .task {
+                if startDelay > 0 {
+                    guard (try? await Task.sleep(for: .seconds(startDelay))) != nil else { return }
+                }
+                while !Task.isCancelled {
+                    beat &+= 1
+                    guard (try? await Task.sleep(for: .seconds(Self.cycle))) != nil else { return }
+                }
+            }
     }
 }
 
