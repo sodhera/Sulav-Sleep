@@ -67,6 +67,19 @@ With that, tapping "Continue with Google" in the app opens a system sheet,
 the user signs in with Google, and Supabase redirects back into the app via
 `sleepblock://auth-callback`.
 
+## Profile sync (no setup needed)
+
+The onboarding profile (name, sleep schedule, struggles) follows the account
+across devices via Supabase **auth user metadata** (`user_metadata.sleep_profile`)
+— deliberately not a Postgres table, so there is no migration, no RLS policy,
+and nothing to configure here. A returning user signing in on a fresh install
+gets their profile restored automatically and skips the questionnaire; accounts
+created before this existed get their cloud copy seeded the first time they
+sign in from a device that still has the local profile (until then, one final
+quick-setup run re-creates it). Sleep history stays on-device (local-first, per
+`product-brief.md`). See "Cloud profile sync" in `docs/development.md` for the
+mechanism.
+
 ## 4. Account deletion (Edge Function)
 
 The Settings sheet has a **Delete account** button. Deleting a Supabase user

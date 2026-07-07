@@ -380,6 +380,15 @@ Signing out returns to the welcome screen, not a bare sign-in wall — the same
 type-led choice a first-time visitor sees. A signed-out user's local profile is
 retained, so if they sign back in the app goes straight to the main screen with
 no repeat questionnaire; picking "Get started" re-runs it only if they choose to.
+A returning user on a *fresh install* also skips the questionnaire: their
+profile is restored from the account's cloud copy during sign-in, so the
+quick-setup questions only ever appear when there is genuinely nothing to
+restore.
+
+Auth messages above the provider stack come in two tones: failures ("that
+password isn't right") in `danger` red, and guidance about a normal next step
+("tap the confirmation link we emailed you") in `amber` — a calm nudge, not an
+alarm. Never style an expected step as an error.
 
 ## Motion
 

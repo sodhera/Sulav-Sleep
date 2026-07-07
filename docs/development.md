@@ -220,7 +220,8 @@ Apple Developer capability, Google Cloud OAuth client).
   and `OnboardingQuestionsView` discards the just-answered questionnaire in
   that case rather than overwriting the original profile with it
   (`onExistingAccountNeedsSetup`, `SleepStore.lastSignInWasNewAccount`). If the
-  device has no local profile at all (fresh device/reinstall), it falls back to
+  device has no local profile at all (fresh device/reinstall) *and* the account
+  has no cloud profile to restore (see "Cloud profile sync"), it falls back to
   the same no-account-step quick setup used on the sign-in path, by remounting
   `OnboardingQuestionsView` (`OnboardingGateView`'s `questionsInstanceID`).
   Manual email/password can't do this silently — a duplicate `signUp` either
@@ -254,6 +255,39 @@ Apple Developer capability, Google Cloud OAuth client).
   everything else (key `sulav.account.v1`), purely for optimistic UI paint
   before the async Keychain session-restore check (`SleepStore.restoreSession`)
   completes.
+- **Cloud profile sync**: the onboarding profile (name, schedule, struggles —
+  `RemoteProfile`, the account-portable slice of `Profile`) is mirrored into
+  Supabase **auth user metadata** under the `sleep_profile` key: no separate
+  table, no RLS policy, nothing new to configure. It's pushed best-effort by
+  `SleepStore.syncRemoteProfile()` after onboarding and name/schedule edits,
+  and restored by `adoptSignedInAccount` on sign-in (and by `restoreSession`
+  at launch, capped at 5s) whenever the device has no local profile — this is
+  what lets a returning user sign in after a reinstall and land straight in
+  the app instead of re-answering the questionnaire. Local-first still holds:
+  when both copies exist, the device's wins; accounts predating sync get their
+  cloud copy seeded on first sign-in. Device-bound settings (Health sync,
+  Screen Time lockdown, prompt dismissals) deliberately do **not** sync — they
+  hinge on per-device permission grants. Sleep *history* doesn't sync either
+  (per `product-brief.md`).
+- **Shared-device account switch**: `sulav.lastAccountID.v1` records who signed
+  in last and — unlike the cached `AppAccount` — survives sign-out, so
+  `adoptSignedInAccount` can tell a returning user (local data kept) from a
+  *different* account signing in (previous user's profile and nights wiped
+  before the new profile is hydrated). It is cleared by `reset()` (account
+  deletion), since there's no previous user left to protect.
+- **Offline launch**: `currentAccount` first asks `client.session` (which
+  auto-refreshes an expired token and therefore needs the network), then falls
+  back to the stored Keychain session's identity, so launching in airplane
+  mode doesn't bounce a signed-in user to the welcome screen. The trade-off —
+  a server-side-revoked session stays "signed in" until an authenticated call
+  fails — is the standard one.
+- **Error surfacing**: `SupabaseAuthClient.mapError` translates GoTrue's
+  structured `ErrorCode`s (invalid credentials, email exists, unconfirmed
+  email, weak password, rate limit) into user-facing `AuthError` cases instead
+  of sniffing message strings. `AuthError.confirmationEmailSent` (email
+  sign-up when the project requires confirmation) is a *notice*, not a
+  failure: `SleepStore.authMessageIsNotice` flags it and `AuthMethodsView`
+  renders it amber instead of red.
 - **Reset on reinstall**: iOS wipes the app container on delete but keeps
   Keychain items, so a surviving Supabase session would otherwise silently sign
   a user back in on a "fresh" install — dropping them onto the nameless
