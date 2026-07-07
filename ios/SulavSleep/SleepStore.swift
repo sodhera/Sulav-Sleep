@@ -216,6 +216,16 @@ final class SleepStore {
                 profile = remote.asLocalProfile
                 persist(refreshWidget: false)
                 AppLog.store.info("Restored profile from cloud (launch)")
+            } else if let localCopy = RemoteProfile(profile: profile) {
+                // Signed in with a local profile: make sure the account has a
+                // cloud copy (accounts predating profile sync won't until they
+                // sign in again otherwise). Backgrounded — never blocks launch.
+                Task { [auth] in
+                    if await auth.fetchRemoteProfile() == nil {
+                        AppLog.store.info("Seeding missing cloud profile from this device")
+                        await auth.saveRemoteProfile(localCopy)
+                    }
+                }
             }
         } else {
             clearPersistedAccount()
