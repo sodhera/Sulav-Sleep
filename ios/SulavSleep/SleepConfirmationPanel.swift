@@ -146,6 +146,10 @@ struct SlideToSleepButton: View {
             let maxOffset = geo.size.width - knobSize - trackPadding * 2
             let progress = maxOffset > 0 ? min(dragOffset / maxOffset, 1) : 0
 
+            // One glass set: the interactive knob is Liquid Glass, so pairing
+            // it with the rail in a container lets its glass lens and morph
+            // over the rail as it slides. Passthrough pre-26.
+            LiquidGlassContainer {
             ZStack(alignment: .leading) {
                 // Track — a near-solid night rail: deep navy with an inner
                 // shadow so the knob visibly sits *in* something, rimmed in
@@ -201,19 +205,10 @@ struct SlideToSleepButton: View {
                 .opacity(isCompleted ? 0 : Double(max(0, 1 - progress * 2.5)))
                 .allowsHitTesting(false)
 
-                // Knob
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [SleepColor.gold, SleepColor.amber],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .overlay {
-                        Circle()
-                            .stroke(Color.white.opacity(0.35), lineWidth: 1)
-                    }
+                // Knob — real interactive Liquid Glass on iOS 26 (it deforms
+                // and tracks the finger as it drags), the amber→gold gradient
+                // disc pre-26.
+                knobSurface
                     .overlay {
                         Image(systemName: isCompleted ? "moon.zzz.fill" : "moon.fill")
                             .font(.system(size: 24, weight: .medium))
@@ -280,8 +275,35 @@ struct SlideToSleepButton: View {
                     )
             }
             .frame(height: trackHeight)
+            }
         }
         .frame(height: trackHeight)
+    }
+
+    /// The knob's base disc: interactive Liquid Glass on iOS 26 (tinted a
+    /// bright amber so it stays the screen's brightest control while gaining
+    /// the liquid touch response), the amber→gold gradient disc with a white
+    /// hairline pre-26.
+    @ViewBuilder
+    private var knobSurface: some View {
+        if #available(iOS 26.0, *) {
+            Circle()
+                .fill(SleepColor.amber.opacity(0.55))
+                .glassEffect(.regular.tint(SleepColor.gold).interactive(), in: .circle)
+        } else {
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [SleepColor.gold, SleepColor.amber],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .overlay {
+                    Circle()
+                        .stroke(Color.white.opacity(0.35), lineWidth: 1)
+                }
+        }
     }
 
     /// Ratchet the knob: a heavy tick at each detent (rising in strength with
