@@ -12,6 +12,13 @@ system from DESIGN.md, producing two deliverables:
    screen's centerpiece — the same sloth banked down to the ember palette
    (only ember pixels may be lit on that screen), pillow reduced to deep
    warm coals, static ZZZ erased because the app animates its own.
+3. **Home sloths** (transparent PNGs, into HomeSlothAwake.imageset /
+   HomeSlothDrowsy.imageset): the daytime sloth in the app's amber palette,
+   lounging on a cool pillow. The source's closed-eye crescents are erased
+   and new eyes are painted in the same flat style: round open eyes with a
+   cream highlight (awake), or flat-topped half-lidded eyes (drowsy, shown
+   as bedtime nears). All eye edits happen in palette-class space, so every
+   colorway inherits them consistently.
 
 Usage:
     python3 scripts/generate-app-icon.py /path/to/sloth.eps
@@ -27,8 +34,8 @@ import numpy as np
 from PIL import Image, ImageOps
 
 REPO = Path(__file__).resolve().parent.parent
-ICONSET = REPO / "ios/SulavSleep/Images.xcassets/AppIcon.appiconset"
-SLOTHSET = REPO / "ios/SulavSleep/Images.xcassets/NightSloth.imageset"
+XCASSETS = REPO / "ios/SulavSleep/Images.xcassets"
+ICONSET = XCASSETS / "AppIcon.appiconset"
 
 # Source flat palette -> Warm Pixel Night target (None = handled specially)
 BG = (0xA4, 0xA4, 0xF4)          # purple sky -> night gradient + lamp glow
@@ -73,6 +80,42 @@ EMBER_PALETTE = {
     (0xD7, 0xCC, 0xE4): (0x22, 0x12, 0x08),  # pillow shade
     (0xB7, 0xA3, 0xCE): (0x1B, 0x0E, 0x06),  # pillow deep shade
 }
+
+# Home's daytime sloth: the icon's amber colorway, but on a transparent
+# background over the pixel night scene. The pillow is pulled down from ink
+# white to calm cool greys so it doesn't glare against the scene — the warm
+# sloth on cool bedding is the app's core amber-against-night contrast.
+HOME_PALETTE = {
+    BG: None,                                # transparent
+    WHITE: (0xC9, 0xD0, 0xDA),               # pillow -> calm cool grey
+    (0x39, 0x01, 0x76): (0x07, 0x10, 0x19),  # outlines -> near-black navy
+    (0xD4, 0x95, 0x68): (0xF4, 0xA2, 0x61),  # body -> amber
+    (0xFF, 0xD8, 0xB5): (0xFB, 0xDF, 0xAE),  # face/belly -> warm cream
+    (0xB5, 0x77, 0x6B): (0xE0, 0x85, 0x4E),  # mid shade -> ember
+    (0x8A, 0x49, 0x46): (0x8C, 0x4B, 0x26),  # eye patches -> deep warm brown
+    (0x7A, 0x3B, 0x50): (0x6B, 0x34, 0x18),  # darkest shade
+    (0xD7, 0xAD, 0xA8): (0xF7, 0xC2, 0x89),  # body highlight -> light amber
+    (0xED, 0xD3, 0xC1): (0xF2, 0xDC, 0xB4),  # claws -> cream gold
+    (0xEE, 0xD6, 0xC4): (0xF2, 0xDC, 0xB4),
+    (0xD7, 0xCC, 0xE4): (0xA9, 0xB2, 0xBF),  # pillow shade
+    (0xB7, 0xA3, 0xCE): (0x93, 0x9D, 0xAC),  # pillow deep shade
+}
+
+# All palettes share this key order, so one classification pass serves every
+# colorway (and eye edits in class space carry across all of them).
+SOURCE_KEYS = list(PALETTE.keys())
+OUTLINE_IDX = SOURCE_KEYS.index((0x39, 0x01, 0x76))
+PATCH_IDX = SOURCE_KEYS.index((0x8A, 0x49, 0x46))
+FACE_IDX = SOURCE_KEYS.index((0xFF, 0xD8, 0xB5))
+
+# Closed-eye crescents (isolated outline components on the eye patches),
+# measured on the render as fractions of the frame: bounding boxes to erase,
+# and the open eye each one becomes (center, radius).
+EYES = [
+    # (crescent bbox x0,x1,y0,y1, eye cx, cy, r) — left then right
+    (0.2717, 0.3178, 0.4696, 0.5033, 0.2947, 0.4830, 0.0200),
+    (0.4050, 0.4635, 0.4959, 0.5337, 0.4342, 0.5100, 0.0245),
+]
 
 
 def render_eps(eps: Path, px: int = 4096) -> Image.Image:
@@ -146,17 +189,44 @@ def remap(img: Image.Image) -> Image.Image:
     return icon.resize((1024, 1024), Image.LANCZOS)
 
 
-def night_sloth(img: Image.Image) -> Image.Image:
-    arr = np.asarray(img).astype(np.int32)
-    h, w, _ = arr.shape
-    keys = list(EMBER_PALETTE.keys())
-    idx = classify(arr, keys)
+def open_eyes(idx: np.ndarray, drowsy: bool) -> np.ndarray:
+    """Redraw the eyes in class space: erase the closed crescents, then paint
+    open (or half-lidded) eyes in the same flat cartoon grammar — outline-color
+    iris with a cream highlight, sitting on the dark eye patches."""
+    h, w = idx.shape
+    idx = idx.copy()
+    yy, xx = np.ogrid[:h, :w]
 
+    for bx0, bx1, by0, by1, cxf, cyf, rf in EYES:
+        # Erase the crescent: outline pixels inside its bbox become patch.
+        box = idx[int(by0 * h):int(by1 * h), int(bx0 * w):int(bx1 * w)]
+        box[box == OUTLINE_IDX] = PATCH_IDX
+
+        cx, cy, r = cxf * w, cyf * h, rf * w
+        eye = (xx - cx) ** 2 + (yy - cy) ** 2 <= r * r
+        if drowsy:
+            # Half-lidded: the lid cuts the eye flat just above center.
+            eye &= yy >= cy - 0.12 * r
+        idx[eye] = OUTLINE_IDX
+
+        # Cream catchlight, kept inside the visible iris.
+        hx = cx - 0.34 * r
+        hy = cy + 0.22 * r if drowsy else cy - 0.32 * r
+        hr = 0.20 * r if drowsy else 0.26 * r
+        light = ((xx - hx) ** 2 + (yy - hy) ** 2 <= hr * hr) & eye
+        idx[light] = FACE_IDX
+    return idx
+
+
+def sloth_asset(idx: np.ndarray, palette: dict) -> Image.Image:
+    """Color a classified frame with `palette`, drop the background and the
+    baked ZZZ (the app animates its own), and tight-crop to the figure."""
+    h, w = idx.shape
     out = np.zeros((h, w, 4), dtype=np.uint8)
-    for k, key in enumerate(keys):
-        if EMBER_PALETTE[key] is None:
+    for k, key in enumerate(SOURCE_KEYS):
+        if palette[key] is None:
             continue
-        r, g, b = EMBER_PALETTE[key]
+        r, g, b = palette[key]
         out[idx == k] = (r, g, b, 255)
 
     # Erase the baked ZZZ (upper-left corner): the app animates its own.
@@ -174,6 +244,18 @@ def night_sloth(img: Image.Image) -> Image.Image:
     return fig.resize((1200, round(fig.height * 1200 / fig.width)), Image.LANCZOS)
 
 
+def write_imageset(name: str, image: Image.Image) -> None:
+    folder = XCASSETS / f"{name}.imageset"
+    folder.mkdir(exist_ok=True)
+    filename = f"{name}.png"
+    image.save(folder / filename)
+    (folder / "Contents.json").write_text(
+        '{\n  "images" : [\n    {\n      "filename" : "' + filename + '",\n'
+        '      "idiom" : "universal"\n    }\n  ],\n  "info" : {\n'
+        '    "author" : "xcode",\n    "version" : 1\n  }\n}\n'
+    )
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         sys.exit(__doc__)
@@ -187,14 +269,11 @@ def main() -> None:
     tinted.convert("RGB").save(ICONSET / "App-Icon-Tinted-1024x1024@1x.png")
     print(f"wrote 3 icon variants to {ICONSET}")
 
-    SLOTHSET.mkdir(exist_ok=True)
-    night_sloth(hires).save(SLOTHSET / "night-sloth.png")
-    (SLOTHSET / "Contents.json").write_text(
-        '{\n  "images" : [\n    {\n      "filename" : "night-sloth.png",\n'
-        '      "idiom" : "universal"\n    }\n  ],\n  "info" : {\n'
-        '    "author" : "xcode",\n    "version" : 1\n  }\n}\n'
-    )
-    print(f"wrote night sloth to {SLOTHSET}")
+    idx = classify(np.asarray(hires).astype(np.int32), SOURCE_KEYS)
+    write_imageset("NightSloth", sloth_asset(idx, EMBER_PALETTE))
+    write_imageset("HomeSlothAwake", sloth_asset(open_eyes(idx, drowsy=False), HOME_PALETTE))
+    write_imageset("HomeSlothDrowsy", sloth_asset(open_eyes(idx, drowsy=True), HOME_PALETTE))
+    print(f"wrote NightSloth, HomeSlothAwake, HomeSlothDrowsy to {XCASSETS}")
 
 
 if __name__ == "__main__":

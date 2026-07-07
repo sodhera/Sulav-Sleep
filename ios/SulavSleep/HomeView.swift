@@ -2,9 +2,11 @@ import SwiftUI
 
 // Home is the bedside instrument: one glance says how long until bed, one
 // action starts the night. The composition is a single centered column with
-// almost no prose — greeting up top, the bedtime ring as the hero, two glass
-// schedule chips under it, and the Sleep Now capsule anchored low where a
-// thumb naturally rests. The screen never scrolls; an instrument doesn't.
+// almost no prose — greeting up top, the home sloth as the hero (awake
+// through the day, heavy-lidded as bedtime nears) over the bedtime
+// countdown, two glass schedule chips under it, and the Sleep Now capsule
+// anchored low where a thumb naturally rests. The screen never scrolls; an
+// instrument doesn't.
 struct HomeView: View {
     var store: SleepStore
     let profile: Profile
@@ -50,7 +52,7 @@ struct HomeView: View {
 
             TimelineView(.periodic(from: .now, by: 60)) { timeline in
                 VStack(spacing: SleepSpacing.xxl) {
-                    BedtimeRing(profile: profile, now: timeline.date)
+                    HomeSloth(profile: profile, now: timeline.date)
 
                     // The two chips are one glass set — a shared container
                     // lets iOS 26 blend their glass together.
@@ -87,58 +89,37 @@ struct HomeView: View {
     }
 }
 
-// MARK: - Bedtime ring
+// MARK: - Home sloth
 
-/// The screen's hero instrument: a 270° gauge arc that fills as the waking day
-/// runs toward bedtime, with a glowing moon marker riding the tip and the
-/// countdown numerals in the middle. Once bedtime passes the ring sits full
-/// and amber and the numerals give way to a "wind down" nudge (mirroring the
-/// small widget) instead of counting 20-odd hours to *tomorrow's* bedtime.
-private struct BedtimeRing: View {
+/// The screen's hero: the app's sloth lounging on its pillow, with the
+/// bedtime countdown beneath it. The sloth is the *state* — awake through
+/// the day, heavy-lidded once bedtime is near or just past — and the
+/// numerals are the *instrument*. Once bedtime passes the countdown gives
+/// way to a "wind down" nudge (mirroring the small widget) instead of
+/// counting 20-odd hours to *tomorrow's* bedtime.
+private struct HomeSloth: View {
     let profile: Profile
     let now: Date
 
-    /// Minutes after bedtime during which the ring shows the wind-down state.
+    /// Minutes after bedtime during which Home shows the wind-down state.
     private static let windDownWindow = 4 * 60
-    /// The arc spans 270°, leaving a gap at the bottom like a speedometer.
-    private static let arcSpan = 0.75
-
-    private let size: CGFloat = 250
-    private let lineWidth: CGFloat = 7
+    /// Minutes before bedtime at which the sloth's eyelids get heavy.
+    private static let drowsyLead = 90
 
     var body: some View {
         let nowMinutes = SleepFormatting.minutes(from: now)
         let sinceBedtime = ((nowMinutes - profile.bedtime) % 1_440 + 1_440) % 1_440
+        let untilBedtime = ((profile.bedtime - nowMinutes) % 1_440 + 1_440) % 1_440
         let isPastBedtime = sinceBedtime > 0 && sinceBedtime < Self.windDownWindow
-        let progress = isPastBedtime ? 1 : dayProgress(nowMinutes: nowMinutes)
+        let isDrowsy = isPastBedtime || untilBedtime <= Self.drowsyLead
 
-        ZStack {
-            // Track — bright enough to read as a complete ring at a glance
-            // against the busy, lit pixel-art sky (unlike the OLED-black
-            // night ring, this scene gives the track little contrast for
-            // free, so it needs more opacity than its ember sibling to
-            // avoid reading as a disconnected fragment at low progress).
-            Circle()
-                .trim(from: 0, to: Self.arcSpan)
-                .stroke(Color.white.opacity(0.18), style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
-                .rotationEffect(.degrees(135))
-
-            // Progress fill — warm gradient sweeping with the arc.
-            Circle()
-                .trim(from: 0, to: Self.arcSpan * progress)
-                .stroke(
-                    AngularGradient(
-                        colors: [SleepColor.gold, SleepColor.amber],
-                        center: .center,
-                        startAngle: .degrees(0),
-                        endAngle: .degrees(270)
-                    ),
-                    style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
-                )
-                .rotationEffect(.degrees(135))
-                .shadow(color: SleepColor.amber.opacity(0.35), radius: 12)
-
-            moonMarker(progress: progress)
+        VStack(spacing: SleepSpacing.xl) {
+            Image(isDrowsy ? "HomeSlothDrowsy" : "HomeSlothAwake")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 250)
+                .shadow(color: SleepColor.background.opacity(0.45), radius: 18, y: 10)
+                .accessibilityHidden(true)
 
             VStack(spacing: SleepSpacing.sm) {
                 Text(isPastBedtime ? "Bedtime" : "Bedtime in").sectionLabel()
@@ -154,31 +135,6 @@ private struct BedtimeRing: View {
                 }
             }
         }
-        .frame(width: size, height: size)
-        .animation(.easeInOut(duration: 0.6), value: progress)
-    }
-
-    /// Fraction of the waking day (wake → bedtime) already behind you.
-    private func dayProgress(nowMinutes: Int) -> Double {
-        let awakeTotal = ((profile.bedtime - profile.wakeTime) % 1_440 + 1_440) % 1_440
-        guard awakeTotal > 0 else { return 0 }
-        let sinceWake = ((nowMinutes - profile.wakeTime) % 1_440 + 1_440) % 1_440
-        return min(1, Double(sinceWake) / Double(awakeTotal))
-    }
-
-    /// The glowing dot riding the arc tip — "the moon is on its way".
-    private func moonMarker(progress: Double) -> some View {
-        let angle = Angle.degrees(135 + 270 * progress)
-        let radius = (size - lineWidth) / 2
-        return Circle()
-            .fill(SleepColor.amber)
-            .overlay { Circle().stroke(Color.white.opacity(0.35), lineWidth: 1) }
-            .frame(width: 16, height: 16)
-            .shadow(color: SleepColor.amber.opacity(0.7), radius: 8)
-            .offset(
-                x: radius * CGFloat(cos(angle.radians)),
-                y: radius * CGFloat(sin(angle.radians))
-            )
     }
 }
 

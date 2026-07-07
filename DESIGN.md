@@ -59,11 +59,12 @@ sunrise-glyph wake target. The sloth is the *state* — the app visibly doing
 its job — and the numbers are the *instrument*.
 
 > Note on history: earlier iterations centered a 270° **ember night ring**
-> (the night-side sibling of Home's bedtime ring) that filled from sleep
-> start toward wake. It is retired: its one reading — how far into the
-> night — is already carried by the elapsed timer and the wake line at
-> half-asleep glance distance, arc precision is a daytime-dashboard value,
-> and dropping ~270° of lit stroke leaves fewer ember pixels on the OLED.
+> (the night-side sibling of Home's since-retired bedtime ring) that filled
+> from sleep start toward wake. It is retired: its one reading — how far
+> into the night — is already carried by the elapsed timer and the wake
+> line at half-asleep glance distance, arc precision is a
+> daytime-dashboard value, and dropping ~270° of lit stroke leaves fewer
+> ember pixels on the OLED.
 
 The screen opens straight into this collapsed state; the "Tap to wake" hint
 breathes very slowly at the bottom, and tapping the dark toggles the
@@ -206,20 +207,25 @@ Two tabs, each with exactly one job:
 - **Home — go to bed.** A near-wordless bedside instrument that never
   scrolls: no settings affordance, no data dumps, nothing to fiddle with at
   11pm. One centered column: an editorial small-caps greeting kicker over the
-  hero name (the same kicker → title chrome as onboarding), then the
-  **bedtime ring** — a 270° gauge arc (speedometer gap at the bottom) that
-  fills gold→amber as the waking day runs from wake time toward bedtime, a
-  glowing moon marker riding the arc tip, and the "Bedtime in" countdown
-  numerals in the center. The dim track is drawn at 18% white opacity, not
-  8% — Home's lit pixel-art sky gives it far less free contrast than the
-  ember night ring's OLED black, and at low progress a short amber arc
-  against a nearly-invisible track reads as a disconnected floating shape
-  rather than "one ring, partially filled" (confirmed by pixel-measuring a
-  real render: the arc's endpoints sit on the exact same circle as the
-  track, so it was a legibility problem, not a geometry one). For a few
-  hours after bedtime the ring sits full and amber and the numerals give
-  way to a "Wind down" nudge (mirroring the small widget) instead of
-  counting 20-odd hours to *tomorrow's* bedtime. Under the ring, two small
+  hero name (the same kicker → title chrome as onboarding), then the **home
+  sloth** — the app's sloth lounging on a cool-grey pillow in the amber
+  colorway (`HomeSlothAwake` / `HomeSlothDrowsy`, generated with the icon by
+  `scripts/generate-app-icon.py`, which redraws the eyes in class space) —
+  over the "Bedtime in" countdown numerals. The sloth is the *state*: awake
+  with round open eyes through the day, heavy-lidded once bedtime is within
+  90 minutes or just past; the numerals are the *instrument*. For a few
+  hours after bedtime the countdown gives way to a "Wind down" nudge
+  (mirroring the small widget) instead of counting 20-odd hours to
+  *tomorrow's* bedtime — the sloth stays drowsy through that window.
+
+  > Note on history: Home's hero was previously a 270° **bedtime ring**
+  > (gold→amber fill over the waking day, a moon marker riding the tip, the
+  > countdown in its center). Retired for the same reason as the sleep
+  > screen's night ring: its real payload was the countdown numeral, day
+  > progress is dashboard precision nobody reads at 11pm, and the sloth
+  > tells the state warmer — while keeping the same one-glance answer.
+
+  Under the sloth, two small
   non-interactive glass chips state tonight's
   window (moon + bedtime, sun + wake) — read-only; the schedule is edited in
   Settings. The Sleep Now capsule anchors low where a thumb rests, with last

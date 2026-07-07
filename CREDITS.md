@@ -13,7 +13,8 @@
   ("cute sloth sleeping pillow cartoon vector icon illustration", downloaded
   as `5100_4_10.eps`; original source/license to be confirmed before App
   Store release). Used recolored from its purple original by
-  `scripts/generate-app-icon.py` in two places: the app icon (amber/navy
-  palette, `ios/SulavSleep/Images.xcassets/AppIcon.appiconset/`) and the
-  sleep screen's ember "night sloth"
-  (`ios/SulavSleep/Images.xcassets/NightSloth.imageset/`).
+  `scripts/generate-app-icon.py` in three places under
+  `ios/SulavSleep/Images.xcassets/`: the app icon (amber/navy palette,
+  `AppIcon.appiconset/`), the sleep screen's ember "night sloth"
+  (`NightSloth.imageset/`), and Home's awake/drowsy day sloths with
+  redrawn eyes (`HomeSlothAwake.imageset/`, `HomeSlothDrowsy.imageset/`).
