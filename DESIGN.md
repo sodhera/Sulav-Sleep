@@ -141,10 +141,17 @@ Two tabs, each with exactly one job:
   **bedtime ring** — a 270° gauge arc (speedometer gap at the bottom) that
   fills gold→amber as the waking day runs from wake time toward bedtime, a
   glowing moon marker riding the arc tip, and the "Bedtime in" countdown
-  numerals in the center. For a few hours after bedtime the ring sits full
-  and amber and the numerals give way to a "Wind down" nudge (mirroring the
-  small widget) instead of counting 20-odd hours to *tomorrow's* bedtime.
-  Under the ring, two small non-interactive glass chips state tonight's
+  numerals in the center. The dim track is drawn at 18% white opacity, not
+  8% — Home's lit pixel-art sky gives it far less free contrast than the
+  ember night ring's OLED black, and at low progress a short amber arc
+  against a nearly-invisible track reads as a disconnected floating shape
+  rather than "one ring, partially filled" (confirmed by pixel-measuring a
+  real render: the arc's endpoints sit on the exact same circle as the
+  track, so it was a legibility problem, not a geometry one). For a few
+  hours after bedtime the ring sits full and amber and the numerals give
+  way to a "Wind down" nudge (mirroring the small widget) instead of
+  counting 20-odd hours to *tomorrow's* bedtime. Under the ring, two small
+  non-interactive glass chips state tonight's
   window (moon + bedtime, sun + wake) — read-only; the schedule is edited in
   Settings. The Sleep Now capsule anchors low where a thumb rests, with last
   night as one quiet centered strip beneath it (`Last night 7h 20m · 82 ·

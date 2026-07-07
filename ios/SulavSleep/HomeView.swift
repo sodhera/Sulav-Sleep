@@ -109,10 +109,14 @@ private struct BedtimeRing: View {
         let progress = isPastBedtime ? 1 : dayProgress(nowMinutes: nowMinutes)
 
         ZStack {
-            // Track
+            // Track — bright enough to read as a complete ring at a glance
+            // against the busy, lit pixel-art sky (unlike the OLED-black
+            // night ring, this scene gives the track little contrast for
+            // free, so it needs more opacity than its ember sibling to
+            // avoid reading as a disconnected fragment at low progress).
             Circle()
                 .trim(from: 0, to: Self.arcSpan)
-                .stroke(Color.white.opacity(0.08), style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .stroke(Color.white.opacity(0.18), style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(135))
 
             // Progress fill — warm gradient sweeping with the arc.
