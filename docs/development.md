@@ -306,16 +306,21 @@ Apple Developer capability, Google Cloud OAuth client).
   surface — the glass owns its chrome on 26+, and the fallback draws its own
   hairline. Strokes at call sites are reserved for meaning (selection) or
   branding (the white provider pills, which are not glass).
-- Action buttons use the system styles on 26+: `.glassProminent` (amber
-  tint) for `LiquidPrimaryButton`, `.glass` for `LiquidSecondaryButton`;
-  the hand-drawn `LiquidButtonStyle` is the pre-26 fallback only.
+- Touch-driven controls use explicit `.glassEffect(.regular[.tint].
+  interactive(), in:)` on a `.buttonStyle(.plain)` button inside a
+  `GlassEffectContainer`, NOT `.buttonStyle(.glass)/.glassProminent`. The
+  system styles give a crisp press but a muted finger-tracking morph; the
+  explicit `.interactive()` glass genuinely deforms and follows the finger,
+  which is the "liquid" feel we want on hold-and-drag. Applies to
+  `LiquidPrimaryButton` (amber tint), `LiquidSecondaryButton` (no tint),
+  `GlassIconButton` (circle), and the `SlideToSleepButton` knob. The
+  hand-drawn `LiquidButtonStyle` is the pre-26 fallback only.
 - Sibling glass shapes that read as one set are wrapped in
   `LiquidGlassContainer` (`GlassEffectContainer` on 26+) so their glass
-  blends: Home's schedule chips, onboarding's struggle rows.
-- Measured iOS 26 metrics (iPhone 17 Pro simulator screenshots): the glass
-  button style's circular content insets are ~12pt; `.glassProminent` adds
-  ~14pt vertically. `GlassIconButton` sizes its *label* from these so the
-  drawn circle lands on `size` without clamping the style's chrome.
+  blends: Home's schedule chips, onboarding's struggle rows, the slide
+  track+knob.
+- `GlassIconButton`'s glass region is the full `size` circle (no content
+  inset math). Sizes: 56pt gear/close, 44pt back chevron.
 
 ## Widget & App Group
 

@@ -120,38 +120,46 @@ heavy frosted glass.
   material), so call sites add strokes only when they carry *meaning* (the
   amber selection ring on onboarding's struggle rows) or *branding* (the
   white provider pills, which are deliberately not glass).
-- Primary button (`LiquidPrimaryButton`): on iOS 26+ it is Apple's own
-  `.buttonStyle(.glassProminent)` tinted amber — deep-navy ink, soft amber
-  glow, ~60pt tall (a 46pt label + the style's measured ~14pt insets). The
-  amber→gold gradient capsule survives only as the pre-26 fallback; real
-  prominent glass takes a single tint, not a gradient.
-- Secondary button (`LiquidSecondaryButton`): `.buttonStyle(.glass)` on
-  iOS 26+, ink text; subtle material capsule pre-26. Same height math as
-  the primary so the two always match.
+- **Touch-driven controls use explicit `.interactive()` glass, not the
+  system button styles.** The dedicated `.buttonStyle(.glass)` /
+  `.glassProminent` give a crisp *press* squish but a muted finger-tracking
+  morph, so held-and-dragged they read as a flat tap, not liquid. Every
+  hero control instead rides a `.buttonStyle(.plain)` button carrying
+  `.glassEffect(.regular[.tint(…)].interactive(), in: shape)` inside a
+  `GlassEffectContainer` — plain contributes no competing chrome, so the
+  interactive glass is the sole visual and gesture surface and genuinely
+  deforms/tracks the finger. This is a deliberate reversal of an earlier
+  "prefer the system button styles" rule: on this app's controls the
+  explicit interactive glass simply feels more liquid.
+- Primary button (`LiquidPrimaryButton`, e.g. Sleep Now): an amber-tinted
+  interactive glass capsule, deep-navy ink, soft amber glow, 58pt tall. The
+  bright amber tint keeps it the brightest control so it never melts into
+  the pixel skyline (it reads as translucent amber *glass*, not a solid
+  pill). The amber→gold gradient capsule survives only as the pre-26
+  fallback.
+- Secondary button (`LiquidSecondaryButton`): the same interactive glass
+  capsule with no tint, ink text; subtle material capsule pre-26.
+- The **slide-to-sleep knob** is real interactive Liquid Glass (bright amber
+  tint) with the track+knob in a `GlassEffectContainer`, so the knob lenses
+  and morphs over the rail as it drags — the app's showpiece liquid gesture.
+  Pre-26 keeps the amber→gold gradient disc.
 - Sibling glass shapes that read as one set (Home's two schedule chips, the
-  onboarding struggle capsules) sit inside a **`LiquidGlassContainer`**
-  (`GlassEffectContainer` on 26+, passthrough earlier) so nearby glass
-  samples and blends together the way Apple intends. Wrap exactly one
-  layout view; lone glass surfaces don't need it.
+  onboarding struggle capsules, the slide track+knob) sit inside a
+  **`LiquidGlassContainer`** (`GlassEffectContainer` on 26+, passthrough
+  earlier) so nearby glass samples and blends together the way Apple
+  intends. Wrap exactly one layout view.
 - Do not build custom blur stacks when a native glass/material surface fits.
 - Small circular icon actions (Profile's gear, the Settings sheet's close ✕,
-  onboarding's back chevron) go through **`GlassIconButton`**, not a bare
-  `Button` decorated with `.liquidGlass()`. On iOS 26+ it uses the real
-  system `.buttonStyle(.glass)` + `.buttonBorderShape(.circle)` — Apple's own
-  purpose-built Liquid Glass button chrome, which gives the genuine
-  squish/morph/highlight press choreography. Wrapping an arbitrary button in
-  `.glassEffect(.interactive())` from the outside renders the right
-  *material* but leaves two uncoordinated gesture recognizers (the button's
-  tap gesture and the glass's own touch tracking), which read as flat rather
-  than "liquid" — hence the dedicated component. Sizing lands on the button's
-  *label* (the style's circular insets measure ~12pt on iOS 26), so the
-  style keeps its natural chrome — clamping the button's outer frame (an
-  earlier revision) squeezed the circles smaller than any other iOS 26 app
-  draws them. The Profile gear and the Settings close ✕ share one 56pt
-  circle so the two read as one affordance; the onboarding chevron sits at
-  44pt — quieter, but never smaller than a comfortable target — and the
-  questionnaire keeps its progress bar centered by mirroring the chevron
-  with a hidden twin rather than a hardcoded spacer width.
+  onboarding's back chevron) go through **`GlassIconButton`** — a
+  `.buttonStyle(.plain)` circle carrying `.glassEffect(.regular.interactive(),
+  in: .circle)` in a `GlassEffectContainer`, so the glass morphs and tracks
+  the finger when held and dragged (the whole `size` circle is the glass
+  region, so no content-inset math is needed). The Profile gear and the
+  Settings close ✕ share one 56pt circle so the two read as one affordance;
+  the onboarding chevron sits at 44pt — quieter, but never smaller than a
+  comfortable target — and the questionnaire keeps its progress bar centered
+  by mirroring the chevron with a hidden twin rather than a hardcoded spacer
+  width.
 
 ## Typography
 
