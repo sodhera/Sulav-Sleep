@@ -39,10 +39,16 @@ scene is purely ambient and never reacts to touch — depth parallax comes from
 the device-tilt motion effect only, so the background can't shift under a tap or
 intercept input meant for the UI above it.
 
-The immersive sleep screen (`SleepModeView`) does **not** use this scene — it is
-true OLED black (`Color.black`, no glow, no gradient) with only the ember-red
-timer text for night vision. It opens straight into the minimal, collapsed
-state (bare timer, "Tap to wake"); tapping the screen reveals the controls.
+The immersive sleep screen (`SleepModeView`) does **not** use this scene — it
+is true OLED black (`Color.black`; only ember-red pixels are ever lit, for
+night vision). It is the night-side sibling of Home's bedtime ring: a thin
+270° **ember night ring** (faint ember track, crimson→ember fill, small
+glowing tip) fills from sleep start toward the scheduled wake time, with an
+"ASLEEP" kicker, the elapsed timer, and a small sunrise-glyph wake target at
+its center — "how far into the night am I" at half-asleep glance distance.
+Oversleeping simply holds the ring full. It opens straight into this
+collapsed instrument; the "Tap to wake" hint breathes very slowly at the
+bottom, and tapping the screen reveals the controls.
 
 The whole scene runs through **Core Animation** layers, so SwiftUI does not run
 a per-frame render loop. The native `TabView` host is opaque, so Home and
