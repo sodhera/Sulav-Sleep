@@ -126,7 +126,14 @@ Two tabs, each with exactly one job:
   a one-line `of sleep · wake 6:30 AM` sub, a single compact glass row for
   the lockdown (lock glyph + the app icons themselves — icons over words; an
   open lock + "No apps blocked tonight" otherwise), and the iPhone-style
-  **slide-to-sleep** capsule. The confirmation *scrolls up* into view when
+  **slide-to-sleep** capsule. The capsule is a *recessed night rail* — dark
+  navy with an inner shadow, so the knob visibly sits in something — whose
+  hint text carries the classic slide-to-unlock shimmer (a slow band of light
+  masked to the glyphs) beside three amber chevrons breathing in sequence
+  toward the destination. The knob drags a warm light trail across the rail,
+  and at the completion threshold a gold "ready" ring blooms around it (with
+  the firm haptic) while the rail's hairline warms; on completion the moon
+  glyph becomes `moon.zzz`. The confirmation *scrolls up* into view when
   Sleep Now is tapped and — on "Cancel" — *scrolls back down* the same way it
   arrived (Home slides in from the top behind it), never a fade in place.
   Sliding the knob across the full track starts the session. The slide gesture
