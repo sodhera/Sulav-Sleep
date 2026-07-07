@@ -40,15 +40,31 @@ the device-tilt motion effect only, so the background can't shift under a tap or
 intercept input meant for the UI above it.
 
 The immersive sleep screen (`SleepModeView`) does **not** use this scene — it
-is true OLED black (`Color.black`; only ember-red pixels are ever lit, for
-night vision). It is the night-side sibling of Home's bedtime ring: a thin
-270° **ember night ring** (faint ember track, crimson→ember fill, small
-glowing tip) fills from sleep start toward the scheduled wake time, with an
-"ASLEEP" kicker, the elapsed timer, and a small sunrise-glyph wake target at
-its center — "how far into the night am I" at half-asleep glance distance.
-Oversleeping simply holds the ring full. It opens straight into this
-collapsed instrument; the "Tap to wake" hint breathes very slowly at the
-bottom, and tapping the screen reveals the controls.
+is true OLED black (`Color.black`; only ember pixels are ever lit). **Ember
+is not a separate color identity**: it is the app's indoor amber banked down
+to coals — same warm hue family (`ember #E0854E`, `emberDim`, `emberGlow`,
+`emberDeep`), deeper and dimmer, so sleep mode reads as "the apartment lamp
+turned down for the night" while staying warm, long-wavelength, and kind to
+night vision. No crimson, no salmon. The screen is the night-side sibling of
+Home's bedtime ring: a thin 270° **ember night ring** (faint track,
+deep→bright ember fill, small glowing tip) fills from sleep start toward the
+scheduled wake time, with an "ASLEEP" kicker, the elapsed timer, and a small
+sunrise-glyph wake target at its center — "how far into the night am I" at
+half-asleep glance distance. Oversleeping simply holds the ring full. It
+opens straight into this collapsed instrument; the "Tap to wake" hint
+breathes very slowly at the bottom, and tapping the dark toggles the
+controls in and out.
+
+Sleep-mode controls follow one grammar: **deliberate exits are held,
+harmless returns are taps.** Entering sleep took a deliberate slide, so
+ending the night is *Hold to wake* — a 1.2s press-and-hold capsule that
+needs zero precision from a half-asleep hand and cannot fire from a stray
+tap: a rigid tap answers the press, medium ticks ratchet up while a deep
+ember fill sweeps the capsule, and a heavy knock + success lands at
+completion (released early, the fill sighs back with a soft tap). *Back to
+sleep* is a plain tap — it costs nothing. *Hold to cancel* (drops the
+lockdown, logs no night) is the same hold mechanic, quieter and shorter
+(0.8s). There is no single-tap way out of a night.
 
 The whole scene runs through **Core Animation** layers, so SwiftUI does not run
 a per-frame render loop. The native `TabView` host is opaque, so Home and
@@ -294,12 +310,15 @@ no repeat questionnaire; picking "Get started" re-runs it only if they choose to
 State changes fade/lift over ~260–320ms; presses scale subtly (~0.98). Nothing
 bouncy or reward-like. Haptics (`Haptics`) are gentle and sparing: a soft tap
 entering/leaving sleep and on nav, a success notification when a night is
-logged. The one deliberate exception is the **slide-to-sleep** knob, which is
-richer on purpose — the gesture is the night's commitment, so it earns
-tactile weight the rest of the app forgoes: a rigid tap on grab, a
-medium-strength ratchet through eight detents that tick harder with
+logged. The deliberate exceptions are the night's two commitment gestures,
+which are richer on purpose: the **slide-to-sleep** knob (a rigid tap on
+grab, a medium-strength ratchet through eight detents that tick harder with
 progress, a heavy knock at the completion threshold, a soft tap on a
-released spring-back, and the success notification when the night begins.
+released spring-back, and the success notification when the night begins)
+and the sleep screen's **hold buttons** (rigid tap on press, a five-detent
+medium ratchet while the ember fill sweeps, heavy knock at completion — plus
+success when waking). Entering and leaving a night should feel like moving
+something with real weight.
 
 ## Widgets
 

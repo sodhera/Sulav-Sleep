@@ -55,13 +55,16 @@ enum SleepColor {
 
     static let white = Color.white
 
-    // Sleep mode — pitch black with layered reds. Red preserves night vision,
-    // so the whole immersive sleep screen lives in these tones.
+    // Sleep mode — pitch black with the day's amber banked down to coals.
+    // The asleep screen stays in warm, long-wavelength, low-luminance light
+    // (kind to night vision), but the hue is the same indoor-amber family as
+    // the rest of the app — not a separate crimson identity. Ember is amber
+    // at coal temperature.
     static let sleepBlack = Color(hex: 0x040203)
-    static let ember = Color(hex: 0xE0655C)     // timer / primary accent
-    static let emberDim = Color(hex: 0x9A322C)  // borders / secondary
-    static let crimsonGlow = Color(hex: 0x7A1A15)
-    static let bloodGlow = Color(hex: 0x4A0E0C)
+    static let ember = Color(hex: 0xE0854E)     // timer / primary accent — banked amber
+    static let emberDim = Color(hex: 0x9C5530)  // borders / secondary text
+    static let emberGlow = Color(hex: 0x7A3A16) // glows / gradient tails
+    static let emberDeep = Color(hex: 0x4A2008) // deepest warm shadow
 }
 
 // MARK: - Spacing (8pt grid)
