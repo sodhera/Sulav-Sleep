@@ -9,11 +9,12 @@ private let sleepControlHeight: CGFloat = 58
 // Immersive sleep mode. True OLED black; everything lit is ember — the day's
 // amber banked down to coals (warm, long-wavelength light that is kind to
 // night vision and reads as the same identity as the rest of the app). The
-// screen is the night-side sibling of Home's bedtime ring: a thin ember arc
-// fills from sleep start toward the scheduled wake time, with the elapsed
-// timer at its center and the wake target beneath. It opens straight into
-// this collapsed instrument — the same state "Back to sleep" leaves you in —
-// and tapping the screen brings the controls up (tapping the dark collapses
+// centerpiece is the night sloth — the app icon's sloth in ember tones,
+// asleep on its pillow with z's rising off its head — over the elapsed
+// timer and the wake target. The sloth is the state ("the app is doing its
+// job"); the numbers are the instrument. It opens straight into this
+// collapsed screen — the same state "Back to sleep" leaves you in — and
+// tapping the screen brings the controls up (tapping the dark collapses
 // them again).
 //
 // Control grammar: deliberate exits are *held*, harmless returns are taps.
@@ -34,18 +35,6 @@ struct SleepModeView: View {
         max(0, Int(now.timeIntervalSince(activeSession.start) / 60))
     }
 
-    /// Fraction of the planned night (sleep start → scheduled wake) already
-    /// behind you. Clamped: oversleeping simply holds the ring full.
-    private var nightProgress: Double {
-        guard let profile = store.profile else { return 0 }
-        let total = SleepMath.windowMinutes(
-            bedtime: SleepFormatting.minutes(from: activeSession.start),
-            wakeTime: profile.wakeTime
-        )
-        guard total > 0 else { return 0 }
-        return min(1, now.timeIntervalSince(activeSession.start) / 60 / Double(total))
-    }
-
     private var wakeClock: String? {
         store.profile.map { SleepFormatting.clock($0.wakeTime) }
     }
@@ -59,41 +48,47 @@ struct SleepModeView: View {
             VStack(spacing: 0) {
                 Spacer()
 
-                NightRing(progress: nightProgress) {
-                    VStack(spacing: SleepSpacing.sm) {
-                        Text("Asleep")
-                            .font(SleepFont.label(12))
-                            .tracking(1.6)
-                            .textCase(.uppercase)
-                            .foregroundStyle(SleepColor.emberDim)
+                // The night sloth: the app icon's sloth banked down to
+                // ember coals, asleep on its pillow — the sleep state made
+                // visible. Its z's rise off the head; the numbers below
+                // stay the screen's actual instrument.
+                Image("NightSloth")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 300)
+                    .overlay(alignment: .topLeading) {
+                        RisingZs()
+                            .offset(x: 66, y: -2)
+                    }
+                    .accessibilityHidden(true)
 
-                        Text("\(elapsedMinutes / 60)h \(String(format: "%02d", elapsedMinutes % 60))m")
-                            .font(.system(size: 48, weight: .semibold, design: .default))
-                            .foregroundStyle(SleepColor.ember)
-                            .monospacedDigit()
-                            .shadow(color: SleepColor.emberGlow.opacity(0.45), radius: 14)
-                            .contentTransition(.numericText())
-                            .accessibilityLabel("Asleep for \(elapsedMinutes / 60) hours \(elapsedMinutes % 60) minutes")
+                VStack(spacing: SleepSpacing.sm) {
+                    Text("Asleep")
+                        .font(SleepFont.label(12))
+                        .tracking(1.6)
+                        .textCase(.uppercase)
+                        .foregroundStyle(SleepColor.emberDim)
 
-                        if let wakeClock {
-                            HStack(spacing: SleepSpacing.xs) {
-                                Image(systemName: "sunrise.fill")
-                                    .font(.system(size: 11, weight: .medium))
-                                Text(wakeClock)
-                                    .font(SleepFont.body(14))
-                                    .monospacedDigit()
-                            }
-                            .foregroundStyle(SleepColor.emberDim)
+                    Text("\(elapsedMinutes / 60)h \(String(format: "%02d", elapsedMinutes % 60))m")
+                        .font(.system(size: 48, weight: .semibold, design: .default))
+                        .foregroundStyle(SleepColor.ember)
+                        .monospacedDigit()
+                        .shadow(color: SleepColor.emberGlow.opacity(0.45), radius: 14)
+                        .contentTransition(.numericText())
+                        .accessibilityLabel("Asleep for \(elapsedMinutes / 60) hours \(elapsedMinutes % 60) minutes")
+
+                    if let wakeClock {
+                        HStack(spacing: SleepSpacing.xs) {
+                            Image(systemName: "sunrise.fill")
+                                .font(.system(size: 11, weight: .medium))
+                            Text(wakeClock)
+                                .font(SleepFont.body(14))
+                                .monospacedDigit()
                         }
+                        .foregroundStyle(SleepColor.emberDim)
                     }
                 }
-                .overlay(alignment: .topTrailing) {
-                    // Rising z's off the ring's upper shoulder — the app
-                    // icon's ZZZ, alive. Anchored just outside the arc so
-                    // they drift up and away from the instrument.
-                    RisingZs()
-                        .offset(x: -36, y: 22)
-                }
+                .padding(.top, SleepSpacing.xl)
 
                 Spacer()
 
@@ -202,74 +197,10 @@ struct SleepModeView: View {
     }
 }
 
-// MARK: - Night ring
-
-/// The ember sibling of Home's bedtime ring: the same 270° gauge arc, but
-/// thin and dim for night vision — a faint ember track, a deep→bright ember
-/// fill tracking the planned night, and a small glowing tip. The instrument
-/// reads "how far into the night am I" at half-asleep glance distance.
-private struct NightRing<Content: View>: View {
-    let progress: Double
-    @ViewBuilder var content: Content
-
-    /// The arc spans 270°, leaving a gap at the bottom — same language as
-    /// Home's bedtime ring.
-    private static var arcSpan: Double { 0.75 }
-
-    private let size: CGFloat = 272
-    private let lineWidth: CGFloat = 5
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .trim(from: 0, to: Self.arcSpan)
-                .stroke(
-                    SleepColor.emberDim.opacity(0.22),
-                    style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
-                )
-                .rotationEffect(.degrees(135))
-
-            Circle()
-                .trim(from: 0, to: Self.arcSpan * progress)
-                .stroke(
-                    AngularGradient(
-                        colors: [SleepColor.emberGlow, SleepColor.ember],
-                        center: .center,
-                        startAngle: .degrees(0),
-                        endAngle: .degrees(270)
-                    ),
-                    style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
-                )
-                .rotationEffect(.degrees(135))
-                .shadow(color: SleepColor.emberGlow.opacity(0.5), radius: 8)
-
-            tipMarker
-
-            content
-        }
-        .frame(width: size, height: size)
-        .animation(.easeInOut(duration: 0.6), value: progress)
-    }
-
-    /// The small ember dot riding the arc tip — "you are here in the night".
-    private var tipMarker: some View {
-        let angle = Angle.degrees(135 + 270 * progress)
-        let radius = size / 2
-        return Circle()
-            .fill(SleepColor.ember)
-            .frame(width: 11, height: 11)
-            .shadow(color: SleepColor.ember.opacity(0.8), radius: 6)
-            .offset(
-                x: radius * CGFloat(cos(angle.radians)),
-                y: radius * CGFloat(sin(angle.radians))
-            )
-    }
-}
-
 // MARK: - Rising Zs
 
-/// The sleep screen's one ornament: soft ember z's rising off the night
-/// ring's shoulder — the app icon's ZZZ, alive. Each z drifts up the same
+/// The sleep screen's one ornament: soft ember z's rising off the sleeping
+/// sloth's head — the app icon's ZZZ, alive. Each z drifts up the same
 /// diagonal, swells a touch, and fades out; three staggered cycles mean at
 /// most two are ever visible, so it reads as slow breathing rather than
 /// motion. Everything stays `emberDim` and quieter than the timer — if it
