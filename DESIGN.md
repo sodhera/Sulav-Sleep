@@ -113,8 +113,26 @@ heavy frosted glass.
 - Interactive glass only on tappable/focusable elements.
 - Capsules for buttons and the bottom nav; continuous rounded rectangles for
   sheets and compact time adjusters.
-- Primary button: amber→gold gradient fill, deep-navy ink, soft amber glow.
-- Secondary button: subtle glass, ink text, hairline border.
+- **The glass owns its chrome.** Never paint a manual `Capsule().fill(…)` or
+  hairline `stroke` on top of a `.liquidGlass()` surface — on iOS 26 that
+  mutes the real material into a flat tinted panel. The pre-26 fallback
+  draws its own hairline (and honors the `tint` parameter as a wash over the
+  material), so call sites add strokes only when they carry *meaning* (the
+  amber selection ring on onboarding's struggle rows) or *branding* (the
+  white provider pills, which are deliberately not glass).
+- Primary button (`LiquidPrimaryButton`): on iOS 26+ it is Apple's own
+  `.buttonStyle(.glassProminent)` tinted amber — deep-navy ink, soft amber
+  glow, ~60pt tall (a 46pt label + the style's measured ~14pt insets). The
+  amber→gold gradient capsule survives only as the pre-26 fallback; real
+  prominent glass takes a single tint, not a gradient.
+- Secondary button (`LiquidSecondaryButton`): `.buttonStyle(.glass)` on
+  iOS 26+, ink text; subtle material capsule pre-26. Same height math as
+  the primary so the two always match.
+- Sibling glass shapes that read as one set (Home's two schedule chips, the
+  onboarding struggle capsules) sit inside a **`LiquidGlassContainer`**
+  (`GlassEffectContainer` on 26+, passthrough earlier) so nearby glass
+  samples and blends together the way Apple intends. Wrap exactly one
+  layout view; lone glass surfaces don't need it.
 - Do not build custom blur stacks when a native glass/material surface fits.
 - Small circular icon actions (Profile's gear, the Settings sheet's close ✕,
   onboarding's back chevron) go through **`GlassIconButton`**, not a bare
@@ -125,10 +143,15 @@ heavy frosted glass.
   `.glassEffect(.interactive())` from the outside renders the right
   *material* but leaves two uncoordinated gesture recognizers (the button's
   tap gesture and the glass's own touch tracking), which read as flat rather
-  than "liquid" — hence the dedicated component. The Profile gear and the
-  Settings close ✕ share one 48pt size so the two read as one affordance;
-  the onboarding chevron stays at its own 36pt (it's mirrored by an equal-
-  width spacer to keep the questionnaire's progress bar centered).
+  than "liquid" — hence the dedicated component. Sizing lands on the button's
+  *label* (the style's circular insets measure ~12pt on iOS 26), so the
+  style keeps its natural chrome — clamping the button's outer frame (an
+  earlier revision) squeezed the circles smaller than any other iOS 26 app
+  draws them. The Profile gear and the Settings close ✕ share one 56pt
+  circle so the two read as one affordance; the onboarding chevron sits at
+  44pt — quieter, but never smaller than a comfortable target — and the
+  questionnaire keeps its progress bar centered by mirroring the chevron
+  with a hidden twin rather than a hardcoded spacer width.
 
 ## Typography
 
@@ -310,7 +333,8 @@ sleep data actually lives; it persists until connected or waved off, and the
 Profile settings section still has the toggle.
 
 Questionnaire chrome: a 3pt amber-gradient progress capsule between a round
-glass back chevron and a matching spacer, editorial left-aligned questions
+glass back chevron and a hidden twin of it (so the bar stays centered at
+whatever size the system draws the button), editorial left-aligned questions
 (small-caps kicker → 28pt title → dim supporting line → control), and
 directional slide+fade step transitions (~280ms). Multi-select answers use
 full-width capsule glass rows — muted icon, ink label, trailing circle that

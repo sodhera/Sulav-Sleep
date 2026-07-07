@@ -299,8 +299,23 @@ Apple Developer capability, Google Cloud OAuth client).
 ## Liquid Glass rules
 
 - Native `glassEffect` on iOS 26+, `.ultraThinMaterial` fallback otherwise.
+  The fallback honors the same `tint` parameter as a wash over the material.
 - `LiquidGlass.swift` is the only glass compatibility wrapper.
 - Interactive glass for tappable controls only.
+- Never paint manual capsule fills or border strokes on top of a glass
+  surface — the glass owns its chrome on 26+, and the fallback draws its own
+  hairline. Strokes at call sites are reserved for meaning (selection) or
+  branding (the white provider pills, which are not glass).
+- Action buttons use the system styles on 26+: `.glassProminent` (amber
+  tint) for `LiquidPrimaryButton`, `.glass` for `LiquidSecondaryButton`;
+  the hand-drawn `LiquidButtonStyle` is the pre-26 fallback only.
+- Sibling glass shapes that read as one set are wrapped in
+  `LiquidGlassContainer` (`GlassEffectContainer` on 26+) so their glass
+  blends: Home's schedule chips, onboarding's struggle rows.
+- Measured iOS 26 metrics (iPhone 17 Pro simulator screenshots): the glass
+  button style's circular content insets are ~12pt; `.glassProminent` adds
+  ~14pt vertically. `GlassIconButton` sizes its *label* from these so the
+  drawn circle lands on `size` without clamping the style's chrome.
 
 ## Widget & App Group
 
