@@ -501,6 +501,14 @@ grayscale render. All three are generated — never hand-edited — by
 `scripts/generate-app-icon.py` from the source EPS, so palette changes can be
 re-applied by re-running the script.
 
+The **launch screen** (`SplashScreen.storyboard`) is the quietest possible
+version of the same story: the app icon, with its familiar home-screen
+rounded-corner shape baked in, centered on the `background` navy — no
+wordmark, no scene, nothing that competes with the Home screen that fades in
+over it a beat later. The rounded splash image (`SplashIcon.imageset`) is
+generated from the icon by `scripts/generate-splash-icon.py`, so it can never
+drift from the shipped icon art.
+
 ## What to avoid
 
 - Purple, neon, cyberpunk or blue-heavy identity.
