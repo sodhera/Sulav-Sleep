@@ -120,28 +120,33 @@ heavy frosted glass.
   material), so call sites add strokes only when they carry *meaning* (the
   amber selection ring on onboarding's struggle rows) or *branding* (the
   white provider pills, which are deliberately not glass).
-- **Touch-driven controls use explicit `.interactive()` glass, not the
-  system button styles.** The dedicated `.buttonStyle(.glass)` /
-  `.glassProminent` give a crisp *press* squish but a muted finger-tracking
-  morph, so held-and-dragged they read as a flat tap, not liquid. Every
-  hero control instead rides a `.buttonStyle(.plain)` button carrying
-  `.glassEffect(.regular[.tint(…)].interactive(), in: shape)` inside a
-  `GlassEffectContainer` — plain contributes no competing chrome, so the
-  interactive glass is the sole visual and gesture surface and genuinely
-  deforms/tracks the finger. This is a deliberate reversal of an earlier
-  "prefer the system button styles" rule: on this app's controls the
-  explicit interactive glass simply feels more liquid.
+- **Touch-driven controls drive their reaction from a custom `ButtonStyle`,
+  not a plain button.** Interactive Liquid Glass alone is not enough: a
+  `.buttonStyle(.plain)` button + a bare `.glassEffect(.interactive())` on
+  its label *looks* interactive but feels dead, because the plain button's
+  gesture recognizer swallows the touch and the glass never receives the
+  press. The fix is a `ButtonStyle` that owns `configuration.isPressed`, so
+  it can guarantee a visible reaction — a springy scale (jelly squish) —
+  layered on top of the `.interactive()` glass. The scale reacts everywhere
+  (including where the OS doesn't render the glass's own deformation); the
+  glass adds the real material morph on device. Two styles do this:
+  `GlassCircleButtonStyle` (icon buttons) and `GlassCapsuleButtonStyle`
+  (action buttons). Note the behavioral truth: **buttons squish-and-settle
+  on press; they do not stretch to follow a dragging finger** — that
+  gel-follow belongs only to genuinely draggable controls (the slide-to-sleep
+  knob), not tap targets.
 - Primary button (`LiquidPrimaryButton`, e.g. Sleep Now): an amber-tinted
-  interactive glass capsule, deep-navy ink, soft amber glow, 58pt tall. The
-  bright amber tint keeps it the brightest control so it never melts into
-  the pixel skyline (it reads as translucent amber *glass*, not a solid
-  pill). The amber→gold gradient capsule survives only as the pre-26
-  fallback.
-- Secondary button (`LiquidSecondaryButton`): the same interactive glass
-  capsule with no tint, ink text; subtle material capsule pre-26.
+  interactive glass capsule (`GlassCapsuleButtonStyle` with an amber tint),
+  deep-navy ink, soft amber glow, 58pt tall. The bright amber tint keeps it
+  the brightest control so it never melts into the pixel skyline (it reads as
+  translucent amber *glass*, not a solid pill). The amber→gold gradient
+  capsule survives only as the pre-26 fallback.
+- Secondary button (`LiquidSecondaryButton`): the same capsule style with no
+  tint, ink text; subtle material capsule pre-26.
 - The **slide-to-sleep knob** is real interactive Liquid Glass (bright amber
-  tint) with the track+knob in a `GlassEffectContainer`, so the knob lenses
-  and morphs over the rail as it drags — the app's showpiece liquid gesture.
+  tint), driven by a genuine `DragGesture`, with the track+knob in a
+  `GlassEffectContainer`. Because it is a real drag control it *does* get the
+  finger-follow morph as it slides — the app's showpiece liquid gesture.
   Pre-26 keeps the amber→gold gradient disc.
 - Sibling glass shapes that read as one set (Home's two schedule chips, the
   onboarding struggle capsules, the slide track+knob) sit inside a
@@ -150,11 +155,11 @@ heavy frosted glass.
   intends. Wrap exactly one layout view.
 - Do not build custom blur stacks when a native glass/material surface fits.
 - Small circular icon actions (Profile's gear, the Settings sheet's close ✕,
-  onboarding's back chevron) go through **`GlassIconButton`** — a
-  `.buttonStyle(.plain)` circle carrying `.glassEffect(.regular.interactive(),
-  in: .circle)` in a `GlassEffectContainer`, so the glass morphs and tracks
-  the finger when held and dragged (the whole `size` circle is the glass
-  region, so no content-inset math is needed). The Profile gear and the
+  onboarding's back chevron) go through **`GlassIconButton`** — its
+  `GlassCircleButtonStyle` pairs `.glassEffect(.regular.interactive(),
+  in: .circle)` with a springy `isPressed` squish, so the circle visibly
+  reacts to a press (the whole `size` circle is the glass region, so no
+  content-inset math is needed). The Profile gear and the
   Settings close ✕ share one 56pt circle so the two read as one affordance;
   the onboarding chevron sits at 44pt — quieter, but never smaller than a
   comfortable target — and the questionnaire keeps its progress bar centered

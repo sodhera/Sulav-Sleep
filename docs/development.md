@@ -306,15 +306,17 @@ Apple Developer capability, Google Cloud OAuth client).
   surface — the glass owns its chrome on 26+, and the fallback draws its own
   hairline. Strokes at call sites are reserved for meaning (selection) or
   branding (the white provider pills, which are not glass).
-- Touch-driven controls use explicit `.glassEffect(.regular[.tint].
-  interactive(), in:)` on a `.buttonStyle(.plain)` button inside a
-  `GlassEffectContainer`, NOT `.buttonStyle(.glass)/.glassProminent`. The
-  system styles give a crisp press but a muted finger-tracking morph; the
-  explicit `.interactive()` glass genuinely deforms and follows the finger,
-  which is the "liquid" feel we want on hold-and-drag. Applies to
-  `LiquidPrimaryButton` (amber tint), `LiquidSecondaryButton` (no tint),
-  `GlassIconButton` (circle), and the `SlideToSleepButton` knob. The
-  hand-drawn `LiquidButtonStyle` is the pre-26 fallback only.
+- Touch-driven controls drive their press reaction from a custom `ButtonStyle`
+  that owns `configuration.isPressed`, NOT a `.buttonStyle(.plain)` button
+  with a bare `.glassEffect(.interactive())` (the plain button swallows the
+  touch, so the glass never sees the press and the control feels dead). The
+  style layers a springy `isPressed` scale (guaranteed visible reaction) on
+  top of interactive Liquid Glass (real material morph on device):
+  `GlassCircleButtonStyle` for `GlassIconButton`, `GlassCapsuleButtonStyle`
+  for `LiquidPrimaryButton` (amber tint) / `LiquidSecondaryButton` (no tint).
+  The hand-drawn `LiquidButtonStyle` is the pre-26 fallback only. Buttons
+  squish on press; only the `SlideToSleepButton` knob (a real `DragGesture`
+  control) gets the finger-follow morph.
 - Sibling glass shapes that read as one set are wrapped in
   `LiquidGlassContainer` (`GlassEffectContainer` on 26+) so their glass
   blends: Home's schedule chips, onboarding's struggle rows, the slide
