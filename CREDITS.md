@@ -8,3 +8,10 @@
   Used (warm-tinted and darkened) as the base of the app's environment scene in
   `ios/SulavSleep/Images.xcassets/NightCity.imageset/`. Attribution is also
   shown in the app under Settings.
+
+- **App icon: sleeping sloth on a pillow** — stock cartoon vector
+  ("cute sloth sleeping pillow cartoon vector icon illustration", downloaded
+  as `5100_4_10.eps`; original source/license to be confirmed before App
+  Store release). Used recolored from its purple original into the app's
+  amber/navy palette by `scripts/generate-app-icon.py`, output in
+  `ios/SulavSleep/Images.xcassets/AppIcon.appiconset/`.

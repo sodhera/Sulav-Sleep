@@ -455,6 +455,23 @@ Rules:
   without timeline churn; timeline entries exist only to flip states at the
   bedtime and wake boundaries.
 
+## App icon
+
+A sleeping sloth on a pillow (recolored stock vector — see `CREDITS.md`),
+remapped from its original purple-cartoon palette into Warm Pixel Night: the
+sloth in amber/ember with warm-cream face and deep-brown eye patches, gold
+ZZZ, the pillow in cool ink so the warm figure reads against it, all over the
+widgets' `skyTop → background` night gradient with a faint amber lamp glow
+behind the figure — the same "warm indoor light against a cold night" story
+as the app. Outlines are near-black navy, not the source purple; no purple
+survives.
+
+The icon ships in three appearances (light, dark, tinted). The night art *is*
+the dark appearance, so light and dark share one image; tinted is its
+grayscale render. All three are generated — never hand-edited — by
+`scripts/generate-app-icon.py` from the source EPS, so palette changes can be
+re-applied by re-running the script.
+
 ## What to avoid
 
 - Purple, neon, cyberpunk or blue-heavy identity.
