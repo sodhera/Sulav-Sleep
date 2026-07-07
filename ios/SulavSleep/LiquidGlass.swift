@@ -36,6 +36,62 @@ extension View {
     }
 }
 
+// MARK: - Icon buttons
+
+/// A small circular icon action — the Profile gear, the settings-sheet close
+/// ✕, the onboarding back chevron. These all share one size so they read as
+/// the same control language wherever they appear.
+///
+/// On iOS 26+ this is a genuine system Liquid Glass button
+/// (`.buttonStyle(.glass)` + `.buttonBorderShape(.circle)`), which is Apple's
+/// own purpose-built button chrome — it gets the real squish/morph/highlight
+/// press choreography for free. Decorating an arbitrary `Button` with
+/// `.glassEffect(.interactive())` from the outside (the previous approach)
+/// renders the right *material* but two independent gesture recognizers (the
+/// button's tap gesture and the glass's own touch-tracking) don't coordinate
+/// as tightly as the dedicated style, which is why it read as flat rather
+/// than "liquid." Pre-26 falls back to the material glass surface with a
+/// matching press scale, since that path has no built-in interaction physics
+/// to lean on.
+struct GlassIconButton: View {
+    let systemImage: String
+    var size: CGFloat = 48
+    var iconSize: CGFloat = 20
+    var tint: Color = SleepColor.dim
+    let action: () -> Void
+
+    var body: some View {
+        if #available(iOS 26.0, *) {
+            Button(action: action) {
+                Image(systemName: systemImage)
+                    .font(.system(size: iconSize, weight: .medium))
+                    .foregroundStyle(tint)
+                    .frame(width: size, height: size)
+            }
+            .buttonStyle(.glass)
+            .buttonBorderShape(.circle)
+        } else {
+            Button(action: action) {
+                Image(systemName: systemImage)
+                    .font(.system(size: iconSize, weight: .medium))
+                    .foregroundStyle(tint)
+                    .frame(width: size, height: size)
+            }
+            .buttonStyle(GlassIconButtonFallbackStyle())
+        }
+    }
+}
+
+private struct GlassIconButtonFallbackStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .liquidGlass(cornerRadius: SleepRadius.pill, interactive: true)
+            .scaleEffect(configuration.isPressed ? 0.90 : 1)
+            .opacity(configuration.isPressed ? 0.85 : 1)
+            .animation(.snappy(duration: 0.16), value: configuration.isPressed)
+    }
+}
+
 // MARK: - Grouped glass rows (settings surfaces)
 
 /// A grouped glass container for a functional cluster of control rows —

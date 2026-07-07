@@ -409,19 +409,16 @@ private struct QuestionLayout<Content: View>: View {
     }
 }
 
-/// Round glass chevron used across onboarding and auth headers.
+/// Round glass chevron used across onboarding and auth headers. Kept at its
+/// own 36pt size (smaller than the Profile/Settings icon buttons) since the
+/// questionnaire mirrors it with a same-width spacer to keep the progress
+/// bar centered — see the `Color.clear.frame(width: 36, height: 36)` above.
 struct GlassBackButton: View {
     var action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            Image(systemName: "chevron.left")
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(SleepColor.ink)
-                .frame(width: 36, height: 36)
-        }
-        .liquidGlass(cornerRadius: SleepRadius.pill, interactive: true)
-        .accessibilityLabel("Back")
+        GlassIconButton(systemImage: "chevron.left", size: 36, iconSize: 15, tint: SleepColor.ink, action: action)
+            .accessibilityLabel("Back")
     }
 }
 

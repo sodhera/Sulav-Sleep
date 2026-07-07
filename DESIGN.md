@@ -116,6 +116,19 @@ heavy frosted glass.
 - Primary button: amber→gold gradient fill, deep-navy ink, soft amber glow.
 - Secondary button: subtle glass, ink text, hairline border.
 - Do not build custom blur stacks when a native glass/material surface fits.
+- Small circular icon actions (Profile's gear, the Settings sheet's close ✕,
+  onboarding's back chevron) go through **`GlassIconButton`**, not a bare
+  `Button` decorated with `.liquidGlass()`. On iOS 26+ it uses the real
+  system `.buttonStyle(.glass)` + `.buttonBorderShape(.circle)` — Apple's own
+  purpose-built Liquid Glass button chrome, which gives the genuine
+  squish/morph/highlight press choreography. Wrapping an arbitrary button in
+  `.glassEffect(.interactive())` from the outside renders the right
+  *material* but leaves two uncoordinated gesture recognizers (the button's
+  tap gesture and the glass's own touch tracking), which read as flat rather
+  than "liquid" — hence the dedicated component. The Profile gear and the
+  Settings close ✕ share one 48pt size so the two read as one affordance;
+  the onboarding chevron stays at its own 36pt (it's mirrored by an equal-
+  width spacer to keep the questionnaire's progress bar centered).
 
 ## Typography
 

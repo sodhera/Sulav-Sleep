@@ -139,17 +139,10 @@ private struct ProfileRootScreen: View {
                 if store.isImportingHealth {
                     ProgressView().controlSize(.small).tint(SleepColor.amber)
                 }
-                Button {
+                GlassIconButton(systemImage: "gearshape") {
                     Haptics.soft()
                     showsSettings = true
-                } label: {
-                    Image(systemName: "gearshape")
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundStyle(SleepColor.dim)
-                        .frame(width: 48, height: 48)
                 }
-                .buttonStyle(.plain)
-                .liquidGlass(cornerRadius: SleepRadius.pill, interactive: true)
                 .accessibilityLabel("Settings")
             }
             .frame(minHeight: 44)
@@ -380,22 +373,17 @@ struct SettingsModal: View {
     }
 
     private var header: some View {
-        HStack(alignment: .firstTextBaseline) {
+        HStack {
             Text("Settings")
                 .font(SleepFont.hero(28))
                 .foregroundStyle(SleepColor.ink)
             Spacer()
-            Button {
+            // Same footprint as the Profile gear this sheet is opened from,
+            // so the two read as one "settings" affordance.
+            GlassIconButton(systemImage: "xmark", iconSize: 16, tint: SleepColor.ink) {
                 Haptics.soft()
                 dismiss()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(SleepColor.ink)
-                    .frame(width: 36, height: 36)
             }
-            .buttonStyle(.plain)
-            .liquidGlass(cornerRadius: SleepRadius.pill, interactive: true)
             .accessibilityLabel("Close settings")
         }
         .padding(.top, SleepSpacing.lg)
