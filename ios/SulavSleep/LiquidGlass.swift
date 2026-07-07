@@ -68,18 +68,21 @@ extension View {
 /// ✕, the onboarding back chevron. These all share one size so they read as
 /// the same control language wherever they appear.
 ///
-/// On iOS 26+ the circle is real Liquid Glass with `.interactive()` engaged,
-/// wrapped in a `GlassEffectContainer` — so it genuinely deforms, brightens,
-/// and tracks the finger while held and dragged. It rides a `.buttonStyle(
-/// .plain)` button: the plain style contributes no competing chrome, leaving
-/// the interactive glass as the sole visual and gesture surface, which is
-/// what makes the touch read as *liquid* rather than a flat tap. (An earlier
-/// revision used `.buttonStyle(.glass)`; its press squish is crisp but the
-/// finger-tracking morph is far more muted, so held-and-dragged it didn't
-/// feel liquid — the direct `.interactive()` glass does.) The glass region is
-/// the full `size` circle, so no content-inset math is needed. Pre-26 falls
-/// back to the material glass surface with a matching press scale, since that
-/// path has no built-in interaction physics to lean on.
+/// A small circular icon action — the Profile gear, the settings-sheet close
+/// ✕, the onboarding back chevron. These all share one size so they read as
+/// the same control language wherever they appear.
+///
+/// The reaction is driven by a **custom `ButtonStyle`** (`GlassCircleButtonStyle`),
+/// not `.buttonStyle(.plain)` + a bare `.glassEffect(.interactive())`. That
+/// earlier structure looked right but felt dead: the plain button's own
+/// gesture recognizer swallows the touch, so the interactive glass never
+/// receives the press events and nothing deforms. A `ButtonStyle` instead
+/// *owns* `configuration.isPressed`, so it can guarantee a visible reaction —
+/// here a springy squish (a real size change on press, over-damped so it
+/// bounces back like jelly) layered on top of the genuine `.interactive()`
+/// Liquid Glass. Note these are *buttons*: they squish on press and settle,
+/// they do not stretch to follow a dragging finger — that gel-follow belongs
+/// to draggable controls like the slide-to-sleep knob, not to a tap target.
 struct GlassIconButton: View {
     let systemImage: String
     var size: CGFloat = 56
@@ -88,37 +91,41 @@ struct GlassIconButton: View {
     let action: () -> Void
 
     var body: some View {
-        if #available(iOS 26.0, *) {
-            GlassEffectContainer {
-                Button(action: action) {
-                    Image(systemName: systemImage)
-                        .font(.system(size: iconSize, weight: .medium))
-                        .foregroundStyle(tint)
-                        .frame(width: size, height: size)
-                        .contentShape(.circle)
-                        .glassEffect(.regular.interactive(), in: .circle)
-                }
-                .buttonStyle(.plain)
-            }
-        } else {
-            Button(action: action) {
-                Image(systemName: systemImage)
-                    .font(.system(size: iconSize, weight: .medium))
-                    .foregroundStyle(tint)
-                    .frame(width: size, height: size)
-            }
-            .buttonStyle(GlassIconButtonFallbackStyle())
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: iconSize, weight: .medium))
+                .foregroundStyle(tint)
         }
+        .buttonStyle(GlassCircleButtonStyle(size: size))
     }
 }
 
-private struct GlassIconButtonFallbackStyle: ButtonStyle {
+/// Circular glass button chrome with a guaranteed springy press. Real
+/// interactive Liquid Glass on iOS 26+, `.ultraThinMaterial` circle pre-26;
+/// both get the same jelly squish so the control feels alive everywhere,
+/// including where the OS doesn't render the glass deformation itself.
+private struct GlassCircleButtonStyle: ButtonStyle {
+    let size: CGFloat
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .liquidGlass(cornerRadius: SleepRadius.pill, interactive: true)
-            .scaleEffect(configuration.isPressed ? 0.90 : 1)
-            .opacity(configuration.isPressed ? 0.85 : 1)
-            .animation(.snappy(duration: 0.16), value: configuration.isPressed)
+            .frame(width: size, height: size)
+            .contentShape(.circle)
+            .modifier(GlassCircleSurface())
+            .scaleEffect(configuration.isPressed ? 0.82 : 1)
+            .animation(.spring(response: 0.28, dampingFraction: 0.42), value: configuration.isPressed)
+    }
+}
+
+private struct GlassCircleSurface: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.glassEffect(.regular.interactive(), in: .circle)
+        } else {
+            content
+                .background(.ultraThinMaterial, in: Circle())
+                .overlay { Circle().stroke(SleepColor.border, lineWidth: 1) }
+        }
     }
 }
 
@@ -210,14 +217,15 @@ struct GlassRowIcon: View {
 // MARK: - Buttons
 
 /// Warm, primary action. Amber Liquid Glass, deep-navy ink, soft glow. On
-/// iOS 26+ this is an amber-tinted **interactive** glass capsule on a plain
-/// button — so it genuinely deforms and tracks the finger while held, the
-/// "liquidy" feel the app wants on its one hero action. `.glassProminent`
-/// (the previous approach) is bright and legible but renders near-opaque, so
-/// its liquid response barely showed; a tinted `.interactive()` glass reads
-/// as real glass *and* morphs under touch. The tint is a bright amber so the
-/// capsule still never melts into the pixel skyline (see DESIGN.md). Pre-26
-/// keeps the hand-drawn amber→gold gradient capsule.
+/// iOS 26+ this is an amber-tinted **interactive** glass capsule driven by a
+/// custom `ButtonStyle` (`GlassCapsuleButtonStyle`) — so besides the glass's
+/// own touch morph it gets a guaranteed springy press from
+/// `configuration.isPressed`. (A plain button + bare `.glassEffect(
+/// .interactive())` swallows the touch in its own gesture, so the glass never
+/// sees the press and the button feels dead — the `ButtonStyle` owns the
+/// press state instead.) The tint is a bright amber so the capsule still
+/// never melts into the pixel skyline (see DESIGN.md). Pre-26 keeps the
+/// hand-drawn amber→gold gradient capsule.
 struct LiquidPrimaryButton: View {
     let title: String
     var systemImage: String?
@@ -236,19 +244,9 @@ struct LiquidPrimaryButton: View {
 
     var body: some View {
         if #available(iOS 26.0, *) {
-            GlassEffectContainer {
-                Button(action: action) {
-                    labelContent
-                        .frame(maxWidth: .infinity, minHeight: 58)
-                        .contentShape(Capsule(style: .continuous))
-                        .glassEffect(
-                            .regular.tint(SleepColor.amber).interactive(),
-                            in: Capsule(style: .continuous)
-                        )
-                }
-                .buttonStyle(.plain)
-            }
-            .shadow(color: SleepColor.amber.opacity(0.30), radius: 18, y: 7)
+            Button(action: action) { labelContent }
+                .buttonStyle(GlassCapsuleButtonStyle(tint: SleepColor.amber))
+                .shadow(color: SleepColor.amber.opacity(0.30), radius: 18, y: 7)
         } else {
             Button(action: action) {
                 labelContent
@@ -276,8 +274,9 @@ struct LiquidPrimaryButton: View {
 }
 
 /// Quiet, secondary action. Subtle glass, ink text, optional trailing value.
-/// On iOS 26+ this is an untinted **interactive** glass capsule (same
-/// mechanism as the primary, no tint) so it morphs under touch to match.
+/// On iOS 26+ this is an untinted interactive glass capsule via the same
+/// `GlassCapsuleButtonStyle` as the primary (no tint), so its press feels the
+/// same.
 struct LiquidSecondaryButton: View {
     let title: String
     var value: String?
@@ -293,18 +292,8 @@ struct LiquidSecondaryButton: View {
 
     var body: some View {
         if #available(iOS 26.0, *) {
-            GlassEffectContainer {
-                Button(action: action) {
-                    labelContent
-                        .frame(maxWidth: .infinity, minHeight: 58)
-                        .contentShape(Capsule(style: .continuous))
-                        .glassEffect(
-                            .regular.interactive(),
-                            in: Capsule(style: .continuous)
-                        )
-                }
-                .buttonStyle(.plain)
-            }
+            Button(action: action) { labelContent }
+                .buttonStyle(GlassCapsuleButtonStyle(tint: nil))
         } else {
             Button(action: action) {
                 labelContent
@@ -328,8 +317,30 @@ struct LiquidSecondaryButton: View {
     }
 }
 
+/// iOS 26+ capsule chrome for the two action buttons: interactive Liquid
+/// Glass (amber-tinted when `tint` is set) plus a springy press driven by
+/// `configuration.isPressed`, so the button reacts even where the OS doesn't
+/// render the glass's own touch deformation. Only used inside an
+/// `if #available(iOS 26.0, *)` branch.
+@available(iOS 26.0, *)
+private struct GlassCapsuleButtonStyle: ButtonStyle {
+    var tint: Color?
+
+    func makeBody(configuration: Configuration) -> some View {
+        let shape = Capsule(style: .continuous)
+        let glass: Glass = tint.map { .regular.tint($0).interactive() } ?? .regular.interactive()
+        return configuration.label
+            .frame(maxWidth: .infinity, minHeight: 58)
+            .contentShape(shape)
+            .glassEffect(glass, in: shape)
+            .scaleEffect(configuration.isPressed ? 0.965 : 1)
+            .opacity(configuration.isPressed ? 0.96 : 1)
+            .animation(.spring(response: 0.3, dampingFraction: 0.58), value: configuration.isPressed)
+    }
+}
+
 /// Pre-iOS-26 fallback chrome for the two action buttons above. On 26+ the
-/// system `.glassProminent` / `.glass` styles own the chrome instead.
+/// `GlassCapsuleButtonStyle` owns the chrome instead.
 struct LiquidButtonStyle: ButtonStyle {
     var prominent: Bool
 
