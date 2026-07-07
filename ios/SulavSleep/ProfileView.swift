@@ -380,7 +380,7 @@ struct SettingsModal: View {
             Spacer()
             // Same footprint as the Profile gear this sheet is opened from,
             // so the two read as one "settings" affordance.
-            GlassIconButton(systemImage: "xmark", iconSize: 16, tint: SleepColor.ink) {
+            GlassIconButton(systemImage: "xmark", iconSize: 17, tint: SleepColor.ink) {
                 Haptics.soft()
                 dismiss()
             }
@@ -696,11 +696,8 @@ private struct HealthConnectCard: View {
             .accessibilityLabel("Dismiss")
         }
         .padding(SleepSpacing.lg)
+        // The glass draws its own edge; no manual border on top of it.
         .liquidGlass(cornerRadius: SleepRadius.lg, tint: SleepColor.glassWarm)
-        .overlay {
-            RoundedRectangle(cornerRadius: SleepRadius.lg, style: .continuous)
-                .stroke(SleepColor.border, lineWidth: 1)
-        }
     }
 }
 

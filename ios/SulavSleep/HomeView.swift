@@ -52,9 +52,13 @@ struct HomeView: View {
                 VStack(spacing: SleepSpacing.xxl) {
                     BedtimeRing(profile: profile, now: timeline.date)
 
-                    HStack(spacing: SleepSpacing.md) {
-                        ScheduleChip(icon: "moon.fill", text: SleepFormatting.clock(profile.bedtime))
-                        ScheduleChip(icon: "sun.max.fill", text: SleepFormatting.clock(profile.wakeTime))
+                    // The two chips are one glass set — a shared container
+                    // lets iOS 26 blend their glass together.
+                    LiquidGlassContainer(spacing: SleepSpacing.md) {
+                        HStack(spacing: SleepSpacing.md) {
+                            ScheduleChip(icon: "moon.fill", text: SleepFormatting.clock(profile.bedtime))
+                            ScheduleChip(icon: "sun.max.fill", text: SleepFormatting.clock(profile.wakeTime))
+                        }
                     }
                 }
             }

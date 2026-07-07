@@ -234,8 +234,11 @@ struct OnboardingQuestionsView: View {
 
             ProgressBar(fraction: progress)
 
-            // Mirror the chevron's width so the bar stays centered.
-            Color.clear.frame(width: 36, height: 36)
+            // Mirror the chevron itself (hidden) so the bar stays centered
+            // whatever size the system draws the glass button at.
+            GlassBackButton {}
+                .hidden()
+                .accessibilityHidden(true)
         }
         .animation(.easeInOut(duration: 0.28), value: canGoBack)
     }
@@ -268,17 +271,21 @@ struct OnboardingQuestionsView: View {
                 title: "What gets in the way of your sleep?",
                 subtitle: "Choose any that apply."
             ) {
-                VStack(spacing: SleepSpacing.md) {
-                    ForEach(SleepStruggle.allCases) { struggle in
-                        StruggleRow(
-                            struggle: struggle,
-                            isSelected: struggles.contains(struggle)
-                        ) {
-                            Haptics.soft()
-                            if struggles.contains(struggle) {
-                                struggles.remove(struggle)
-                            } else {
-                                struggles.insert(struggle)
+                // One glass set: the sibling capsules share a container so
+                // iOS 26 blends their glass together as Apple intends.
+                LiquidGlassContainer(spacing: SleepSpacing.md) {
+                    VStack(spacing: SleepSpacing.md) {
+                        ForEach(SleepStruggle.allCases) { struggle in
+                            StruggleRow(
+                                struggle: struggle,
+                                isSelected: struggles.contains(struggle)
+                            ) {
+                                Haptics.soft()
+                                if struggles.contains(struggle) {
+                                    struggles.remove(struggle)
+                                } else {
+                                    struggles.insert(struggle)
+                                }
                             }
                         }
                     }
@@ -409,15 +416,17 @@ private struct QuestionLayout<Content: View>: View {
     }
 }
 
-/// Round glass chevron used across onboarding and auth headers. Kept at its
-/// own 36pt size (smaller than the Profile/Settings icon buttons) since the
-/// questionnaire mirrors it with a same-width spacer to keep the progress
-/// bar centered — see the `Color.clear.frame(width: 36, height: 36)` above.
+/// Round glass chevron used across onboarding and auth headers. Slightly
+/// smaller than the Profile/Settings icon buttons (44pt vs 56pt) so it stays
+/// a quiet wayfinding control, but no smaller — undersized glass circles
+/// read as toy chrome next to other iOS 26 apps. The questionnaire keeps its
+/// progress bar centered by mirroring this button with a hidden twin, so
+/// there is no width constant to keep in sync.
 struct GlassBackButton: View {
     var action: () -> Void
 
     var body: some View {
-        GlassIconButton(systemImage: "chevron.left", size: 36, iconSize: 15, tint: SleepColor.ink, action: action)
+        GlassIconButton(systemImage: "chevron.left", size: 44, iconSize: 16, tint: SleepColor.ink, action: action)
             .accessibilityLabel("Back")
     }
 }
@@ -512,19 +521,20 @@ private struct StruggleRow: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .background {
-            Capsule(style: .continuous)
-                .fill(isSelected ? SleepColor.glassWarm : SleepColor.glassFill)
-        }
-        .overlay {
-            Capsule(style: .continuous)
-                .stroke(isSelected ? SleepColor.amber.opacity(0.45) : SleepColor.border, lineWidth: 1)
-        }
+        // The glass owns its fill and edge; the row only adds an amber
+        // stroke as the *selection* affordance. (Painting a manual capsule
+        // fill + border on top of real glass muted it into a flat panel.)
         .liquidGlass(
             cornerRadius: SleepRadius.pill,
             tint: isSelected ? SleepColor.glassWarm : SleepColor.glassFill,
             interactive: true
         )
+        .overlay {
+            if isSelected {
+                Capsule(style: .continuous)
+                    .stroke(SleepColor.amber.opacity(0.45), lineWidth: 1)
+            }
+        }
         .animation(.easeInOut(duration: 0.18), value: isSelected)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }

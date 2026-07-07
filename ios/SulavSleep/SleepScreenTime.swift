@@ -203,11 +203,8 @@ struct BlockedAppsPreview: View {
             }
             .padding(SleepSpacing.lg)
             .contentShape(RoundedRectangle(cornerRadius: SleepRadius.lg, style: .continuous))
+            // The glass draws its own edge; no manual border on top of it.
             .liquidGlass(cornerRadius: SleepRadius.lg, interactive: true)
-            .overlay {
-                RoundedRectangle(cornerRadius: SleepRadius.lg, style: .continuous)
-                    .stroke(SleepColor.border, lineWidth: 1)
-            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

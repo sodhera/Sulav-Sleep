@@ -316,31 +316,37 @@ private struct AuthButton<Icon: View>: View {
 
     var body: some View {
         Button(action: action) {
-            ZStack {
-                HStack(spacing: SleepSpacing.sm) {
-                    icon()
-                        .frame(width: AuthButtonMetrics.iconSize, height: AuthButtonMetrics.iconSize)
-                    Text(title).font(AuthButtonMetrics.font)
-                }
-                .opacity(isLoading ? 0 : 1)
-
-                if isLoading {
-                    ProgressView()
-                        .tint(style == .light ? SleepColor.background : SleepColor.ink)
-                }
-            }
-            .frame(maxWidth: .infinity, minHeight: AuthButtonMetrics.height)
-            .foregroundStyle(style == .light ? SleepColor.background : SleepColor.ink)
-            .background {
-                Capsule(style: .continuous)
-                    .fill(style == .light ? AnyShapeStyle(SleepColor.white) : AnyShapeStyle(SleepColor.glassFill))
-            }
-            .overlay {
-                Capsule(style: .continuous)
-                    .stroke(style == .light ? Color.clear : SleepColor.border, lineWidth: 1)
+            if style == .light {
+                labelContent
+                    .background {
+                        Capsule(style: .continuous).fill(SleepColor.white)
+                    }
+            } else {
+                // Real Liquid Glass for the quiet email path — not a
+                // hand-painted translucent capsule.
+                labelContent
+                    .liquidGlass(cornerRadius: SleepRadius.pill, interactive: true)
             }
         }
         .buttonStyle(AuthButtonPressStyle())
+    }
+
+    private var labelContent: some View {
+        ZStack {
+            HStack(spacing: SleepSpacing.sm) {
+                icon()
+                    .frame(width: AuthButtonMetrics.iconSize, height: AuthButtonMetrics.iconSize)
+                Text(title).font(AuthButtonMetrics.font)
+            }
+            .opacity(isLoading ? 0 : 1)
+
+            if isLoading {
+                ProgressView()
+                    .tint(style == .light ? SleepColor.background : SleepColor.ink)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: AuthButtonMetrics.height)
+        .foregroundStyle(style == .light ? SleepColor.background : SleepColor.ink)
     }
 }
 

@@ -20,8 +20,34 @@ struct LiquidGlassSurface: ViewModifier {
             }
         } else {
             content
+                // Tint wash in front of the material so the fallback honors
+                // the same warm/neutral tints the real glass gets on 26+.
+                .background(tint, in: shape)
                 .background(.ultraThinMaterial, in: shape)
                 .overlay { shape.stroke(SleepColor.border, lineWidth: 1) }
+        }
+    }
+}
+
+/// Groups sibling glass shapes so iOS 26 renders them as one set — nearby
+/// glass samples/blends together and can merge as elements move, which is
+/// how Apple intends multiple Liquid Glass elements to coexist. Pre-26 it
+/// is a plain passthrough. Wrap exactly one layout view (an HStack/VStack),
+/// never loose siblings.
+struct LiquidGlassContainer<Content: View>: View {
+    var spacing: CGFloat?
+    @ViewBuilder var content: Content
+
+    init(spacing: CGFloat? = nil, @ViewBuilder content: () -> Content) {
+        self.spacing = spacing
+        self.content = content()
+    }
+
+    var body: some View {
+        if #available(iOS 26.0, *) {
+            GlassEffectContainer(spacing: spacing) { content }
+        } else {
+            content
         }
     }
 }
@@ -53,28 +79,37 @@ extension View {
 /// than "liquid." Pre-26 falls back to the material glass surface with a
 /// matching press scale, since that path has no built-in interaction physics
 /// to lean on.
+///
+/// Sizing: on 26+ the *label* is framed to `size` minus the style's own
+/// content insets, so the drawn circle lands at ~`size` while keeping the
+/// style's natural chrome (an earlier revision framed the button itself,
+/// which clamped Apple's chrome smaller than the system draws it anywhere
+/// else — the buttons read undersized next to other iOS 26 apps). `size` is
+/// the full circle diameter on both paths.
 struct GlassIconButton: View {
     let systemImage: String
-    var size: CGFloat = 48
+    var size: CGFloat = 56
     var iconSize: CGFloat = 20
     var tint: Color = SleepColor.dim
     let action: () -> Void
 
+    /// The glass style's default circular content insets, measured on iOS 26.
+    /// Label frame + these insets = the rendered circle.
+    private static let glassInsets: CGFloat = 26
+
     var body: some View {
         if #available(iOS 26.0, *) {
-            // `.buttonStyle(.glass)` pads its label with its own default
-            // content insets before drawing the glass, so sizing only the
-            // inner `Image` left the rendered circle noticeably bigger than
-            // `size`. The frame has to land on the button itself, *after*
-            // the style, to override that padding rather than add to it.
             Button(action: action) {
                 Image(systemName: systemImage)
                     .font(.system(size: iconSize, weight: .medium))
                     .foregroundStyle(tint)
+                    .frame(
+                        width: max(iconSize, size - Self.glassInsets),
+                        height: max(iconSize, size - Self.glassInsets)
+                    )
             }
             .buttonStyle(.glass)
             .buttonBorderShape(.circle)
-            .frame(width: size, height: size)
         } else {
             Button(action: action) {
                 Image(systemName: systemImage)
@@ -111,11 +146,9 @@ struct GlassGroup<Content: View>: View {
             content
         }
         .padding(.horizontal, SleepSpacing.lg)
+        // No manual border: real glass draws its own edge highlight on 26+,
+        // and the fallback strokes a hairline inside `liquidGlass` itself.
         .liquidGlass(cornerRadius: SleepRadius.lg)
-        .overlay {
-            RoundedRectangle(cornerRadius: SleepRadius.lg, style: .continuous)
-                .stroke(SleepColor.border, lineWidth: 1)
-        }
     }
 }
 
@@ -186,7 +219,12 @@ struct GlassRowIcon: View {
 
 // MARK: - Buttons
 
-/// Warm, primary action. Amber gradient fill, deep-navy ink, soft glow.
+/// Warm, primary action. Amber-tinted prominent Liquid Glass, deep-navy ink,
+/// soft glow. On iOS 26+ this is Apple's own `.glassProminent` button style
+/// tinted amber — the system's purpose-built primary glass button, with its
+/// real press choreography — rather than an opaque gradient capsule painted
+/// under a glass layer (which muted the material into a flat panel). Pre-26
+/// keeps the hand-drawn amber→gold capsule.
 struct LiquidPrimaryButton: View {
     let title: String
     var systemImage: String?
@@ -204,26 +242,45 @@ struct LiquidPrimaryButton: View {
     }
 
     var body: some View {
-        Button(action: action) {
-            ZStack {
-                Label {
-                    Text(title).font(SleepFont.label(16)).tracking(0.2)
-                } icon: {
-                    if let systemImage { Image(systemName: systemImage) }
-                }
-                .opacity(isLoading ? 0 : 1)
-
-                if isLoading {
-                    ProgressView().tint(SleepColor.background)
-                }
+        if #available(iOS 26.0, *) {
+            Button(action: action) {
+                labelContent
+                    // The style pads vertically on its own; 58pt total comes
+                    // from label height + the prominent style's insets.
+                    .frame(maxWidth: .infinity, minHeight: 34)
             }
-            .frame(maxWidth: .infinity, minHeight: 58)
+            .buttonStyle(.glassProminent)
+            .buttonBorderShape(.capsule)
+            .tint(SleepColor.amber)
+            .shadow(color: SleepColor.amber.opacity(0.30), radius: 18, y: 7)
+        } else {
+            Button(action: action) {
+                labelContent
+                    .frame(maxWidth: .infinity, minHeight: 58)
+            }
+            .buttonStyle(LiquidButtonStyle(prominent: true))
         }
-        .buttonStyle(LiquidButtonStyle(prominent: true))
+    }
+
+    private var labelContent: some View {
+        ZStack {
+            Label {
+                Text(title).font(SleepFont.label(16)).tracking(0.2)
+            } icon: {
+                if let systemImage { Image(systemName: systemImage) }
+            }
+            .opacity(isLoading ? 0 : 1)
+
+            if isLoading {
+                ProgressView().tint(SleepColor.background)
+            }
+        }
+        .foregroundStyle(SleepColor.background)
     }
 }
 
 /// Quiet, secondary action. Subtle glass, ink text, optional trailing value.
+/// On iOS 26+ this is Apple's `.glass` button style — untinted system glass.
 struct LiquidSecondaryButton: View {
     let title: String
     var value: String?
@@ -238,22 +295,38 @@ struct LiquidSecondaryButton: View {
     }
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: SleepSpacing.sm) {
-                if let systemImage { Image(systemName: systemImage) }
-                Text(title).font(SleepFont.label(16))
-                if let value {
-                    Text(value)
-                        .foregroundStyle(SleepColor.quiet)
-                        .font(SleepFont.body(15))
-                }
+        if #available(iOS 26.0, *) {
+            Button(action: action) {
+                labelContent
+                    .frame(maxWidth: .infinity, minHeight: 34)
             }
-            .frame(maxWidth: .infinity, minHeight: 58)
+            .buttonStyle(.glass)
+            .buttonBorderShape(.capsule)
+        } else {
+            Button(action: action) {
+                labelContent
+                    .frame(maxWidth: .infinity, minHeight: 58)
+            }
+            .buttonStyle(LiquidButtonStyle(prominent: false))
         }
-        .buttonStyle(LiquidButtonStyle(prominent: false))
+    }
+
+    private var labelContent: some View {
+        HStack(spacing: SleepSpacing.sm) {
+            if let systemImage { Image(systemName: systemImage) }
+            Text(title).font(SleepFont.label(16))
+            if let value {
+                Text(value)
+                    .foregroundStyle(SleepColor.quiet)
+                    .font(SleepFont.body(15))
+            }
+        }
+        .foregroundStyle(SleepColor.ink)
     }
 }
 
+/// Pre-iOS-26 fallback chrome for the two action buttons above. On 26+ the
+/// system `.glassProminent` / `.glass` styles own the chrome instead.
 struct LiquidButtonStyle: ButtonStyle {
     var prominent: Bool
 
