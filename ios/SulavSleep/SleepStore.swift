@@ -216,14 +216,21 @@ final class SleepStore {
                 profile = remote.asLocalProfile
                 persist(refreshWidget: false)
                 AppLog.store.info("Restored profile from cloud (launch)")
-            } else if let localCopy = RemoteProfile(profile: profile) {
+            } else if persistence.cloudSeedCheckedAccountID != account.id,
+                      let localCopy = RemoteProfile(profile: profile) {
                 // Signed in with a local profile: make sure the account has a
                 // cloud copy (accounts predating profile sync won't until they
-                // sign in again otherwise). Backgrounded — never blocks launch.
-                Task { [auth] in
+                // sign in again otherwise). Backgrounded — never blocks launch
+                // — and remembered once confirmed, so the app stays fully
+                // offline at every later open instead of re-checking the
+                // cloud each launch. (A launch that had to *seed* the copy
+                // re-confirms on the next one before marking.)
+                Task { [auth, persistence] in
                     if await auth.fetchRemoteProfile() == nil {
                         AppLog.store.info("Seeding missing cloud profile from this device")
                         await auth.saveRemoteProfile(localCopy)
+                    } else {
+                        persistence.markCloudSeedChecked(accountID: account.id)
                     }
                 }
             }
@@ -689,6 +696,10 @@ struct SleepPersistence {
     // device (wipe it). Cleared by `reset()` — after account deletion there is
     // no previous user left to protect.
     private let lastAccountIDKey = "sulav.lastAccountID.v1"
+    // The id of the account whose cloud profile copy this install has already
+    // confirmed, so the launch-time seed check runs once per account instead
+    // of hitting the network at every open. See `SleepStore.restoreSession()`.
+    private let cloudSeedCheckedKey = "sulav.cloudSeedChecked.v1"
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -716,6 +727,7 @@ struct SleepPersistence {
         defaults.removeObject(forKey: activeKey)
         defaults.removeObject(forKey: accountKey)
         defaults.removeObject(forKey: lastAccountIDKey)
+        defaults.removeObject(forKey: cloudSeedCheckedKey)
     }
 
     /// Whether the app has been launched before on this install. Backed by the
@@ -736,6 +748,10 @@ struct SleepPersistence {
     var lastAccountID: String? { defaults.string(forKey: lastAccountIDKey) }
 
     func saveLastAccountID(_ id: String) { defaults.set(id, forKey: lastAccountIDKey) }
+
+    var cloudSeedCheckedAccountID: String? { defaults.string(forKey: cloudSeedCheckedKey) }
+
+    func markCloudSeedChecked(accountID: String) { defaults.set(accountID, forKey: cloudSeedCheckedKey) }
 
     func startSleepFromIntent() {
         encode(ActiveSleepSession(start: Date()), forKey: activeKey)

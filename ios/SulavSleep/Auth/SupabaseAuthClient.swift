@@ -101,16 +101,17 @@ final class SupabaseAuthClient: AuthProviding {
 
     var currentAccount: AppAccount? {
         get async {
-            // `client.session` refreshes an expired token, which needs the
-            // network — so a launch in airplane mode would throw here even
-            // though the user *is* signed in. Fall back to the locally stored
-            // session's identity in that case; the next authenticated call
-            // refreshes the token once the network is back. A session revoked
-            // server-side is also kept alive by this until a call fails, which
-            // is the standard trade-off.
-            if let session = try? await client.session { return Self.account(from: session) }
-            if let stored = client.currentSession { return Self.account(from: stored) }
-            return nil
+            // Local-first, deliberately: launch is gated on this, and the app
+            // is offline-first, so identity comes straight from the Keychain
+            // session — never a network round-trip. An expired access token
+            // is fine here (identity doesn't change when a token expires);
+            // the SDK refreshes it on the next authenticated call, and going
+            // through `client.session` instead would block every cold launch
+            // on a token-refresh request (Supabase tokens expire hourly). A
+            // session revoked server-side is kept alive by this until a call
+            // fails, which is the standard trade-off.
+            guard let stored = client.currentSession else { return nil }
+            return Self.account(from: stored)
         }
     }
 

@@ -265,7 +265,12 @@ Apple Developer capability, Google Cloud OAuth client).
   what lets a returning user sign in after a reinstall and land straight in
   the app instead of re-answering the questionnaire. Local-first still holds:
   when both copies exist, the device's wins; accounts predating sync get their
-  cloud copy seeded on first sign-in. Device-bound settings (Health sync,
+  cloud copy seeded on first sign-in. The launch-time backfill (seeding a
+  missing cloud copy for an already-signed-in device) runs in a background
+  task and is remembered per account once the cloud copy is confirmed
+  (`sulav.cloudSeedChecked.v1`, cleared by `reset()`), so it doesn't re-query
+  Supabase at every app open — the app stays fully offline on a routine
+  launch. Device-bound settings (Health sync,
   Screen Time lockdown, prompt dismissals) deliberately do **not** sync — they
   hinge on per-device permission grants. Sleep *history* doesn't sync either
   (per `product-brief.md`).
@@ -275,12 +280,18 @@ Apple Developer capability, Google Cloud OAuth client).
   *different* account signing in (previous user's profile and nights wiped
   before the new profile is hydrated). It is cleared by `reset()` (account
   deletion), since there's no previous user left to protect.
-- **Offline launch**: `currentAccount` first asks `client.session` (which
-  auto-refreshes an expired token and therefore needs the network), then falls
-  back to the stored Keychain session's identity, so launching in airplane
-  mode doesn't bounce a signed-in user to the welcome screen. The trade-off —
-  a server-side-revoked session stays "signed in" until an authenticated call
-  fails — is the standard one.
+- **Offline-first launch**: `currentAccount` reads identity straight from the
+  stored Keychain session and never touches the network. Launch is gated on
+  this check (`RootView` shows a neutral state until `isAuthReady`), and going
+  through `client.session` instead would block every cold open on a
+  token-refresh round-trip (Supabase access tokens expire hourly), which is
+  exactly the "app takes ages to load" failure mode. An expired access token
+  is fine — identity doesn't change when a token expires; the SDK refreshes it
+  on the next authenticated call — and airplane-mode launches keep working.
+  The trade-off — a server-side-revoked session stays "signed in" until an
+  authenticated call fails — is the standard one. Net effect: a normal launch
+  makes **zero** network requests (the only exceptions are the one-time
+  restore/seed paths under "Cloud profile sync").
 - **Error surfacing**: `SupabaseAuthClient.mapError` translates GoTrue's
   structured `ErrorCode`s (invalid credentials, email exists, unconfirmed
   email, weak password, rate limit) into user-facing `AuthError` cases instead
@@ -413,3 +424,22 @@ Apple Developer capability, Google Cloud OAuth client).
 - `StartSleepIntent`: starts a session without opening the app.
 - `OpenSleepHomeIntent`: opens SleepBlock.
 - `SulavSleepShortcuts`: exposes both to Shortcuts/Siri/Spotlight.
+
+## Launch screen (splash)
+
+`SplashScreen.storyboard` (wired via `UILaunchStoryboardName`) shows the app
+icon — `SplashIcon.imageset`, the icon PNG with the iOS rounded-corner mask
+baked in at 180pt @1x/2x/3x — centered on `SleepColor.background` (#08111E).
+The imageset is generated, never hand-edited, by
+`scripts/generate-splash-icon.py` from the shipped
+`AppIcon.appiconset/App-Icon-1024x1024@1x.png`; re-run it after regenerating
+the app icon (`scripts/generate-app-icon.py`).
+
+Simulator gotcha: iOS caches a rendered snapshot of the launch screen
+(SplashBoard), and a long-lived simulator can keep showing a stale blank
+snapshot even across reinstalls, SpringBoard restarts, and reboots. If a
+launch-screen change doesn't show up, verify on a freshly booted simulator (or
+erase the simulator); real devices regenerate the snapshot on install. The
+bundle can be sanity-checked directly: `SplashScreen.storyboardc` should be in
+the app, and `assetutil --info <app>/Assets.car` should list `SplashIcon` at
+three scales.
