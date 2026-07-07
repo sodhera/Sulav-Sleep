@@ -317,13 +317,16 @@ struct LiquidSecondaryButton: View {
     }
 }
 
-/// iOS 26+ capsule chrome for the two action buttons: interactive Liquid
-/// Glass (amber-tinted when `tint` is set) plus a springy press driven by
-/// `configuration.isPressed`, so the button reacts even where the OS doesn't
-/// render the glass's own touch deformation. Only used inside an
-/// `if #available(iOS 26.0, *)` branch.
+/// iOS 26+ capsule chrome shared by every full-width capsule action in the
+/// app: interactive Liquid Glass (tinted when `tint` is set) plus a springy
+/// press driven by `configuration.isPressed`, so the button reacts even
+/// where the OS doesn't render the glass's own touch deformation. Used by
+/// `LiquidPrimaryButton`/`LiquidSecondaryButton` here and by sleep mode's
+/// "Back to sleep" (`SleepModeView.swift`), which needs its own ember-palette
+/// label rather than these two components' day-palette defaults. Only used
+/// inside an `if #available(iOS 26.0, *)` branch.
 @available(iOS 26.0, *)
-private struct GlassCapsuleButtonStyle: ButtonStyle {
+struct GlassCapsuleButtonStyle: ButtonStyle {
     var tint: Color?
 
     func makeBody(configuration: Configuration) -> some View {

@@ -106,33 +106,46 @@ struct SleepModeView: View {
                         // Same footprint as "Hold to wake" right above it —
                         // but plain, cool glass instead of warm ember fill and
                         // glow, so the eye reads "this one is free" at a
-                        // glance without needing to read the label.
-                        Button {
-                            Haptics.soft()
-                            withAnimation(.easeInOut(duration: 0.4)) { showControls = false }
-                        } label: {
-                            Label {
-                                Text("Back to sleep").font(SleepFont.label(16))
-                            } icon: {
-                                Image(systemName: "moon.fill")
+                        // glance without needing to read the label. Real
+                        // interactive Liquid Glass on iOS 26+ (untinted, so it
+                        // stays cool next to the ember-tinted hold above),
+                        // via the shared `GlassCapsuleButtonStyle` — the
+                        // manual capsule fill + hairline below is the pre-26
+                        // fallback only.
+                        Group {
+                            if #available(iOS 26.0, *) {
+                                Button {
+                                    Haptics.soft()
+                                    withAnimation(.easeInOut(duration: 0.4)) { showControls = false }
+                                } label: {
+                                    backToSleepLabel
+                                }
+                                .buttonStyle(GlassCapsuleButtonStyle(tint: nil))
+                            } else {
+                                Button {
+                                    Haptics.soft()
+                                    withAnimation(.easeInOut(duration: 0.4)) { showControls = false }
+                                } label: {
+                                    backToSleepLabel
+                                        .frame(maxWidth: .infinity, minHeight: sleepControlHeight, maxHeight: sleepControlHeight)
+                                        .background {
+                                            Capsule(style: .continuous)
+                                                .fill(Color.white.opacity(0.04))
+                                        }
+                                        .overlay {
+                                            // Neutral hairline, not ember-tinted —
+                                            // brighter than the app's usual 5% since
+                                            // it sits on pure black rather than navy,
+                                            // but still cool glass rather than warm
+                                            // ember.
+                                            Capsule(style: .continuous)
+                                                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                                        }
+                                        .contentShape(Capsule(style: .continuous))
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .foregroundStyle(SleepColor.emberDim)
-                            .frame(maxWidth: .infinity, minHeight: sleepControlHeight, maxHeight: sleepControlHeight)
-                            .background {
-                                Capsule(style: .continuous)
-                                    .fill(Color.white.opacity(0.04))
-                            }
-                            .overlay {
-                                // Neutral hairline, not ember-tinted — brighter
-                                // than the app's usual 5% since it sits on
-                                // pure black rather than navy, but still cool
-                                // glass rather than warm ember.
-                                Capsule(style: .continuous)
-                                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
-                            }
-                            .contentShape(Capsule(style: .continuous))
                         }
-                        .buttonStyle(.plain)
 
                         EmberHoldButton(
                             title: "Hold to cancel",
@@ -168,6 +181,17 @@ struct SleepModeView: View {
             }
         }
         .statusBarHidden(true)
+    }
+
+    /// Shared label for both the iOS 26+ glass and the pre-26 fallback "Back
+    /// to sleep" buttons — icon + title in the ember-dim palette.
+    private var backToSleepLabel: some View {
+        Label {
+            Text("Back to sleep").font(SleepFont.label(16))
+        } icon: {
+            Image(systemName: "moon.fill")
+        }
+        .foregroundStyle(SleepColor.emberDim)
     }
 }
 
@@ -223,7 +247,7 @@ private struct NightRing<Content: View>: View {
     /// The small ember dot riding the arc tip — "you are here in the night".
     private var tipMarker: some View {
         let angle = Angle.degrees(135 + 270 * progress)
-        let radius = (size - lineWidth) / 2
+        let radius = size / 2
         return Circle()
             .fill(SleepColor.ember)
             .frame(width: 11, height: 11)
@@ -282,31 +306,39 @@ private struct EmberHoldButton: View {
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                // Base
-                Capsule(style: .continuous)
-                    .fill(Color.white.opacity(prominent ? 0.05 : 0))
-                    .overlay {
+                // Base — real ember-tinted Liquid Glass on iOS 26+ for the
+                // prominent (Hold to wake) capsule; the pre-26 fallback is a
+                // hand-drawn capsule with a warm gradient fill.
+                if prominent {
+                    if #available(iOS 26.0, *) {
                         Capsule(style: .continuous)
-                            .stroke(
-                                prominent ? SleepColor.emberDim : Color.clear,
-                                lineWidth: 1
+                            .fill(.clear)
+                            .glassEffect(
+                                .regular.tint(SleepColor.ember.opacity(0.35)).interactive(),
+                                in: Capsule(style: .continuous)
+                            )
+                    } else {
+                        Capsule(style: .continuous)
+                            .fill(Color.white.opacity(0.05))
+                            .overlay {
+                                Capsule(style: .continuous)
+                                    .stroke(SleepColor.emberDim, lineWidth: 1)
+                            }
+
+                        // Resting warmth — a banked-coal tint under the progress
+                        // fill so the primary hold reads warm even at 0% held.
+                        Capsule(style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [SleepColor.emberDeep.opacity(0.55), SleepColor.emberGlow.opacity(0.22)],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
                             )
                     }
-
-                // Resting warmth — a banked-coal tint under the progress
-                // fill so the primary hold reads warm even at 0% held, the
-                // main visual signal (alongside the glow shadow below) that
-                // distinguishes it at a glance from the same-size, cool-glass
-                // "Back to sleep" capsule beside it.
-                if prominent {
+                } else {
                     Capsule(style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [SleepColor.emberDeep.opacity(0.55), SleepColor.emberGlow.opacity(0.22)],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
+                        .fill(Color.white.opacity(0))
                 }
 
                 // Ember fill sweeping with the hold. Deep tones so the ember
