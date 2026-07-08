@@ -122,13 +122,18 @@ enum SleepFont {
 // MARK: - Tracking helpers
 
 extension View {
-    /// Small-caps section label: muted, uppercase, open tracking.
+    /// Small-caps section label: muted, uppercase, open tracking. The soft
+    /// navy shadow is what keeps 12pt caps legible over the *day* city —
+    /// small quiet type gets no free contrast from a bright sky, and a
+    /// grounded shadow travels with the text across all three scene phases
+    /// where a scrim alone can't.
     func sectionLabel() -> some View {
         self
             .font(SleepFont.label(12))
             .tracking(1.6)
             .textCase(.uppercase)
-            .foregroundStyle(SleepColor.muted)
+            .foregroundStyle(SleepColor.dim)
+            .shadow(color: SleepColor.background.opacity(0.85), radius: 3, y: 1)
     }
 }
 

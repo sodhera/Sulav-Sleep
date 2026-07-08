@@ -23,9 +23,9 @@ enum CityPhase: String {
 
     static func current(_ date: Date = Date()) -> CityPhase {
         switch Calendar.current.component(.hour, from: date) {
-        case 5..<17: .day
-        case 17..<22: .dusk
-        default: .night
+        case 5..<17: return .day
+        case 17..<22: return .dusk
+        default: return .night
         }
     }
 }
@@ -46,24 +46,41 @@ struct SleepBackground: View {
     }
 }
 
-/// A soft readability veil laid over the night scene, beneath UI content. The
-/// pixel skyline's lit windows are high-contrast and can swallow light text
-/// where it crosses them; this darkens the lower band — where most screen text
-/// sits — while leaving the upper sky and moon untouched. It is full-bleed with
+/// A soft readability veil laid over the city scene, beneath UI content. The
+/// scene's lit windows and bright day sky can swallow light text; this
+/// supplies the dark stage the ink system was designed for, per phase. It is full-bleed with
 /// no edges or corners, so it reads as atmospheric haze rather than a card, and
 /// never intercepts touches. Layer it directly above `SleepBackground`.
 struct SceneReadabilityScrim: View {
     var body: some View {
-        LinearGradient(
-            stops: [
+        // The veil is phase-aware: the whole ink system (grey muted text,
+        // white-opacity quiet/faint, gold heroes) was designed against a
+        // dark night stage, so the brighter day and dusk scenes must supply
+        // that stage themselves — a full-height veil, deepest where text
+        // bands live. Night keeps its clear upper sky and moon.
+        TimelineView(.periodic(from: .now, by: 60)) { timeline in
+            let stops: [Gradient.Stop] = switch CityPhase.current(timeline.date) {
+            case .day: [
+                .init(color: SleepColor.background.opacity(0.38), location: 0.0),
+                .init(color: SleepColor.background.opacity(0.30), location: 0.30),
+                .init(color: SleepColor.background.opacity(0.55), location: 0.58),
+                .init(color: SleepColor.background.opacity(0.82), location: 1.0),
+            ]
+            case .dusk: [
+                .init(color: SleepColor.background.opacity(0.28), location: 0.0),
+                .init(color: SleepColor.background.opacity(0.18), location: 0.30),
+                .init(color: SleepColor.background.opacity(0.50), location: 0.58),
+                .init(color: SleepColor.background.opacity(0.80), location: 1.0),
+            ]
+            case .night: [
                 .init(color: .clear, location: 0.0),
                 .init(color: .clear, location: 0.30),
                 .init(color: SleepColor.background.opacity(0.42), location: 0.58),
                 .init(color: SleepColor.background.opacity(0.80), location: 1.0),
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
+            ]
+            }
+            LinearGradient(stops: stops, startPoint: .top, endPoint: .bottom)
+        }
         .ignoresSafeArea()
         .allowsHitTesting(false)
     }

@@ -53,7 +53,13 @@ between phases at the minute the clock crosses a boundary. Home's sloth wears
 the same light (`HomeSloth{Day,Dusk,Night}{Awake,Drowsy,Blink}`), and blinks
 every few jittered seconds — a pixel-aligned closed-eye frame flashed for
 120ms, a hard cut like a cartoon blink should be (suppressed, along with the
-breath, under Reduce Motion).
+breath, under Reduce Motion). Because the whole ink system was designed
+against a dark night stage, the readability veil is also phase-aware: day
+and dusk get a full-height veil (deepest in the text bands) so grey muted
+text, white-opacity quiet/faint, and gold heroes keep their contrast on the
+brighter skies; night keeps its clear upper sky. Section-label kickers are
+`dim` with a soft navy shadow — small quiet caps get no free contrast from
+a bright sky, and the shadow travels with the text across all phases.
 
 The immersive sleep screen (`SleepModeView`) does **not** use this scene — it
 is true OLED black (`Color.black`; only ember pixels are ever lit). **Ember
