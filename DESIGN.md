@@ -42,14 +42,21 @@ intercept input meant for the UI above it.
 **The city follows the user's day** (`CityPhase`: day 5–17, dusk 17–22, night
 22–5 — the same bands as the greeting copy, so "Good afternoon" is never said
 over a midnight sky). *Day*: hazy daylight blue, stars and moon healed away, a
-pale drifting pixel sun, windows off (warm pixels remapped to cool glass),
+stationary pale pixel sun, windows off (warm pixels remapped to cool glass),
 street glows and the amber wash disabled, the scene scrim eased so daylight
 reads. *Dusk*: golden hour — deep blue into dusty rose into an ember horizon
 (never neon purple; the saturation deliberately dips through the pink band),
 windows lit. *Night*: the original art, untouched — still the app's core
 identity. Day and dusk layers are **generated, never hand-edited**, from the
 night layers by `scripts/generate-scene-variants.py`; the view crossfades
-between phases at the minute the clock crosses a boundary. Home's sloth wears
+between phases at the minute the clock crosses a boundary. The sky is two
+planes: a **static base** (gradient + moon/stars — celestial bodies must not
+scroll) and a **clouds layer** drifting past it; the split happens on the
+high-contrast night art, then each phase's colorway is applied to both. The
+day sun is a hard-pixel sprite (`CitySun`) drawn by the readability veil
+*above* itself — a warm disc under the day veil turns olive, so the sun gets
+the same above-the-veil privilege the moon gets from night's clear upper
+stops — and it is static by construction. Home's sloth wears
 the same light (`HomeSloth{Day,Dusk,Night}{Awake,Drowsy,Blink}`), and blinks
 every few jittered seconds — a pixel-aligned closed-eye frame flashed for
 120ms, a hard cut like a cartoon blink should be (suppressed, along with the

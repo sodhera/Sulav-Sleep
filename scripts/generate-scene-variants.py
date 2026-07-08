@@ -54,37 +54,69 @@ def warm_mask(hsv: np.ndarray) -> np.ndarray:
     return ((h < 0.22) | (h > 0.93)) & (s > 0.25)
 
 
-def day_sky(rgb: np.ndarray, alpha: np.ndarray) -> np.ndarray:
+def split_sky(rgba: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Split a sky into (static base, scrolling clouds). The base keeps the
+    gradient plus celestial bodies (sun/moon/stars) — which must NOT scroll —
+    and heals cloud pixels to the row's sky color; the clouds layer keeps
+    only cloud pixels on transparency."""
+    rgb, alpha = rgba[:, :, :3], rgba[:, :, 3]
     hsv = to_hsv(rgb)
-    h, w, _ = hsv.shape
+    h, w, _ = rgb.shape
+    celestial = (hsv[:, :, 2] > 0.70) & (hsv[:, :, 1] < 0.5)
 
-    # Heal stars + moon: bright, low-saturation outliers become the median
-    # sky color of their row.
-    celestial = (hsv[:, :, 2] > 0.72) & (hsv[:, :, 1] < 0.5)
-    out = hsv.copy()
+    base = rgb.copy()
+    clouds = np.zeros((h, w, 4), dtype=np.float32)
     for y in range(h):
+        row = rgb[y]
+        med = np.median(row, axis=0)
+        dev = np.abs(row - med).sum(-1)
+        cloud = (dev > 0.05) & ~celestial[y]
+        if cloud.any():
+            clouds[y, cloud, :3] = row[cloud]
+            clouds[y, cloud, 3] = alpha[y, cloud]
+            base[y][cloud] = med
+    return np.dstack([base, alpha]), clouds
+
+
+def heal_celestial(rgba: np.ndarray) -> np.ndarray:
+    """Heal stars + moon: bright, low-saturation outliers become the median
+    sky color of their row (the day sky has neither)."""
+    rgb, alpha = rgba[:, :, :3].copy(), rgba[:, :, 3]
+    hsv = to_hsv(rgb)
+    celestial = (hsv[:, :, 2] > 0.70) & (hsv[:, :, 1] < 0.5)
+    for y in range(rgb.shape[0]):
         row = celestial[y]
         if row.any() and (~row).any():
-            med = np.median(hsv[y][~row], axis=0)
-            out[y][row] = med
+            rgb[y][row] = np.median(rgb[y][~row], axis=0)
+    return np.dstack([rgb, alpha])
 
-    # Lift to daylight: softer hue, much lighter, less saturated.
-    out[:, :, 0] = out[:, :, 0] * 0.35 + 0.565 * 0.65          # toward ~204 deg
-    out[:, :, 1] *= 0.52
-    out[:, :, 2] = 1.0 - (1.0 - out[:, :, 2]) * 0.34
 
-    rgb_out = to_rgb(out)
+def day_lift(rgba: np.ndarray) -> np.ndarray:
+    """The daylight colorway: softer hue, much lighter, less saturated.
+    Applied to base and clouds separately (the split happens on the
+    high-contrast night art, where clouds are still detectable)."""
+    hsv = to_hsv(rgba[:, :, :3])
+    hsv[:, :, 0] = hsv[:, :, 0] * 0.35 + 0.565 * 0.65          # toward ~204 deg
+    hsv[:, :, 1] *= 0.52
+    hsv[:, :, 2] = 1.0 - (1.0 - hsv[:, :, 2]) * 0.34
+    return np.dstack([to_rgb(hsv), rgba[:, :, 3]])
 
-    # A pale pixel sun with a soft circular glow. Placed low enough to clear
-    # the status bar / Dynamic Island once the layer is stretched full-bleed.
-    yy, xx = np.ogrid[:h, :w]
-    cx, cy, r = int(0.70 * w), int(0.17 * h), max(3, h // 54)
-    d = np.sqrt((xx - cx) ** 2 + (yy - cy) ** 2)
-    sun_color = np.array([1.0, 0.96, 0.84])
-    glow = np.clip(1.0 - (d - r) / (1.6 * r), 0.0, 1.0) * 0.30
-    rgb_out = rgb_out * (1 - glow[:, :, None]) + sun_color * glow[:, :, None]
-    rgb_out[d <= r] = sun_color
-    return np.dstack([rgb_out, alpha])
+
+def sun_sprite() -> np.ndarray:
+    """A standalone pixel-sun sprite (CitySun imageset). It is NOT baked
+    into the sky: the readability veil would turn any warm disc olive, so
+    the SwiftUI layer draws this sprite *above* the veil during the day —
+    unveiled, warm, and static by construction (the sky base never
+    scrolls, and neither does UI chrome). Hard pixels only; the renderer
+    shows it with interpolation(.none)."""
+    size = 32
+    out = np.zeros((size, size, 4), dtype=np.float32)
+    yy, xx = np.ogrid[:size, :size]
+    d = np.sqrt((xx - size / 2 + 0.5) ** 2 + (yy - size / 2 + 0.5) ** 2)
+    disc = d <= size * 0.42
+    out[disc, :3] = np.array([1.0, 0.93, 0.72])
+    out[disc, 3] = 1.0
+    return out
 
 
 def day_skyline(rgb: np.ndarray, alpha: np.ndarray, lift: float) -> np.ndarray:
@@ -103,7 +135,8 @@ def day_skyline(rgb: np.ndarray, alpha: np.ndarray, lift: float) -> np.ndarray:
     return np.dstack([to_rgb(hsv), alpha])
 
 
-def dusk_sky(rgb: np.ndarray, alpha: np.ndarray) -> np.ndarray:
+def dusk_sky(rgba: np.ndarray) -> np.ndarray:
+    rgb, alpha = rgba[:, :, :3], rgba[:, :, 3]
     hsv = to_hsv(rgb)
     h, w, _ = hsv.shape
     # Ramp reaches full warmth at the *visible* horizon (~62% down the sky
@@ -154,12 +187,22 @@ def main() -> None:
     for layer in LAYERS:
         rgb, alpha = load(layer)
         if layer == "CitySky":
-            write_imageset(f"Day{layer}", day_sky(rgb, alpha))
-            write_imageset(f"Dusk{layer}", dusk_sky(rgb, alpha))
+            # Split the *night* sky first (clouds are only detectable on the
+            # high-contrast original), then apply each phase's colorway to
+            # base and clouds separately. The base is static — celestial
+            # bodies must not scroll — and the clouds drift past it.
+            base, clouds = split_sky(np.dstack([rgb, alpha]))
+            write_imageset("NightCitySkyBase", base)
+            write_imageset("NightCityClouds", clouds)
+            write_imageset("DayCitySkyBase", day_lift(heal_celestial(base)))
+            write_imageset("CitySun", sun_sprite())
+            write_imageset("DayCityClouds", day_lift(clouds))
+            write_imageset("DuskCitySkyBase", dusk_sky(base))
+            write_imageset("DuskCityClouds", dusk_sky(clouds))
         else:
             write_imageset(f"Day{layer}", day_skyline(rgb, alpha, DAY_LIFT[layer]))
             write_imageset(f"Dusk{layer}", dusk_skyline(rgb, alpha))
-    print(f"wrote Day*/Dusk* variants for {len(LAYERS)} layers to {XCASSETS}")
+    print(f"wrote Day*/Dusk* variants + split skies to {XCASSETS}")
 
 
 if __name__ == "__main__":

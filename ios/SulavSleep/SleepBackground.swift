@@ -59,7 +59,8 @@ struct SceneReadabilityScrim: View {
         // that stage themselves — a full-height veil, deepest where text
         // bands live. Night keeps its clear upper sky and moon.
         TimelineView(.periodic(from: .now, by: 60)) { timeline in
-            let stops: [Gradient.Stop] = switch CityPhase.current(timeline.date) {
+            let phase = CityPhase.current(timeline.date)
+            let stops: [Gradient.Stop] = switch phase {
             case .day: [
                 .init(color: SleepColor.background.opacity(0.38), location: 0.0),
                 .init(color: SleepColor.background.opacity(0.30), location: 0.30),
@@ -79,7 +80,24 @@ struct SceneReadabilityScrim: View {
                 .init(color: SleepColor.background.opacity(0.80), location: 1.0),
             ]
             }
-            LinearGradient(stops: stops, startPoint: .top, endPoint: .bottom)
+            ZStack {
+                LinearGradient(stops: stops, startPoint: .top, endPoint: .bottom)
+
+                // The day sun rides *above* the veil (a warm disc under 60%
+                // navy turns olive) — the same privilege the moon gets from
+                // night's clear upper stops. It's a hard-pixel sprite, and
+                // static by construction: UI chrome never scrolls.
+                if phase == .day {
+                    GeometryReader { geo in
+                        Image("CitySun")
+                            .resizable()
+                            .interpolation(.none)
+                            .frame(width: 34, height: 34)
+                            .position(x: geo.size.width * 0.71, y: geo.size.height * 0.10)
+                            .opacity(0.92)
+                    }
+                }
+            }
         }
         .ignoresSafeArea()
         .allowsHitTesting(false)
@@ -101,7 +119,10 @@ private struct PixelNightLayeredView: UIViewRepresentable {
 
 private final class PixelNightUIView: UIView {
     private let citySpecs: [CityLayerSpec] = [
-        .init(assetName: "CitySky", speed: 2.0, depth: 0.18),
+        // The sky is two planes: a static base (gradient + sun/moon/stars —
+        // celestial bodies don't scroll) and the clouds drifting past it.
+        .init(assetName: "CitySkyBase", speed: 0.0, depth: 0.10),
+        .init(assetName: "CityClouds", speed: 2.0, depth: 0.18),
         .init(assetName: "CityFarSkyline", speed: 3.8, depth: 0.30),
         .init(assetName: "CityMidSkyline", speed: 6.5, depth: 0.50),
         .init(assetName: "CityNearSkyline", speed: 10.5, depth: 0.74),
