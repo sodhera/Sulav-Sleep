@@ -39,6 +39,22 @@ scene is purely ambient and never reacts to touch — depth parallax comes from
 the device-tilt motion effect only, so the background can't shift under a tap or
 intercept input meant for the UI above it.
 
+**The city follows the user's day** (`CityPhase`: day 5–17, dusk 17–22, night
+22–5 — the same bands as the greeting copy, so "Good afternoon" is never said
+over a midnight sky). *Day*: hazy daylight blue, stars and moon healed away, a
+pale drifting pixel sun, windows off (warm pixels remapped to cool glass),
+street glows and the amber wash disabled, the scene scrim eased so daylight
+reads. *Dusk*: golden hour — deep blue into dusty rose into an ember horizon
+(never neon purple; the saturation deliberately dips through the pink band),
+windows lit. *Night*: the original art, untouched — still the app's core
+identity. Day and dusk layers are **generated, never hand-edited**, from the
+night layers by `scripts/generate-scene-variants.py`; the view crossfades
+between phases at the minute the clock crosses a boundary. Home's sloth wears
+the same light (`HomeSloth{Day,Dusk,Night}{Awake,Drowsy,Blink}`), and blinks
+every few jittered seconds — a pixel-aligned closed-eye frame flashed for
+120ms, a hard cut like a cartoon blink should be (suppressed, along with the
+breath, under Reduce Motion).
+
 The immersive sleep screen (`SleepModeView`) does **not** use this scene — it
 is true OLED black (`Color.black`; only ember pixels are ever lit). **Ember
 is not a separate color identity**: it is the app's indoor amber banked down

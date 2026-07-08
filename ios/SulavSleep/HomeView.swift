@@ -98,6 +98,7 @@ private struct HomeSloth: View {
     let now: Date
 
     @State private var breathing = false
+    @State private var eyesShut = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Minutes after bedtime during which Home shows the wind-down state.
@@ -111,30 +112,54 @@ private struct HomeSloth: View {
         let untilBedtime = ((profile.bedtime - nowMinutes) % 1_440 + 1_440) % 1_440
         let isPastBedtime = sinceBedtime > 0 && sinceBedtime < Self.windDownWindow
         let isDrowsy = isPastBedtime || untilBedtime <= Self.drowsyLead
+        // The sloth wears the scene's light — day, golden hour, or lamp-lit
+        // night — so the figure and the city always share one sky.
+        let light = CityPhase.current(now).rawValue
 
         VStack(spacing: SleepSpacing.xl) {
-            Image(isDrowsy ? "HomeSlothDrowsy" : "HomeSlothAwake")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 250)
-                // A barely-there breath — the sloth is a creature, not a
-                // sticker. Anchored at the pillow so only the body swells.
-                .scaleEffect(y: breathing ? 1.013 : 1.0, anchor: .bottom)
-                .animation(
-                    .easeInOut(duration: 3.6).repeatForever(autoreverses: true),
-                    value: breathing
-                )
-                // The warm halo that seats the figure in the app's story —
-                // indoor lamp light against the cold night, same as the icon.
-                .background {
-                    Ellipse()
-                        .fill(SleepColor.amber.opacity(0.16))
-                        .blur(radius: 36)
-                        .padding(-SleepSpacing.md)
+            ZStack {
+                Image("HomeSloth\(light)\(isDrowsy ? "Drowsy" : "Awake")")
+                    .resizable()
+                    .scaledToFit()
+                // The blink frame is pixel-aligned with the open-eyed art
+                // (same render, same crop) and flashes over it — a hard
+                // cut, like a cartoon blink should be.
+                Image("HomeSloth\(light)Blink")
+                    .resizable()
+                    .scaledToFit()
+                    .opacity(eyesShut ? 1 : 0)
+            }
+            .frame(width: 250)
+            // A barely-there breath — the sloth is a creature, not a
+            // sticker. Anchored at the pillow so only the body swells.
+            .scaleEffect(y: breathing ? 1.013 : 1.0, anchor: .bottom)
+            .animation(
+                .easeInOut(duration: 3.6).repeatForever(autoreverses: true),
+                value: breathing
+            )
+            // The warm halo that seats the figure in the scene — softer in
+            // daylight, strongest once the lamps are the only light.
+            .background {
+                Ellipse()
+                    .fill(SleepColor.amber.opacity(light == "Day" ? 0.10 : 0.16))
+                    .blur(radius: 36)
+                    .padding(-SleepSpacing.md)
+            }
+            .shadow(color: SleepColor.background.opacity(0.45), radius: 18, y: 10)
+            .accessibilityHidden(true)
+            .onAppear { if !reduceMotion { breathing = true } }
+            .task {
+                // Blink every few seconds: shut for 120ms, then open. The
+                // interval jitters so it never reads as a metronome.
+                guard !reduceMotion else { return }
+                while !Task.isCancelled {
+                    let pause = Double.random(in: 3.5...7.0)
+                    guard (try? await Task.sleep(for: .seconds(pause))) != nil else { return }
+                    eyesShut = true
+                    guard (try? await Task.sleep(for: .milliseconds(120))) != nil else { return }
+                    eyesShut = false
                 }
-                .shadow(color: SleepColor.background.opacity(0.45), radius: 18, y: 10)
-                .accessibilityHidden(true)
-                .onAppear { if !reduceMotion { breathing = true } }
+            }
 
             VStack(spacing: SleepSpacing.sm) {
                 Text(isPastBedtime ? "Bedtime" : "Bedtime in").sectionLabel()

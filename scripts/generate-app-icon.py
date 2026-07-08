@@ -102,6 +102,42 @@ HOME_PALETTE = {
     (0xB7, 0xA3, 0xCE): (0x7C, 0x8B, 0xA6),  # pillow deep shade
 }
 
+# Golden-hour lighting for the dusk scene: deeper amber body, peach face,
+# the pillow catching dusty mauve-blue evening light.
+DUSK_HOME_PALETTE = {
+    BG: None,
+    WHITE: (0xB0, 0xAB, 0xCB),               # pillow -> dusk mauve-blue
+    (0x39, 0x01, 0x76): (0x07, 0x10, 0x19),
+    (0xD4, 0x95, 0x68): (0xE8, 0x92, 0x4F),  # body -> golden-hour amber
+    (0xFF, 0xD8, 0xB5): (0xF3, 0xCF, 0xA0),  # face -> warm peach
+    (0xB5, 0x77, 0x6B): (0xC9, 0x6F, 0x3C),
+    (0x8A, 0x49, 0x46): (0x7E, 0x42, 0x20),
+    (0x7A, 0x3B, 0x50): (0x5E, 0x2E, 0x14),
+    (0xD7, 0xAD, 0xA8): (0xEF, 0xAF, 0x74),
+    (0xED, 0xD3, 0xC1): (0xE3, 0xC9, 0xA0),
+    (0xEE, 0xD6, 0xC4): (0xE3, 0xC9, 0xA0),
+    (0xD7, 0xCC, 0xE4): (0x91, 0x8D, 0xAF),
+    (0xB7, 0xA3, 0xCE): (0x79, 0x76, 0x96),
+}
+
+# Night-at-home lighting (awake before bed, scene fully dark): dimmer and
+# cooler than day, but clearly brighter than the sleep screen's coals.
+NIGHT_HOME_PALETTE = {
+    BG: None,
+    WHITE: (0x8C, 0x9A, 0xB4),               # pillow -> moonlit blue-grey
+    (0x39, 0x01, 0x76): (0x07, 0x10, 0x19),
+    (0xD4, 0x95, 0x68): (0xC7, 0x7F, 0x4B),  # body -> lamp-lit amber
+    (0xFF, 0xD8, 0xB5): (0xE3, 0xB5, 0x84),
+    (0xB5, 0x77, 0x6B): (0xA6, 0x5E, 0x33),
+    (0x8A, 0x49, 0x46): (0x6E, 0x3A, 0x1D),
+    (0x7A, 0x3B, 0x50): (0x52, 0x2A, 0x12),
+    (0xD7, 0xAD, 0xA8): (0xD8, 0x9B, 0x62),
+    (0xED, 0xD3, 0xC1): (0xC9, 0xA8, 0x7E),
+    (0xEE, 0xD6, 0xC4): (0xC9, 0xA8, 0x7E),
+    (0xD7, 0xCC, 0xE4): (0x71, 0x80, 0x9B),
+    (0xB7, 0xA3, 0xCE): (0x5D, 0x6A, 0x84),
+}
+
 # All palettes share this key order, so one classification pass serves every
 # colorway (and eye edits in class space carry across all of them).
 SOURCE_KEYS = list(PALETTE.keys())
@@ -272,9 +308,20 @@ def main() -> None:
 
     idx = classify(np.asarray(hires).astype(np.int32), SOURCE_KEYS)
     write_imageset("NightSloth", sloth_asset(idx, EMBER_PALETTE))
-    write_imageset("HomeSlothAwake", sloth_asset(open_eyes(idx, drowsy=False), HOME_PALETTE))
-    write_imageset("HomeSlothDrowsy", sloth_asset(open_eyes(idx, drowsy=True), HOME_PALETTE))
-    print(f"wrote NightSloth, HomeSlothAwake, HomeSlothDrowsy to {XCASSETS}")
+
+    # Home sloth matrix: scene light x eye state. "Blink" is the source's
+    # own closed crescents — same render, same crop, pixel-aligned with the
+    # open-eyed frames, so Home can flash it over them as a cartoon blink.
+    eye_frames = {
+        "Awake": open_eyes(idx, drowsy=False),
+        "Drowsy": open_eyes(idx, drowsy=True),
+        "Blink": idx,
+    }
+    lights = {"Day": HOME_PALETTE, "Dusk": DUSK_HOME_PALETTE, "Night": NIGHT_HOME_PALETTE}
+    for light, palette in lights.items():
+        for eyes, frame in eye_frames.items():
+            write_imageset(f"HomeSloth{light}{eyes}", sloth_asset(frame, palette))
+    print(f"wrote NightSloth + {len(lights) * len(eye_frames)} Home sloths to {XCASSETS}")
 
 
 if __name__ == "__main__":

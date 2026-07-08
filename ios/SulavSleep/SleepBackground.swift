@@ -3,11 +3,32 @@ import SwiftUI
 import UIKit
 #endif
 
-// MARK: - Pixel Night background (layered Core Animation)
+// MARK: - Pixel city background (layered Core Animation)
 //
 // The background keeps every depth plane separate: each city layer scrolls and
 // parallaxes independently. The scene stays calm and lets the pixel city carry
 // the mood without extra foreground effects.
+//
+// The city follows the user's day: Day (hazy daylight, sun, windows off),
+// Dusk (golden hour, windows coming on), Night (the original art). Variants
+// are generated from the night layers by scripts/generate-scene-variants.py;
+// the view crossfades between them at the phase boundaries.
+
+/// Which lighting the city scene (and Home's sloth) wears. Bands match the
+/// greeting copy: 5–17 day, 17–22 dusk, 22–5 night.
+enum CityPhase: String {
+    case day = "Day"
+    case dusk = "Dusk"
+    case night = "Night"
+
+    static func current(_ date: Date = Date()) -> CityPhase {
+        switch Calendar.current.component(.hour, from: date) {
+        case 5..<17: .day
+        case 17..<22: .dusk
+        default: .night
+        }
+    }
+}
 
 struct SleepBackground: View {
     /// Kept for call-site compatibility; the sky asset includes the moon.
@@ -63,11 +84,11 @@ private struct PixelNightLayeredView: UIViewRepresentable {
 
 private final class PixelNightUIView: UIView {
     private let citySpecs: [CityLayerSpec] = [
-        .init(assetName: "NightCitySky", speed: 2.0, depth: 0.18),
-        .init(assetName: "NightCityFarSkyline", speed: 3.8, depth: 0.30),
-        .init(assetName: "NightCityMidSkyline", speed: 6.5, depth: 0.50),
-        .init(assetName: "NightCityNearSkyline", speed: 10.5, depth: 0.74),
-        .init(assetName: "NightCityFrontSkyline", speed: 15.0, depth: 1.00),
+        .init(assetName: "CitySky", speed: 2.0, depth: 0.18),
+        .init(assetName: "CityFarSkyline", speed: 3.8, depth: 0.30),
+        .init(assetName: "CityMidSkyline", speed: 6.5, depth: 0.50),
+        .init(assetName: "CityNearSkyline", speed: 10.5, depth: 0.74),
+        .init(assetName: "CityFrontSkyline", speed: 15.0, depth: 1.00),
     ]
 
     private var cityViews: [ScrollingCityLayerView] = []
@@ -75,15 +96,62 @@ private final class PixelNightUIView: UIView {
     private let warmOverlay = UIView()
     private let scrimLayer = CAGradientLayer()
     private var active = true
+    private var phase = CityPhase.current()
+    private var phaseTimer: Timer?
+
     override init(frame: CGRect) {
         super.init(frame: frame)
         // The scene is purely ambient: it never reacts to touch, so it can't
         // intercept taps meant for the UI above it. Depth still comes from the
         // device-tilt motion effect, not gestures.
         isUserInteractionEnabled = false
-        backgroundColor = UIColor(SleepColor.background)
         setupCityLayers()
         setupOverlays()
+        applyPhase(animated: false)
+
+        // The scene checks the clock once a minute and crossfades at the
+        // phase boundaries. Tolerance keeps the timer power-friendly.
+        let timer = Timer(timeInterval: 60, repeats: true) { [weak self] _ in
+            guard let self, CityPhase.current() != self.phase else { return }
+            self.phase = CityPhase.current()
+            self.applyPhase(animated: true)
+        }
+        timer.tolerance = 10
+        RunLoop.main.add(timer, forMode: .common)
+        phaseTimer = timer
+    }
+
+    deinit {
+        phaseTimer?.invalidate()
+    }
+
+    private func applyPhase(animated: Bool) {
+        cityViews.forEach { $0.apply(phase: phase, animated: animated) }
+        let apply = {
+            // Street glows and the warm wash belong to lit-window hours;
+            // daylight gets a clear sky and carries its own light.
+            self.glowOverlay.alpha = self.phase == .day ? 0 : 1
+            self.warmOverlay.alpha = self.phase == .day ? 0 : 1
+            self.backgroundColor = switch self.phase {
+            case .day: UIColor(red: 0.55, green: 0.68, blue: 0.82, alpha: 1)
+            case .dusk: UIColor(red: 0.16, green: 0.13, blue: 0.25, alpha: 1)
+            case .night: UIColor(SleepColor.background)
+            }
+            // The scene's own scrim eases off in daylight so the sky can
+            // actually read as day — the SwiftUI readability scrim above
+            // still guards the text band.
+            let scrimAlphas: [CGFloat] = self.phase == .day
+                ? [0.42, 0.06, 0.62]
+                : [0.60, 0.18, 0.78]
+            self.scrimLayer.colors = scrimAlphas.map {
+                UIColor(SleepColor.background).withAlphaComponent($0).cgColor
+            }
+        }
+        if animated {
+            UIView.animate(withDuration: 1.4, animations: apply)
+        } else {
+            apply()
+        }
     }
 
     @available(*, unavailable)
@@ -110,7 +178,7 @@ private final class PixelNightUIView: UIView {
     }
 
     private func setupCityLayers() {
-        cityViews = citySpecs.map { ScrollingCityLayerView(spec: $0) }
+        cityViews = citySpecs.map { ScrollingCityLayerView(spec: $0, phase: phase) }
         cityViews.forEach(addSubview)
     }
 
@@ -163,18 +231,40 @@ private final class ScrollingCityLayerView: UIView {
     private static let assetAspect: CGFloat = 16.0 / 9.0
 
     private let spec: CityLayerSpec
+    private var phase: CityPhase
     private let motionHost = UIView()
     private let stripView = UIView()
     private var imageViews: [UIImageView] = []
     private var tileWidth: CGFloat = 0
 
-    init(spec: CityLayerSpec) {
+    init(spec: CityLayerSpec, phase: CityPhase) {
         self.spec = spec
+        self.phase = phase
         super.init(frame: .zero)
         isUserInteractionEnabled = false
         clipsToBounds = true
         configureTiles()
         configureMotionEffect()
+    }
+
+    /// Swap this plane's art to the given phase, crossfading in place. The
+    /// scroll animation lives on the strip layer and is untouched, so the
+    /// city never stutters while the light changes.
+    func apply(phase: CityPhase, animated: Bool) {
+        self.phase = phase
+        guard let image = SleepAssetCache.image(named: phase.rawValue + spec.assetName) else {
+            AppLog.scene.warning("Missing city layer asset: \(self.phase.rawValue + self.spec.assetName, privacy: .public)")
+            return
+        }
+        for imageView in imageViews {
+            if animated {
+                UIView.transition(with: imageView, duration: 1.4, options: .transitionCrossDissolve) {
+                    imageView.image = image
+                }
+            } else {
+                imageView.image = image
+            }
+        }
     }
 
     @available(*, unavailable)
@@ -213,8 +303,8 @@ private final class ScrollingCityLayerView: UIView {
     }
 
     private func configureTiles() {
-        guard let image = SleepAssetCache.image(named: spec.assetName) else {
-            AppLog.scene.warning("Missing city layer asset: \(self.spec.assetName, privacy: .public)")
+        guard let image = SleepAssetCache.image(named: phase.rawValue + spec.assetName) else {
+            AppLog.scene.warning("Missing city layer asset: \(self.phase.rawValue + self.spec.assetName, privacy: .public)")
             return
         }
 
