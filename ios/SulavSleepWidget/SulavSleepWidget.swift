@@ -3,12 +3,26 @@ import SwiftUI
 
 // Home-screen + lock-screen widgets, per DESIGN.md ("Widgets" section).
 //
+// The organizing idea: **the sloth is the state, on every surface.** The
+// app's mascot does on the home screen exactly what it does in the app —
+// awake through the day, heavy-lidded once bedtime is near or just past,
+// ember-lit on OLED black while asleep — so every widget is recognizably
+// SleepBlock at a glance without a logo badge, and the figure carries real
+// state the whole time.
+//
 // Two jobs, split by surface:
-//  - Small + accessories are *tonight-focused*: bedtime countdown -> past-
-//    bedtime wind-down -> asleep (OLED black + ember timer, matching
-//    SleepModeView). They answer "should I be in bed?"
-//  - Medium is the *morning stats glance*: last score, streak, 7-night bars.
-//  - Large combines both: stats on top, tonight strip at the bottom.
+//  - Small is *tonight-focused*: the sloth as hero with the bedtime clock,
+//    countdown, wind-down nudge, or set-a-schedule invitation.
+//  - Medium is the *morning stats glance*: last score, streak, 7-night bars,
+//    with the sloth lounging under the numbers as the brand-and-state figure.
+//  - Large combines both: stats + bars on top, a mini-Home footer (sloth +
+//    tonight line + Sleep Now) at the bottom.
+//  - While a session runs, every system family wears the same *sleep face*:
+//    OLED black, the ember night sloth, and the elapsed timer — SleepModeView
+//    shrunk onto the home screen. When the phone goes down for the night,
+//    the widgets go dark with it.
+//  - Lock-screen accessories render in the system's vibrant material at tiny
+//    sizes, so they stay SF-symbol-led — the sloth would blur into mush.
 //
 // All views read the shared App Group summary the app publishes on every
 // change. Real data only — an empty summary renders an honest "log a night" /
@@ -40,12 +54,17 @@ struct SleepProvider: TimelineProvider {
         let summary = SleepWidgetStore.load() ?? .empty
 
         // Countdown/timer text is system-driven (`Text(_, style:)`), so entries
-        // only exist to flip *states* at the bedtime and wake boundaries. The
-        // app pushes a reload on every real change; the policy is a fallback.
+        // only exist to flip *states*: the sloth's eyelids at the drowsy
+        // boundary, then the bedtime and wake boundaries. The app pushes a
+        // reload on every real change; the policy is a fallback.
         var entries = [SleepEntry(date: now, summary: summary)]
         var refresh = now.addingTimeInterval(3600)
         if summary.asleepSince == nil, let bedtime = summary.bedtimeMinutes {
             let nextBed = SleepWidgetClock.nextOccurrence(ofMinuteOfDay: bedtime, after: now)
+            let drowsyStart = nextBed.addingTimeInterval(-TimeInterval(TonightState.drowsyLeadMinutes * 60))
+            if drowsyStart > now {
+                entries.append(SleepEntry(date: drowsyStart, summary: summary))
+            }
             entries.append(SleepEntry(date: nextBed, summary: summary))
             if let wake = summary.wakeMinutes {
                 refresh = SleepWidgetClock.nextOccurrence(ofMinuteOfDay: wake, after: now)
@@ -85,13 +104,29 @@ struct SulavSleepWidgetBundle: WidgetBundle {
 /// relative to their sleep window right now?
 enum TonightState {
     case asleep(since: Date)
-    case beforeBed(bedtime: Date)   // next upcoming bedtime
-    case pastBedtime(bedtime: Date) // inside the window, not asleep
+    case beforeBed(bedtime: Date, drowsy: Bool) // next upcoming bedtime
+    case pastBedtime(bedtime: Date)             // inside the window, not asleep
     case noSchedule
+
+    /// Minutes before bedtime at which the sloth's eyelids get heavy —
+    /// mirrors `HomeSloth.drowsyLead` so the app and widget sloths always
+    /// agree.
+    static let drowsyLeadMinutes = 90
 
     var isAsleep: Bool {
         if case .asleep = self { return true }
         return false
+    }
+
+    /// Which sloth the state wears: awake through the day, drowsy near or
+    /// past bedtime, the ember night sloth while asleep.
+    var slothPose: SlothPose {
+        switch self {
+        case .asleep: return .night
+        case .pastBedtime: return .drowsy
+        case .beforeBed(_, let drowsy): return drowsy ? .drowsy : .awake
+        case .noSchedule: return .awake
+        }
     }
 
     static func from(_ summary: SleepWidgetSummary, at now: Date) -> TonightState {
@@ -102,7 +137,9 @@ enum TonightState {
            SleepWidgetClock.isInWindow(now: now, bedtimeMinutes: bed, wakeMinutes: wake) {
             return .pastBedtime(bedtime: bedDate)
         }
-        return .beforeBed(bedtime: SleepWidgetClock.nextOccurrence(ofMinuteOfDay: bed, after: now))
+        let nextBed = SleepWidgetClock.nextOccurrence(ofMinuteOfDay: bed, after: now)
+        let drowsy = nextBed.timeIntervalSince(now) <= TimeInterval(Self.drowsyLeadMinutes * 60)
+        return .beforeBed(bedtime: nextBed, drowsy: drowsy)
     }
 }
 
@@ -136,6 +173,43 @@ enum SleepWidgetClock {
     }
 }
 
+// MARK: - The sloth
+
+/// The three poses the mascot wears across the app and its widgets.
+enum SlothPose {
+    case awake, drowsy, night
+}
+
+/// The app's sloth at widget scale, from the extension's own lean asset
+/// catalog (WidgetAssets.xcassets, derived from the app's imagesets by
+/// `scripts/generate-widget-assets.py`). In iOS 18 tinted mode it renders
+/// desaturated — a quiet figure that doesn't fight the user's tint.
+private struct WidgetSloth: View {
+    let pose: SlothPose
+    let height: CGFloat
+
+    private var image: Image {
+        switch pose {
+        case .awake: return Image("HomeSlothAwake")
+        case .drowsy: return Image("HomeSlothDrowsy")
+        case .night: return Image("NightSloth")
+        }
+    }
+
+    var body: some View {
+        Group {
+            if #available(iOS 18.0, *) {
+                image.resizable().widgetAccentedRenderingMode(.desaturated)
+            } else {
+                image.resizable()
+            }
+        }
+        .scaledToFit()
+        .frame(height: height)
+        .accessibilityHidden(true)
+    }
+}
+
 // MARK: - Family dispatch + background
 
 private struct SleepWidgetView: View {
@@ -152,45 +226,145 @@ private struct SleepWidgetView: View {
             RectangularAccessoryView(summary: entry.summary, tonight: tonight)
         case .accessoryInline:
             InlineAccessoryView(summary: entry.summary, tonight: tonight)
+        default:
+            // While asleep every system family wears the same sleep face;
+            // awake, each family does its own job.
+            if case .asleep(let since) = tonight {
+                AsleepFaceView(since: since, wakeMinutes: entry.summary.wakeMinutes)
+                    .containerBackground(for: .widget) { SleepColor.sleepBlack }
+            } else {
+                awakeBody
+                    .containerBackground(for: .widget) { NightBackground() }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var awakeBody: some View {
+        switch family {
         case .systemSmall:
             TonightView(summary: entry.summary, tonight: tonight)
-                .containerBackground(for: .widget) { NightBackground(tonight: tonight) }
         case .systemLarge:
             LargeSleepView(summary: entry.summary, tonight: tonight)
-                .containerBackground(for: .widget) { NightBackground(tonight: tonight) }
         default:
             MediumSleepView(summary: entry.summary, tonight: tonight)
-                .containerBackground(for: .widget) { NightBackground(tonight: nil) }
         }
     }
 }
 
 /// Minimal night gradient per DESIGN.md — no scene art in widgets, just the
-/// sky tones with a faint warm floor glow (the "indoor light" accent). When
-/// asleep it goes true black to match SleepModeView.
+/// sky tones with a faint warm floor glow (the "indoor light" accent) that
+/// doubles as the lamp the sloth lounges under.
 private struct NightBackground: View {
-    let tonight: TonightState?
-
-    private var isAsleep: Bool {
-        if case .asleep = tonight { return true }
-        return false
+    var body: some View {
+        LinearGradient(
+            colors: [SleepColor.skyTop, SleepColor.background],
+            startPoint: .top, endPoint: .bottom
+        )
+        .overlay(alignment: .bottom) {
+            // Warm horizon, barely there — reads as city light below frame.
+            LinearGradient(
+                colors: [SleepColor.amber.opacity(0.10), .clear],
+                startPoint: .bottom, endPoint: .top
+            )
+            .frame(height: 44)
+        }
     }
+}
+
+// MARK: - Asleep: the sleep face
+
+/// SleepModeView shrunk onto the home screen: OLED black, the ember night
+/// sloth, the system-driven elapsed timer, and the wake target. One layout
+/// grammar per family — small and medium put the instrument beside the
+/// figure; large centers the figure like the sleep screen itself.
+private struct AsleepFaceView: View {
+    let since: Date
+    let wakeMinutes: Int?
+    @Environment(\.widgetFamily) private var family
 
     var body: some View {
-        if isAsleep {
-            SleepColor.sleepBlack
-        } else {
-            LinearGradient(
-                colors: [SleepColor.skyTop, SleepColor.background],
-                startPoint: .top, endPoint: .bottom
-            )
-            .overlay(alignment: .bottom) {
-                // Warm horizon, barely there — reads as city light below frame.
-                LinearGradient(
-                    colors: [SleepColor.amber.opacity(0.10), .clear],
-                    startPoint: .bottom, endPoint: .top
-                )
-                .frame(height: 44)
+        switch family {
+        case .systemSmall:
+            VStack(alignment: .leading, spacing: 0) {
+                kicker
+                Spacer(minLength: 4)
+                timer(size: 26)
+                sinceLine(size: 11)
+                Spacer(minLength: 6)
+                HStack {
+                    Spacer(minLength: 0)
+                    WidgetSloth(pose: .night, height: 54)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        case .systemLarge:
+            VStack(spacing: SleepSpacing.lg) {
+                Spacer(minLength: 0)
+                WidgetSloth(pose: .night, height: 132)
+                kicker
+                timer(size: 44)
+                HStack(spacing: SleepSpacing.md) {
+                    sinceLine(size: 13)
+                    wakeLine(size: 13)
+                }
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        default:
+            HStack(alignment: .bottom, spacing: SleepSpacing.lg) {
+                VStack(alignment: .leading, spacing: 2) {
+                    kicker
+                    Spacer(minLength: 4)
+                    timer(size: 34)
+                    sinceLine(size: 12)
+                    wakeLine(size: 12)
+                }
+                Spacer(minLength: 0)
+                WidgetSloth(pose: .night, height: 88)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        }
+    }
+
+    private var kicker: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "moon.stars.fill")
+                .font(.system(size: 11))
+                .foregroundStyle(SleepColor.ember)
+                .widgetAccentable()
+            Text("ASLEEP")
+                .font(SleepFont.label(11)).tracking(1.4)
+                .foregroundStyle(SleepColor.emberDim)
+        }
+    }
+
+    private func timer(size: CGFloat) -> some View {
+        Text(since, style: .timer)
+            .font(SleepFont.hero(size))
+            .foregroundStyle(SleepColor.ember)
+            .monospacedDigit()
+            .widgetAccentable()
+            .minimumScaleFactor(0.6)
+            .lineLimit(1)
+    }
+
+    private func sinceLine(size: CGFloat) -> some View {
+        Text("since \(since, format: .dateTime.hour().minute())")
+            .font(SleepFont.body(size))
+            .foregroundStyle(SleepColor.emberDim)
+    }
+
+    @ViewBuilder
+    private func wakeLine(size: CGFloat) -> some View {
+        if let wake = wakeMinutes {
+            HStack(spacing: 4) {
+                Image(systemName: "sunrise.fill")
+                    .font(.system(size: size - 2))
+                    .foregroundStyle(SleepColor.emberDim)
+                Text("wake \(SleepFormatting.clock(wake))")
+                    .font(SleepFont.body(size))
+                    .foregroundStyle(SleepColor.emberDim)
             }
         }
     }
@@ -198,20 +372,23 @@ private struct NightBackground: View {
 
 // MARK: - Small: tonight
 
+/// The bedtime instrument: text block top-leading, the sloth lounging
+/// bottom-trailing with its eyes matching the hour. Tonight only — the
+/// record lives on medium/large.
 private struct TonightView: View {
     let summary: SleepWidgetSummary
     let tonight: TonightState
 
     var body: some View {
         switch tonight {
-        case .asleep(let since):
-            AsleepView(since: since)
-        case .beforeBed(let bedtime):
+        case .beforeBed(let bedtime, _):
             bedtimeBody(bedtime: bedtime, past: false)
         case .pastBedtime(let bedtime):
             bedtimeBody(bedtime: bedtime, past: true)
         case .noSchedule:
             noScheduleBody
+        case .asleep:
+            EmptyView() // handled by AsleepFaceView at the family dispatch
         }
     }
 
@@ -227,20 +404,20 @@ private struct TonightView: View {
                     .foregroundStyle(SleepColor.muted)
             }
 
-            Spacer(minLength: 6)
+            Spacer(minLength: 4)
 
             Text(bedtime, format: .dateTime.hour().minute())
-                .font(SleepFont.hero(30))
+                .font(SleepFont.hero(28))
                 .foregroundStyle(SleepColor.ink)
                 .widgetAccentable()
                 .minimumScaleFactor(0.7)
                 .lineLimit(1)
 
             if past {
-                Text("Past bedtime — wind down")
+                Text("Wind down")
                     .font(SleepFont.body(12))
                     .foregroundStyle(SleepColor.amber)
-                    .lineLimit(2)
+                    .lineLimit(1)
             } else {
                 (Text("in ") + Text(bedtime, style: .relative))
                     .font(SleepFont.body(12))
@@ -248,77 +425,37 @@ private struct TonightView: View {
                     .lineLimit(1)
             }
 
-            Spacer(minLength: 8)
+            Spacer(minLength: 6)
 
-            if let score = summary.latestScore, let mins = summary.latestDurationMinutes {
-                HStack(spacing: 4) {
-                    Text("Last")
-                        .font(SleepFont.body(11))
-                        .foregroundStyle(SleepColor.muted)
-                    Text("\(score)")
-                        .font(SleepFont.label(11))
-                        .foregroundStyle(scoreColor(score))
-                        .monospacedDigit()
-                    Text("· \(SleepFormatting.duration(mins))")
-                        .font(SleepFont.body(11))
-                        .foregroundStyle(SleepColor.muted)
-                }
-            } else {
-                Text("No nights logged yet")
-                    .font(SleepFont.body(11))
-                    .foregroundStyle(SleepColor.muted)
+            HStack {
+                Spacer(minLength: 0)
+                WidgetSloth(pose: tonight.slothPose, height: 56)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
 
     private var noScheduleBody: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Image(systemName: "moon.fill")
-                .font(.system(size: 16))
-                .foregroundStyle(SleepColor.amber)
-                .widgetAccentable()
-            Spacer(minLength: 0)
-            Text("Sleep")
-                .font(SleepFont.title(18))
-                .foregroundStyle(SleepColor.ink)
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 5) {
+                Image(systemName: "moon.fill")
+                    .font(.system(size: 11))
+                    .foregroundStyle(SleepColor.amber)
+                    .widgetAccentable()
+                Text("SLEEP")
+                    .font(SleepFont.label(11)).tracking(1.4)
+                    .foregroundStyle(SleepColor.muted)
+            }
+            Spacer(minLength: 4)
             Text("Set a schedule to see your bedtime here.")
                 .font(SleepFont.body(12))
-                .foregroundStyle(SleepColor.muted)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-    }
-}
-
-/// Matches the immersive sleep screen: black, ember, nothing else.
-private struct AsleepView: View {
-    let since: Date
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 5) {
-                Image(systemName: "moon.stars.fill")
-                    .font(.system(size: 11))
-                    .foregroundStyle(SleepColor.ember)
-                    .widgetAccentable()
-                Text("ASLEEP")
-                    .font(SleepFont.label(11)).tracking(1.4)
-                    .foregroundStyle(SleepColor.emberDim)
+                .foregroundStyle(SleepColor.dim)
+                .lineLimit(3)
+            Spacer(minLength: 6)
+            HStack {
+                Spacer(minLength: 0)
+                WidgetSloth(pose: .awake, height: 50)
             }
-
-            Spacer(minLength: 0)
-
-            Text(since, style: .timer)
-                .font(SleepFont.hero(32))
-                .foregroundStyle(SleepColor.ember)
-                .monospacedDigit()
-                .widgetAccentable()
-                .minimumScaleFactor(0.6)
-                .lineLimit(1)
-
-            Text("since \(since, format: .dateTime.hour().minute())")
-                .font(SleepFont.body(12))
-                .foregroundStyle(SleepColor.emberDim)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
@@ -326,13 +463,16 @@ private struct AsleepView: View {
 
 // MARK: - Medium: stats
 
+/// The morning glance: last night's numbers on the left, the 7-night rhythm
+/// and the one action on the right. The sloth lounges under the numerals —
+/// the brand figure at rest, its eyes still telling tonight's state.
 private struct MediumSleepView: View {
     let summary: SleepWidgetSummary
     let tonight: TonightState
 
     var body: some View {
         if summary.isEmpty {
-            EmptyStatsView(showSleepButton: !tonight.isAsleep)
+            EmptyStatsView(pose: tonight.slothPose, showSleepButton: !tonight.isAsleep)
         } else {
             HStack(alignment: .top, spacing: SleepSpacing.lg) {
                 VStack(alignment: .leading, spacing: 3) {
@@ -343,7 +483,7 @@ private struct MediumSleepView: View {
                     if let score = summary.latestScore {
                         HStack(alignment: .firstTextBaseline, spacing: 5) {
                             Text("\(score)")
-                                .font(SleepFont.hero(34))
+                                .font(SleepFont.hero(32))
                                 .foregroundStyle(scoreColor(score))
                                 .monospacedDigit()
                                 .widgetAccentable()
@@ -369,20 +509,21 @@ private struct MediumSleepView: View {
                             .font(SleepFont.body(12))
                             .foregroundStyle(SleepColor.muted)
                     }
+
+                    Spacer(minLength: 2)
+
+                    WidgetSloth(pose: tonight.slothPose, height: 46)
                 }
+                .frame(maxHeight: .infinity, alignment: .top)
 
                 Spacer(minLength: 0)
 
                 VStack(alignment: .trailing, spacing: 0) {
-                    SleepBars(nights: summary.nights, target: summary.targetMinutes, height: 66, wholeHours: true)
+                    SleepBars(nights: summary.nights, target: summary.targetMinutes, height: 64, wholeHours: true)
 
                     Spacer(minLength: 6)
 
-                    if case .asleep(let since) = tonight {
-                        AsleepLine(since: since)
-                    } else {
-                        SleepNowButton()
-                    }
+                    SleepNowButton()
                 }
                 .frame(maxWidth: 168, maxHeight: .infinity)
             }
@@ -396,30 +537,38 @@ private struct MediumSleepView: View {
 }
 
 private struct EmptyStatsView: View {
+    let pose: SlothPose
     let showSleepButton: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 5) {
-                Image(systemName: "moon.fill")
-                    .font(.system(size: 11))
-                    .foregroundStyle(SleepColor.amber)
-                    .widgetAccentable()
-                Text("SLEEP")
-                    .font(SleepFont.label(11)).tracking(1.4)
+        HStack(alignment: .bottom, spacing: SleepSpacing.lg) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 5) {
+                    Image(systemName: "moon.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(SleepColor.amber)
+                        .widgetAccentable()
+                    Text("SLEEP")
+                        .font(SleepFont.label(11)).tracking(1.4)
+                        .foregroundStyle(SleepColor.muted)
+                }
+                Spacer(minLength: 0)
+                Text("No nights yet")
+                    .font(SleepFont.title(17))
+                    .foregroundStyle(SleepColor.ink)
+                Text("Log a night to see your rhythm.")
+                    .font(SleepFont.body(12))
                     .foregroundStyle(SleepColor.muted)
+                if showSleepButton {
+                    Spacer(minLength: 4)
+                    SleepNowButton()
+                }
             }
+            .frame(maxHeight: .infinity, alignment: .topLeading)
+
             Spacer(minLength: 0)
-            Text("No nights yet")
-                .font(SleepFont.title(17))
-                .foregroundStyle(SleepColor.ink)
-            Text("Log a night to see your rhythm.")
-                .font(SleepFont.body(12))
-                .foregroundStyle(SleepColor.muted)
-            if showSleepButton {
-                Spacer(minLength: 4)
-                SleepNowButton()
-            }
+
+            WidgetSloth(pose: pose, height: 80)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
@@ -464,7 +613,6 @@ private struct LargeSleepView: View {
                 Text("Log a night to see your rhythm.")
                     .font(SleepFont.body(13))
                     .foregroundStyle(SleepColor.muted)
-                Spacer(minLength: 0)
             } else {
                 if let score = summary.latestScore {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -489,76 +637,68 @@ private struct LargeSleepView: View {
                 SleepBars(nights: summary.nights, target: summary.targetMinutes, height: 96, showWeekdays: true)
             }
 
+            Spacer(minLength: 0)
+
             Rectangle()
                 .fill(SleepColor.hairline)
                 .frame(height: 1)
 
-            HStack(spacing: SleepSpacing.sm) {
+            // A mini-Home: the sloth as tonight's figure, the tonight line,
+            // and the one action — anchored where a glance lands last.
+            HStack(spacing: SleepSpacing.md) {
+                WidgetSloth(pose: tonight.slothPose, height: 44)
                 TonightFooter(tonight: tonight)
-                if !tonight.isAsleep {
-                    SleepNowButton()
-                }
+                SleepNowButton()
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
 
-/// One quiet line about tonight at the bottom of the large widget.
+/// Tonight in words, beside the footer sloth. The sloth carries the state's
+/// mood, so this stays text-only — no doubled moon glyphs.
 private struct TonightFooter: View {
     let tonight: TonightState
 
     var body: some View {
-        HStack(spacing: 6) {
+        Group {
             switch tonight {
-            case .asleep(let since):
-                Image(systemName: "moon.stars.fill")
-                    .font(.system(size: 11))
-                    .foregroundStyle(SleepColor.ember)
-                Text("Asleep")
-                    .font(SleepFont.body(13))
-                    .foregroundStyle(SleepColor.dim)
-                Text(since, style: .timer)
-                    .font(SleepFont.label(13))
-                    .foregroundStyle(SleepColor.ember)
-                    .monospacedDigit()
-            case .beforeBed(let bedtime):
-                Image(systemName: "moon.fill")
-                    .font(.system(size: 11))
-                    .foregroundStyle(SleepColor.amber)
-                    .widgetAccentable()
-                Text("Bedtime \(bedtime, format: .dateTime.hour().minute())")
-                    .font(SleepFont.body(13))
-                    .foregroundStyle(SleepColor.dim)
-                (Text("in ") + Text(bedtime, style: .relative))
-                    .font(SleepFont.body(13))
-                    .foregroundStyle(SleepColor.muted)
-                    .lineLimit(1)
+            case .beforeBed(let bedtime, _):
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Bedtime \(bedtime, format: .dateTime.hour().minute())")
+                        .font(SleepFont.body(13))
+                        .foregroundStyle(SleepColor.dim)
+                    (Text("in ") + Text(bedtime, style: .relative))
+                        .font(SleepFont.body(12))
+                        .foregroundStyle(SleepColor.muted)
+                        .lineLimit(1)
+                }
             case .pastBedtime:
-                Image(systemName: "moon.zzz.fill")
-                    .font(.system(size: 11))
-                    .foregroundStyle(SleepColor.amber)
-                    .widgetAccentable()
-                Text("Past bedtime — wind down")
-                    .font(SleepFont.body(13))
-                    .foregroundStyle(SleepColor.amber)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Past bedtime")
+                        .font(SleepFont.body(13))
+                        .foregroundStyle(SleepColor.amber)
+                    Text("Wind down and sleep")
+                        .font(SleepFont.body(12))
+                        .foregroundStyle(SleepColor.muted)
+                }
             case .noSchedule:
-                Image(systemName: "moon.fill")
-                    .font(.system(size: 11))
-                    .foregroundStyle(SleepColor.muted)
                 Text("Set a schedule for a bedtime reminder")
                     .font(SleepFont.body(13))
                     .foregroundStyle(SleepColor.muted)
+            case .asleep:
+                EmptyView() // large wears the sleep face instead
             }
-            Spacer(minLength: 0)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
 // MARK: - Lock-screen accessories
 //
-// Accessories render in the system's vibrant/tinted material, so they use
-// default foregrounds and hierarchy instead of the app palette.
+// Accessories render in the system's vibrant/tinted material at tiny sizes,
+// so they use default foregrounds and SF symbols instead of the app palette
+// or the sloth.
 
 private struct CircularAccessoryView: View {
     let summary: SleepWidgetSummary
@@ -585,7 +725,7 @@ private struct CircularAccessoryView: View {
                 }
                 .gaugeStyle(.accessoryCircular)
                 .widgetAccentable()
-            } else if case .beforeBed(let bedtime) = tonight {
+            } else if case .beforeBed(let bedtime, _) = tonight {
                 ZStack {
                     AccessoryWidgetBackground()
                     VStack(spacing: 0) {
@@ -625,7 +765,7 @@ private struct RectangularAccessoryView: View {
                 Text(since, style: .timer)
                     .font(.system(size: 15, weight: .medium))
                     .monospacedDigit()
-            case .beforeBed(let bedtime):
+            case .beforeBed(let bedtime, _):
                 HStack(spacing: 4) {
                     Image(systemName: "moon.fill").font(.system(size: 11))
                     Text("Bedtime \(bedtime, format: .dateTime.hour().minute())")
@@ -679,7 +819,7 @@ private struct InlineAccessoryView: View {
         switch tonight {
         case .asleep(let since):
             (Text(Image(systemName: "moon.stars.fill")) + Text(" Asleep ") + Text(since, style: .timer))
-        case .beforeBed(let bedtime):
+        case .beforeBed(let bedtime, _):
             (Text(Image(systemName: "moon.fill")) + Text(" Bed \(SleepFormatting.shortTime.string(from: bedtime))") + inlineScoreSuffix)
         case .pastBedtime:
             (Text(Image(systemName: "moon.zzz.fill")) + Text(" Past bedtime"))
@@ -727,26 +867,6 @@ private struct SleepNowButton: View {
             )
         }
         .widgetAccentable()
-    }
-}
-
-/// Shown in the button's place while a session is running.
-private struct AsleepLine: View {
-    let since: Date
-
-    var body: some View {
-        HStack(spacing: 5) {
-            Image(systemName: "moon.stars.fill")
-                .font(.system(size: 11))
-                .foregroundStyle(SleepColor.ember)
-            Text("Asleep")
-                .font(SleepFont.body(12))
-                .foregroundStyle(SleepColor.dim)
-            Text(since, style: .timer)
-                .font(SleepFont.label(12))
-                .foregroundStyle(SleepColor.ember)
-                .monospacedDigit()
-        }
     }
 }
 

@@ -47,9 +47,14 @@ private struct LockScreenSleepView: View {
 
     var body: some View {
         HStack(spacing: SleepSpacing.md) {
-            Image(systemName: "moon.stars.fill")
-                .font(.system(size: 22))
-                .foregroundStyle(SleepColor.ember)
+            // The ember night sloth — the sleep screen's centerpiece — leads
+            // the banner, so the lock screen is recognizably SleepBlock
+            // before a single word is read.
+            Image("NightSloth")
+                .resizable()
+                .scaledToFit()
+                .frame(height: 52)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Asleep")
                     .font(SleepFont.body(13))

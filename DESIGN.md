@@ -426,32 +426,69 @@ with real weight.
 
 ## Widgets
 
-Widgets live in `SulavSleepWidget.swift` and split one job across surfaces:
+Widgets live in `SulavSleepWidget.swift`. The organizing idea: **the sloth is
+the state, on every surface.** The app's mascot does on the home screen
+exactly what it does in the app — awake through the day, heavy-lidded once
+bedtime is within ~90 minutes or just past (the same drowsy lead as Home's
+sloth), ember-lit on OLED black while asleep — so every widget is
+recognizably SleepBlock at a glance *without a logo badge*, and the figure
+carries real state the whole time. One sloth per widget, never two.
 
-- **Small (home screen) — tonight.** A bedtime instrument, not a stats tile.
-  Three states: before bed (moon glyph, "BEDTIME" caps label, hero clock time,
-  a system-driven "in Xh Ym" countdown, and a quiet last-night line), past
-  bedtime (amber "Past bedtime — wind down"), and asleep. The asleep state
-  mirrors `SleepModeView`: true black container, ember timer, nothing else.
+The surfaces split one job:
+
+- **Small (home screen) — tonight.** A bedtime instrument, not a stats tile:
+  text block top-leading (moon glyph + "BEDTIME" caps kicker, hero clock
+  time, a system-driven "in Xh Ym" countdown), the sloth lounging
+  bottom-trailing with its eyes matching the hour. Past bedtime the
+  countdown gives way to an amber "Wind down" and the sloth goes drowsy.
+  Small is tonight-only: the quiet last-night line of earlier revisions is
+  retired — the record lives on medium/large, and the sloth earns the room.
 - **Medium — the morning glance.** Last night's score as the hero numeral
   (colored by the score rules below), duration, and streak/average in the
-  left column; the 7-night bar rhythm on the right with the Sleep Now
-  capsule anchored below it, on the trailing edge.
+  left column, with the sloth lounging beneath the numbers — the brand
+  figure at rest, balancing the action capsule diagonally; the 7-night bar
+  rhythm on the right with the Sleep Now capsule anchored below it, on the
+  trailing edge.
 - **Large — both.** Stats + full-width bars with weekday initials, then a
-  hairline and a single "tonight" footer line (bedtime countdown or asleep
-  timer) with the Sleep Now capsule on its trailing side.
+  hairline and a **mini-Home footer** anchored to the bottom edge: the sloth
+  as tonight's figure, a two-line tonight text (bedtime + countdown, or the
+  past-bedtime nudge — text only, no moon glyphs; the sloth *is* the glyph),
+  and the Sleep Now capsule on the trailing side.
+- **Asleep, every family sleeps.** While a session runs, small, medium, and
+  large all wear the same *sleep face*: OLED black, the ember night sloth,
+  the "ASLEEP" kicker, the system-driven elapsed timer, the "since" time,
+  and a sunrise-glyph wake target (medium/large) — `SleepModeView` shrunk
+  onto the home screen. The Sleep Now capsule and the stats disappear with
+  the light: when the phone goes down for the night the widgets go dark with
+  it, and the numbers return in the morning. Small and medium set the
+  instrument beside the figure; large centers the figure like the sleep
+  screen itself.
 - **Lock-screen accessories** (circular / rectangular / inline) render in the
-  system's vibrant material, so they use default foregrounds — no app palette.
-  Circular is a score gauge (or a moon when asleep / no data); rectangular and
-  inline lead with tonight's state.
+  system's vibrant material at tiny sizes, so they use default foregrounds
+  and SF symbols — no app palette, no sloth (at 20pt the figure would blur
+  into mush). Circular is a score gauge (or a moon when asleep / no data);
+  rectangular and inline lead with tonight's state.
+- The **Live Activity** lock-screen banner leads with the ember night sloth
+  beside the elapsed timer, so the lock screen is recognizably SleepBlock
+  before a single word is read; the Dynamic Island stays SF-symbol-led at
+  its tiny sizes.
 
 Rules:
 
+- The widget extension ships its own lean asset catalog
+  (`SulavSleepWidget/WidgetAssets.xcassets`) holding just the three sloth
+  poses, downscaled from the app's imagesets by
+  `scripts/generate-widget-assets.py` — run it after
+  `generate-app-icon.py` so the two catalogs never drift. The app's full
+  catalog (pixel city and all) never compiles into the appex.
 - Background is the *minimal night gradient* — `skyTop → background` with a
-  ~10% amber floor glow. No pixel-art scene in widgets: at widget size the
-  skyline reads as noise and fights legibility, and the flat gradient survives
-  iOS dark/tinted home-screen rendering. Key glyphs and numerals are marked
-  `widgetAccentable` for tinted mode.
+  ~10% amber floor glow that doubles as the lamp the sloth lounges under. No
+  pixel-art scene in widgets: at widget size the skyline reads as noise and
+  fights legibility, and the flat gradient survives iOS dark/tinted
+  home-screen rendering. Key glyphs and numerals are marked
+  `widgetAccentable` for tinted mode; the sloth renders desaturated on iOS
+  18+ (`widgetAccentedRenderingMode(.desaturated)`) so it reads as a quiet
+  figure instead of fighting the user's tint.
 - Score numerals keep the app's coloring: gold ≥ 80, ink 60–79, danger < 60 —
   always in a fixed position so the layout survives a night-shift tint.
 - Bars: gold→amber capsules against a faint target hairline; the latest night
@@ -476,13 +513,13 @@ Rules:
 - One action only: the **Sleep Now capsule** on medium/large (primary-button
   style — amber→gold gradient, navy ink, moon glyph) rides the
   `sleepblock://sleep` deep link, so a deliberate tap opens the app, starts
-  the session, and lands on the sleep screen. It hides while asleep (an ember
-  "Asleep" timer line takes its place). The widget *body* carries no
-  `widgetURL` — a stray tap just opens the app and must never start a
-  session.
+  the session, and lands on the sleep screen. It disappears while asleep,
+  along with everything else the sleep face doesn't carry. The widget *body*
+  carries no `widgetURL` — a stray tap just opens the app and must never
+  start a session.
 - Timers and countdowns use system-driven `Text(_, style:)` so they tick
   without timeline churn; timeline entries exist only to flip states at the
-  bedtime and wake boundaries.
+  drowsy (bedtime − 90 min), bedtime, and wake boundaries.
 
 ## App icon
 

@@ -395,15 +395,29 @@ Apple Developer capability, Google Cloud OAuth client).
   (the summary types + read/write) is a member of both targets.
 - Families: home-screen small (tonight: bedtime countdown → past-bedtime →
   asleep), medium (last score + 7-night bars), large (stats + tonight footer),
-  and lock-screen accessories (circular/rectangular/inline). See the "Widgets"
-  section of `DESIGN.md` for the visual rules.
+  and lock-screen accessories (circular/rectangular/inline). The sloth mascot
+  carries tonight's state on every home-screen family (awake / drowsy /
+  ember-asleep), and while a session runs all three families switch to one
+  shared OLED-black "sleep face". See the "Widgets" section of `DESIGN.md`
+  for the visual rules.
+- The extension has its own asset catalog,
+  `SulavSleepWidget/WidgetAssets.xcassets`, holding only the three sloth
+  poses at widget scale (720px). It is generated, never hand-edited, by
+  `scripts/generate-widget-assets.py`, which downscales the app's
+  `HomeSlothAwake`/`HomeSlothDrowsy`/`NightSloth` imagesets — re-run it after
+  `scripts/generate-app-icon.py` so the catalogs stay in sync. The app's
+  `Images.xcassets` is deliberately *not* a member of the widget target
+  (it would compile the whole pixel-art city into the appex).
 - `SleepWidgetSummary` carries `bedtimeMinutes`/`wakeMinutes`/`asleepSince` on
   top of the history fields; all three are optionals, so summaries written
   before they existed still decode (key stays `v1`). `SleepStore.startSleep()`
   and `cancelSleep()` refresh the widget so the asleep state flips immediately.
-- The provider emits at most two entries (now + next bedtime) and relies on
-  system-driven `Text(_, style: .timer/.relative)` for ticking text; the app
-  pushes reloads on real changes.
+- The provider emits at most three entries (now + the drowsy boundary 90 min
+  before bedtime + next bedtime) and relies on system-driven
+  `Text(_, style: .timer/.relative)` for ticking text; the app pushes reloads
+  on real changes. The 90-minute drowsy lead mirrors `HomeSloth.drowsyLead`
+  (`TonightState.drowsyLeadMinutes`) so the app and widget sloths get heavy
+  eyelids together.
 - `SleepStore` writes the summary and calls `WidgetCenter.reloadAllTimelines()`
   on every history change (via `persist()` → `updateWidgetSoon()`). A historical
   note: an `AppEnvironment.isTesting` guard used to skip this under XCTest; that
