@@ -208,12 +208,17 @@ Two tabs, each with exactly one job:
   scrolls: no settings affordance, no data dumps, nothing to fiddle with at
   11pm. One centered column: an editorial small-caps greeting kicker over the
   hero name (the same kicker → title chrome as onboarding), then the **home
-  sloth** — the app's sloth lounging on a cool-grey pillow in the amber
+  sloth** — the app's sloth lounging on a night-blue pillow in the amber
   colorway (`HomeSlothAwake` / `HomeSlothDrowsy`, generated with the icon by
   `scripts/generate-app-icon.py`, which redraws the eyes in class space) —
   over the "Bedtime in" countdown numerals. The sloth is the *state*: awake
   with round open eyes through the day, heavy-lidded once bedtime is within
-  90 minutes or just past; the numerals are the *instrument*. For a few
+  90 minutes or just past; the numerals are the *instrument*. The pillow is
+  blue-tinted grey, not neutral, so the figure sits in the scene's air; a
+  faint amber halo behind it carries the app's warm-light-against-cold-night
+  story; and the sloth *breathes* — a barely-there 3.6s body swell anchored
+  at the pillow (stilled under Reduce Motion), which keeps it a creature
+  rather than a sticker while staying under the notice threshold. For a few
   hours after bedtime the countdown gives way to a "Wind down" nudge
   (mirroring the small widget) instead of counting 20-odd hours to
   *tomorrow's* bedtime — the sloth stays drowsy through that window.
@@ -225,9 +230,9 @@ Two tabs, each with exactly one job:
   > progress is dashboard precision nobody reads at 11pm, and the sloth
   > tells the state warmer — while keeping the same one-glance answer.
 
-  Under the sloth, two small
-  non-interactive glass chips state tonight's
-  window (moon + bedtime, sun + wake) — read-only; the schedule is edited in
+  Under the sloth, one small non-interactive glass capsule states tonight's
+  window as the single fact it is — moon + bedtime → sun + wake — rather
+  than two disconnected chips; read-only, the schedule is edited in
   Settings. The Sleep Now capsule anchors low where a thumb rests, with last
   night as one quiet centered strip beneath it (`Last night 7h 20m · 82 ·
   🔥3`). With no history the strip renders nothing at all — no hairline, no

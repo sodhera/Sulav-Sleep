@@ -82,12 +82,13 @@ EMBER_PALETTE = {
 }
 
 # Home's daytime sloth: the icon's amber colorway, but on a transparent
-# background over the pixel night scene. The pillow is pulled down from ink
-# white to calm cool greys so it doesn't glare against the scene — the warm
-# sloth on cool bedding is the app's core amber-against-night contrast.
+# background over the pixel night scene. The pillow is night-blue-tinted
+# grey — not neutral — so it sits in the scene's blue air instead of
+# reading as a cutout; the warm sloth on cool blue bedding is the app's
+# core amber-against-night contrast.
 HOME_PALETTE = {
     BG: None,                                # transparent
-    WHITE: (0xC9, 0xD0, 0xDA),               # pillow -> calm cool grey
+    WHITE: (0xB4, 0xC2, 0xD9),               # pillow -> night-blue grey
     (0x39, 0x01, 0x76): (0x07, 0x10, 0x19),  # outlines -> near-black navy
     (0xD4, 0x95, 0x68): (0xF4, 0xA2, 0x61),  # body -> amber
     (0xFF, 0xD8, 0xB5): (0xFB, 0xDF, 0xAE),  # face/belly -> warm cream
@@ -97,8 +98,8 @@ HOME_PALETTE = {
     (0xD7, 0xAD, 0xA8): (0xF7, 0xC2, 0x89),  # body highlight -> light amber
     (0xED, 0xD3, 0xC1): (0xF2, 0xDC, 0xB4),  # claws -> cream gold
     (0xEE, 0xD6, 0xC4): (0xF2, 0xDC, 0xB4),
-    (0xD7, 0xCC, 0xE4): (0xA9, 0xB2, 0xBF),  # pillow shade
-    (0xB7, 0xA3, 0xCE): (0x93, 0x9D, 0xAC),  # pillow deep shade
+    (0xD7, 0xCC, 0xE4): (0x93, 0xA3, 0xBF),  # pillow shade
+    (0xB7, 0xA3, 0xCE): (0x7C, 0x8B, 0xA6),  # pillow deep shade
 }
 
 # All palettes share this key order, so one classification pass serves every

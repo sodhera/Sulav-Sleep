@@ -54,14 +54,10 @@ struct HomeView: View {
                 VStack(spacing: SleepSpacing.xxl) {
                     HomeSloth(profile: profile, now: timeline.date)
 
-                    // The two chips are one glass set — a shared container
-                    // lets iOS 26 blend their glass together.
-                    LiquidGlassContainer(spacing: SleepSpacing.md) {
-                        HStack(spacing: SleepSpacing.md) {
-                            ScheduleChip(icon: "moon.fill", text: SleepFormatting.clock(profile.bedtime))
-                            ScheduleChip(icon: "sun.max.fill", text: SleepFormatting.clock(profile.wakeTime))
-                        }
-                    }
+                    ScheduleCapsule(
+                        bedtime: SleepFormatting.clock(profile.bedtime),
+                        wake: SleepFormatting.clock(profile.wakeTime)
+                    )
                 }
             }
 
@@ -101,6 +97,9 @@ private struct HomeSloth: View {
     let profile: Profile
     let now: Date
 
+    @State private var breathing = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     /// Minutes after bedtime during which Home shows the wind-down state.
     private static let windDownWindow = 4 * 60
     /// Minutes before bedtime at which the sloth's eyelids get heavy.
@@ -118,8 +117,24 @@ private struct HomeSloth: View {
                 .resizable()
                 .scaledToFit()
                 .frame(width: 250)
+                // A barely-there breath — the sloth is a creature, not a
+                // sticker. Anchored at the pillow so only the body swells.
+                .scaleEffect(y: breathing ? 1.013 : 1.0, anchor: .bottom)
+                .animation(
+                    .easeInOut(duration: 3.6).repeatForever(autoreverses: true),
+                    value: breathing
+                )
+                // The warm halo that seats the figure in the app's story —
+                // indoor lamp light against the cold night, same as the icon.
+                .background {
+                    Ellipse()
+                        .fill(SleepColor.amber.opacity(0.16))
+                        .blur(radius: 36)
+                        .padding(-SleepSpacing.md)
+                }
                 .shadow(color: SleepColor.background.opacity(0.45), radius: 18, y: 10)
                 .accessibilityHidden(true)
+                .onAppear { if !reduceMotion { breathing = true } }
 
             VStack(spacing: SleepSpacing.sm) {
                 Text(isPastBedtime ? "Bedtime" : "Bedtime in").sectionLabel()
@@ -138,27 +153,38 @@ private struct HomeSloth: View {
     }
 }
 
-// MARK: - Schedule chips
+// MARK: - Schedule capsule
 
-/// Tiny glass capsule stating one side of tonight's window — an icon and a
-/// time, nothing to fiddle with. The schedule is edited in Settings.
-private struct ScheduleChip: View {
-    let icon: String
-    let text: String
+/// One glass capsule stating tonight's window as the single fact it is —
+/// moon + bedtime → sun + wake — rather than two disconnected chips.
+/// Read-only; the schedule is edited in Settings.
+private struct ScheduleCapsule: View {
+    let bedtime: String
+    let wake: String
 
     var body: some View {
+        HStack(spacing: SleepSpacing.md) {
+            endpoint(icon: "moon.fill", time: bedtime)
+            Image(systemName: "arrow.right")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(SleepColor.muted)
+            endpoint(icon: "sun.max.fill", time: wake)
+        }
+        .padding(.horizontal, SleepSpacing.xl)
+        .frame(height: 36)
+        .liquidGlass(cornerRadius: SleepRadius.pill)
+    }
+
+    private func endpoint(icon: String, time: String) -> some View {
         HStack(spacing: SleepSpacing.sm) {
             Image(systemName: icon)
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(SleepColor.amber)
-            Text(text)
+            Text(time)
                 .font(SleepFont.label(14))
                 .foregroundStyle(SleepColor.dim)
                 .monospacedDigit()
         }
-        .padding(.horizontal, SleepSpacing.lg)
-        .frame(height: 36)
-        .liquidGlass(cornerRadius: SleepRadius.pill)
     }
 }
 
