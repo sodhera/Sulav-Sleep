@@ -37,6 +37,7 @@
 		F100000000000000000FE2 /* SleepConfirmationPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000FE1 /* SleepConfirmationPanel.swift */; };
 		F400000000000000000000AC /* SulavSleepWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F400000000000000000000A2 /* SulavSleepWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		F400000000000000000000C1 /* SulavSleepWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F400000000000000000000B1 /* SulavSleepWidget.swift */; };
+		F400000000000000000000E2 /* WidgetAssets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F400000000000000000000E1 /* WidgetAssets.xcassets */; };
 		F400000000000000000000C2 /* SleepWidgetShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000000E1 /* SleepWidgetShared.swift */; };
 		F400000000000000000000C3 /* SleepTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = F69F492AFB4609915E10F59C /* SleepTheme.swift */; };
 		F400000000000000000000C4 /* SleepFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 316EF63C74A39E0CE6D1D1BE /* SleepFormatting.swift */; };
@@ -136,6 +137,7 @@
 		F400000000000000000000B2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = SulavSleepWidget/Info.plist; sourceTree = "<group>"; };
 		F400000000000000000000B3 /* SulavSleepWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = SulavSleepWidget.entitlements; path = SulavSleepWidget/SulavSleepWidget.entitlements; sourceTree = "<group>"; };
 		F400000000000000000000B4 /* SulavSleepLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SulavSleepLiveActivity.swift; path = SulavSleepWidget/SulavSleepLiveActivity.swift; sourceTree = "<group>"; };
+		F400000000000000000000E1 /* WidgetAssets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = WidgetAssets.xcassets; path = SulavSleepWidget/WidgetAssets.xcassets; sourceTree = "<group>"; };
 		F500000000000000000000A2 /* SulavSleepMonitor.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SulavSleepMonitor.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		F500000000000000000000B1 /* SulavSleepMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SulavSleepMonitor.swift; path = SulavSleepMonitor/SulavSleepMonitor.swift; sourceTree = "<group>"; };
 		F500000000000000000000B2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = SulavSleepMonitor/Info.plist; sourceTree = "<group>"; };
@@ -275,6 +277,7 @@
 			children = (
 				F400000000000000000000B1 /* SulavSleepWidget.swift */,
 				F400000000000000000000B4 /* SulavSleepLiveActivity.swift */,
+				F400000000000000000000E1 /* WidgetAssets.xcassets */,
 				F400000000000000000000B2 /* Info.plist */,
 				F400000000000000000000B3 /* SulavSleepWidget.entitlements */,
 			);
@@ -348,6 +351,7 @@
 			buildPhases = (
 				F400000000000000000000A3 /* Sources */,
 				F400000000000000000000A4 /* Frameworks */,
+				F400000000000000000000E3 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -484,6 +488,14 @@
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
 				83B718F7C4B4F234291D6F95 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F400000000000000000000E3 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F400000000000000000000E2 /* WidgetAssets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
