@@ -105,8 +105,10 @@ target can inject fakes without new hooks.
   logging, last-night summary, empty states, Health import indicator.
 - `ProfileView.swift`: the Profile tab — the app's single "about you" surface.
   The tab body (`ProfileRootScreen`) is identity (editable name, account email)
-  plus the sleep record (weekly chart, averages, recent nights with source
-  badges, an "All nights" pushed page when history exceeds seven). A gear in the
+  plus the sleep record (the `RecordBars` weekly chart — the widgets' 7-slot
+  bar rhythm with a target hairline and hairline stubs for unlogged nights —
+  averages, recent nights with source badges and score-colored numerals, an
+  "All nights" pushed page when history exceeds seven). A gear in the
   top-right opens `SettingsModal` via `.fullScreenCover`; the body carries no
   configuration itself. `SettingsModal` is a full-screen cover with its own
   `NavigationStack`: Sleep schedule (`ScheduleScreen`), Blocked apps

@@ -211,20 +211,10 @@ private struct ProfileRootScreen: View {
                 }
                 .padding(.top, SleepSpacing.xs)
             } else {
-                WeeklyChart(sessions: lastSeven)
-                    .frame(height: 132)
-
-                HStack {
-                    ForEach(lastSeven) { session in
-                        Text(SleepFormatting.narrowWeekday.string(from: session.end))
-                            .font(SleepFont.body(11))
-                            .foregroundStyle(session.id == lastSeven.last?.id ? SleepColor.amber : SleepColor.faint)
-                            .frame(maxWidth: .infinity)
-                    }
-                }
+                RecordBars(sessions: lastSeven, target: store.targetMinutes)
 
                 historyList
-                    .padding(.top, SleepSpacing.xl)
+                    .padding(.top, SleepSpacing.xxxl)
             }
         }
         .padding(.top, SleepSpacing.huge)
@@ -233,9 +223,10 @@ private struct ProfileRootScreen: View {
     private var historyList: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text("Recent nights")
-                    .font(SleepFont.body(13))
-                    .foregroundStyle(SleepColor.muted)
+                // Same small-caps kicker grammar as every other section, so
+                // the list reads as a deliberate subsection rather than a
+                // stray line of body copy.
+                Text("Recent nights").sectionLabel()
                 Spacer()
                 if sessions.contains(where: { $0.source == .healthKit }) {
                     Label("Apple Health", systemImage: "heart.fill")
@@ -243,7 +234,7 @@ private struct ProfileRootScreen: View {
                         .foregroundStyle(SleepColor.muted)
                 }
             }
-            .padding(.bottom, SleepSpacing.xs)
+            .padding(.bottom, SleepSpacing.sm)
 
             ForEach(Array(lastSeven.reversed().enumerated()), id: \.element.id) { index, session in
                 HistoryRow(session: session)
@@ -737,120 +728,148 @@ private struct HistoryRow: View {
                 }
                 Text(SleepFormatting.duration(session.durationMinutes))
                     .font(SleepFont.body(13))
-                    .foregroundStyle(SleepColor.muted)
+                    .foregroundStyle(SleepColor.dim)
+                    .monospacedDigit()
             }
 
             Spacer()
 
-            ProgressView(value: Double(session.score), total: 100)
-                .tint(SleepColor.gold)
-                .frame(width: 70)
+            // Slim custom meter instead of a stock ProgressView: a quiet
+            // track with a fill tinted by the score color, always paired
+            // with the numeral so the reading never rides on color alone.
+            Capsule()
+                .fill(Color.white.opacity(0.08))
+                .frame(width: 64, height: 4)
+                .overlay(alignment: .leading) {
+                    Capsule()
+                        .fill(recordScoreColor(session.score))
+                        .frame(width: 64 * CGFloat(min(max(session.score, 0), 100)) / 100)
+                }
 
+            // Score numerals keep the app's coloring (gold ≥ 80, ink 60–79,
+            // danger < 60) in a fixed trailing spot, same as Home and the
+            // widgets.
             Text("\(session.score)")
-                .font(SleepFont.title(17))
-                .foregroundStyle(SleepColor.ink)
-                .frame(width: 34, alignment: .trailing)
+                .font(SleepFont.title(19))
+                .foregroundStyle(recordScoreColor(session.score))
+                .frame(width: 36, alignment: .trailing)
                 .monospacedDigit()
         }
         .padding(.vertical, SleepSpacing.lg)
     }
 }
 
-private struct WeeklyChart: View {
+private func recordScoreColor(_ score: Int) -> Color {
+    switch score {
+    case 80...: return SleepColor.gold
+    case 60..<80: return SleepColor.ink
+    default: return SleepColor.danger
+    }
+}
+
+/// The widgets' 7-night bar rhythm brought home (see DESIGN.md "Widgets"):
+/// exactly 7 fixed-width columns with the latest night rightmost, gold→amber
+/// capsules against a quiet target hairline (~15% headroom keeps it a
+/// reference line *inside* the chart), hours set in navy ink inside each
+/// bar's bottom, weekday initials underneath every slot. Nights not yet
+/// logged render as hairline stubs, so a young record honestly reads as a
+/// week filling in — never a lone value stretched across the full width the
+/// way the retired smoothed line chart did.
+private struct RecordBars: View {
     let sessions: [SleepSession]
+    let target: Int
+
+    private static let slotCount = 7
+    private static let barWidth: CGFloat = 28
+    private let chartHeight: CGFloat = 120
+
+    /// Fixed 7 columns, latest night in the rightmost slot; missing nights
+    /// lead-pad as nil.
+    private var slots: [SleepSession?] {
+        let recent = Array(sessions.suffix(Self.slotCount))
+        return Array(repeating: nil, count: Self.slotCount - recent.count) + recent
+    }
 
     var body: some View {
-        GeometryReader { proxy in
-            Canvas { context, size in
-                let points = chartPoints(size: size)
-                guard points.count > 1 else {
-                    if let only = points.first {
-                        context.fill(
-                            Path(ellipseIn: CGRect(x: only.x - 5, y: only.y - 5, width: 10, height: 10)),
-                            with: .color(SleepColor.amber)
-                        )
+        let maxNight = sessions.map(\.durationMinutes).max() ?? target
+        let scaleMinutes = CGFloat(max(target, maxNight)) * 1.15
+        let targetFraction = CGFloat(target) / scaleMinutes
+
+        VStack(spacing: SleepSpacing.sm) {
+            HStack(alignment: .bottom, spacing: SleepSpacing.sm) {
+                ForEach(Array(slots.enumerated()), id: \.offset) { index, session in
+                    if let session {
+                        let barHeight = max(6, chartHeight * CGFloat(session.durationMinutes) / scaleMinutes)
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: [SleepColor.gold, SleepColor.amber],
+                                    startPoint: .top, endPoint: .bottom
+                                )
+                            )
+                            .overlay(alignment: .bottom) {
+                                // Bottom-anchored so every label sits on one
+                                // shared baseline regardless of bar height;
+                                // bars too short to hold it drop it.
+                                if barHeight >= 26 {
+                                    Text(hoursLabel(session.durationMinutes))
+                                        .font(SleepFont.label(10))
+                                        .foregroundStyle(SleepColor.navy)
+                                        .monospacedDigit()
+                                        .minimumScaleFactor(0.6)
+                                        .lineLimit(1)
+                                        .padding(.bottom, 6)
+                                        .padding(.horizontal, 2)
+                                }
+                            }
+                            .opacity(index == Self.slotCount - 1 ? 1 : 0.62)
+                            // Capped width: at phone width a full slot reads
+                            // as a blobby pill, not a chart bar.
+                            .frame(maxWidth: Self.barWidth)
+                            .frame(height: barHeight)
+                            .frame(maxWidth: .infinity, alignment: .bottom)
+                    } else {
+                        Capsule().fill(SleepColor.hairline)
+                            .frame(maxWidth: Self.barWidth)
+                            .frame(height: 4)
+                            .frame(maxWidth: .infinity, alignment: .bottom)
                     }
-                    return
-                }
-
-                for hour in [8.0, 7.0, 6.0, 5.0] {
-                    let y = yPosition(hours: hour, height: size.height)
-                    var grid = Path()
-                    grid.move(to: CGPoint(x: 0, y: y))
-                    grid.addLine(to: CGPoint(x: size.width, y: y))
-                    context.stroke(grid, with: .color(SleepColor.hairline), lineWidth: 1)
-                }
-
-                let line = smoothPath(points: points)
-                var fill = line
-                fill.addLine(to: CGPoint(x: points.last?.x ?? size.width, y: size.height - 16))
-                fill.addLine(to: CGPoint(x: points.first?.x ?? 0, y: size.height - 16))
-                fill.closeSubpath()
-
-                context.fill(
-                    fill,
-                    with: .linearGradient(
-                        Gradient(colors: [SleepColor.amber.opacity(0.24), SleepColor.amber.opacity(0)]),
-                        startPoint: .zero,
-                        endPoint: CGPoint(x: 0, y: size.height)
-                    )
-                )
-                context.stroke(
-                    line,
-                    with: .linearGradient(
-                        Gradient(colors: [SleepColor.gold, SleepColor.amber]),
-                        startPoint: .zero,
-                        endPoint: CGPoint(x: size.width, y: 0)
-                    ),
-                    style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round)
-                )
-
-                if let last = points.last {
-                    context.fill(
-                        Path(ellipseIn: CGRect(x: last.x - 5.5, y: last.y - 5.5, width: 11, height: 11)),
-                        with: .color(SleepColor.amber)
-                    )
-                    context.stroke(
-                        Path(ellipseIn: CGRect(x: last.x - 10, y: last.y - 10, width: 20, height: 20)),
-                        with: .color(SleepColor.amber.opacity(0.35)), lineWidth: 1.5
-                    )
                 }
             }
-            .frame(width: proxy.size.width, height: proxy.size.height)
+            .frame(height: chartHeight, alignment: .bottom)
+            .overlay(alignment: .bottom) {
+                // Target sleep window, as a quiet reference line.
+                Rectangle()
+                    .fill(SleepColor.ink.opacity(0.18))
+                    .frame(height: 1)
+                    .offset(y: -chartHeight * targetFraction)
+            }
+
+            HStack(spacing: SleepSpacing.sm) {
+                ForEach(Array(slots.enumerated()), id: \.offset) { index, session in
+                    Text(session.map { SleepFormatting.narrowWeekday.string(from: $0.end) } ?? " ")
+                        .font(SleepFont.label(11))
+                        .foregroundStyle(index == Self.slotCount - 1 ? SleepColor.amber : SleepColor.faint)
+                        .frame(maxWidth: .infinity)
+                }
+            }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilitySummary)
     }
 
-    private func chartPoints(size: CGSize) -> [CGPoint] {
-        let values = sessions.map { Double($0.durationMinutes) / 60 }
-        return values.enumerated().map { index, value in
-            CGPoint(
-                x: CGFloat(index) / CGFloat(max(values.count - 1, 1)) * size.width,
-                y: yPosition(hours: min(9, max(4.5, value)), height: size.height)
-            )
-        }
+    /// Hours for a bar: "7h" for whole hours, else one decimal ("7.5h").
+    private func hoursLabel(_ minutes: Int) -> String {
+        let hours = Double(minutes) / 60
+        let rounded = (hours * 10).rounded() / 10
+        return rounded == rounded.rounded()
+            ? "\(Int(rounded))h"
+            : String(format: "%.1fh", rounded)
     }
 
-    private func yPosition(hours: Double, height: CGFloat) -> CGFloat {
-        let padTop: CGFloat = 14
-        let padBottom: CGFloat = 16
-        let plotHeight = height - padTop - padBottom
-        return padTop + (1 - CGFloat((hours - 4.5) / (9 - 4.5))) * plotHeight
-    }
-
-    private func smoothPath(points: [CGPoint]) -> Path {
-        var path = Path()
-        path.move(to: points[0])
-        for index in 0..<(points.count - 1) {
-            let p0 = points[max(index - 1, 0)]
-            let p1 = points[index]
-            let p2 = points[index + 1]
-            let p3 = points[min(index + 2, points.count - 1)]
-            path.addCurve(
-                to: p2,
-                control1: CGPoint(x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6),
-                control2: CGPoint(x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6)
-            )
-        }
-        return path
+    private var accessibilitySummary: String {
+        guard let latest = sessions.last else { return "No nights logged yet" }
+        let nights = sessions.count == 1 ? "1 night" : "\(sessions.count) nights"
+        return "Sleep chart, \(nights) logged. Last night \(SleepFormatting.duration(latest.durationMinutes))."
     }
 }

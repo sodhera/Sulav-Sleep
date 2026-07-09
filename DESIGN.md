@@ -304,6 +304,29 @@ Two tabs, each with exactly one job:
   nights" page once history grows). A gear in the top-right opens Settings;
   the body itself stays a clean identity + record, with no configuration
   mixed in.
+
+  The record chart is the **widgets' 7-night bar rhythm brought home** — one
+  chart language on every surface. Exactly 7 fixed-width columns, latest
+  night rightmost: gold→amber capsules (latest full-strength, earlier nights
+  receding to ~60%) against the quiet target hairline with ~15% headroom,
+  hours set in navy ink inside each bar's bottom, weekday initials under
+  every slot (latest in amber). Nights not yet logged render as hairline
+  stubs, so a young record honestly reads as a week filling in.
+
+  > Note on history: the record chart was previously a smoothed amber
+  > line-with-area. Retired: it clamped every night into a 4.5–9h band (a
+  > 1-minute test night drew at the 4.5h floor — dishonest data) and
+  > index-spread the logged nights across the full width, so two nights
+  > became a flat full-width laser line. The bar rhythm shows sparse
+  > records truthfully and matches the widgets.
+
+  **Recent nights** is a small-caps kicker (the same section-label grammar
+  as everything else) over hairline-divided rows: date + source glyph over
+  the duration on the left; on the right a slim 4pt score meter (quiet white
+  track, fill tinted by the score color) beside the score numeral in the
+  app's score coloring (gold ≥ 80, ink 60–79, danger < 60) at a fixed
+  trailing spot — color always paired with the number, never carrying the
+  reading alone. No stock `ProgressView` chrome.
   The blocked block is a section label over an **interactive glass row** —
   containers are reserved for tappable controls, and the glass is what says
   "you can press this"; plain floating text read as static copy. Before any
