@@ -178,7 +178,14 @@ target can inject fakes without new hooks.
   comes from the device-tilt motion effect only.
 - `SleepAssetCache.swift`: launch-time decode cache for the pixel city layers so
   the first interactive onboarding steps do not pay image decode cost.
-- `SleepTheme.swift`: palette, spacing, radius, typography, `Haptics`.
+- `SleepTheme.swift`: palette, spacing, radius, typography, `Haptics`, and
+  `RisingZs` — the animated rising-z chain (the icon's ZZZ, alive),
+  parameterized by color and scale. It runs full-size in emberDim on the
+  sleep screen (`SleepModeView`) and in gold on `SlothBrandMark`
+  (`OnboardingView.swift` — app target only, since the mark needs `CityPhase`
+  and the Home sloth art), the brand mark shown on the welcome screen, the
+  standalone "Welcome back" sign-in screen, and the questionnaire header's
+  top-right (hidden chevron-twin) slot.
 - `SleepFormatting.swift`: date/time/duration formatting.
 - `SleepIntents.swift`: App Intents (start sleep, open app).
 - `Log.swift`: logging + signpost tracing.

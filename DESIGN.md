@@ -435,11 +435,34 @@ subtitle lines inside rows.
 
 ## Onboarding & auth
 
-Two independent paths from a type-led welcome screen (kicker, brand hero,
-tagline, no artwork in the UI layer): a primary "Get started" and a quiet "I
-already have an account". The two paths are never linked to each other — the
-choice is made here, so neither downstream screen carries an "already have an
-account?" cross-link. Someone who picks wrong just backs out to welcome.
+Two independent paths from a type-led welcome screen (brand mark, kicker,
+brand hero, tagline): a primary "Get started" and a quiet "I already have an
+account". The two paths are never linked to each other — the choice is made
+here, so neither downstream screen carries an "already have an account?"
+cross-link. Someone who picks wrong just backs out to welcome.
+
+The **brand mark** (`SlothBrandMark`, `OnboardingView.swift`) is the app icon
+alive in the UI layer: the sleeping sloth — the home art's closed-eye frame,
+wearing the scene's current light (`HomeSloth{Day,Dusk,Night}Blink`) over the
+same warm halo that seats Home's sloth — with the icon's static gold ZZZ
+replaced by the sleep screen's rising-z chain (`RisingZs`, now shared from
+`SleepTheme.swift` and parameterized by color and scale: emberDim at full
+size on the sleep screen, gold on the mark). It appears in exactly three
+places: above the wordmark on the welcome screen, above the "Welcome back"
+title on the standalone sign-in screen, and small in the questionnaire
+header's top-right corner — where it rides the hidden chevron-twin slot, so
+the progress bar stays centered and the sign-up flow (including its account
+step) stays branded without a second large mark. Small marks keep
+deliberately oversized z's — like the icon's ZZZ — so the animation stays
+legible at corner sizes; under Reduce Motion the chain freezes into the
+icon's static diagonal everywhere. The mark is decorative only: hidden from
+accessibility, never a tap target.
+
+> Note on history: the welcome screen was previously deliberately type-led
+> with *no* artwork in the UI layer. The brand mark supersedes that — the
+> sloth is the identity on every other surface (Home, widgets, sleep screen,
+> the icon itself), and the pre-app gate was the one place the brand never
+> showed its face.
 
 Sign-up runs the questionnaire *before* asking for an account — people who have
 answered a few personal questions complete sign-up at a higher rate — and the
@@ -457,7 +480,8 @@ Profile settings section still has the toggle.
 
 Questionnaire chrome: a 3pt amber-gradient progress capsule between a round
 glass back chevron and a hidden twin of it (so the bar stays centered at
-whatever size the system draws the button), editorial left-aligned questions
+whatever size the system draws the button — the twin's slot carries the small
+brand mark, per above), editorial left-aligned questions
 (small-caps kicker → 28pt title → dim supporting line → control), and
 directional slide+fade step transitions (~280ms). Multi-select answers use
 full-width capsule glass rows — muted icon, ink label, trailing circle that
