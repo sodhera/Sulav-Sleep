@@ -56,24 +56,34 @@ struct SulavSleepApp: App {
                 }
                 .onOpenURL { url in
                     // sleepblock://sleep arrives from the widget capsule and
-                    // the shield action extension. It never starts a session
-                    // directly — the slide-to-sleep gesture is the only way a
-                    // night begins — it opens Home's confirmation panel, the
-                    // same screen an in-app Sleep Now tap shows. Signed-out
-                    // taps just open the app (RootView lands on welcome), and
-                    // mid-session taps land on SleepModeView, both untouched.
-                    // (sleepblock://signin, from the widget's signed-out
-                    // capsule, needs no handling: opening the app is enough.)
+                    // the shield action extension. (sleepblock://signin, from
+                    // the widget's signed-out capsule, needs no handling:
+                    // opening the app is enough — RootView lands on welcome.)
                     guard url.scheme == "sleepblock", url.host == "sleep" else { return }
                     AppLog.app.info("Opened via sleepblock://sleep URL")
-                    if store.activeSession == nil, store.isAuthenticated, store.isOnboarded {
-                        Haptics.soft()
-                        store.selectedTab = .home
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            store.showSleepConfirmation = true
-                        }
-                    }
+                    openSleepConfirmation()
                 }
+                .onReceive(NotificationCenter.default.publisher(for: .sleepConfirmationRequested)) { _ in
+                    // Siri / Shortcuts ("Sleep Now" intent), after the system
+                    // foregrounds the app.
+                    AppLog.app.info("Sleep confirmation requested via App Intent")
+                    openSleepConfirmation()
+                }
+        }
+    }
+
+    /// Every external "sleep" entry point — widget capsule, shield action,
+    /// Siri intent — lands here, and none of them starts the session: this
+    /// only raises Home's slide-to-sleep confirmation, because the slide
+    /// gesture is the only way a night begins. Signed-out or mid-session
+    /// requests do nothing (RootView is already showing welcome or
+    /// SleepModeView).
+    private func openSleepConfirmation() {
+        guard store.activeSession == nil, store.isAuthenticated, store.isOnboarded else { return }
+        Haptics.soft()
+        store.selectedTab = .home
+        withAnimation(.easeInOut(duration: 0.3)) {
+            store.showSleepConfirmation = true
         }
     }
 }

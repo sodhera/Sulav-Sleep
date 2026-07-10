@@ -769,10 +769,6 @@ struct SleepPersistence {
 
     func markCloudSeedChecked(accountID: String) { defaults.set(accountID, forKey: cloudSeedCheckedKey) }
 
-    func startSleepFromIntent() {
-        encode(ActiveSleepSession(start: Date()), forKey: activeKey)
-    }
-
     private func decode<T: Decodable>(_ type: T.Type, forKey key: String) -> T? {
         guard let data = defaults.data(forKey: key) else { return nil }
         return try? decoder.decode(type, from: data)

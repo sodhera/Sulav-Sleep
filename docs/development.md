@@ -463,7 +463,13 @@ Apple Developer capability, Google Cloud OAuth client).
 
 ## App Intents
 
-- `StartSleepIntent`: starts a session without opening the app.
+- `StartSleepIntent` ("Sleep Now"): opens the app on Home's slide-to-sleep
+  confirmation (`openAppWhenRun` + a `.sleepConfirmationRequested`
+  notification the app scene observes). It deliberately does *not* start a
+  session — the slide gesture is the only way a night begins, on every
+  surface: in-app button, widget capsule, shield action, and Siri alike.
+  (Historical note: it used to write an active session straight into the
+  App Group without opening the app.)
 - `OpenSleepHomeIntent`: opens SleepBlock.
 - `SulavSleepShortcuts`: exposes both to Shortcuts/Siri/Spotlight.
 

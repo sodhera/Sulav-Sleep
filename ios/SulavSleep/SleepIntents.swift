@@ -1,13 +1,30 @@
 import AppIntents
 import Foundation
 
-struct StartSleepIntent: AppIntent {
-    static var title: LocalizedStringResource = "Start Sleep"
-    static var description = IntentDescription("Starts a SleepBlock session without opening the app.")
+extension Notification.Name {
+    /// Posted by `StartSleepIntent` after the system foregrounds the app —
+    /// `SulavSleepApp` responds by raising Home's slide-to-sleep
+    /// confirmation (the same handler as the `sleepblock://sleep` deep
+    /// link). The intent runs in the app's own process with
+    /// `openAppWhenRun`, so the view hierarchy is mounted before this fires.
+    static let sleepConfirmationRequested = Notification.Name("sleepConfirmationRequested")
+}
 
-    func perform() async throws -> some IntentResult & ProvidesDialog {
-        SleepPersistence.shared.startSleepFromIntent()
-        return .result(dialog: "Sleep started.")
+/// Opens the app on the slide-to-sleep confirmation. Deliberately does NOT
+/// start the session: the slide gesture is the only way a night begins, on
+/// every surface — in-app button, widget capsule, shield action, and Siri
+/// alike. (This intent used to write an active session straight into the
+/// App Group without opening the app; that skipped the commitment gesture
+/// and is retired.)
+struct StartSleepIntent: AppIntent {
+    static var title: LocalizedStringResource = "Sleep Now"
+    static var description = IntentDescription("Opens SleepBlock ready to slide to sleep.")
+    static var openAppWhenRun = true
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        NotificationCenter.default.post(name: .sleepConfirmationRequested, object: nil)
+        return .result()
     }
 }
 
@@ -29,7 +46,7 @@ struct SulavSleepShortcuts: AppShortcutsProvider {
                 "Start sleep in \(.applicationName)",
                 "Begin sleep in \(.applicationName)"
             ],
-            shortTitle: "Start Sleep",
+            shortTitle: "Sleep Now",
             systemImageName: "moon.fill"
         )
 
@@ -44,4 +61,3 @@ struct SulavSleepShortcuts: AppShortcutsProvider {
         )
     }
 }
-
