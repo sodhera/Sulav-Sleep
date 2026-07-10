@@ -737,8 +737,9 @@ private struct HistoryRow: View {
 /// The widgets' 7-night bar rhythm brought home (see DESIGN.md "Widgets"):
 /// exactly 7 fixed-width columns with the latest night rightmost, gold→amber
 /// capsules against a quiet target hairline (~15% headroom keeps it a
-/// reference line *inside* the chart), hours set in navy ink inside each
-/// bar's bottom, weekday initials underneath every slot. Nights not yet
+/// reference line *inside* the chart), every bar's hours on one shared plane
+/// via `BarHoursLabel` (navy inside the bar, gold above it, split at the
+/// bar's edge), weekday initials underneath every slot. Nights not yet
 /// logged render as hairline stubs, so a young record honestly reads as a
 /// week filling in — never a lone value stretched across the full width the
 /// way the retired smoothed line chart did.
@@ -767,34 +768,27 @@ private struct RecordBars: View {
                 ForEach(Array(slots.enumerated()), id: \.offset) { index, session in
                     if let session {
                         let barHeight = max(6, chartHeight * CGFloat(session.durationMinutes) / scaleMinutes)
-                        Capsule()
-                            .fill(
-                                LinearGradient(
-                                    colors: [SleepColor.gold, SleepColor.amber],
-                                    startPoint: .top, endPoint: .bottom
+                        ZStack(alignment: .bottom) {
+                            Capsule()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [SleepColor.gold, SleepColor.amber],
+                                        startPoint: .top, endPoint: .bottom
+                                    )
                                 )
+                                // Capped width: at phone width a full slot
+                                // reads as a blobby pill, not a chart bar.
+                                .frame(maxWidth: Self.barWidth)
+                                .frame(height: barHeight)
+                            BarHoursLabel(
+                                text: hoursLabel(session.durationMinutes),
+                                fontSize: 10,
+                                plane: 6,
+                                barHeight: barHeight
                             )
-                            .overlay(alignment: .bottom) {
-                                // Bottom-anchored so every label sits on one
-                                // shared baseline regardless of bar height;
-                                // bars too short to hold it drop it.
-                                if barHeight >= 26 {
-                                    Text(hoursLabel(session.durationMinutes))
-                                        .font(SleepFont.label(10))
-                                        .foregroundStyle(SleepColor.navy)
-                                        .monospacedDigit()
-                                        .minimumScaleFactor(0.6)
-                                        .lineLimit(1)
-                                        .padding(.bottom, 6)
-                                        .padding(.horizontal, 2)
-                                }
-                            }
-                            .opacity(index == Self.slotCount - 1 ? 1 : 0.62)
-                            // Capped width: at phone width a full slot reads
-                            // as a blobby pill, not a chart bar.
-                            .frame(maxWidth: Self.barWidth)
-                            .frame(height: barHeight)
-                            .frame(maxWidth: .infinity, alignment: .bottom)
+                        }
+                        .opacity(index == Self.slotCount - 1 ? 1 : 0.62)
+                        .frame(maxWidth: .infinity, alignment: .bottom)
                     } else {
                         Capsule().fill(SleepColor.hairline)
                             .frame(maxWidth: Self.barWidth)

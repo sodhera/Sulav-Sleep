@@ -308,9 +308,11 @@ Two tabs, each with exactly one job:
   chart language on every surface. Exactly 7 fixed-width columns, latest
   night rightmost: gold→amber capsules (latest full-strength, earlier nights
   receding to ~60%) against the quiet target hairline with ~15% headroom,
-  hours set in navy ink inside each bar's bottom, weekday initials under
-  every slot (latest in amber). Nights not yet logged render as hairline
-  stubs, so a young record honestly reads as a week filling in.
+  every bar's hours on the shared label plane (`BarHoursLabel` — navy inside
+  the bar, gold above it, split at the bar's edge; see the widget bar rules),
+  weekday initials under every slot (latest in amber). Nights not yet logged
+  render as hairline stubs, so a young record honestly reads as a week
+  filling in.
 
   > Note on history: the record chart was previously a smoothed amber
   > line-with-area. Retired: it clamped every night into a 4.5–9h band (a
@@ -567,12 +569,14 @@ Rules:
   the tallest value (usually the target), so the target hairline reads as a
   reference line *inside* the chart rather than a stray rule flush against
   its top edge.
-  Each bar carries the hours slept that night as a 9pt navy-ink label set
-  inside its *bottom* (the amber-fill/navy-ink pairing from the primary
-  button) — bottom-anchored so every label sits on one shared baseline no
-  matter the bar heights: "7.5h" on the large widget, whole-number "7" in the
-  medium widget's narrower columns. Bars too short to hold the label drop it
-  rather than overflow.
+  **Every bar carries its hours, on one shared horizontal plane** just above
+  the chart floor (`BarHoursLabel` in `SleepTheme.swift`, shared with the
+  Profile record chart): "7.5h" on the large widget, whole-number "7" in the
+  medium widget's narrower columns. The bar either swallows the number,
+  misses it, or catches it mid-glyph — and the number's color splits exactly
+  at the bar's top edge, navy ink inside the amber bar, gold above it on the
+  night, via two complementary masks. No fit-threshold guessing, and a short
+  night never loses its figure.
 - Honest data only. A placed widget with no history shows "Log a night" /
   "Set a schedule" — never fake numbers. The one exception is the
   widget-gallery preview (`context.isPreview`), which shows sample content so

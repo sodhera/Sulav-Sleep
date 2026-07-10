@@ -137,6 +137,64 @@ extension View {
     }
 }
 
+// MARK: - Sleep-bar hour label
+//
+// Shared by the Profile record chart and the widget bars (this file compiles
+// in both targets), so the chart language stays one system.
+
+/// The hour figure a sleep bar carries. Every label in a chart sits on one
+/// shared horizontal plane just above the chart floor — the bar either
+/// swallows it, misses it, or catches it mid-glyph. The color splits exactly
+/// at the bar's top edge: navy ink where the glyphs sit inside the amber
+/// bar, gold where they rise above it into the night. The split is masked at
+/// the geometry (two complementary masks, no overlap), so a half-in,
+/// half-out number stays legible on both grounds with no threshold guessing.
+///
+/// Layer it *after* the bar in a bottom-aligned `ZStack`, passing the bar's
+/// rendered height.
+struct BarHoursLabel: View {
+    let text: String
+    let fontSize: CGFloat
+    /// The label's lift off the chart floor — the shared plane.
+    let plane: CGFloat
+    let barHeight: CGFloat
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            // The part above the bar, on the night.
+            styled(SleepColor.gold)
+                .mask(alignment: .bottom) {
+                    Rectangle()
+                        .overlay(alignment: .bottom) {
+                            Rectangle()
+                                .frame(height: barHeight)
+                                .blendMode(.destinationOut)
+                        }
+                        .compositingGroup()
+                }
+            // The part inside the bar.
+            styled(SleepColor.navy)
+                .mask(alignment: .bottom) {
+                    Rectangle()
+                        .frame(height: barHeight)
+                        .frame(maxHeight: .infinity, alignment: .bottom)
+                }
+        }
+        .accessibilityHidden(true) // charts summarize themselves
+    }
+
+    private func styled(_ color: Color) -> some View {
+        Text(text)
+            .font(SleepFont.label(fontSize))
+            .foregroundStyle(color)
+            .monospacedDigit()
+            .minimumScaleFactor(0.6)
+            .lineLimit(1)
+            .padding(.horizontal, 1)
+            .padding(.bottom, plane)
+    }
+}
+
 // MARK: - Haptics
 //
 // Gentle, sparingly used. A soft tap for entering/leaving sleep, a success

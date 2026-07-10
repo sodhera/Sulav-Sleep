@@ -857,10 +857,9 @@ private struct SleepNowButton: View {
 
 /// The 7-night rhythm: duration bars against a target hairline. The latest
 /// night is full-strength; earlier nights recede slightly, so "how did I do
-/// last night" reads first and the week reads second. Each bar carries the
-/// hours slept that night as a small navy-ink label set *inside* its top —
-/// the amber-fill/navy-ink pairing from the primary button. Bars too short
-/// to hold the label drop it rather than overflow.
+/// last night" reads first and the week reads second. Every bar carries its
+/// hours on one shared plane via `BarHoursLabel` (navy inside the bar, gold
+/// above it, split at the bar's edge), so short nights keep their number.
 ///
 /// The chart always lays out exactly 7 fixed-width columns. Nights the user
 /// hasn't logged yet render as the quiet hairline stubs from the empty state,
@@ -897,31 +896,26 @@ private struct SleepBars: View {
                 ForEach(Array(slots.enumerated()), id: \.offset) { index, night in
                     if let night {
                         let barHeight = max(6, height * CGFloat(night.durationMinutes) / scaleMinutes)
-                        Capsule()
-                            .fill(
-                                LinearGradient(
-                                    colors: [SleepColor.gold, SleepColor.amber],
-                                    startPoint: .top, endPoint: .bottom
+                        ZStack(alignment: .bottom) {
+                            Capsule()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [SleepColor.gold, SleepColor.amber],
+                                        startPoint: .top, endPoint: .bottom
+                                    )
                                 )
+                                .frame(height: barHeight)
+                                .frame(maxWidth: .infinity)
+                                .widgetAccentable()
+                            BarHoursLabel(
+                                text: hoursLabel(night.durationMinutes),
+                                fontSize: 9,
+                                plane: 5,
+                                barHeight: barHeight
                             )
-                            .overlay(alignment: .bottom) {
-                                // Bottom-anchored so every label sits on the
-                                // same baseline regardless of bar height.
-                                if barHeight >= 20 {
-                                    Text(hoursLabel(night.durationMinutes))
-                                        .font(SleepFont.label(9))
-                                        .foregroundStyle(SleepColor.navy)
-                                        .monospacedDigit()
-                                        .minimumScaleFactor(0.6)
-                                        .lineLimit(1)
-                                        .padding(.bottom, 5)
-                                        .padding(.horizontal, 1)
-                                }
-                            }
-                            .opacity(index == Self.slotCount - 1 ? 1 : 0.62)
-                            .frame(height: barHeight)
-                            .frame(maxWidth: .infinity, alignment: .bottom)
-                            .widgetAccentable()
+                        }
+                        .opacity(index == Self.slotCount - 1 ? 1 : 0.62)
+                        .frame(maxWidth: .infinity, alignment: .bottom)
                     } else {
                         Capsule().fill(SleepColor.hairline).frame(height: 4)
                             .frame(maxWidth: .infinity, alignment: .bottom)
