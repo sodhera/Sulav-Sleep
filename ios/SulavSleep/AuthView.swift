@@ -34,7 +34,10 @@ struct AuthView: View {
                 .padding(.top, SleepSpacing.md)
             }
 
-            AuthMethodsView(store: store, intent: intent, onSwipeBack: swipeBackAction)
+            // The standalone screen carries the brand mark above its title;
+            // the sign-up flow's embedding doesn't — there the mark already
+            // rides the questionnaire header's top-right corner.
+            AuthMethodsView(store: store, intent: intent, showsBrandMark: true, onSwipeBack: swipeBackAction)
         }
         .safeAreaPadding(.top)
         .safeAreaPadding(.bottom)
@@ -57,6 +60,11 @@ struct AuthView: View {
 struct AuthMethodsView: View {
     @Bindable var store: SleepStore
     let intent: AuthIntent
+    /// Whether the brand mark (sleeping sloth + rising z's) sits above the
+    /// title. On for the standalone sign-in screen; off when embedded as the
+    /// sign-up flow's account step, where the questionnaire header already
+    /// carries the mark in its top-right corner.
+    var showsBrandMark = false
     /// Where the left-edge swipe leads when there is nothing internal to
     /// unwind (the provider stack is showing) — the parent decides: back to
     /// welcome on the sign-in path, back to the wake question in the sign-up
@@ -99,6 +107,11 @@ struct AuthMethodsView: View {
             Spacer()
 
             VStack(spacing: SleepSpacing.md) {
+                if showsBrandMark {
+                    SlothBrandMark(width: 120, zScale: 0.55)
+                        .padding(.top, SleepSpacing.xl)
+                        .padding(.bottom, SleepSpacing.sm)
+                }
                 Text(title)
                     .font(SleepFont.hero(30))
                     .foregroundStyle(SleepColor.ink)

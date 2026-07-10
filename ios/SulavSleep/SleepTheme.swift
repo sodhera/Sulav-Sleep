@@ -195,6 +195,109 @@ struct BarHoursLabel: View {
     }
 }
 
+// MARK: - Rising z's
+//
+// The app icon's ZZZ, alive. `RisingZs` began as the sleep screen's one
+// ornament (ember z's off the night sloth's head) and is shared here so the
+// onboarding/auth brand mark (`SlothBrandMark` in OnboardingView.swift —
+// app target only, since it needs `CityPhase` and the Home sloth art) can
+// run the same chain in gold. Each z drifts
+// up the same diagonal, swells a touch, and fades out; three staggered
+// cycles mean at most two are ever visible, so it reads as slow breathing
+// rather than motion. Under Reduce Motion the chain freezes into the icon's
+// static diagonal.
+
+struct RisingZs: View {
+    /// `emberDim` on the OLED sleep screen; gold on the brand mark, where
+    /// the z's stand in for the icon's gold ZZZ.
+    var color: Color = SleepColor.emberDim
+    /// Uniform scale on the glyphs and their travel. 1 is the sleep screen's
+    /// full-size chain (tuned for a 300pt sloth).
+    var scale: CGFloat = 1
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        ZStack(alignment: .bottomLeading) {
+            if reduceMotion {
+                ForEach(Array([12.0, 14.0, 16.0].enumerated()), id: \.offset) { i, size in
+                    Text("z")
+                        .font(.system(size: size * scale, weight: .semibold))
+                        .foregroundStyle(color)
+                        .opacity(0.2 + Double(i) * 0.11)
+                        .offset(x: CGFloat(i) * 11 * scale, y: CGFloat(i) * -19 * scale)
+                }
+            } else {
+                RisingZ(color: color, scale: scale, startDelay: 0)
+                RisingZ(color: color, scale: scale, startDelay: 2.5)
+                RisingZ(color: color, scale: scale, startDelay: 5.0)
+            }
+        }
+        .accessibilityHidden(true)
+        .allowsHitTesting(false)
+    }
+}
+
+/// One z of the chain. The z is *always* in the hierarchy (invisible between
+/// rides — a conditionally-inserted view would never run its start-delay
+/// task while empty); each ride is a one-shot `keyframeAnimator` fired by a
+/// trigger, and a task loop beats that trigger every `cycle` seconds, first
+/// fire delayed by `startDelay` so the three z's hold their stagger forever.
+private struct RisingZ: View {
+    let color: Color
+    let scale: CGFloat
+    let startDelay: Double
+
+    @State private var beat = 0
+
+    private struct Phase {
+        var rise: CGFloat = 0
+        var drift: CGFloat = 0
+        var scale: CGFloat = 0.85
+        var opacity: Double = 0
+    }
+
+    /// Seconds a z is visibly rising, and the full loop length.
+    private static let active: Double = 4.5
+    private static let cycle: Double = 7.5
+
+    var body: some View {
+        Text("z")
+            .font(.system(size: 15 * scale, weight: .semibold))
+            .foregroundStyle(color)
+            .keyframeAnimator(initialValue: Phase(), trigger: beat) { view, phase in
+                view
+                    .scaleEffect(phase.scale)
+                    .opacity(phase.opacity)
+                    .offset(x: phase.drift, y: phase.rise)
+            } keyframes: { _ in
+                KeyframeTrack(\.opacity) {
+                    CubicKeyframe(0.55, duration: 1.1)
+                    LinearKeyframe(0.46, duration: 1.6)
+                    CubicKeyframe(0, duration: Self.active - 2.7)
+                }
+                KeyframeTrack(\.rise) {
+                    CubicKeyframe(-46 * scale, duration: Self.active)
+                }
+                KeyframeTrack(\.drift) {
+                    CubicKeyframe(14 * scale, duration: Self.active)
+                }
+                KeyframeTrack(\.scale) {
+                    CubicKeyframe(1.15, duration: Self.active)
+                }
+            }
+            .task {
+                if startDelay > 0 {
+                    guard (try? await Task.sleep(for: .seconds(startDelay))) != nil else { return }
+                }
+                while !Task.isCancelled {
+                    beat &+= 1
+                    guard (try? await Task.sleep(for: .seconds(Self.cycle))) != nil else { return }
+                }
+            }
+    }
+}
+
 // MARK: - Haptics
 //
 // Strong and universal on buttons: every button in the app knocks `heavy()`

@@ -119,6 +119,50 @@ extension View {
     }
 }
 
+// MARK: - Brand mark
+
+/// The app icon as a living mark for the onboarding/auth screens: the
+/// sleeping sloth (the home art's closed-eye frame, wearing the scene's
+/// current light) with the icon's static gold ZZZ replaced by the sleep
+/// screen's rising-z chain (`RisingZs`, SleepTheme.swift). Decorative only —
+/// hidden from accessibility, never a tap target. Lives here rather than in
+/// SleepTheme.swift because it needs `CityPhase` and the Home sloth art,
+/// neither of which exists in the widget target that compiles the theme.
+struct SlothBrandMark: View {
+    /// Rendered width of the sloth figure (the art is 1200×720, so height
+    /// is 0.6 × width); the z's ride above its head, unclipped.
+    var width: CGFloat
+    /// Scale of the rising z's. Deliberately *not* derived from `width`:
+    /// small marks keep oversized z's — like the icon's ZZZ — so the
+    /// animation stays legible at corner sizes.
+    var zScale: CGFloat
+
+    var body: some View {
+        // Minute ticks keep the mark wearing the same light as the scene
+        // behind it if a phase boundary passes while the screen is up.
+        TimelineView(.everyMinute) { timeline in
+            let phase = CityPhase.current(timeline.date)
+            Image("HomeSloth\(phase.rawValue)Blink")
+                .resizable()
+                .scaledToFit()
+                .frame(width: width)
+                // The same warm halo that seats Home's sloth in the scene,
+                // scaled to the mark.
+                .background {
+                    Ellipse()
+                        .fill(SleepColor.amber.opacity(phase == .day ? 0.10 : 0.16))
+                        .blur(radius: width * 0.144)
+                        .padding(-width * 0.05)
+                }
+                .overlay(alignment: .topLeading) {
+                    RisingZs(color: SleepColor.gold, scale: zScale)
+                        .offset(x: width * 0.22, y: -width * 0.007)
+                }
+        }
+        .accessibilityHidden(true)
+    }
+}
+
 // MARK: - Welcome
 
 private struct WelcomeStep: View {
@@ -130,6 +174,12 @@ private struct WelcomeStep: View {
             Spacer()
 
             VStack(spacing: SleepSpacing.lg) {
+                // The brand mark above the wordmark: the icon's sleeping
+                // sloth with its ZZZ animating — the padding reserves the
+                // headroom the z's rise through so they never crowd the
+                // safe area on short screens.
+                SlothBrandMark(width: 150, zScale: 0.62)
+                    .padding(.top, SleepSpacing.xxl)
                 Text("Wind down nightly")
                     .sectionLabel()
                 Text("SleepBlock")
@@ -308,10 +358,16 @@ struct OnboardingQuestionsView: View {
             ProgressBar(fraction: progress)
 
             // Mirror the chevron itself (hidden) so the bar stays centered
-            // whatever size the system draws the glass button at.
+            // whatever size the system draws the glass button at — and let
+            // the brand mark ride the mirrored slot, so the sloth keeps the
+            // flow branded from the top-right corner without adding any
+            // width of its own. Its z's drift up past the slot, unclipped.
             GlassBackButton {}
                 .hidden()
                 .accessibilityHidden(true)
+                .overlay {
+                    SlothBrandMark(width: 48, zScale: 0.5)
+                }
         }
         .animation(.easeInOut(duration: 0.28), value: canGoBack)
     }
