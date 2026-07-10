@@ -129,6 +129,12 @@ extension View {
 /// SleepTheme.swift because it needs `CityPhase` and the Home sloth art,
 /// neither of which exists in the widget target that compiles the theme.
 struct SlothBrandMark: View {
+    /// One shared size for the *hero* placements (welcome, Welcome back):
+    /// the two screens crossfade into each other at nearly the same spot,
+    /// so differing sizes read as the logo shrinking mid-transition.
+    static let heroWidth: CGFloat = 150
+    static let heroZScale: CGFloat = 0.62
+
     /// Rendered width of the sloth figure (the art is 1200×720, so height
     /// is 0.6 × width); the z's ride above its head, unclipped.
     var width: CGFloat
@@ -178,7 +184,7 @@ private struct WelcomeStep: View {
                 // sloth with its ZZZ animating — the padding reserves the
                 // headroom the z's rise through so they never crowd the
                 // safe area on short screens.
-                SlothBrandMark(width: 150, zScale: 0.62)
+                SlothBrandMark(width: SlothBrandMark.heroWidth, zScale: SlothBrandMark.heroZScale)
                     .padding(.top, SleepSpacing.xxl)
                 Text("Wind down nightly")
                     .sectionLabel()

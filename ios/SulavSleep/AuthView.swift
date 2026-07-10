@@ -108,7 +108,10 @@ struct AuthMethodsView: View {
 
             VStack(spacing: SleepSpacing.md) {
                 if showsBrandMark {
-                    SlothBrandMark(width: 120, zScale: 0.55)
+                    // Hero size, matching the welcome screen: the two
+                    // screens crossfade at nearly the same spot, and a
+                    // smaller mark here read as the logo shrinking.
+                    SlothBrandMark(width: SlothBrandMark.heroWidth, zScale: SlothBrandMark.heroZScale)
                         .padding(.top, SleepSpacing.xl)
                         .padding(.bottom, SleepSpacing.sm)
                 }
