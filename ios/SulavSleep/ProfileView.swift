@@ -5,8 +5,9 @@ import SwiftUI
 // a separate `SettingsModal`, opened from the gear top-right as a collapsible
 // full-height sheet, so the tab body stays clean. There is deliberately no
 // destructive "reset all data" action; the only account-level exits are Sign
-// out and (faded, below it) Delete account. Home stays a pure "go to bed"
-// screen because of this.
+// out (confirmed by an alert) and, as bare faded text below the group, Delete
+// account (confirmed by typing "delete"). Home stays a pure "go to bed" screen
+// because of this.
 
 struct ProfileView: View {
     var store: SleepStore
@@ -118,6 +119,9 @@ private struct ProfileRootScreen: View {
                 BlockedAppsPreview(store: store)
             }
             .buttonStyle(.plain)
+            // NavigationLinks are buttons to the finger, so they knock like
+            // one; simultaneous so it never steals the tap from the push.
+            .simultaneousGesture(TapGesture().onEnded { Haptics.heavy() })
             .padding(.top, SleepSpacing.huge)
 
             sleepSection
@@ -140,7 +144,6 @@ private struct ProfileRootScreen: View {
                     ProgressView().controlSize(.small).tint(SleepColor.amber)
                 }
                 GlassIconButton(systemImage: "gearshape") {
-                    Haptics.soft()
                     showsSettings = true
                 }
                 .accessibilityLabel("Settings")
@@ -255,6 +258,7 @@ private struct ProfileRootScreen: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .simultaneousGesture(TapGesture().onEnded { Haptics.heavy() })
                 .overlay(alignment: .top) {
                     Rectangle().fill(SleepColor.hairline).frame(height: 1)
                 }
@@ -272,13 +276,17 @@ private struct ProfileRootScreen: View {
 /// and blocked-apps push as full pages inside it, and it hosts everything
 /// configuration- and account-related so the Profile screen underneath stays a
 /// clean identity + sleep record. There is deliberately no "reset all data";
-/// the account-level exits are Sign out and, faded below it, Delete account.
+/// the account-level exits are Sign out (behind a confirmation alert) and,
+/// as bare faded text below the group, Delete account (behind a type-"delete"
+/// confirmation).
 struct SettingsModal: View {
     var store: SleepStore
     let profile: Profile
 
     @Environment(\.dismiss) private var dismiss
+    @State private var confirmingSignOut = false
     @State private var confirmingDeleteAccount = false
+    @State private var deleteConfirmationText = ""
     @State private var deletingAccount = false
     @State private var deleteFailedMessage: String?
     @State private var isRenaming = false
@@ -309,8 +317,9 @@ struct SettingsModal: View {
             .alert("Your name", isPresented: $isRenaming) {
                 TextField("Your name", text: $draftName)
                     .textInputAutocapitalization(.words)
-                Button("Cancel", role: .cancel) {}
+                Button("Cancel", role: .cancel) { Haptics.heavy() }
                 Button("Save") {
+                    Haptics.heavy()
                     let trimmed = draftName.trimmingCharacters(in: .whitespacesAndNewlines)
                     guard !trimmed.isEmpty else { return }
                     store.saveName(trimmed)
@@ -327,7 +336,7 @@ struct SettingsModal: View {
 
             GlassGroup {
                 Button {
-                    Haptics.soft()
+                    Haptics.heavy()
                     draftName = store.profile?.name ?? profile.name
                     isRenaming = true
                 } label: {
@@ -367,7 +376,6 @@ struct SettingsModal: View {
             // Same footprint as the Profile gear this sheet is opened from,
             // so the two read as one "settings" affordance.
             GlassIconButton(systemImage: "xmark", iconSize: 17, tint: SleepColor.ink) {
-                Haptics.soft()
                 dismiss()
             }
             .accessibilityLabel("Close settings")
@@ -389,6 +397,7 @@ struct SettingsModal: View {
                     )
                 }
                 .buttonStyle(.plain)
+                .simultaneousGesture(TapGesture().onEnded { Haptics.heavy() })
 
                 GlassRowDivider()
 
@@ -401,6 +410,7 @@ struct SettingsModal: View {
                     )
                 }
                 .buttonStyle(.plain)
+                .simultaneousGesture(TapGesture().onEnded { Haptics.heavy() })
 
                 GlassRowDivider()
 
@@ -428,7 +438,7 @@ struct SettingsModal: View {
                 Toggle(isOn: Binding(
                     get: { store.healthSyncState == .connected },
                     set: { enabled in
-                        Haptics.soft()
+                        Haptics.heavy()
                         if enabled { Task { await store.connectHealth() } }
                         else { store.disableHealthSync() }
                     }
@@ -450,11 +460,8 @@ struct SettingsModal: View {
 
             GlassGroup {
                 Button {
-                    Haptics.soft()
-                    // Close the cover first so it doesn't tear down mid-flight
-                    // as the root swaps Main → onboarding on sign-out.
-                    dismiss()
-                    Task { await store.signOut() }
+                    Haptics.heavy()
+                    confirmingSignOut = true
                 } label: {
                     GlassRow(
                         icon: "rectangle.portrait.and.arrow.right",
@@ -464,40 +471,55 @@ struct SettingsModal: View {
                     )
                 }
                 .buttonStyle(.plain)
+            }
 
-                GlassRowDivider()
-
-                // Deliberately faded: account deletion is a rare, irreversible
-                // exit, so it sits quietly below Sign out and never competes
-                // for attention.
-                Button(role: .destructive) {
-                    Haptics.soft()
-                    confirmingDeleteAccount = true
-                } label: {
-                    HStack(spacing: SleepSpacing.sm) {
-                        GlassRow(
-                            icon: "trash",
-                            iconColor: SleepColor.faint,
-                            title: "Delete account",
-                            titleColor: SleepColor.faint
-                        )
-                        if deletingAccount {
-                            ProgressView().controlSize(.small).tint(SleepColor.faint)
-                        }
+            // Deliberately bare and faded: account deletion is a rare,
+            // irreversible exit, so it sits outside the glass group as quiet
+            // text that never competes for attention.
+            Button(role: .destructive) {
+                Haptics.heavy()
+                deleteConfirmationText = ""
+                confirmingDeleteAccount = true
+            } label: {
+                HStack(spacing: SleepSpacing.sm) {
+                    Text("Delete account")
+                        .font(SleepFont.body(14))
+                        .foregroundStyle(SleepColor.faint)
+                    if deletingAccount {
+                        ProgressView().controlSize(.small).tint(SleepColor.faint)
                     }
                 }
-                .buttonStyle(.plain)
-                .disabled(deletingAccount)
+                .frame(maxWidth: .infinity, minHeight: 44)
             }
+            .buttonStyle(.plain)
+            .disabled(deletingAccount)
+            .padding(.top, SleepSpacing.sm)
         }
         .padding(.top, SleepSpacing.xxl)
-        .alert("Delete account?", isPresented: $confirmingDeleteAccount) {
-            Button("Cancel", role: .cancel) {}
-            Button("Delete", role: .destructive) {
-                Task { await deleteAccount() }
+        .alert("Sign out?", isPresented: $confirmingSignOut) {
+            Button("Cancel", role: .cancel) { Haptics.heavy() }
+            Button("Sign out") {
+                Haptics.heavy()
+                // Close the cover first so it doesn't tear down mid-flight
+                // as the root swaps Main → onboarding on sign-out.
+                dismiss()
+                Task { await store.signOut() }
             }
         } message: {
-            Text("This permanently deletes your account and sleep history from our servers and this device. This can't be undone.")
+            Text("Your sleep record stays on this device and in your account. You can sign back in anytime.")
+        }
+        .alert("Delete account?", isPresented: $confirmingDeleteAccount) {
+            TextField("Type \"delete\"", text: $deleteConfirmationText)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+            Button("Cancel", role: .cancel) { Haptics.heavy() }
+            Button("Delete", role: .destructive) {
+                Haptics.heavy()
+                Task { await deleteAccount() }
+            }
+            .disabled(deleteConfirmationText.trimmingCharacters(in: .whitespaces).lowercased() != "delete")
+        } message: {
+            Text("This permanently deletes your account and sleep history from our servers and this device. This can't be undone. Type \"delete\" to confirm.")
         }
         .alert(
             "Couldn't delete account",
@@ -506,7 +528,7 @@ struct SettingsModal: View {
                 set: { if !$0 { deleteFailedMessage = nil } }
             )
         ) {
-            Button("OK", role: .cancel) {}
+            Button("OK", role: .cancel) { Haptics.heavy() }
         } message: {
             Text(deleteFailedMessage ?? "Please try again.")
         }
@@ -577,7 +599,6 @@ private struct ScheduleScreen: View {
             .padding(.top, SleepSpacing.xl)
 
             LiquidPrimaryButton(title: "Save schedule", systemImage: "checkmark") {
-                Haptics.soft()
                 store.saveSchedule(bedtime: draftBedtime, wakeTime: draftWakeTime)
                 dismiss()
             }
@@ -646,7 +667,7 @@ private struct HealthConnectCard: View {
                 }
 
                 Button {
-                    Haptics.soft()
+                    Haptics.heavy()
                     onConnect()
                 } label: {
                     Text("Connect")
@@ -669,7 +690,7 @@ private struct HealthConnectCard: View {
             Spacer(minLength: 0)
 
             Button {
-                Haptics.soft()
+                Haptics.heavy()
                 onDismiss()
             } label: {
                 Image(systemName: "xmark")

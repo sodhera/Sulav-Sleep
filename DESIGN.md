@@ -358,8 +358,12 @@ title, supporting line). The body is three kicker-titled `GlassGroup`s —
 **Profile** (editable Name: tap → rename alert; read-only account Email, no
 chevron, middle-truncated — both live here, never on the Profile body),
 **Sleep** (Schedule, Blocked apps, the Apple Health toggle — no explainer
-sublines), and **Account** (Sign out in dim; Delete account faded beneath it —
-a rare, irreversible exit that never competes for attention). The pixel-art
+sublines), and **Account** (Sign out in dim, alone in its group and confirmed
+by an alert before anything happens). **Delete account** is not a glass row at
+all: it sits beneath the Account group as bare faded text — a rare,
+irreversible exit that never competes for attention — and confirming it
+requires typing "delete" into the alert before the destructive button
+enables. The pixel-art
 credit sits quietly at the very bottom. The only other sheet in the app is
 Apple's own `FamilyActivityPicker`.
 
@@ -398,7 +402,9 @@ preview.
 There is deliberately **no "reset all data" action**. A destructive escape
 hatch sitting among everyday settings invites disaster and signals distrust of
 the app's own record. Sign out is the only account-level exit, and it keeps
-the local profile.
+the local profile. Both exits pause for confirmation: Sign out asks with a
+plain alert, and Delete account demands the word "delete" typed back — friction
+proportional to what each one destroys.
 
 ### Legibility over the scene
 
@@ -486,10 +492,15 @@ alarm. Never style an expected step as an error.
 ## Motion
 
 State changes fade/lift over ~260–320ms; presses scale subtly (~0.98). Nothing
-bouncy or reward-like. Haptics (`Haptics`) are gentle and sparing: a soft tap
-entering/leaving sleep and on nav, a success notification when a night is
-logged. The deliberate exceptions are the night's two commitment gestures,
-which are the strongest, most forceful haptics in the app on purpose: the
+bouncy or reward-like — but haptics (`Haptics`) are deliberately **strong**:
+every button in the app fires a single `heavy` knock on tap, no exceptions.
+The knock is wired centrally into the shared components (`GlassIconButton`,
+`LiquidPrimaryButton`, `LiquidSecondaryButton`) so call sites can't forget it,
+and added by hand on raw buttons, alert buttons, toggles, steppers, and
+NavigationLink rows (which are buttons to the finger). `soft` survives only
+for non-button cues — a drag released short of its threshold, the sleep
+screen's tap-anywhere reveal — and a success notification still marks a night
+logged. The night's two commitment gestures remain the richest haptics: the
 **slide-to-sleep** knob (a rigid tap on grab, a heavy ratchet through eight
 detents climbing from 70% to 100% intensity, a double heavy knock at the
 completion threshold, a soft tap on a released spring-back, and the success
