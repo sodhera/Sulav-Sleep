@@ -654,8 +654,7 @@ Rules:
   (moon glyph) and rides the `sleepblock://sleep` deep link — which opens
   the app on **Home's slide-to-sleep confirmation**, never starts the
   session: no surface anywhere lets a single tap begin a night; the slide
-  gesture stays the only way in. The shield action extension shares the
-  same link and the same behavior. Signed out, the capsule reads "Sign in"
+  gesture stays the only way in. Signed out, the capsule reads "Sign in"
   (person glyph, `sleepblock://signin`) and simply opens the app on the
   welcome screen — a widget must never offer an action the app would refuse.
   The capsule disappears while asleep, along with everything else the sleep
@@ -689,6 +688,36 @@ wordmark, no scene, nothing that competes with the Home screen that fades in
 over it a beat later. The rounded splash image (`SplashIcon.imageset`) is
 generated from the icon by `scripts/generate-splash-icon.py`, so it can never
 drift from the shipped icon art.
+
+## Shield overlay
+
+The Screen Time shield (`ShieldConfigProvider.swift`, the
+`SulavSleepShieldConfig` extension) is what a blocked app shows at 2am — the
+one brand surface the user meets at their weakest moment, so it speaks in the
+app's own voice, not Apple's gray card. The system renders the shield itself
+from a static `ShieldConfiguration`; the only expressive slot is the icon, so
+the icon *is* the brand mark: the night sloth on its warm amber halo with the
+gold rising-z chain alive above it, `RisingZs`' full 7.5-second cycle baked
+frame-by-frame into an animated `UIImage` (the extension can't run SwiftUI —
+it pre-renders ~38 frames of the same keyframes at build-the-config time).
+The mark breathes on the shield exactly like it does on the welcome screen.
+
+Around it, the app's text hierarchy on the shield's dark blur (`background`
+navy under `.systemUltraThinMaterialDark`): ink title "Time to sleep", dim
+subtitle ("This app/site is asleep until you wake. Head back to bed."), and a
+single amber "Good night" button that dismisses the shield. There is
+deliberately no "Open SleepBlock" button — the Shield Action API can't
+actually open the app, and the shield never offers an action it can't honor
+(the same rule as the widget capsule). Under the hood both button slots just
+close; one honest button is the whole interaction.
+
+The extension can't see the app's asset catalog, so it bundles its own
+downsized copy of the night sloth (`ShieldSloth.png`, 480px, from
+`HomeSlothNightBlink`). Frame budget stays modest on purpose: shield config
+extensions live under a tight memory ceiling, and a killed extension falls
+back to Apple's generic shield — the exact thing this exists to replace. The
+mark always wears night light (never day/dusk): the shield only appears
+during sleep lockdown.
 
 ## What to avoid
 

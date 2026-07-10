@@ -50,6 +50,7 @@
 		FA831C765CABBEF773CE99ED /* SleepStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2248DEAF235A937EB6B1B2C7 /* SleepStore.swift */; };
 		F600000000000000000000AC /* SulavSleepShieldConfig.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F600000000000000000000A2 /* SulavSleepShieldConfig.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		F600000000000000000000C1 /* ShieldConfigProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F600000000000000000000B1 /* ShieldConfigProvider.swift */; };
+		F600000000000000000000B6 /* ShieldSloth.png in Resources */ = {isa = PBXBuildFile; fileRef = F600000000000000000000B5 /* ShieldSloth.png */; };
 		F700000000000000000000AC /* SulavSleepShieldAction.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F700000000000000000000A2 /* SulavSleepShieldAction.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		F700000000000000000000C1 /* ShieldActionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = F700000000000000000000B1 /* ShieldActionHandler.swift */; };
 /* End PBXBuildFile section */
@@ -148,6 +149,7 @@
 		F600000000000000000000B2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = SulavSleepShieldConfig/Info.plist; sourceTree = "<group>"; };
 		F600000000000000000000B3 /* SulavSleepShieldConfig.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = SulavSleepShieldConfig.entitlements; path = SulavSleepShieldConfig/SulavSleepShieldConfig.entitlements; sourceTree = "<group>"; };
 		F600000000000000000000B4 /* SulavSleepShieldConfig-device.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = "SulavSleepShieldConfig-device.entitlements"; path = "SulavSleepShieldConfig/SulavSleepShieldConfig-device.entitlements"; sourceTree = "<group>"; };
+		F600000000000000000000B5 /* ShieldSloth.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = ShieldSloth.png; path = SulavSleepShieldConfig/ShieldSloth.png; sourceTree = "<group>"; };
 		F700000000000000000000A2 /* SulavSleepShieldAction.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SulavSleepShieldAction.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		F700000000000000000000B1 /* ShieldActionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ShieldActionHandler.swift; path = SulavSleepShieldAction/ShieldActionHandler.swift; sourceTree = "<group>"; };
 		F700000000000000000000B2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = SulavSleepShieldAction/Info.plist; sourceTree = "<group>"; };
@@ -299,6 +301,7 @@
 			isa = PBXGroup;
 			children = (
 				F600000000000000000000B1 /* ShieldConfigProvider.swift */,
+				F600000000000000000000B5 /* ShieldSloth.png */,
 				F600000000000000000000B2 /* Info.plist */,
 				F600000000000000000000B3 /* SulavSleepShieldConfig.entitlements */,
 				F600000000000000000000B4 /* SulavSleepShieldConfig-device.entitlements */,
@@ -384,6 +387,7 @@
 			buildPhases = (
 				F600000000000000000000A3 /* Sources */,
 				F600000000000000000000A4 /* Frameworks */,
+				F600000000000000000000A5 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -496,6 +500,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				F400000000000000000000E2 /* WidgetAssets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F600000000000000000000A5 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F600000000000000000000B6 /* ShieldSloth.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

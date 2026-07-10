@@ -433,7 +433,7 @@ Apple Developer capability, Google Cloud OAuth client).
   `cancelSleep()` refresh the widget so the asleep state flips immediately;
   `signOut()` and sign-in (`adoptSignedInAccount`) refresh it so the action
   capsule flips between "Sleep Now" and "Sign in".
-- Deep links: `sleepblock://sleep` (widget capsule + shield action) does
+- Deep links: `sleepblock://sleep` (widget capsule) does
   **not** start a session — `SulavSleepApp.onOpenURL` opens Home's
   slide-to-sleep confirmation by setting `SleepStore.showSleepConfirmation`
   (guarded by authenticated + onboarded + no active session; the slide
@@ -460,6 +460,21 @@ Apple Developer capability, Google Cloud OAuth client).
   Simulator builds, tests, and runs normally.
 - To enable real enforcement: request the Family Controls capability for the dev
   account, then build/run on a device. See `docs/roadmap-lockdown-and-widget.md`.
+- The shield overlay's look lives in `SulavSleepShieldConfig/ShieldConfigProvider.swift`
+  (see the "Shield overlay" section of `DESIGN.md`). The system renders the
+  shield from a static `ShieldConfiguration`; the animated brand mark is an
+  animated `UIImage` — ~38 pre-rendered frames of the `RisingZs` cycle
+  (keyframe constants duplicated from `SleepTheme.swift`; change one, change
+  both) composited over the extension's own `ShieldSloth.png` (a 480px `sips`
+  downscale of `HomeSlothNightBlink`, bundled because extensions can't read
+  the app's asset catalog). Keep the frame count / canvas size modest: shield
+  config extensions have a small jetsam limit, and an OOM-killed extension
+  silently falls back to Apple's generic gray shield. Shields only render on
+  device (Family Controls), so verify composition changes with a quick AppKit
+  port of the drawing code if needed — the math is plain CoreGraphics.
+- Both shield buttons can only `.close` (`ShieldActionHandler.swift` — the
+  Shield Action API cannot open the host app), so the shield shows a single
+  "Good night" button; don't add copy that promises navigation.
 
 ## App Intents
 
@@ -467,7 +482,7 @@ Apple Developer capability, Google Cloud OAuth client).
   confirmation (`openAppWhenRun` + a `.sleepConfirmationRequested`
   notification the app scene observes). It deliberately does *not* start a
   session — the slide gesture is the only way a night begins, on every
-  surface: in-app button, widget capsule, shield action, and Siri alike.
+  surface: in-app button, widget capsule, and Siri alike.
   (Historical note: it used to write an active session straight into the
   App Group without opening the app.)
 - `OpenSleepHomeIntent`: opens SleepBlock.
