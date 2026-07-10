@@ -7,14 +7,12 @@ import Foundation
 struct WidgetNight: Codable, Identifiable {
     var end: Date
     var durationMinutes: Int
-    var score: Int
 
     var id: Date { end }
 }
 
 struct SleepWidgetSummary: Codable {
     var nights: [WidgetNight]          // most recent last, up to 7
-    var latestScore: Int?
     var latestDurationMinutes: Int?
     var streak: Int
     var targetMinutes: Int
@@ -32,7 +30,7 @@ struct SleepWidgetSummary: Codable {
 
     /// Empty state used before any real night exists (honest — no fake data).
     static let empty = SleepWidgetSummary(
-        nights: [], latestScore: nil, latestDurationMinutes: nil,
+        nights: [], latestDurationMinutes: nil,
         streak: 0, targetMinutes: 480,
         bedtimeMinutes: nil, wakeMinutes: nil, asleepSince: nil,
         updated: Date(timeIntervalSince1970: 0)

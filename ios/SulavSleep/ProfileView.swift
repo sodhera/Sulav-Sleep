@@ -167,18 +167,13 @@ private struct ProfileRootScreen: View {
         return sessions.reduce(0) { $0 + $1.durationMinutes } / sessions.count
     }
 
-    private var averageScore: Int {
-        guard !sessions.isEmpty else { return 0 }
-        return sessions.reduce(0) { $0 + $1.score } / sessions.count
-    }
-
     private var statBand: some View {
         HStack(alignment: .top, spacing: 0) {
             StatBlock(label: "Avg sleep", value: SleepFormatting.duration(averageDuration))
                 .frame(maxWidth: .infinity, alignment: .leading)
-            StatBlock(label: "Avg score", value: "\(averageScore)")
-                .frame(maxWidth: .infinity, alignment: .leading)
             StatBlock(label: "Streak", value: "\(store.onTrackStreak)")
+                .frame(maxWidth: .infinity, alignment: .leading)
+            StatBlock(label: "Nights", value: "\(sessions.count)")
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
@@ -560,7 +555,7 @@ private struct ScheduleScreen: View {
         SceneScreen {
             SubpageHeader(
                 title: "Sleep schedule",
-                subtitle: "Your bedtime countdown, sleep score, and lockdown window all follow this."
+                subtitle: "Your bedtime countdown and lockdown window follow this."
             )
 
             Picker("Schedule field", selection: $selectedMode) {
@@ -716,54 +711,26 @@ private struct HistoryRow: View {
 
     var body: some View {
         HStack(spacing: SleepSpacing.lg) {
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: SleepSpacing.xs) {
-                    Text(SleepFormatting.historyDate.string(from: session.end))
-                        .font(SleepFont.label(15))
-                        .foregroundStyle(SleepColor.ink)
-                    Image(systemName: session.source == .healthKit ? "heart.fill" : "moon.fill")
-                        .font(.system(size: 9))
-                        .foregroundStyle(SleepColor.faint)
-                        .accessibilityLabel(session.source == .healthKit ? "From Apple Health" : "Logged in app")
-                }
-                Text(SleepFormatting.duration(session.durationMinutes))
-                    .font(SleepFont.body(13))
-                    .foregroundStyle(SleepColor.dim)
-                    .monospacedDigit()
+            HStack(spacing: SleepSpacing.xs) {
+                Text(SleepFormatting.historyDate.string(from: session.end))
+                    .font(SleepFont.label(15))
+                    .foregroundStyle(SleepColor.ink)
+                Image(systemName: session.source == .healthKit ? "heart.fill" : "moon.fill")
+                    .font(.system(size: 9))
+                    .foregroundStyle(SleepColor.faint)
+                    .accessibilityLabel(session.source == .healthKit ? "From Apple Health" : "Logged in app")
             }
 
             Spacer()
 
-            // Slim custom meter instead of a stock ProgressView: a quiet
-            // track with a fill tinted by the score color, always paired
-            // with the numeral so the reading never rides on color alone.
-            Capsule()
-                .fill(Color.white.opacity(0.08))
-                .frame(width: 64, height: 4)
-                .overlay(alignment: .leading) {
-                    Capsule()
-                        .fill(recordScoreColor(session.score))
-                        .frame(width: 64 * CGFloat(min(max(session.score, 0), 100)) / 100)
-                }
-
-            // Score numerals keep the app's coloring (gold ≥ 80, ink 60–79,
-            // danger < 60) in a fixed trailing spot, same as Home and the
-            // widgets.
-            Text("\(session.score)")
+            // Duration is the record's only reading — one number per row,
+            // in a fixed trailing spot.
+            Text(SleepFormatting.duration(session.durationMinutes))
                 .font(SleepFont.title(19))
-                .foregroundStyle(recordScoreColor(session.score))
-                .frame(width: 36, alignment: .trailing)
+                .foregroundStyle(SleepColor.ink)
                 .monospacedDigit()
         }
         .padding(.vertical, SleepSpacing.lg)
-    }
-}
-
-private func recordScoreColor(_ score: Int) -> Color {
-    switch score {
-    case 80...: return SleepColor.gold
-    case 60..<80: return SleepColor.ink
-    default: return SleepColor.danger
     }
 }
 

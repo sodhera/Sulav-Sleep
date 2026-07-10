@@ -215,7 +215,7 @@ private struct ScheduleCapsule: View {
 
 // MARK: - Last night strip
 
-/// One quiet centered line under the button — duration, score, streak — and
+/// One quiet centered line under the button — duration and streak — and
 /// nothing at all without data: no hairline, no empty-state copy. A first
 /// night begins the record.
 private struct LastNightStrip: View {
@@ -232,13 +232,6 @@ private struct LastNightStrip: View {
                     .font(SleepFont.label(14))
                     .foregroundStyle(SleepColor.dim)
                     .monospacedDigit()
-                Text("·")
-                    .font(SleepFont.body(13))
-                    .foregroundStyle(SleepColor.faint)
-                Text("\(lastSession.score)")
-                    .font(SleepFont.label(14))
-                    .foregroundStyle(scoreColor(lastSession.score))
-                    .monospacedDigit()
                 if streak > 0 {
                     Text("·")
                         .font(SleepFont.body(13))
@@ -249,14 +242,6 @@ private struct LastNightStrip: View {
                 }
             }
             .frame(maxWidth: .infinity)
-        }
-    }
-
-    private func scoreColor(_ score: Int) -> Color {
-        switch score {
-        case 80...: return SleepColor.gold
-        case 60..<80: return SleepColor.ink
-        default: return SleepColor.danger
         }
     }
 }

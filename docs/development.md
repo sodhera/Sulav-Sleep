@@ -107,7 +107,7 @@ target can inject fakes without new hooks.
   The tab body (`ProfileRootScreen`) is identity (editable name, account email)
   plus the sleep record (the `RecordBars` weekly chart — the widgets' 7-slot
   bar rhythm with a target hairline and hairline stubs for unlogged nights —
-  averages, recent nights with source badges and score-colored numerals, an
+  averages, recent nights with source badges and trailing durations, an
   "All nights" pushed page when history exceeds seven). A gear in the
   top-right opens `SettingsModal` via `.fullScreenCover`; the body carries no
   configuration itself. `SettingsModal` is a full-screen cover with its own
@@ -194,8 +194,11 @@ target can inject fakes without new hooks.
   shown.
 - **No seeding.** History is empty until the user logs a real night or Apple
   Health has real sleep to import.
-- `Sleep Now` writes an active session; `Wake up` logs duration + score, clears
+- `Sleep Now` writes an active session; `Wake up` logs the duration, clears
   active, and (if Health is connected) writes the night to Apple Health.
+  Duration is the app's only metric — the 0–100 sleep score is retired
+  (old records' `score` keys are ignored on decode; "on track" for the
+  streak now means ≥85% of the sleep target).
 - Profile/Home show a deduplicated merge of local + Health nights.
 - Schedule/name edits persist immediately. There is no in-app "reset all data"
   action — sign out is the only account-level exit, and it keeps the local
@@ -396,8 +399,8 @@ Apple Developer capability, Google Cloud OAuth client).
   via App Group `group.com.sulav.sleepblock`. `SleepWidgetShared.swift`
   (the summary types + read/write) is a member of both targets.
 - Families: home-screen small (tonight: bedtime countdown → past-bedtime →
-  asleep), medium (last score + 7-night bars), large (stats + tonight footer),
-  and lock-screen accessories (circular/rectangular/inline). The sloth mascot
+  asleep), medium (last night's duration + 7-night bars), large (bars +
+  tonight footer), and lock-screen accessories (circular/rectangular/inline). The sloth mascot
   carries tonight's state on every home-screen family (awake / drowsy /
   ember-asleep), and while a session runs all three families switch to one
   shared OLED-black "sleep face". See the "Widgets" section of `DESIGN.md`

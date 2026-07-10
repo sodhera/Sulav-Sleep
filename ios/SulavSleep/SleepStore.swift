@@ -76,9 +76,11 @@ final class SleepStore {
     }
 
     var onTrackStreak: Int {
+        // A night is on track when it reaches at least 85% of the sleep
+        // target — the same bar the retired 0–100 score set at "score ≥ 80".
         var streak = 0
         for session in displaySessions.reversed() {
-            guard session.score >= 80 else { break }
+            guard session.durationMinutes * 100 >= targetMinutes * 85 else { break }
             streak += 1
         }
         return streak
@@ -128,11 +130,10 @@ final class SleepStore {
     /// widget. Called on every change to displayed history.
     private func updateWidget() {
         let recent = Array(displaySessions.suffix(7)).map {
-            WidgetNight(end: $0.end, durationMinutes: $0.durationMinutes, score: $0.score)
+            WidgetNight(end: $0.end, durationMinutes: $0.durationMinutes)
         }
         let summary = SleepWidgetSummary(
             nights: recent,
-            latestScore: latestSession?.score,
             latestDurationMinutes: latestSession?.durationMinutes,
             streak: onTrackStreak,
             targetMinutes: targetMinutes,
@@ -438,7 +439,6 @@ final class SleepStore {
             start: activeSession.start,
             end: end,
             durationMinutes: minutes,
-            score: SleepMath.score(durationMinutes: minutes, targetMinutes: targetMinutes),
             source: .local
         )
         sessions.append(session)
@@ -449,7 +449,7 @@ final class SleepStore {
             self.screenTime.endLockdown()
             SleepLiveActivity.end()
         }
-        AppLog.store.info("Logged night: \(minutes)m, score \(session.score)")
+        AppLog.store.info("Logged night: \(minutes)m")
 
         if profile?.healthSyncEnabled == true {
             Task {
@@ -778,16 +778,5 @@ enum SleepMath {
         var diff = wakeTime - bedtime
         if diff <= 0 { diff += 1_440 }
         return diff
-    }
-
-    static func score(durationMinutes: Int, targetMinutes: Int) -> Int {
-        let ratio = Double(durationMinutes) / Double(max(targetMinutes, 1))
-        let raw: Double
-        if ratio >= 1 {
-            raw = 92 + min(8, (ratio - 1) * 30)
-        } else {
-            raw = 100 - (1 - ratio) * 140
-        }
-        return max(40, min(100, Int(raw.rounded())))
     }
 }

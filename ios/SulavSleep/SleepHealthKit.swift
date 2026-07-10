@@ -53,7 +53,6 @@ enum SleepNightBuilder {
                 start: start,
                 end: end,
                 durationMinutes: minutes,
-                score: SleepMath.score(durationMinutes: minutes, targetMinutes: targetMinutes),
                 source: .healthKit
             )
         }

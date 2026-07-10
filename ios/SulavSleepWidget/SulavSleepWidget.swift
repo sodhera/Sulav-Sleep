@@ -13,8 +13,10 @@ import SwiftUI
 // Two jobs, split by surface:
 //  - Small is *tonight-focused*: the sloth as hero with the bedtime clock,
 //    countdown, wind-down nudge, or set-a-schedule invitation.
-//  - Medium is the *morning stats glance*: last score, streak, 7-night bars,
-//    with the sloth lounging under the numbers as the brand-and-state figure.
+//  - Medium is the *morning stats glance*: last night's sleep, streak, and
+//    the 7-night bars, with the sloth lounging under the numbers as the
+//    brand-and-state figure. Duration is the app's only metric — the 0–100
+//    score is retired everywhere.
 //  - Large combines both: stats + bars on top, a mini-Home footer (sloth +
 //    tonight line + Sleep Now) at the bottom.
 //  - While a session runs, every system family wears the same *sleep face*:
@@ -476,23 +478,27 @@ private struct MediumSleepView: View {
         } else {
             HStack(alignment: .top, spacing: SleepSpacing.lg) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("LAST NIGHT")
-                        .font(SleepFont.label(11)).tracking(1.4)
-                        .foregroundStyle(SleepColor.muted)
+                    HStack(spacing: 5) {
+                        Image(systemName: "moon.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(SleepColor.amber)
+                            .widgetAccentable()
+                        Text("SLEEP")
+                            .font(SleepFont.label(11)).tracking(1.4)
+                            .foregroundStyle(SleepColor.muted)
+                    }
 
-                    if let score = summary.latestScore {
-                        HStack(alignment: .firstTextBaseline, spacing: 5) {
-                            Text("\(score)")
-                                .font(SleepFont.hero(32))
-                                .foregroundStyle(scoreColor(score))
-                                .monospacedDigit()
-                                .widgetAccentable()
-                            if let mins = summary.latestDurationMinutes {
-                                Text(SleepFormatting.duration(mins))
-                                    .font(SleepFont.body(13))
-                                    .foregroundStyle(SleepColor.dim)
-                            }
-                        }
+                    // Last night's duration is the hero — the one number the
+                    // morning glance answers. No "last night" label: the
+                    // rightmost full-strength bar is the same night.
+                    if let mins = summary.latestDurationMinutes {
+                        Text(SleepFormatting.duration(mins))
+                            .font(SleepFont.hero(30))
+                            .foregroundStyle(SleepColor.ink)
+                            .monospacedDigit()
+                            .widgetAccentable()
+                            .minimumScaleFactor(0.7)
+                            .lineLimit(1)
                     }
 
                     if summary.streak > 0 {
@@ -614,27 +620,10 @@ private struct LargeSleepView: View {
                     .font(SleepFont.body(13))
                     .foregroundStyle(SleepColor.muted)
             } else {
-                if let score = summary.latestScore {
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text("\(score)")
-                            .font(SleepFont.hero(44))
-                            .foregroundStyle(scoreColor(score))
-                            .monospacedDigit()
-                            .widgetAccentable()
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text("last night")
-                                .font(SleepFont.body(12))
-                                .foregroundStyle(SleepColor.muted)
-                            if let mins = summary.latestDurationMinutes {
-                                Text(SleepFormatting.duration(mins))
-                                    .font(SleepFont.body(13))
-                                    .foregroundStyle(SleepColor.dim)
-                            }
-                        }
-                    }
-                }
-
-                SleepBars(nights: summary.nights, target: summary.targetMinutes, height: 96, showWeekdays: true)
+                // No hero numeral: the labeled bars carry the week, hour
+                // figures included — a second duration on top would just
+                // repeat the rightmost bar.
+                SleepBars(nights: summary.nights, target: summary.targetMinutes, height: 128, showWeekdays: true)
             }
 
             Spacer(minLength: 0)
@@ -715,12 +704,13 @@ private struct CircularAccessoryView: View {
                     .widgetAccentable()
             }
         default:
-            if let score = summary.latestScore {
-                Gauge(value: Double(score), in: 0...100) {
+            if let mins = summary.latestDurationMinutes {
+                // Last night's sleep against the target — hours in the middle.
+                Gauge(value: Double(min(mins, summary.targetMinutes)), in: 0...Double(max(summary.targetMinutes, 1))) {
                     Image(systemName: "moon.fill")
                 } currentValueLabel: {
-                    Text("\(score)")
-                        .font(.system(size: 18, weight: .semibold))
+                    Text("\(Int((Double(mins) / 60).rounded()))h")
+                        .font(.system(size: 16, weight: .semibold))
                         .monospacedDigit()
                 }
                 .gaugeStyle(.accessoryCircular)
@@ -803,8 +793,8 @@ private struct RectangularAccessoryView: View {
 
     @ViewBuilder
     private var lastNightLine: some View {
-        if let score = summary.latestScore, let mins = summary.latestDurationMinutes {
-            Text("Last \(score) · \(SleepFormatting.duration(mins))")
+        if let mins = summary.latestDurationMinutes {
+            Text("Slept \(SleepFormatting.duration(mins))")
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
         }
@@ -820,21 +810,16 @@ private struct InlineAccessoryView: View {
         case .asleep(let since):
             (Text(Image(systemName: "moon.stars.fill")) + Text(" Asleep ") + Text(since, style: .timer))
         case .beforeBed(let bedtime, _):
-            (Text(Image(systemName: "moon.fill")) + Text(" Bed \(SleepFormatting.shortTime.string(from: bedtime))") + inlineScoreSuffix)
+            (Text(Image(systemName: "moon.fill")) + Text(" Bed \(SleepFormatting.shortTime.string(from: bedtime))"))
         case .pastBedtime:
             (Text(Image(systemName: "moon.zzz.fill")) + Text(" Past bedtime"))
         case .noSchedule:
-            if let score = summary.latestScore {
-                (Text(Image(systemName: "moon.fill")) + Text(" Sleep score \(score)"))
+            if let mins = summary.latestDurationMinutes {
+                (Text(Image(systemName: "moon.fill")) + Text(" Slept \(SleepFormatting.duration(mins))"))
             } else {
                 (Text(Image(systemName: "moon.fill")) + Text(" Sleep"))
             }
         }
-    }
-
-    private var inlineScoreSuffix: Text {
-        guard let score = summary.latestScore else { return Text("") }
-        return Text(" · \(score)")
     }
 }
 
@@ -981,14 +966,6 @@ private struct SleepBars: View {
     }
 }
 
-private func scoreColor(_ score: Int) -> Color {
-    switch score {
-    case 80...: return SleepColor.gold
-    case 60..<80: return SleepColor.ink
-    default: return SleepColor.danger
-    }
-}
-
 // MARK: - Gallery sample
 
 extension SleepWidgetSummary {
@@ -1001,15 +978,10 @@ extension SleepWidgetSummary {
         let durations = [432, 465, 401, 488, 452, 419, 471]
         let nights = durations.enumerated().map { index, minutes in
             let end = calendar.date(byAdding: .day, value: index - 6, to: now) ?? now
-            return WidgetNight(
-                end: end,
-                durationMinutes: minutes,
-                score: SleepMathPreview.score(durationMinutes: minutes, targetMinutes: 480)
-            )
+            return WidgetNight(end: end, durationMinutes: minutes)
         }
         return SleepWidgetSummary(
             nights: nights,
-            latestScore: nights.last?.score,
             latestDurationMinutes: nights.last?.durationMinutes,
             streak: 3,
             targetMinutes: 480,
@@ -1018,15 +990,5 @@ extension SleepWidgetSummary {
             asleepSince: nil,
             updated: now
         )
-    }
-}
-
-/// Local copy of the app's score curve for gallery sample data only — the
-/// widget target doesn't compile SleepStore.swift.
-private enum SleepMathPreview {
-    static func score(durationMinutes: Int, targetMinutes: Int) -> Int {
-        let ratio = Double(durationMinutes) / Double(max(targetMinutes, 1))
-        let raw: Double = ratio >= 1 ? 92 + min(8, (ratio - 1) * 30) : 100 - (1 - ratio) * 140
-        return max(40, min(100, Int(raw.rounded())))
     }
 }

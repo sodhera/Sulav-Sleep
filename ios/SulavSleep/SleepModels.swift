@@ -118,26 +118,26 @@ struct SleepSession: Identifiable, Codable, Equatable {
     var start: Date
     var end: Date
     var durationMinutes: Int
-    var score: Int
     var source: SleepSource
 
-    init(id: String, start: Date, end: Date, durationMinutes: Int, score: Int, source: SleepSource = .local) {
+    init(id: String, start: Date, end: Date, durationMinutes: Int, source: SleepSource = .local) {
         self.id = id
         self.start = start
         self.end = end
         self.durationMinutes = durationMinutes
-        self.score = score
         self.source = source
     }
 
     // Decode-safe: records written before `source` existed default to `.local`.
+    // Records written while the retired 0–100 sleep score existed carry a
+    // `score` key; the decoder simply ignores it — duration is the app's only
+    // metric.
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id)
         start = try c.decode(Date.self, forKey: .start)
         end = try c.decode(Date.self, forKey: .end)
         durationMinutes = try c.decode(Int.self, forKey: .durationMinutes)
-        score = try c.decode(Int.self, forKey: .score)
         source = try c.decodeIfPresent(SleepSource.self, forKey: .source) ?? .local
     }
 }

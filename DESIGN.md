@@ -139,8 +139,8 @@ scene active through the keyboard transition.
 | `navy` | `#111827` | deep navy surfaces / sheets |
 | `card` | `#18212F` | raised surface (rare) |
 | `amber` | `#F4A261` | primary accent (indoor light) |
-| `gold` | `#E9C46A` | secondary accent, good scores |
-| `danger` | `#D96C75` | destructive, poor scores |
+| `gold` | `#E9C46A` | secondary accent, streak / highlights |
+| `danger` | `#D96C75` | destructive actions |
 | `ink` | `#F5F5F2` | primary text |
 | `dim` | `#B7BDC7` | secondary text |
 | `muted` | `#7A8795` | tertiary/labels |
@@ -149,8 +149,7 @@ scene active through the keyboard transition.
 
 Reasoning: the warm amber reads as indoor lighting against a cold night, which
 is calming rather than clinical. Colored states are always paired with text and
-position (score numerals change color *and* stay in a fixed spot) so the UI
-survives a red night-shift tint.
+position (never color alone) so the UI survives a red night-shift tint.
 
 ## Liquid Glass
 
@@ -296,9 +295,9 @@ Two tabs, each with exactly one job:
   success notification lands when the night begins.
 - **Profile — everything about you.** Identity (name only, display-only — no
   pencil, no email; both are edited/shown in Settings so the body stays
-  read-only), then a **stat band** straight under the name — Avg sleep, Avg
-  score, Streak as three big numerals over tiny labels, the dashboard read of
-  the record — then the tappable **"Blocked while you sleep"** block
+  read-only), then a **stat band** straight under the name — Avg sleep,
+  Streak, Nights as three big numerals over tiny labels, the dashboard read
+  of the record — then the tappable **"Blocked while you sleep"** block
   previewing the locked-app icons (opens the Blocked apps screen for
   changes), and the sleep record (weekly chart, recent nights, an "All
   nights" page once history grows). A gear in the top-right opens Settings;
@@ -321,12 +320,18 @@ Two tabs, each with exactly one job:
   > records truthfully and matches the widgets.
 
   **Recent nights** is a small-caps kicker (the same section-label grammar
-  as everything else) over hairline-divided rows: date + source glyph over
-  the duration on the left; on the right a slim 4pt score meter (quiet white
-  track, fill tinted by the score color) beside the score numeral in the
-  app's score coloring (gold ≥ 80, ink 60–79, danger < 60) at a fixed
-  trailing spot — color always paired with the number, never carrying the
-  reading alone. No stock `ProgressView` chrome.
+  as everything else) over hairline-divided rows: date + source glyph on the
+  left, the night's duration as the one trailing value in ink. No meters, no
+  grades — duration is the record.
+
+  > Note on history: nights previously carried a 0–100 **sleep score** (a
+  > duration-vs-target curve) colored gold/ink/danger, with a per-row score
+  > meter, an "Avg score" stat, and score heroes on the widgets. The score
+  > is retired app-wide: it was a second number derived from the first,
+  > dressed as an insight — duration against the target already says
+  > everything it said. **Duration is the app's only metric.** "On track"
+  > (the streak) now means reaching ≥85% of the sleep target, the same bar
+  > the score set at "score ≥ 80", so existing streaks carry over.
   The blocked block is a section label over an **interactive glass row** —
   containers are reserved for tappable controls, and the glass is what says
   "you can press this"; plain floating text read as static copy. Before any
@@ -500,17 +505,21 @@ The surfaces split one job:
   countdown gives way to an amber "Wind down" and the sloth goes drowsy.
   Small is tonight-only: the quiet last-night line of earlier revisions is
   retired — the record lives on medium/large, and the sloth earns the room.
-- **Medium — the morning glance.** Last night's score as the hero numeral
-  (colored by the score rules below), duration, and streak/average in the
-  left column, with the sloth lounging beneath the numbers — the brand
-  figure at rest, balancing the action capsule diagonally; the 7-night bar
-  rhythm on the right with the Sleep Now capsule anchored below it, on the
-  trailing edge.
-- **Large — both.** Stats + full-width bars with weekday initials, then a
-  hairline and a **mini-Home footer** anchored to the bottom edge: the sloth
-  as tonight's figure, a two-line tonight text (bedtime + countdown, or the
-  past-bedtime nudge — text only, no moon glyphs; the sloth *is* the glyph),
-  and the Sleep Now capsule on the trailing side.
+- **Medium — the morning glance.** Last night's duration as the hero
+  numeral under a moon-glyph "SLEEP" kicker, a streak/average line beneath
+  it, and the sloth lounging under the numbers — the brand figure at rest,
+  balancing the action capsule diagonally; the 7-night bar rhythm on the
+  right with the Sleep Now capsule anchored below it, on the trailing edge.
+  Deliberately no "Last night" label: the hero *is* last night — the same
+  night as the rightmost full-strength bar.
+- **Large — the record + tonight.** The moon-glyph "SLEEP" header with the
+  streak on its trailing side, tall full-width bars with weekday initials
+  and in-bar hour labels (no hero numeral above them — it would only repeat
+  the rightmost bar), then a hairline and a **mini-Home footer** anchored to
+  the bottom edge: the sloth as tonight's figure, a two-line tonight text
+  (bedtime + countdown, or the past-bedtime nudge — text only, no moon
+  glyphs; the sloth *is* the glyph), and the Sleep Now capsule on the
+  trailing side.
 - **Asleep, every family sleeps.** While a session runs, small, medium, and
   large all wear the same *sleep face*: OLED black, the ember night sloth,
   the "ASLEEP" kicker, the system-driven elapsed timer, the "since" time,
@@ -523,8 +532,9 @@ The surfaces split one job:
 - **Lock-screen accessories** (circular / rectangular / inline) render in the
   system's vibrant material at tiny sizes, so they use default foregrounds
   and SF symbols — no app palette, no sloth (at 20pt the figure would blur
-  into mush). Circular is a score gauge (or a moon when asleep / no data);
-  rectangular and inline lead with tonight's state.
+  into mush). Circular is a duration-vs-target gauge with last night's hours
+  in the middle (or a moon when asleep / no data); rectangular and inline
+  lead with tonight's state.
 - The **Live Activity** lock-screen banner leads with the ember night sloth
   beside the elapsed timer, so the lock screen is recognizably SleepBlock
   before a single word is read; the Dynamic Island stays SF-symbol-led at
@@ -546,8 +556,8 @@ Rules:
   `widgetAccentable` for tinted mode; the sloth renders desaturated on iOS
   18+ (`widgetAccentedRenderingMode(.desaturated)`) so it reads as a quiet
   figure instead of fighting the user's tint.
-- Score numerals keep the app's coloring: gold ≥ 80, ink 60–79, danger < 60 —
-  always in a fixed position so the layout survives a night-shift tint.
+- Duration is the only metric on every surface — the retired 0–100 score
+  (see the Profile section's history note) never appears on a widget.
 - Bars: gold→amber capsules against a faint target hairline; the latest night
   is full-strength, earlier nights recede to ~60% so "last night" reads first.
   The chart always lays out **exactly 7 fixed-width columns** — nights not yet
