@@ -159,10 +159,9 @@ extension SleepStore {
     }
 
     /// Human-readable summary of the lockdown selection for settings rows.
-    /// There is no on/off state — either apps are chosen (and therefore block)
-    /// or none are.
     var lockdownSelectionSummary: String {
         guard screenTimeState != .unavailable else { return "On device only" }
+        guard blockingEnabled else { return "Off" }
         let count = lockdownSelectionCount
         if count == 0 { return "None" }
         return "\(count) blocked"
@@ -217,11 +216,17 @@ struct BlockedAppsPreview: View {
                 iconColor: SleepColor.muted,
                 title: "Needs a real iPhone"
             )
-        } else if !store.lockdownEnabled || !hasSelection {
+        } else if !hasSelection {
             glyphRow(
                 icon: "lock.fill",
                 iconColor: SleepColor.amber,
                 title: "Choose apps to block"
+            )
+        } else if !store.blockingEnabled {
+            glyphRow(
+                icon: "lock.open",
+                iconColor: SleepColor.muted,
+                title: "Blocking is off"
             )
         } else {
             VStack(alignment: .leading, spacing: SleepSpacing.md) {
@@ -274,6 +279,7 @@ struct BlockedAppsScreen: View {
 
     @State private var selection = FamilyActivitySelection()
     @State private var showPicker = false
+    @State private var blockOn = true
     @State private var maxHours = 6
 
     var body: some View {
@@ -293,19 +299,34 @@ struct BlockedAppsScreen: View {
                 }
                 .padding(.top, SleepSpacing.huge)
             default:
-                // No enable/disable toggle: chosen apps *always* block during
-                // sleep — picking them is the commitment, and the only "off"
-                // is removing them. A separate switch would just be a second
-                // decision restating the first.
                 GlassGroup {
+                    // The user's explicit control: on by default (choosing
+                    // apps is the commitment), off keeps the selection but
+                    // blocks nothing until it's switched back on.
+                    HStack(spacing: SleepSpacing.md) {
+                        GlassRowIcon(icon: "moon.zzz.fill")
+                        Toggle(isOn: $blockOn) {
+                            Text("Block while you sleep")
+                                .font(SleepFont.body(16))
+                                .foregroundStyle(SleepColor.ink)
+                        }
+                        .tint(SleepColor.amber)
+                    }
+                    .padding(.vertical, SleepSpacing.md)
+                    .frame(minHeight: 52)
+                    .onChange(of: blockOn) { _, on in
+                        Haptics.soft()
+                        store.setBlockingEnabled(on)
+                    }
+
+                    GlassRowDivider()
+
                     Button {
                         Haptics.soft()
                         // Screen Time authorization is requested lazily, right
-                        // when it's needed: the picker is useless without it,
-                        // and a granted request is what arms the lockdown.
+                        // when it's needed: the picker is useless without it.
                         Task {
-                            await store.enableLockdown()
-                            if store.lockdownEnabled { showPicker = true }
+                            if await store.requestScreenTimeAccess() { showPicker = true }
                         }
                     } label: {
                         GlassRow(
@@ -374,6 +395,7 @@ struct BlockedAppsScreen: View {
         }
         .onAppear {
             selection = SleepScreenTime.decodeSelection(store.appSelectionData())
+            blockOn = store.blockingEnabled
             maxHours = store.lockdownMaxHours
         }
     }

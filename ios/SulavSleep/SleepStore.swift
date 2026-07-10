@@ -99,18 +99,18 @@ final class SleepStore {
     }
 
     var screenTimeState: ScreenTimeState { screenTime.authorizationState() }
-    /// True once Screen Time authorization has been granted. There is no
-    /// separate user-facing "blocking on/off" switch — picking apps is the
-    /// commitment — so this only tracks whether we're *allowed* to shield.
-    var lockdownEnabled: Bool { profile?.lockdownEnabled == true }
+    /// The user's "Block while you sleep" switch (Blocked apps screen). On by
+    /// default — this is a preference, never an authorization snapshot.
+    var blockingEnabled: Bool { profile?.blockDuringSleep ?? true }
     var lockdownMaxHours: Int { profile?.lockdownMaxHours ?? 6 }
 
     /// Whether tapping Sleep Now will actually shield anything tonight:
-    /// authorized *and* at least one app/category chosen. This is the single
-    /// source of truth for "are apps blocked" across Home, the confirmation
-    /// panel, and the profile preview.
+    /// blocking switched on, Screen Time authorized (checked live, so a stale
+    /// stored flag can never contradict reality), and at least one
+    /// app/category chosen. This is the single source of truth for "are apps
+    /// blocked" across Home, the confirmation panel, and the profile preview.
     var willLockDuringSleep: Bool {
-        lockdownEnabled && lockdownSelectionCount > 0
+        blockingEnabled && screenTimeState == .authorized && lockdownSelectionCount > 0
     }
 
     // MARK: - Lifecycle
@@ -523,25 +523,31 @@ final class SleepStore {
 
     // MARK: - Sleep lockdown (Screen Time)
 
+    /// Requests Screen Time authorization (lazily, from the Apps row — the
+    /// picker is useless without it). Returns whether we're allowed to shield.
+    /// Writes nothing to the profile: authorization is always read live.
     @MainActor
-    func enableLockdown() async {
+    func requestScreenTimeAccess() async -> Bool {
         let granted = await screenTime.requestAuthorization()
-        guard var profile else { return }
-        profile.lockdownEnabled = granted
-        self.profile = profile
-        persist(refreshWidget: false)
         if granted { rescheduleLockdown() }
-        AppLog.store.info("Sleep lockdown \(granted ? "enabled" : "denied")")
+        AppLog.store.info("Screen Time access \(granted ? "granted" : "denied")")
+        return granted
     }
 
-    func disableLockdown() {
-        guard var profile else { return }
-        profile.lockdownEnabled = false
+    /// The "Block while you sleep" toggle. Off tears down any active shield
+    /// and the scheduled safety-net window; the app selection is kept.
+    func setBlockingEnabled(_ on: Bool) {
+        guard var profile, profile.blockDuringSleep != on else { return }
+        profile.blockDuringSleep = on
         self.profile = profile
-        screenTime.endLockdown()
-        screenTime.cancelScheduledLockdown()
         persist(refreshWidget: false)
-        AppLog.store.info("Sleep lockdown disabled")
+        if on {
+            rescheduleLockdown()
+        } else {
+            screenTime.endLockdown()
+            screenTime.cancelScheduledLockdown()
+        }
+        AppLog.store.info("Sleep blocking switched \(on ? "on" : "off")")
     }
 
     func setLockdownMaxHours(_ hours: Int) {
@@ -550,7 +556,7 @@ final class SleepStore {
         profile.lockdownMaxHours = hours
         self.profile = profile
         persist(refreshWidget: false)
-        if profile.lockdownEnabled { rescheduleLockdown() }
+        rescheduleLockdown()
     }
 
     /// Opaque encoded app selection for the lockdown picker UI.
@@ -563,11 +569,10 @@ final class SleepStore {
     func saveAppSelection(_ data: Data) {
         screenTime.saveSelection(data: data)
         appSelectionRevision += 1
-        guard profile?.lockdownEnabled == true else { return }
-        // Clearing every app is how the user turns blocking off now that there
-        // is no toggle: with nothing selected, tear down any scheduled shield
-        // rather than registering an empty (no-op but lingering) window.
-        if lockdownSelectionCount > 0 {
+        // With nothing left to block tonight (selection cleared, or blocking
+        // switched off), tear down the shield and its scheduled window rather
+        // than registering an empty (no-op but lingering) one.
+        if willLockDuringSleep {
             rescheduleLockdown()
         } else {
             screenTime.endLockdown()
@@ -578,7 +583,7 @@ final class SleepStore {
     /// Re-registers the scheduled bedtime->wake DeviceActivityMonitor window so
     /// the shield applies/clears even if the app isn't open.
     private func rescheduleLockdown() {
-        guard let profile, profile.lockdownEnabled else { return }
+        guard let profile, willLockDuringSleep else { return }
         screenTime.scheduleLockdown(
             bedtimeMinutes: profile.bedtime,
             wakeMinutes: profile.wakeTime,

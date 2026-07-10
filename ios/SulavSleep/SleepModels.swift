@@ -28,8 +28,13 @@ struct Profile: Codable, Equatable {
     var onboarded: Bool
     /// Whether the user has opted into two-way Apple Health sync.
     var healthSyncEnabled: Bool
-    /// Whether the user has enabled Screen Time app-lockdown while asleep.
-    var lockdownEnabled: Bool
+    /// Whether the chosen apps actually block during sleep. On by default —
+    /// choosing apps is the commitment — and the Blocked apps screen's toggle
+    /// is the explicit override for nights the user wants the phone open
+    /// without discarding the selection. Deliberately a *new* key (the retired
+    /// `lockdownEnabled` doubled as an authorization snapshot and went stale),
+    /// so every existing profile decodes to "on".
+    var blockDuringSleep: Bool
     /// Max hours the lockdown stays active even if "Wake up" isn't tapped.
     var lockdownMaxHours: Int
     /// What the user said gets between them and good sleep, captured during
@@ -44,7 +49,7 @@ struct Profile: Codable, Equatable {
 
     init(
         name: String, bedtime: Int, wakeTime: Int, onboarded: Bool,
-        healthSyncEnabled: Bool = false, lockdownEnabled: Bool = false, lockdownMaxHours: Int = 6,
+        healthSyncEnabled: Bool = false, blockDuringSleep: Bool = true, lockdownMaxHours: Int = 6,
         sleepStruggles: [String] = [], healthPromptDismissed: Bool = false
     ) {
         self.name = name
@@ -52,7 +57,7 @@ struct Profile: Codable, Equatable {
         self.wakeTime = wakeTime
         self.onboarded = onboarded
         self.healthSyncEnabled = healthSyncEnabled
-        self.lockdownEnabled = lockdownEnabled
+        self.blockDuringSleep = blockDuringSleep
         self.lockdownMaxHours = lockdownMaxHours
         self.sleepStruggles = sleepStruggles
         self.healthPromptDismissed = healthPromptDismissed
@@ -66,7 +71,7 @@ struct Profile: Codable, Equatable {
         wakeTime = try c.decode(Int.self, forKey: .wakeTime)
         onboarded = try c.decode(Bool.self, forKey: .onboarded)
         healthSyncEnabled = try c.decodeIfPresent(Bool.self, forKey: .healthSyncEnabled) ?? false
-        lockdownEnabled = try c.decodeIfPresent(Bool.self, forKey: .lockdownEnabled) ?? false
+        blockDuringSleep = try c.decodeIfPresent(Bool.self, forKey: .blockDuringSleep) ?? true
         lockdownMaxHours = try c.decodeIfPresent(Int.self, forKey: .lockdownMaxHours) ?? 6
         sleepStruggles = try c.decodeIfPresent([String].self, forKey: .sleepStruggles) ?? []
         healthPromptDismissed = try c.decodeIfPresent(Bool.self, forKey: .healthPromptDismissed) ?? false

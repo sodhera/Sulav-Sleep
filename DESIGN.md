@@ -339,7 +339,9 @@ Two tabs, each with exactly one job:
   "you can press this"; plain floating text read as static copy. Before any
   apps are chosen it shows a warm lock glyph in a soft circle beside one
   short line ("Choose apps to block" — no explanatory copy; the row itself
-  is the invitation); with a selection it previews the app icons. Empty
+  is the invitation); with a selection it previews the app icons; with a
+  selection but blocking toggled off it shows a muted open lock and
+  "Blocking is off". Empty
   states across Profile use that same glyph-row pattern (the sleep record
   opens with a moon-and-stars glyph and "No nights yet / Your record starts
   tonight.") — composed and warm, but never ghost charts or sample numbers:
@@ -363,23 +365,35 @@ Apple's own `FamilyActivityPicker`.
 
 The **Blocked apps** page follows the same grammar: a one-line supporting
 sentence under the title ("Locked from Sleep Now until you wake. Calls always
-work."), then a single `GlassGroup` — an Apps row (value "None"/"N chosen" →
-`FamilyActivityPicker`) and the "Unlock anyway after" safety stepper with its
-amber hour value. The chosen apps render below the group as a system-drawn
-**icon grid** (tokens are opaque, Apple draws them) — the user sees exactly
-what locks, without a text list.
+work."), then a single `GlassGroup` — a **"Block while you sleep" toggle (on
+by default)**, an Apps row (value "None"/"N chosen" → `FamilyActivityPicker`),
+and the "Unlock anyway after" safety stepper with its amber hour value. The
+chosen apps render below the group as a system-drawn **icon grid** (tokens are
+opaque, Apple draws them) — the user sees exactly what locks, without a text
+list.
 
-There is deliberately **no enable/disable toggle**. Choosing apps *is* the
-commitment: whatever is selected always locks during sleep, and the only way
-to turn blocking off is to remove the apps (clearing the selection tears down
-the scheduled shield). A separate switch would be a second decision that just
-restates the first, and a picked-but-disabled state invites the exact
-"technically armed, actually off" confusion the app avoids. Screen Time
-authorization is requested lazily — the first tap on the Apps row — because
-the picker is useless without it and a granted request is what arms the
-lockdown. `SleepStore.willLockDuringSleep` (authorized *and* at least one app
-chosen) is the single source of truth for "are apps blocked" across Home, the
-confirmation panel, and the profile preview.
+Choosing apps is still the commitment — a fresh selection blocks tonight with
+no extra step, because the toggle defaults to on. The toggle exists as the
+explicit, visible override: a night the user wants the phone open shouldn't
+cost them their selection. Off keeps the apps chosen but blocks nothing (the
+profile preview says "Blocking is off", the settings row "Off", and the sleep
+confirmation "No apps blocked tonight"), and clearing every app still tears
+down the scheduled shield.
+
+> Note on history: a mid-2026 revision removed the toggle entirely ("picking
+> apps is the commitment"). That backfired: armed-ness lived in a stored flag
+> that doubled as an authorization snapshot, which could go stale (profiles
+> from the toggle era, a denied re-authorization) — leaving apps "chosen" on
+> the settings page while Sleep Now said "No apps blocked tonight", with no
+> control anywhere to fix it. The toggle returned as a real user decision,
+> and armed-ness stopped being stored at all.
+
+Screen Time authorization is requested lazily — the first tap on the Apps
+row — because the picker is useless without it. It is never persisted:
+`SleepStore.willLockDuringSleep` (toggle on *and* live Screen Time
+authorization *and* at least one app chosen) is the single source of truth
+for "are apps blocked" across Home, the confirmation panel, and the profile
+preview.
 
 There is deliberately **no "reset all data" action**. A destructive escape
 hatch sitting among everyday settings invites disaster and signals distrust of
