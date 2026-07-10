@@ -58,12 +58,14 @@ struct RootView: View {
                         // restore check runs, so we don't flash the welcome
                         // screen for already signed-in users.
                         SleepBackground(showsMoon: false)
+                        SceneReadabilityScrim()
                     case .onboarding:
                         // Welcome → sign-up questionnaire, with a sign-in
                         // escape for returning users. Also where a signed-out
                         // user lands, opening on the welcome screen. See
                         // OnboardingGateView.
                         SleepBackground(showsMoon: false)
+                        SceneReadabilityScrim()
                         OnboardingGateView(store: store)
                     case .main:
                         EmptyView() // Handled by the branch above.
