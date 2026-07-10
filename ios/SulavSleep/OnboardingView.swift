@@ -163,6 +163,12 @@ private struct WelcomeStep: View {
         }
         .safeAreaPadding(.top)
         .safeAreaPadding(.bottom)
+        // No text input lives here, so keyboard frames must never move this
+        // layout: without this, the flash-free warmup's registered frame (on
+        // first entry) and the still-dismissing keyboard (backing out of the
+        // name question) both lifted the content, which then visibly fell
+        // back into place.
+        .ignoresSafeArea(.keyboard)
     }
 }
 
@@ -435,6 +441,9 @@ struct OnboardingQuestionsView: View {
             Keyboard.dismiss()
             setStep(steps[previousIndex], forward: false)
         } else {
+            // Leaving to welcome: start the dismissal now rather than letting
+            // the name field's teardown do it mid-transition.
+            Keyboard.dismiss()
             onBack?()
         }
     }
