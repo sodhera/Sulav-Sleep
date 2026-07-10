@@ -34,10 +34,19 @@ struct AuthView: View {
                 .padding(.top, SleepSpacing.md)
             }
 
-            AuthMethodsView(store: store, intent: intent)
+            AuthMethodsView(store: store, intent: intent, onSwipeBack: swipeBackAction)
         }
         .safeAreaPadding(.top)
         .safeAreaPadding(.bottom)
+    }
+
+    /// The edge swipe mirrors the chevron: dismiss the keyboard, back to welcome.
+    private var swipeBackAction: (() -> Void)? {
+        guard let onBack else { return nil }
+        return {
+            Keyboard.dismiss()
+            onBack()
+        }
     }
 }
 
@@ -48,6 +57,12 @@ struct AuthView: View {
 struct AuthMethodsView: View {
     @Bindable var store: SleepStore
     let intent: AuthIntent
+    /// Where the left-edge swipe leads when there is nothing internal to
+    /// unwind (the provider stack is showing) — the parent decides: back to
+    /// welcome on the sign-in path, back to the wake question in the sign-up
+    /// flow. With the email form open, the swipe unwinds to the providers
+    /// first. `nil` means the swipe has nowhere to go from the providers.
+    var onSwipeBack: (() -> Void)? = nil
 
     @State private var showEmailForm = false
     @State private var email = ""
@@ -120,6 +135,23 @@ struct AuthMethodsView: View {
         }
         .frame(maxHeight: .infinity)
         .animation(.easeInOut(duration: 0.22), value: showEmailForm)
+        .swipeBack { handleSwipeBack() }
+    }
+
+    private func handleSwipeBack() {
+        if showEmailForm {
+            Haptics.soft()
+            closeEmailForm()
+        } else if let onSwipeBack {
+            Haptics.soft()
+            onSwipeBack()
+        }
+    }
+
+    private func closeEmailForm() {
+        Keyboard.dismiss()
+        store.authErrorMessage = nil
+        withAnimation(.easeInOut(duration: 0.22)) { showEmailForm = false }
     }
 
     // MARK: - Provider choice
@@ -189,37 +221,39 @@ struct AuthMethodsView: View {
     @ViewBuilder
     private var emailForm: some View {
         VStack(spacing: SleepSpacing.lg) {
-            VStack(spacing: SleepSpacing.md) {
-                TextField("Email", text: $email)
+            // Glass field surfaces, not bare hairline underlines: the form
+            // sits over the busiest band of the skyline, where an underlined
+            // field all but disappears. The glass supplies the field's own
+            // stage (containers are for controls), and the amber ring is the
+            // focus affordance — a stroke that carries meaning, per the
+            // glass rules.
+            LiquidGlassContainer(spacing: SleepSpacing.md) {
+                VStack(spacing: SleepSpacing.md) {
+                    TextField(
+                        "Email", text: $email,
+                        prompt: Text("Email").foregroundStyle(SleepColor.quiet)
+                    )
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled(true)
                     .keyboardType(.emailAddress)
                     .textContentType(.emailAddress)
                     .submitLabel(.next)
-                    .font(SleepFont.body(17))
-                    .foregroundStyle(SleepColor.ink)
-                    .tint(SleepColor.amber)
-                    .padding(.vertical, SleepSpacing.md)
-                    .overlay(alignment: .bottom) {
-                        Rectangle().fill(SleepColor.hairline).frame(height: 1)
-                    }
+                    .modifier(AuthFieldChrome(isFocused: focusedField == .email))
                     .focused($focusedField, equals: .email)
                     .onSubmit { focusedField = .password }
                     .accessibilityLabel("Email")
 
-                SecureField("Password", text: $password)
+                    SecureField(
+                        "Password", text: $password,
+                        prompt: Text("Password").foregroundStyle(SleepColor.quiet)
+                    )
                     .submitLabel(.go)
                     .textContentType(intent == .signIn ? .password : .newPassword)
-                    .font(SleepFont.body(17))
-                    .foregroundStyle(SleepColor.ink)
-                    .tint(SleepColor.amber)
-                    .padding(.vertical, SleepSpacing.md)
-                    .overlay(alignment: .bottom) {
-                        Rectangle().fill(SleepColor.hairline).frame(height: 1)
-                    }
+                    .modifier(AuthFieldChrome(isFocused: focusedField == .password))
                     .focused($focusedField, equals: .password)
                     .onSubmit(submitEmailForm)
                     .accessibilityLabel("Password")
+                }
             }
 
             LiquidPrimaryButton(title: emailActionTitle, isLoading: store.isAuthenticating) {
@@ -230,9 +264,7 @@ struct AuthMethodsView: View {
 
             Button("Back") {
                 Haptics.heavy()
-                Keyboard.dismiss()
-                store.authErrorMessage = nil
-                withAnimation(.easeInOut(duration: 0.22)) { showEmailForm = false }
+                closeEmailForm()
             }
             .font(SleepFont.body(15))
             .foregroundStyle(SleepColor.muted)
@@ -301,6 +333,29 @@ struct AuthMethodsView: View {
             handleAppleCompletion(result)
         }
         coordinator.start(request: request)
+    }
+}
+
+/// Shared chrome for the email form's two fields: ink text on an interactive
+/// glass rounded rect, with the amber focus ring animating in as focus moves.
+private struct AuthFieldChrome: ViewModifier {
+    var isFocused: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .font(SleepFont.body(17))
+            .foregroundStyle(SleepColor.ink)
+            .tint(SleepColor.amber)
+            .padding(.horizontal, SleepSpacing.xl)
+            .frame(minHeight: 54)
+            .liquidGlass(cornerRadius: SleepRadius.md, interactive: true)
+            .overlay {
+                if isFocused {
+                    RoundedRectangle(cornerRadius: SleepRadius.md, style: .continuous)
+                        .stroke(SleepColor.amber.opacity(0.45), lineWidth: 1)
+                }
+            }
+            .animation(.easeInOut(duration: 0.18), value: isFocused)
     }
 }
 

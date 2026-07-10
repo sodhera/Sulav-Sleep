@@ -89,6 +89,32 @@ struct OnboardingGateView: View {
     }
 }
 
+// MARK: - Swipe back
+
+/// Left-edge swipe → back, mirroring the glass chevron across the onboarding
+/// and auth flows. These screens are custom ZStack transitions, not a
+/// NavigationStack, so the system's interactive pop gesture doesn't exist and
+/// the edge swipe is supplied by hand. It is a *trigger*, not a tracked pop:
+/// releasing past the threshold runs the same ~280ms slide the chevron runs.
+/// Call sites fire `Haptics.soft()` when they actually navigate — a swipe is
+/// a non-button cue, so it never gets the button knock.
+extension View {
+    func swipeBack(_ action: @escaping () -> Void) -> some View {
+        self
+            .contentShape(Rectangle())
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 24)
+                    .onEnded { value in
+                        guard value.startLocation.x <= 44,
+                              value.translation.width > 70,
+                              abs(value.translation.height) < abs(value.translation.width)
+                        else { return }
+                        action()
+                    }
+            )
+    }
+}
+
 // MARK: - Welcome
 
 private struct WelcomeStep: View {
@@ -213,7 +239,7 @@ struct OnboardingQuestionsView: View {
                 // The account step owns its full vertical layout (title +
                 // provider buttons), so it isn't wrapped in the question
                 // Spacer/Next-button scaffold.
-                AuthMethodsView(store: store, intent: .signUp)
+                AuthMethodsView(store: store, intent: .signUp, onSwipeBack: { goBack() })
                     .transition(.opacity)
             } else {
                 Spacer()
@@ -234,6 +260,14 @@ struct OnboardingQuestionsView: View {
         .safeAreaPadding(.top)
         .safeAreaPadding(.bottom)
         .animation(.easeInOut(duration: 0.28), value: step)
+        // The account step handles its own swipe inside AuthMethodsView
+        // (it may need to unwind the email form first), so this outer
+        // gesture stands down there to avoid double navigation.
+        .swipeBack {
+            guard step != .account, canGoBack else { return }
+            Haptics.soft()
+            goBack()
+        }
         // The account step's auth succeeded. A brand-new account commits the
         // just-answered profile as before. An existing account (Apple/Google
         // silently matching an already-registered identity) discards these
@@ -494,7 +528,10 @@ private struct NameField: View {
     @State private var focusTask: Task<Void, Never>?
 
     var body: some View {
-        TextField("Your name", text: $name)
+        TextField(
+            "Your name", text: $name,
+            prompt: Text("Your name").foregroundStyle(SleepColor.quiet)
+        )
             .textInputAutocapitalization(.words)
             .autocorrectionDisabled(true)
             .submitLabel(.next)
@@ -502,9 +539,11 @@ private struct NameField: View {
             .foregroundStyle(SleepColor.ink)
             .tint(SleepColor.amber)
             .padding(.vertical, SleepSpacing.md)
+            // `faint` when idle, not `hairline` — a 6% rule vanishes into the
+            // scene and the field reads as bare text.
             .overlay(alignment: .bottom) {
                 Rectangle()
-                    .fill(isFocused ? SleepColor.amber.opacity(0.5) : SleepColor.hairline)
+                    .fill(isFocused ? SleepColor.amber.opacity(0.5) : SleepColor.faint)
                     .frame(height: 1)
             }
             .focused($isFocused)

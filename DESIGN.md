@@ -466,6 +466,25 @@ back. The sign-in screen ("Welcome back") is a single standalone screen with
 the same chevron (back to welcome) and provider layout, so both paths read as
 one system.
 
+Text fields over the scene get real surfaces. The email form's two fields are
+**glass field rows** (continuous rounded rects sharing one
+`LiquidGlassContainer`), never bare hairline-underlined fields — the form sits
+over the busiest band of the skyline, where a 6% underline and a default
+placeholder simply vanish. Prompts use `quiet`, entered text is ink, and focus
+is an amber ring (a stroke that carries *meaning*, per the glass rules). The
+name question keeps its editorial underline — it's a lone hero field with the
+keyboard up — but the idle rule is `faint`, not `hairline`, and its prompt is
+`quiet` for the same reason.
+
+Every onboarding/auth screen with a back chevron also honors a **left-edge
+swipe back**. These flows are custom ZStack transitions, not a
+`NavigationStack`, so the system pop gesture doesn't exist and the swipe is
+hand-wired (`swipeBack` in `OnboardingView.swift`): a trigger, not a tracked
+pop — releasing past the threshold runs the same slide the chevron runs. With
+the email form open, the swipe unwinds to the provider stack first, then to
+wherever the chevron leads. A swipe is a non-button cue, so it taps `soft`,
+never the button knock.
+
 Provider stack: three buttons that read as one set — equal 58pt height and one
 shared SF label (20pt medium). Apple and Google are the two branded providers on
 matching white pills (Apple's `apple.logo`; the official multicolor Google "G"
@@ -499,8 +518,8 @@ The knock is wired centrally into the shared components (`GlassIconButton`,
 and added by hand on raw buttons, alert buttons, toggles, steppers, and
 NavigationLink rows (which are buttons to the finger). `soft` survives only
 for non-button cues — a drag released short of its threshold, the sleep
-screen's tap-anywhere reveal — and a success notification still marks a night
-logged. The night's two commitment gestures remain the richest haptics: the
+screen's tap-anywhere reveal, the onboarding/auth edge-swipe back — and a
+success notification still marks a night logged. The night's two commitment gestures remain the richest haptics: the
 **slide-to-sleep** knob (a rigid tap on grab, a heavy ratchet through eight
 detents climbing from 70% to 100% intensity, a double heavy knock at the
 completion threshold, a soft tap on a released spring-back, and the success
