@@ -8,8 +8,9 @@ imagesets from them so the Home scene can follow the user's day:
 - **Day**: sky lifted to a hazy daylight blue (stars and moon healed away, a
   pale pixel sun drawn in), skylines lightened into cool haze with depth
   (far = hazier), and window lights turned off (warm pixels -> cool glass).
-- **Dusk**: golden hour — the sky blends toward violet up top and ember at
-  the horizon, clouds catch warm light, silhouettes deepen slightly, and
+- **Dusk**: golden hour — deep blue up top through dusty rose into an ember
+  horizon (never neon purple: the violet->rose corridor is desaturated by
+  hue), clouds catch warm light, silhouettes sink into deep dusk navy, and
   the window lights stay on and glow a touch warmer.
 
 Night is untouched. Run after any change to the night layers:
@@ -148,15 +149,27 @@ def dusk_sky(rgba: np.ndarray) -> np.ndarray:
     # red -> orange (1.03 = 0.03 mod 1) so it never passes through green,
     # and the warmth curve keeps the upper sky calm — this must read as
     # golden hour, not the banned neon purple.
-    target_h = (0.66 * (1 - t) + 1.05 * t) % 1.0
+    target_h = (0.63 * (1 - t) + 1.05 * t) % 1.0
     warmth = 0.18 + 0.62 * t ** 1.3 + 0.12 * (hsv[:, :, 2] > 0.5)
     warmth = np.clip(warmth, 0, 0.9)
     # Blend hues on the circle: move each pixel toward target the short way.
     dh = (target_h - hsv[:, :, 0] + 0.5) % 1.0 - 0.5
     hsv[:, :, 0] = (hsv[:, :, 0] + dh * warmth) % 1.0
-    # Saturation dips through the middle of the ramp — golden hour's
-    # blue->peach transition is dusty, never electric magenta.
-    s_env = 0.8 - 0.5 * np.sin(np.pi * t) ** 2 + 0.3 * t
+    # Dusty, never electric: the path from blue to ember necessarily
+    # crosses the violet->rose corridor, so saturation dips wherever a
+    # pixel actually *landed* in that corridor — keyed to hue, not height.
+    # (An earlier height-keyed sine dip recovered exactly where the ramp
+    # was hottest pink, which is how the sky went neon magenta.) Ember at
+    # the horizon (h >= ~0.985, wrapping past red) keeps its saturation.
+    # The dip is feathered on both hue edges — a boolean corridor cut a
+    # hard seam across the sky where rows crossed the threshold.
+    h_after = hsv[:, :, 0]
+    rise = np.clip((h_after - 0.64) / 0.08, 0, 1)
+    fall = np.clip((0.985 - h_after) / 0.05, 0, 1)
+    corridor = (rise * rise * (3 - 2 * rise)) * (fall * fall * (3 - 2 * fall))
+    hsv[:, :, 1] *= 1 - 0.55 * corridor
+    # A gentle height-based envelope still calms the transition band.
+    s_env = 0.8 - 0.3 * np.sin(np.pi * t) ** 2 + 0.3 * t
     hsv[:, :, 1] = np.clip(hsv[:, :, 1] * s_env, 0, 0.72)
     hsv[:, :, 2] = np.clip(hsv[:, :, 2] * (0.9 + 0.38 * t), 0, 1)
     return np.dstack([to_rgb(hsv), alpha])
@@ -166,8 +179,9 @@ def dusk_skyline(rgb: np.ndarray, alpha: np.ndarray) -> np.ndarray:
     hsv = to_hsv(rgb)
     windows = warm_mask(hsv)
 
-    # Silhouettes sink into violet; lit windows glow a touch warmer/brighter.
-    hsv[:, :, 0] = np.where(windows, hsv[:, :, 0], hsv[:, :, 0] * 0.6 + 0.75 * 0.4)
+    # Silhouettes sink into deep dusk navy — never violet (0.75 is pure
+    # purple, the banned identity); lit windows glow a touch warmer/brighter.
+    hsv[:, :, 0] = np.where(windows, hsv[:, :, 0], hsv[:, :, 0] * 0.6 + 0.65 * 0.4)
     hsv[:, :, 1] = np.where(windows, np.clip(hsv[:, :, 1] * 1.1, 0, 1), hsv[:, :, 1] * 0.9)
     hsv[:, :, 2] = np.where(windows, np.clip(hsv[:, :, 2] * 1.12, 0, 1), hsv[:, :, 2] * 0.9)
     return np.dstack([to_rgb(hsv), alpha])
