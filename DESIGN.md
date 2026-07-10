@@ -649,13 +649,18 @@ Rules:
   "Set a schedule" — never fake numbers. The one exception is the
   widget-gallery preview (`context.isPreview`), which shows sample content so
   the gallery isn't a blank tile.
-- One action only: the **Sleep Now capsule** on medium/large (primary-button
-  style — amber→gold gradient, navy ink, moon glyph) rides the
-  `sleepblock://sleep` deep link, so a deliberate tap opens the app, starts
-  the session, and lands on the sleep screen. It disappears while asleep,
-  along with everything else the sleep face doesn't carry. The widget *body*
-  carries no `widgetURL` — a stray tap just opens the app and must never
-  start a session.
+- One action only: the **action capsule** on medium/large (primary-button
+  style — amber→gold gradient, navy ink). Signed in it reads "Sleep Now"
+  (moon glyph) and rides the `sleepblock://sleep` deep link — which opens
+  the app on **Home's slide-to-sleep confirmation**, never starts the
+  session: no surface anywhere lets a single tap begin a night; the slide
+  gesture stays the only way in. The shield action extension shares the
+  same link and the same behavior. Signed out, the capsule reads "Sign in"
+  (person glyph, `sleepblock://signin`) and simply opens the app on the
+  welcome screen — a widget must never offer an action the app would refuse.
+  The capsule disappears while asleep, along with everything else the sleep
+  face doesn't carry. The widget *body* carries no `widgetURL` — a stray tap
+  just opens the app.
 - Timers and countdowns use system-driven `Text(_, style:)` so they tick
   without timeline churn; timeline entries exist only to flip states at the
   drowsy (bedtime − 90 min), bedtime, and wake boundaries.

@@ -14,6 +14,11 @@ final class SleepStore {
     var profile: Profile?
     var activeSession: ActiveSleepSession?
     var selectedTab: AppTab = .home
+    /// Whether Home shows the slide-to-sleep confirmation panel. Lives on the
+    /// store (not Home-local state) so the widget/shield `sleepblock://sleep`
+    /// deep link can open it — a tap anywhere never *starts* a session; the
+    /// slide gesture is the only way a night begins.
+    var showSleepConfirmation = false
     var isImportingHealth = false
     /// The signed-in account, or `nil` before sign-in / after sign-out.
     var account: AppAccount?
@@ -140,6 +145,7 @@ final class SleepStore {
             bedtimeMinutes: profile?.bedtime,
             wakeMinutes: profile?.wakeTime,
             asleepSince: activeSession?.start,
+            isSignedIn: isAuthenticated,
             updated: Date()
         )
         SleepWidgetStore.save(summary)
@@ -268,6 +274,8 @@ final class SleepStore {
         authErrorMessage = nil
         authMessageIsNotice = false
         clearPersistedAccount()
+        // The widget flips its action capsule to "Sign in".
+        updateWidgetSoon()
         AppLog.store.info("Signed out")
     }
 
@@ -405,6 +413,9 @@ final class SleepStore {
         let start = Date()
         activeSession = ActiveSleepSession(start: start)
         selectedTab = .home
+        // The confirmation did its job; without this, Home would reopen on
+        // the panel after waking (the flag lives on the store, not the view).
+        showSleepConfirmation = false
         // Refresh the widget so it flips into the asleep state immediately.
         persist()
         let shouldStartLockdown = willLockDuringSleep

@@ -55,17 +55,23 @@ struct SulavSleepApp: App {
                     Task { await store.refreshHealthIfEnabled() }
                 }
                 .onOpenURL { url in
-                    // Handle sleepblock://sleep from the shield action extension.
-                    // If there's already an active session, RootView shows
-                    // SleepModeView automatically. If not, start sleep so the
-                    // user lands on the immersive screen.
+                    // sleepblock://sleep arrives from the widget capsule and
+                    // the shield action extension. It never starts a session
+                    // directly — the slide-to-sleep gesture is the only way a
+                    // night begins — it opens Home's confirmation panel, the
+                    // same screen an in-app Sleep Now tap shows. Signed-out
+                    // taps just open the app (RootView lands on welcome), and
+                    // mid-session taps land on SleepModeView, both untouched.
+                    // (sleepblock://signin, from the widget's signed-out
+                    // capsule, needs no handling: opening the app is enough.)
                     guard url.scheme == "sleepblock", url.host == "sleep" else { return }
                     AppLog.app.info("Opened via sleepblock://sleep URL")
-                    if store.activeSession == nil, store.isOnboarded {
-                        // The shield's "Sleep now" is a button too — same
-                        // heavy knock as every in-app button.
-                        Haptics.heavy()
-                        store.startSleep()
+                    if store.activeSession == nil, store.isAuthenticated, store.isOnboarded {
+                        Haptics.soft()
+                        store.selectedTab = .home
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            store.showSleepConfirmation = true
+                        }
                     }
                 }
         }

@@ -426,10 +426,20 @@ Apple Developer capability, Google Cloud OAuth client).
   `scripts/generate-app-icon.py` so the catalogs stay in sync. The app's
   `Images.xcassets` is deliberately *not* a member of the widget target
   (it would compile the whole pixel-art city into the appex).
-- `SleepWidgetSummary` carries `bedtimeMinutes`/`wakeMinutes`/`asleepSince` on
-  top of the history fields; all three are optionals, so summaries written
-  before they existed still decode (key stays `v1`). `SleepStore.startSleep()`
-  and `cancelSleep()` refresh the widget so the asleep state flips immediately.
+- `SleepWidgetSummary` carries `bedtimeMinutes`/`wakeMinutes`/`asleepSince`/
+  `isSignedIn` on top of the history fields; all are optionals, so summaries
+  written before they existed still decode (key stays `v1`; readers treat a
+  missing `isSignedIn` as signed in). `SleepStore.startSleep()` and
+  `cancelSleep()` refresh the widget so the asleep state flips immediately;
+  `signOut()` and sign-in (`adoptSignedInAccount`) refresh it so the action
+  capsule flips between "Sleep Now" and "Sign in".
+- Deep links: `sleepblock://sleep` (widget capsule + shield action) does
+  **not** start a session — `SulavSleepApp.onOpenURL` opens Home's
+  slide-to-sleep confirmation by setting `SleepStore.showSleepConfirmation`
+  (guarded by authenticated + onboarded + no active session; the slide
+  gesture is the only way a night begins). `sleepblock://signin` (the
+  widget's signed-out capsule) is deliberately unhandled — opening the app
+  lands on the welcome screen.
 - The provider emits at most three entries (now + the drowsy boundary 90 min
   before bedtime + next bedtime) and relies on system-driven
   `Text(_, style: .timer/.relative)` for ticking text; the app pushes reloads

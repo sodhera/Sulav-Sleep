@@ -11,16 +11,16 @@ struct HomeView: View {
     var store: SleepStore
     let profile: Profile
 
-    @State private var showConfirmation = false
-
     var body: some View {
         ZStack {
-            if showConfirmation {
+            // The flag lives on the store so the widget/shield deep link can
+            // open this panel too (see AppDelegate.onOpenURL).
+            if store.showSleepConfirmation {
                 // Scrolls up into view when Sleep Now is tapped, and — on
                 // Cancel — scrolls back down the same way it arrived, rather
                 // than fading in place.
                 SleepConfirmationPanel(store: store, profile: profile) {
-                    withAnimation(.easeInOut(duration: 0.32)) { showConfirmation = false }
+                    withAnimation(.easeInOut(duration: 0.32)) { store.showSleepConfirmation = false }
                 }
                 .transition(.asymmetric(
                     insertion: .opacity.combined(with: .move(edge: .bottom)),
@@ -64,7 +64,7 @@ struct HomeView: View {
             Spacer(minLength: SleepSpacing.xxxl)
 
             LiquidPrimaryButton(title: "Sleep Now", systemImage: "moon.fill") {
-                withAnimation(.easeInOut(duration: 0.3)) { showConfirmation = true }
+                withAnimation(.easeInOut(duration: 0.3)) { store.showSleepConfirmation = true }
             }
 
             LastNightStrip(lastSession: store.latestSession, streak: store.onTrackStreak)

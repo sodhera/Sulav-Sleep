@@ -31,9 +31,10 @@ import SwiftUI
 // "set a schedule" state. The one exception is the widget-gallery preview,
 // which shows sample content so the user can see what they're adding.
 // Tapping the widget body opens the app; the only deep link is the explicit
-// "Sleep Now" capsule on medium/large (`SleepNowButton`), because
-// `sleepblock://sleep` *starts* a session and a stray body tap must never
-// do that.
+// action capsule on medium/large (`WidgetActionCapsule`): "Sleep Now" when
+// signed in (opens Home's slide-to-sleep confirmation — a widget tap never
+// starts a session), "Sign in" when signed out (just opens the app, which
+// lands on welcome).
 
 struct SleepEntry: TimelineEntry {
     let date: Date
@@ -474,7 +475,7 @@ private struct MediumSleepView: View {
 
     var body: some View {
         if summary.isEmpty {
-            EmptyStatsView(pose: tonight.slothPose, showSleepButton: !tonight.isAsleep)
+            EmptyStatsView(pose: tonight.slothPose, signedIn: summary.isSignedIn ?? true, showButton: !tonight.isAsleep)
         } else {
             HStack(alignment: .top, spacing: SleepSpacing.lg) {
                 VStack(alignment: .leading, spacing: 3) {
@@ -529,7 +530,7 @@ private struct MediumSleepView: View {
 
                     Spacer(minLength: 6)
 
-                    SleepNowButton()
+                    WidgetActionCapsule(signedIn: summary.isSignedIn ?? true)
                 }
                 .frame(maxWidth: 168, maxHeight: .infinity)
             }
@@ -544,7 +545,8 @@ private struct MediumSleepView: View {
 
 private struct EmptyStatsView: View {
     let pose: SlothPose
-    let showSleepButton: Bool
+    let signedIn: Bool
+    let showButton: Bool
 
     var body: some View {
         HStack(alignment: .bottom, spacing: SleepSpacing.lg) {
@@ -565,9 +567,9 @@ private struct EmptyStatsView: View {
                 Text("Log a night to see your rhythm.")
                     .font(SleepFont.body(12))
                     .foregroundStyle(SleepColor.muted)
-                if showSleepButton {
+                if showButton {
                     Spacer(minLength: 4)
-                    SleepNowButton()
+                    WidgetActionCapsule(signedIn: signedIn)
                 }
             }
             .frame(maxHeight: .infinity, alignment: .topLeading)
@@ -637,7 +639,7 @@ private struct LargeSleepView: View {
             HStack(spacing: SleepSpacing.md) {
                 WidgetSloth(pose: tonight.slothPose, height: 44)
                 TonightFooter(tonight: tonight)
-                SleepNowButton()
+                WidgetActionCapsule(signedIn: summary.isSignedIn ?? true)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -825,18 +827,23 @@ private struct InlineAccessoryView: View {
 
 // MARK: - Shared pieces
 
-/// The widget's one action: a deliberate, clearly-labeled "Sleep Now" capsule
-/// in the app's primary-button style. It rides the `sleepblock://sleep` deep
-/// link (same path as the shield action extension): the app opens, starts the
-/// session, and lands on the immersive sleep screen. Only this button carries
-/// the URL — tapping anywhere else on the widget just opens the app.
-private struct SleepNowButton: View {
+/// The widget's one action, in the app's primary-button style. Signed in:
+/// "Sleep Now" rides `sleepblock://sleep` (same path as the shield action
+/// extension) — the app opens on Home's slide-to-sleep confirmation, because
+/// a widget tap must never *start* a session; the slide gesture is the only
+/// way a night begins. Signed out: the same capsule reads "Sign in" and
+/// rides `sleepblock://signin`, which just opens the app on the welcome
+/// screen. Only this capsule carries a URL — tapping anywhere else on the
+/// widget simply opens the app.
+private struct WidgetActionCapsule: View {
+    let signedIn: Bool
+
     var body: some View {
-        Link(destination: URL(string: "sleepblock://sleep")!) {
+        Link(destination: URL(string: signedIn ? "sleepblock://sleep" : "sleepblock://signin")!) {
             HStack(spacing: 5) {
-                Image(systemName: "moon.fill")
+                Image(systemName: signedIn ? "moon.fill" : "person.fill")
                     .font(.system(size: 10))
-                Text("Sleep Now")
+                Text(signedIn ? "Sleep Now" : "Sign in")
                     .font(SleepFont.label(12))
             }
             .foregroundStyle(SleepColor.navy)
@@ -982,6 +989,7 @@ extension SleepWidgetSummary {
             bedtimeMinutes: 23 * 60,
             wakeMinutes: 7 * 60,
             asleepSince: nil,
+            isSignedIn: true,
             updated: now
         )
     }

@@ -24,15 +24,23 @@ struct SleepWidgetSummary: Codable {
     var bedtimeMinutes: Int?
     var wakeMinutes: Int?
     var asleepSince: Date?
+    /// Whether an account is signed in — the widget swaps its Sleep Now
+    /// capsule for a "Sign in" one when this is false. Optional for
+    /// decode-compat with older summaries; readers treat absent as signed in
+    /// (the app rewrites the summary on its first run after updating).
+    var isSignedIn: Bool?
     var updated: Date
 
     var isEmpty: Bool { nights.isEmpty }
 
     /// Empty state used before any real night exists (honest — no fake data).
+    /// `isSignedIn: false` because this only renders when the app has never
+    /// written a summary — i.e. nobody has signed in on this install.
     static let empty = SleepWidgetSummary(
         nights: [], latestDurationMinutes: nil,
         streak: 0, targetMinutes: 480,
         bedtimeMinutes: nil, wakeMinutes: nil, asleepSince: nil,
+        isSignedIn: false,
         updated: Date(timeIntervalSince1970: 0)
     )
 }
