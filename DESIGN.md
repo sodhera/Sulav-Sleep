@@ -311,7 +311,10 @@ Two tabs, each with exactly one job:
   receding to ~60%) against the quiet target hairline with ~15% headroom,
   hours set in navy ink inside each bar's bottom, weekday initials under
   every slot (latest in amber). Nights not yet logged render as hairline
-  stubs, so a young record honestly reads as a week filling in.
+  stubs, so a young record honestly reads as a week filling in. The in-bar
+  hour labels are the record's *precision layer* — deliberately absent from
+  the home-screen widgets (see "Widgets"): a screen opened on purpose earns
+  exact figures; a glanced tile keeps only the rhythm.
 
   > Note on history: the record chart was previously a smoothed amber
   > line-with-area. Retired: it clamped every night into a 4.5–9h band (a
@@ -557,12 +560,15 @@ Rules:
   the tallest value (usually the target), so the target hairline reads as a
   reference line *inside* the chart rather than a stray rule flush against
   its top edge.
-  Each bar carries the hours slept that night as a 9pt navy-ink label set
-  inside its *bottom* (the amber-fill/navy-ink pairing from the primary
-  button) — bottom-anchored so every label sits on one shared baseline no
-  matter the bar heights: "7.5h" on the large widget, whole-number "7" in the
-  medium widget's narrower columns. Bars too short to hold the label drop it
-  rather than overflow.
+  The bars carry **no numerals**. (A note on history: each bar used to hold
+  a small hours label inside its bottom; that is retired. Bar height against
+  the target hairline already encodes duration, last night's exact hours are
+  already printed beside the score two centimeters away, and seven extra
+  digits made the tile read as a spreadsheet.) The widget's number budget is
+  **one number per question**: the score is the verdict, the duration beside
+  it the evidence, the streak the habit, the bedtime the plan — and the
+  chart is rhythm, not figures. Hour-level precision belongs in the app's
+  sleep record, not on a home-screen tile.
 - Honest data only. A placed widget with no history shows "Log a night" /
   "Set a schedule" — never fake numbers. The one exception is the
   widget-gallery preview (`context.isPreview`), which shows sample content so

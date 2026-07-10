@@ -519,7 +519,7 @@ private struct MediumSleepView: View {
                 Spacer(minLength: 0)
 
                 VStack(alignment: .trailing, spacing: 0) {
-                    SleepBars(nights: summary.nights, target: summary.targetMinutes, height: 64, wholeHours: true)
+                    SleepBars(nights: summary.nights, target: summary.targetMinutes, height: 64)
 
                     Spacer(minLength: 6)
 
@@ -872,10 +872,10 @@ private struct SleepNowButton: View {
 
 /// The 7-night rhythm: duration bars against a target hairline. The latest
 /// night is full-strength; earlier nights recede slightly, so "how did I do
-/// last night" reads first and the week reads second. Each bar carries the
-/// hours slept that night as a small navy-ink label set *inside* its top —
-/// the amber-fill/navy-ink pairing from the primary button. Bars too short
-/// to hold the label drop it rather than overflow.
+/// last night" reads first and the week reads second. The bars carry no
+/// numerals — height against the target hairline is the whole reading, and
+/// last night's exact duration is already printed beside the score. One
+/// number per question; the chart is rhythm, not figures.
 ///
 /// The chart always lays out exactly 7 fixed-width columns. Nights the user
 /// hasn't logged yet render as the quiet hairline stubs from the empty state,
@@ -886,9 +886,6 @@ private struct SleepBars: View {
     let target: Int
     let height: CGFloat
     var showWeekdays: Bool = false
-    /// Whole hours, no unit ("7") for the medium widget's narrow columns;
-    /// the large widget keeps one decimal + unit ("7.5h").
-    var wholeHours: Bool = false
 
     private static let slotCount = 7
 
@@ -911,7 +908,6 @@ private struct SleepBars: View {
             HStack(alignment: .bottom, spacing: 5) {
                 ForEach(Array(slots.enumerated()), id: \.offset) { index, night in
                     if let night {
-                        let barHeight = max(6, height * CGFloat(night.durationMinutes) / scaleMinutes)
                         Capsule()
                             .fill(
                                 LinearGradient(
@@ -919,22 +915,8 @@ private struct SleepBars: View {
                                     startPoint: .top, endPoint: .bottom
                                 )
                             )
-                            .overlay(alignment: .bottom) {
-                                // Bottom-anchored so every label sits on the
-                                // same baseline regardless of bar height.
-                                if barHeight >= 20 {
-                                    Text(hoursLabel(night.durationMinutes))
-                                        .font(SleepFont.label(9))
-                                        .foregroundStyle(SleepColor.navy)
-                                        .monospacedDigit()
-                                        .minimumScaleFactor(0.6)
-                                        .lineLimit(1)
-                                        .padding(.bottom, 5)
-                                        .padding(.horizontal, 1)
-                                }
-                            }
                             .opacity(index == Self.slotCount - 1 ? 1 : 0.62)
-                            .frame(height: barHeight)
+                            .frame(height: max(6, height * CGFloat(night.durationMinutes) / scaleMinutes))
                             .frame(maxWidth: .infinity, alignment: .bottom)
                             .widgetAccentable()
                     } else {
@@ -965,19 +947,6 @@ private struct SleepBars: View {
                 }
             }
         }
-    }
-
-    /// Hours for a bar: whole-number "7" when `wholeHours`, else "7.5h"
-    /// (one decimal, no trailing .0).
-    private func hoursLabel(_ minutes: Int) -> String {
-        let hours = Double(minutes) / 60
-        if wholeHours {
-            return "\(Int(hours.rounded()))"
-        }
-        let rounded = (hours * 10).rounded() / 10
-        return rounded == rounded.rounded()
-            ? "\(Int(rounded))h"
-            : String(format: "%.1fh", rounded)
     }
 }
 
