@@ -152,9 +152,15 @@ target can inject fakes without new hooks.
   (directional slide transitions, thin amber progress bar, glass back chevron)
   and owns the shared lightweight `TimeAdjuster`, used instead of UIKit
   `DatePicker`/wheel controls to avoid first-use hitches during transitions.
-  The keyboard is pre-warmed with a hidden `UITextField` only while routing to
-  the questionnaire (whose name step auto-focuses), so no phantom keyboard
-  flashes on the welcome or account screens. Struggle answers persist to
+  The keyboard is pre-warmed in two stages: a flash-free framework load while
+  the onboarding gate idles (`Keyboard.warmFrameworks()` — become + resign
+  first responder in the same runloop turn, so nothing presents), then the
+  real presented prewarm (`Keyboard.prewarm()`) only while routing to the
+  questionnaire, masked by the transition into the auto-focusing name step.
+  One stage alone wasn't enough: prewarming only at the "Get started" tap ran
+  the whole keyboard cold path during the route transition (visible jank,
+  first keystrokes lagging), and a presented prewarm on the welcome screen
+  would flash a phantom keyboard. Struggle answers persist to
   `Profile.sleepStruggles` for future personalization.
 - `LiquidGlass.swift`: native Liquid Glass wrappers with material fallbacks.
 - `SleepBackground.swift`: Core Animation pixel-night scene, plus

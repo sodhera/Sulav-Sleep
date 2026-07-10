@@ -68,6 +68,10 @@ struct OnboardingGateView: View {
             }
         }
         .animation(.easeInOut(duration: 0.28), value: route)
+        // Load the input frameworks while the gate idles (flash-free), so
+        // neither the Get-started prewarm nor a first field focus pays the
+        // keyboard cold path at interaction time.
+        .onAppear { Keyboard.warmFrameworks() }
         // Sign-in succeeded but there's no profile on this device yet (no
         // cloud copy to restore either): run the quick setup before entering
         // the app. When the sign-in *did* restore a cloud profile, RootView
@@ -593,9 +597,13 @@ private struct StruggleRow: View {
         // The glass owns its fill and edge; the row only adds an amber
         // stroke as the *selection* affordance. (Painting a manual capsule
         // fill + border on top of real glass muted it into a flat panel.)
+        // The tint is deliberately constant: toggling it with selection
+        // rebuilt the glassEffect on every tap — animated, across all five
+        // container siblings, over the live scene — which is what made
+        // choosing an option visibly lag. The ring, icon, and checkmark
+        // carry the selection instead.
         .liquidGlass(
             cornerRadius: SleepRadius.pill,
-            tint: isSelected ? SleepColor.glassWarm : SleepColor.glassFill,
             interactive: true
         )
         .overlay {
@@ -656,6 +664,29 @@ struct TimeAdjuster: View {
 enum Keyboard {
     #if canImport(UIKit)
     private static var warmupField: UITextField?
+    private static var didWarmFrameworks = false
+
+    private static var activeWindow: UIWindow? {
+        guard let scene = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .first(where: { $0.activationState == .foregroundActive })
+        else { return nil }
+        return scene.windows.first(where: { $0.isKeyWindow }) ?? scene.windows.first
+    }
+
+    private static func makeWarmupField(in window: UIWindow) -> UITextField {
+        let field = UITextField(frame: CGRect(x: -1, y: -1, width: 1, height: 1))
+        field.alpha = 0.01
+        field.autocorrectionType = .no
+        field.spellCheckingType = .no
+        field.smartQuotesType = .no
+        field.smartDashesType = .no
+        field.inputAssistantItem.leadingBarButtonGroups = []
+        field.inputAssistantItem.trailingBarButtonGroups = []
+        field.isAccessibilityElement = false
+        window.addSubview(field)
+        return field
+    }
     #endif
 
     static func dismiss() {
@@ -664,28 +695,40 @@ enum Keyboard {
         #endif
     }
 
-    /// Force-load the keyboard framework into memory so the first real
-    /// keyboard appearance is instant. Call once on the intro screen.
+    /// Flash-free first-stage warmup: become and resign first responder in
+    /// the same runloop turn, so the keyboard presentation is cancelled
+    /// before it commits and nothing ever appears on screen — but the input
+    /// frameworks and keyboard process still spin up. Called while the
+    /// onboarding gate idles: without it, that whole cold path ran at the
+    /// instant "Get started" was tapped (inside `prewarm`), janking the
+    /// route transition, with its tail still lagging the first keystrokes
+    /// in the name field. Runs once per process, slightly delayed so it
+    /// never competes with the gate's own first frame.
+    static func warmFrameworks() {
+        #if canImport(UIKit)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            guard !didWarmFrameworks, warmupField == nil else { return }
+            guard let window = activeWindow else { return }
+            didWarmFrameworks = true
+            let field = makeWarmupField(in: window)
+            field.becomeFirstResponder()
+            field.resignFirstResponder()
+            field.removeFromSuperview()
+        }
+        #endif
+    }
+
+    /// Second-stage warmup: really present a keyboard for a beat — masked by
+    /// the welcome → questionnaire transition, whose name step auto-focuses
+    /// moments later — so the first genuine appearance is instant. With
+    /// `warmFrameworks()` having prepaid the framework load, this is cheap.
     static func prewarm(duration: TimeInterval = 0.55) {
         #if canImport(UIKit)
         DispatchQueue.main.async {
             guard warmupField == nil else { return }
-            guard let scene = UIApplication.shared.connectedScenes
-                .compactMap({ $0 as? UIWindowScene })
-                .first(where: { $0.activationState == .foregroundActive }),
-                let window = scene.windows.first(where: { $0.isKeyWindow }) ?? scene.windows.first
-            else { return }
+            guard let window = activeWindow else { return }
 
-            let field = UITextField(frame: CGRect(x: -1, y: -1, width: 1, height: 1))
-            field.alpha = 0.01
-            field.autocorrectionType = .no
-            field.spellCheckingType = .no
-            field.smartQuotesType = .no
-            field.smartDashesType = .no
-            field.inputAssistantItem.leadingBarButtonGroups = []
-            field.inputAssistantItem.trailingBarButtonGroups = []
-            field.isAccessibilityElement = false
-            window.addSubview(field)
+            let field = makeWarmupField(in: window)
             warmupField = field
             field.becomeFirstResponder()
 
