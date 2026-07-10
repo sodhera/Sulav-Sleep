@@ -118,11 +118,10 @@ private struct WelcomeStep: View {
 
             VStack(spacing: SleepSpacing.md) {
                 LiquidPrimaryButton(title: "Get started") {
-                    Haptics.soft()
                     onGetStarted()
                 }
                 Button("I already have an account") {
-                    Haptics.soft()
+                    Haptics.heavy()
                     onSignIn()
                 }
                 .font(SleepFont.body(15))
@@ -310,7 +309,7 @@ struct OnboardingQuestionsView: View {
                                 struggle: struggle,
                                 isSelected: struggles.contains(struggle)
                             ) {
-                                Haptics.soft()
+                                Haptics.heavy()
                                 if struggles.contains(struggle) {
                                     struggles.remove(struggle)
                                 } else {
@@ -371,12 +370,13 @@ struct OnboardingQuestionsView: View {
         }
     }
 
+    // No haptic here: the Next button (`LiquidPrimaryButton`) already knocks
+    // on tap, and this also runs from the name field's return key.
     private func advance() {
         guard isStepValid else { return }
         let nextIndex = currentIndex + 1
         guard nextIndex < steps.count else { return }
         let next = steps[nextIndex]
-        Haptics.soft()
         if step == .name {
             // Let the keyboard start dismissing before the slide so the two
             // animations don't fight.
@@ -390,8 +390,8 @@ struct OnboardingQuestionsView: View {
         setStep(next, forward: true)
     }
 
+    // No haptic here: `GlassBackButton` already knocks on tap.
     private func goBack() {
-        Haptics.soft()
         let previousIndex = currentIndex - 1
         if previousIndex >= 0 {
             Keyboard.dismiss()

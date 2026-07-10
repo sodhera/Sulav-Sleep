@@ -117,7 +117,7 @@ struct SleepModeView: View {
                         Group {
                             if #available(iOS 26.0, *) {
                                 Button {
-                                    Haptics.soft()
+                                    Haptics.heavy()
                                     withAnimation(.easeInOut(duration: 0.4)) { showControls = false }
                                 } label: {
                                     backToSleepLabel
@@ -125,7 +125,7 @@ struct SleepModeView: View {
                                 .buttonStyle(GlassCapsuleButtonStyle(tint: nil))
                             } else {
                                 Button {
-                                    Haptics.soft()
+                                    Haptics.heavy()
                                     withAnimation(.easeInOut(duration: 0.4)) { showControls = false }
                                 } label: {
                                     backToSleepLabel

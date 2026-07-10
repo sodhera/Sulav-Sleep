@@ -62,7 +62,9 @@ struct SulavSleepApp: App {
                     guard url.scheme == "sleepblock", url.host == "sleep" else { return }
                     AppLog.app.info("Opened via sleepblock://sleep URL")
                     if store.activeSession == nil, store.isOnboarded {
-                        Haptics.soft()
+                        // The shield's "Sleep now" is a button too — same
+                        // heavy knock as every in-app button.
+                        Haptics.heavy()
                         store.startSleep()
                     }
                 }

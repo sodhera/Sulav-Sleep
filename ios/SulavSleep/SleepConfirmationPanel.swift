@@ -52,7 +52,7 @@ struct SleepConfirmationPanel: View {
             }
 
             Button {
-                Haptics.soft()
+                Haptics.heavy()
                 onCancel()
             } label: {
                 Text("Cancel")

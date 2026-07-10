@@ -64,7 +64,6 @@ struct HomeView: View {
             Spacer(minLength: SleepSpacing.xxxl)
 
             LiquidPrimaryButton(title: "Sleep Now", systemImage: "moon.fill") {
-                Haptics.soft()
                 withAnimation(.easeInOut(duration: 0.3)) { showConfirmation = true }
             }
 

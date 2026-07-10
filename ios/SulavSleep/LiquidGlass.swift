@@ -66,11 +66,9 @@ extension View {
 
 /// A small circular icon action — the Profile gear, the settings-sheet close
 /// ✕, the onboarding back chevron. These all share one size so they read as
-/// the same control language wherever they appear.
-///
-/// A small circular icon action — the Profile gear, the settings-sheet close
-/// ✕, the onboarding back chevron. These all share one size so they read as
-/// the same control language wherever they appear.
+/// the same control language wherever they appear. Like every button in the
+/// app it fires `Haptics.heavy()` on tap (see DESIGN.md), wired here so no
+/// call site can forget it.
 ///
 /// The reaction is driven by a **custom `ButtonStyle`** (`GlassCircleButtonStyle`),
 /// not `.buttonStyle(.plain)` + a bare `.glassEffect(.interactive())`. That
@@ -91,7 +89,10 @@ struct GlassIconButton: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
+        Button {
+            Haptics.heavy()
+            action()
+        } label: {
             Image(systemName: systemImage)
                 .font(.system(size: iconSize, weight: .medium))
                 .foregroundStyle(tint)
@@ -215,6 +216,10 @@ struct GlassRowIcon: View {
 }
 
 // MARK: - Buttons
+//
+// Both capsule buttons fire `Haptics.heavy()` themselves before running
+// their action — every button in the app knocks hard (see DESIGN.md), and
+// wiring it in the component means call sites can't forget or double it.
 
 /// Warm, primary action. Amber Liquid Glass, deep-navy ink, soft glow. On
 /// iOS 26+ this is an amber-tinted **interactive** glass capsule driven by a
@@ -244,16 +249,21 @@ struct LiquidPrimaryButton: View {
 
     var body: some View {
         if #available(iOS 26.0, *) {
-            Button(action: action) { labelContent }
+            Button(action: fire) { labelContent }
                 .buttonStyle(GlassCapsuleButtonStyle(tint: SleepColor.amber))
                 .shadow(color: SleepColor.amber.opacity(0.30), radius: 18, y: 7)
         } else {
-            Button(action: action) {
+            Button(action: fire) {
                 labelContent
                     .frame(maxWidth: .infinity, minHeight: 58)
             }
             .buttonStyle(LiquidButtonStyle(prominent: true))
         }
+    }
+
+    private func fire() {
+        Haptics.heavy()
+        action()
     }
 
     private var labelContent: some View {
@@ -292,15 +302,20 @@ struct LiquidSecondaryButton: View {
 
     var body: some View {
         if #available(iOS 26.0, *) {
-            Button(action: action) { labelContent }
+            Button(action: fire) { labelContent }
                 .buttonStyle(GlassCapsuleButtonStyle(tint: nil))
         } else {
-            Button(action: action) {
+            Button(action: fire) {
                 labelContent
                     .frame(maxWidth: .infinity, minHeight: 58)
             }
             .buttonStyle(LiquidButtonStyle(prominent: false))
         }
+    }
+
+    private func fire() {
+        Haptics.heavy()
+        action()
     }
 
     private var labelContent: some View {

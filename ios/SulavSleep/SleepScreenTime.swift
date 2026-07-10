@@ -315,14 +315,14 @@ struct BlockedAppsScreen: View {
                     .padding(.vertical, SleepSpacing.md)
                     .frame(minHeight: 52)
                     .onChange(of: blockOn) { _, on in
-                        Haptics.soft()
+                        Haptics.heavy()
                         store.setBlockingEnabled(on)
                     }
 
                     GlassRowDivider()
 
                     Button {
-                        Haptics.soft()
+                        Haptics.heavy()
                         // Screen Time authorization is requested lazily, right
                         // when it's needed: the picker is useless without it.
                         Task {
@@ -355,7 +355,10 @@ struct BlockedAppsScreen: View {
                         Stepper("", value: $maxHours, in: 1...12)
                             .labelsHidden()
                             .tint(SleepColor.amber)
-                            .onChange(of: maxHours) { _, hours in store.setLockdownMaxHours(hours) }
+                            .onChange(of: maxHours) { _, hours in
+                                Haptics.heavy()
+                                store.setLockdownMaxHours(hours)
+                            }
                     }
                     .padding(.vertical, SleepSpacing.md)
                     .frame(minHeight: 52)

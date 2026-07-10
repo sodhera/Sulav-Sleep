@@ -27,10 +27,13 @@ capability.
   and every call is a no-op.
 
 - **Scheduled/background enforcement** — `SulavSleepMonitor` (DeviceActivityMonitor
-  extension): applies the shield at the scheduled bedtime, clears it at wake, and
-  lifts it early if the user-set max-hours cap (`Profile.lockdownMaxHours`,
-  default 6) is reached, all independent of the app being open. Reads the
-  App-Group-stored app selection via `SleepLockdownShared.swift`. Scheduled via
+  extension) is a clear-only safety net: it never applies the shield (only
+  `startSleep()` -> `ScreenTimeService.startLockdown()` does, when the user taps
+  Sleep Now), but it clears it at the scheduled wake time and lifts it early if
+  the user-set max-hours cap (`Profile.lockdownMaxHours`, default 6) is reached,
+  both independent of the app being open — a safety net for mornings where the
+  app never gets reopened to call `wakeUp()`. Reads the App-Group-stored app
+  selection via `SleepLockdownShared.swift`. Scheduled via
   `ScreenTimeService.scheduleLockdown` whenever lockdown is enabled or the
   schedule/selection changes.
 - **Live Activity** — `SleepActivityAttributes` + `SleepLiveActivity` (app side,
@@ -52,9 +55,11 @@ _Original plan follows._
 ## Feature 1 — Sleep lockdown (Screen Time / Family Controls)
 
 ### Goal
-After "Sleep Now" (or at the scheduled bedtime), shield the user's distracting
-apps for the sleep window (default until wake, or N user-specified hours), so the
-phone is effectively useless except for essentials.
+After the user taps "Sleep Now", shield the user's distracting apps for the
+sleep window (default until wake, or N user-specified hours), so the phone is
+effectively useless except for essentials. The shield is deliberately
+**never** applied automatically at the scheduled bedtime — only an explicit
+user action starts it; the background schedule exists solely to clear it.
 
 ### Platform reality (must set expectations)
 iOS does **not** let an app block other apps freely. The only sanctioned path is
@@ -92,10 +97,10 @@ Components to add:
    - `startLockdown(until:)` → set `ManagedSettingsStore().shield.applications`
    - `endLockdown()` → clear the shield
    - a `FamilyActivitySelection` chosen by the user and stored in the App Group.
-3. **DeviceActivityMonitor app extension** (new target): applies the shield at
-   `intervalDidStart` (bedtime) and clears it at `intervalDidEnd` (wake time), so
-   enforcement works even if the app isn't foregrounded. Also enforces the
-   "N hours" cap.
+3. **DeviceActivityMonitor app extension** (new target): clear-only safety net —
+   clears the shield at `intervalDidEnd` (wake time) and enforces the "N hours"
+   cap, so the shield still lifts even if the app isn't foregrounded. Does
+   *not* apply the shield at `intervalDidStart`; only `startLockdown()` does.
 4. **Wire into the sleep loop**: `startSleep()` → `startLockdown`; `wakeUp()` and
    the scheduled window end → `endLockdown`. `cancelSleep()` must also clear it.
 5. **Settings UI**: a `FamilyActivityPicker` sheet ("Apps to lock during sleep")

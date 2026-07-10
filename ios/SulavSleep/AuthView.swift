@@ -25,7 +25,6 @@ struct AuthView: View {
             if let onBack {
                 HStack {
                     GlassBackButton {
-                        Haptics.soft()
                         Keyboard.dismiss()
                         onBack()
                     }
@@ -142,7 +141,7 @@ struct AuthMethodsView: View {
                 // tap there would regenerate the nonce out from under the
                 // in-flight request.
                 guard !store.isAuthenticating, loadingProvider == nil else { return }
-                Haptics.soft()
+                Haptics.heavy()
                 store.authErrorMessage = nil
                 loadingProvider = .apple
                 let nonce = AppleSignInNonce.randomNonce()
@@ -158,7 +157,7 @@ struct AuthMethodsView: View {
                     .scaledToFit()
             } action: {
                 guard !store.isAuthenticating, loadingProvider == nil else { return }
-                Haptics.soft()
+                Haptics.heavy()
                 store.authErrorMessage = nil
                 loadingProvider = .google
                 Task {
@@ -174,7 +173,7 @@ struct AuthMethodsView: View {
                     .scaledToFit()
                     .foregroundStyle(SleepColor.ink)
             } action: {
-                Haptics.soft()
+                Haptics.heavy()
                 store.authErrorMessage = nil
                 withAnimation(.easeInOut(duration: 0.22)) { showEmailForm = true }
             }
@@ -230,6 +229,7 @@ struct AuthMethodsView: View {
             .disabled(store.isAuthenticating || !isEmailFormValid)
 
             Button("Back") {
+                Haptics.heavy()
                 Keyboard.dismiss()
                 store.authErrorMessage = nil
                 withAnimation(.easeInOut(duration: 0.22)) { showEmailForm = false }
@@ -244,10 +244,11 @@ struct AuthMethodsView: View {
         email.contains("@") && email.contains(".") && password.count >= 6
     }
 
+    // No haptic here: the submit button (`LiquidPrimaryButton`) already
+    // knocks on tap, and this also runs from the keyboard's return key.
     private func submitEmailForm() {
         guard isEmailFormValid else { return }
         Keyboard.dismiss()
-        Haptics.soft()
         let email = self.email
         let password = self.password
         switch intent {

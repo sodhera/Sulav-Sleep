@@ -2,19 +2,16 @@ import DeviceActivity
 import ManagedSettings
 import Foundation
 
-// DeviceActivityMonitor extension: applies/clears the sleep shield on the
-// scheduled bedtime->wake interval even if the app isn't foregrounded, and lifts
-// it early if the user-specified max duration is reached. Reads the same
-// App Group state the app writes (SleepLockdownShared.swift).
+// DeviceActivityMonitor extension: a safety net around the sleep shield that
+// the app applies directly (SleepStore.startSleep -> ScreenTimeService.startLockdown)
+// when the user taps Sleep Now. This extension never *applies* the shield — it
+// only clears it at the scheduled wake time or once the user-specified max
+// duration is reached, in case the app never runs wakeUp() (e.g. it's not
+// reopened in the morning). Reads the same App Group state the app writes
+// (SleepLockdownShared.swift).
 
 final class SulavSleepMonitor: DeviceActivityMonitor {
     private let store = ManagedSettingsStore()
-
-    override func intervalDidStart(for activity: DeviceActivityName) {
-        super.intervalDidStart(for: activity)
-        guard activity == sleepActivityName else { return }
-        applyShield()
-    }
 
     override func intervalDidEnd(for activity: DeviceActivityName) {
         super.intervalDidEnd(for: activity)
@@ -26,16 +23,6 @@ final class SulavSleepMonitor: DeviceActivityMonitor {
         super.eventDidReachThreshold(event, activity: activity)
         guard event == sleepEventName else { return }
         clearShield()
-    }
-
-    private func applyShield() {
-        let selection = SleepLockdownSelection.decode(
-            SleepLockdownSelection.groupDefaults()?.data(forKey: SleepLockdownSelection.selectionKey)
-        )
-        store.shield.applications = selection.applicationTokens.isEmpty ? nil : selection.applicationTokens
-        store.shield.applicationCategories = selection.categoryTokens.isEmpty
-            ? nil
-            : .specific(selection.categoryTokens)
     }
 
     private func clearShield() {

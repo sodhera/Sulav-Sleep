@@ -197,8 +197,12 @@ struct BarHoursLabel: View {
 
 // MARK: - Haptics
 //
-// Gentle, sparingly used. A soft tap for entering/leaving sleep, a success
-// notification when a night is logged. Nothing bouncy or reward-like.
+// Strong and universal on buttons: every button in the app knocks `heavy()`
+// on tap — wired centrally into the shared components (`GlassIconButton`,
+// `LiquidPrimaryButton`, `LiquidSecondaryButton` in LiquidGlass.swift) and
+// added by hand at raw `Button`/alert/toggle/stepper call sites. `soft()`
+// remains only for non-button cues (drag spring-backs, the sleep screen's
+// tap-anywhere reveal); `success()` still marks a night logged/woken.
 
 enum Haptics {
     #if canImport(UIKit)
@@ -246,7 +250,8 @@ enum Haptics {
         #endif
     }
 
-    /// A single heavy knock.
+    /// A single heavy knock — the standard haptic for **every button tap**
+    /// in the app.
     static func heavy() {
         #if canImport(UIKit)
         heavyGenerator.impactOccurred()
