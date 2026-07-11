@@ -138,6 +138,13 @@ NIGHT_HOME_PALETTE = {
     (0xB7, 0xA3, 0xCE): (0x5D, 0x6A, 0x84),
 }
 
+# Launch-screen sloth: the icon's exact colorway (amber sloth, ink pillow,
+# cool-grey pillow shades) but on a transparent background, so the launch
+# storyboard can sit the figure flush on the flat `background` navy with no
+# rounded-rect icon edge. The baked ZZZ is erased like every other sloth
+# asset — the in-app splash animates its own (`RisingZs`).
+SPLASH_PALETTE = {**PALETTE, WHITE: INK}
+
 # All palettes share this key order, so one classification pass serves every
 # colorway (and eye edits in class space carry across all of them).
 SOURCE_KEYS = list(PALETTE.keys())
@@ -308,6 +315,7 @@ def main() -> None:
 
     idx = classify(np.asarray(hires).astype(np.int32), SOURCE_KEYS)
     write_imageset("NightSloth", sloth_asset(idx, EMBER_PALETTE))
+    write_imageset("SplashSloth", sloth_asset(idx, SPLASH_PALETTE))
 
     # Home sloth matrix: scene light x eye state. "Blink" is the source's
     # own closed crescents — same render, same crop, pixel-aligned with the
