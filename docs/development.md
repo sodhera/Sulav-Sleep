@@ -440,12 +440,17 @@ Apple Developer capability, Google Cloud OAuth client).
   gesture is the only way a night begins). `sleepblock://signin` (the
   widget's signed-out capsule) is deliberately unhandled — opening the app
   lands on the welcome screen.
-- The provider emits at most three entries (now + the drowsy boundary 90 min
-  before bedtime + next bedtime) and relies on system-driven
+- Awake, the provider emits at most three entries (now + the drowsy boundary
+  90 min before bedtime + next bedtime) and relies on system-driven
   `Text(_, style: .timer/.relative)` for ticking text; the app pushes reloads
   on real changes. The 90-minute drowsy lead mirrors `HomeSloth.drowsyLead`
   (`TonightState.drowsyLeadMinutes`) so the app and widget sloths get heavy
   eyelids together.
+- Asleep, the provider emits a two-hour window of **minute entries** aligned
+  to `asleepSince`, so the sleep face's ZZZ chain (`SlothZzz`) steps one z
+  per minute — WidgetKit cannot animate, but entries within one timeline are
+  free. `.atEnd` extends the night two hours at a time (a handful of
+  budgeted reloads per night), and the app's wake-up reload ends the face.
 - `SleepStore` writes the summary and calls `WidgetCenter.reloadAllTimelines()`
   on every history change (via `persist()` → `updateWidgetSoon()`). A historical
   note: an `AppEnvironment.isTesting` guard used to skip this under XCTest; that
@@ -490,13 +495,25 @@ Apple Developer capability, Google Cloud OAuth client).
 
 ## Launch screen (splash)
 
-`SplashScreen.storyboard` (wired via `UILaunchStoryboardName`) shows the app
-icon — `SplashIcon.imageset`, the icon PNG with the iOS rounded-corner mask
-baked in at 180pt @1x/2x/3x — centered on `SleepColor.background` (#08111E).
-The imageset is generated, never hand-edited, by
-`scripts/generate-splash-icon.py` from the shipped
-`AppIcon.appiconset/App-Icon-1024x1024@1x.png`; re-run it after regenerating
-the app icon (`scripts/generate-app-icon.py`).
+The splash is a two-stage handoff:
+
+1. `SplashScreen.storyboard` (wired via `UILaunchStoryboardName`) shows the
+   sloth-on-pillow figure — `SplashSloth.imageset`, the icon's colorway on a
+   *transparent* background (1200×720, emitted by
+   `scripts/generate-app-icon.py` alongside the icon) — at 200×120pt,
+   centered flush on `SleepColor.background` (#08111E). No rounded icon
+   rectangle. Launch storyboards are static snapshots; nothing here can
+   animate.
+2. `LaunchSplashView` (RootView.swift) is the `.authLoading` screen: the
+   same asset at the same 200pt width and screen-center position on the same
+   flat navy, so the storyboard → SwiftUI handoff is invisible — plus the
+   brand halo and the gold `RisingZs` chain, which is where the ZZZ starts
+   animating. `RootView.splashHold` (1.5s) keeps the splash up past auth
+   readiness so the first z is visible before the crossfade; the sleep-mode
+   overlay branch bypasses the hold entirely.
+
+If the storyboard's image size/position changes, `LaunchSplashView.width`
+must change with it, or the handoff jumps.
 
 Simulator gotcha: iOS caches a rendered snapshot of the launch screen
 (SplashBoard), and a long-lived simulator can keep showing a stale blank
@@ -504,5 +521,4 @@ snapshot even across reinstalls, SpringBoard restarts, and reboots. If a
 launch-screen change doesn't show up, verify on a freshly booted simulator (or
 erase the simulator); real devices regenerate the snapshot on install. The
 bundle can be sanity-checked directly: `SplashScreen.storyboardc` should be in
-the app, and `assetutil --info <app>/Assets.car` should list `SplashIcon` at
-three scales.
+the app, and `assetutil --info <app>/Assets.car` should list `SplashSloth`.

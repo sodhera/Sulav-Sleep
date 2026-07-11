@@ -56,13 +56,30 @@ struct SleepProvider: TimelineProvider {
         let now = Date()
         let summary = SleepWidgetStore.load() ?? .empty
 
-        // Countdown/timer text is system-driven (`Text(_, style:)`), so entries
-        // only exist to flip *states*: the sloth's eyelids at the drowsy
-        // boundary, then the bedtime and wake boundaries. The app pushes a
-        // reload on every real change; the policy is a fallback.
+        // Asleep: the sleep face's ZZZ steps one frame per minute. WidgetKit
+        // renders static snapshots — nothing can *animate* — but entries
+        // inside a single timeline are free, so a two-hour window of minute
+        // entries (aligned to the sleep start, so steps land exactly on the
+        // minute) lets the chain grow z → zz → zzz and start over; iOS
+        // cross-fades each flip. `.atEnd` extends the night two hours at a
+        // time, and the app force-reloads at wake so the face never lingers.
+        if let since = summary.asleepSince {
+            let elapsedMinutes = max(0, (now.timeIntervalSince(since) / 60).rounded(.down))
+            let firstStep = since.addingTimeInterval(elapsedMinutes * 60)
+            let entries = (0..<121).map { minute in
+                SleepEntry(date: firstStep.addingTimeInterval(TimeInterval(minute) * 60), summary: summary)
+            }
+            completion(Timeline(entries: entries, policy: .atEnd))
+            return
+        }
+
+        // Awake: countdown/timer text is system-driven (`Text(_, style:)`),
+        // so entries only exist to flip *states*: the sloth's eyelids at the
+        // drowsy boundary, then the bedtime and wake boundaries. The app
+        // pushes a reload on every real change; the policy is a fallback.
         var entries = [SleepEntry(date: now, summary: summary)]
         var refresh = now.addingTimeInterval(3600)
-        if summary.asleepSince == nil, let bedtime = summary.bedtimeMinutes {
+        if let bedtime = summary.bedtimeMinutes {
             let nextBed = SleepWidgetClock.nextOccurrence(ofMinuteOfDay: bedtime, after: now)
             let drowsyStart = nextBed.addingTimeInterval(-TimeInterval(TonightState.drowsyLeadMinutes * 60))
             if drowsyStart > now {
@@ -213,6 +230,35 @@ private struct WidgetSloth: View {
     }
 }
 
+/// The sleep screen's living ZZZ, in widget time. WidgetKit renders static
+/// snapshots — nothing can drift or fade in real time — so instead of the
+/// app's slow drifting chain, the chain *steps*: one more ember z each
+/// minute (rendered by the asleep timeline's minute entries), then starts
+/// over. Each z sits further up the icon's diagonal, swelling and dimming
+/// like the app's, and iOS cross-fades the change when the entry flips —
+/// every glance can catch a different frame, so the widget reads as
+/// breathing without ever animating.
+private struct SlothZzz: View {
+    /// How many z's are showing (1–3).
+    let count: Int
+    /// The sloth's frame height — the chain scales with the figure.
+    let unit: CGFloat
+
+    var body: some View {
+        ZStack(alignment: .bottomLeading) {
+            ForEach(0..<count, id: \.self) { index in
+                let step = CGFloat(index)
+                Text("z")
+                    .font(SleepFont.hero(unit * (0.14 + 0.05 * step)))
+                    .foregroundStyle(SleepColor.emberDim)
+                    .opacity(1.0 - 0.28 * step)
+                    .offset(x: step * unit * 0.14, y: -step * unit * 0.17)
+            }
+        }
+        .accessibilityHidden(true)
+    }
+}
+
 // MARK: - Family dispatch + background
 
 private struct SleepWidgetView: View {
@@ -233,7 +279,7 @@ private struct SleepWidgetView: View {
             // While asleep every system family wears the same sleep face;
             // awake, each family does its own job.
             if case .asleep(let since) = tonight {
-                AsleepFaceView(since: since, wakeMinutes: entry.summary.wakeMinutes)
+                AsleepFaceView(since: since, wakeMinutes: entry.summary.wakeMinutes, now: entry.date)
                     .containerBackground(for: .widget) { SleepColor.sleepBlack }
             } else {
                 awakeBody
@@ -284,7 +330,25 @@ private struct NightBackground: View {
 private struct AsleepFaceView: View {
     let since: Date
     let wakeMinutes: Int?
+    /// The rendering entry's date — drives the ZZZ frame (see `SlothZzz`).
+    let now: Date
     @Environment(\.widgetFamily) private var family
+
+    /// 1–3 z's, stepping once per minute of sleep and starting over —
+    /// the minute entries in the asleep timeline make each step render.
+    private var zzzCount: Int {
+        max(0, Int(now.timeIntervalSince(since) / 60)) % 3 + 1
+    }
+
+    /// The night sloth with its ember ZZZ rising off the head. The anchor
+    /// clears the hair tuft (verified against the rendered asset).
+    private func sloth(height: CGFloat) -> some View {
+        WidgetSloth(pose: .night, height: height)
+            .overlay(alignment: .topLeading) {
+                SlothZzz(count: zzzCount, unit: height)
+                    .offset(x: height * 0.58, y: -height * 0.06)
+            }
+    }
 
     var body: some View {
         switch family {
@@ -297,14 +361,14 @@ private struct AsleepFaceView: View {
                 Spacer(minLength: 6)
                 HStack {
                     Spacer(minLength: 0)
-                    WidgetSloth(pose: .night, height: 54)
+                    sloth(height: 54)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         case .systemLarge:
             VStack(spacing: SleepSpacing.lg) {
                 Spacer(minLength: 0)
-                WidgetSloth(pose: .night, height: 132)
+                sloth(height: 132)
                 kicker
                 timer(size: 44)
                 HStack(spacing: SleepSpacing.md) {
@@ -324,7 +388,7 @@ private struct AsleepFaceView: View {
                     wakeLine(size: 12)
                 }
                 Spacer(minLength: 0)
-                WidgetSloth(pose: .night, height: 88)
+                sloth(height: 88)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         }

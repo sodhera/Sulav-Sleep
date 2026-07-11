@@ -598,7 +598,13 @@ The surfaces split one job:
   the light: when the phone goes down for the night the widgets go dark with
   it, and the numbers return in the morning. Small and medium set the
   instrument beside the figure; large centers the figure like the sleep
-  screen itself.
+  screen itself. The sloth carries the sleep screen's ZZZ, **stepping
+  instead of drifting** (`SlothZzz`): WidgetKit renders static snapshots —
+  nothing may animate — so the asleep timeline supplies minute entries and
+  the ember chain grows one z per minute (each further up the diagonal,
+  swelling and dimming like the app's), then starts over; iOS cross-fades
+  each flip. Every glance can catch a different frame, so the widget reads
+  as breathing without ever animating.
 - **Lock-screen accessories** (circular / rectangular / inline) render in the
   system's vibrant material at tiny sizes, so they use default foregrounds
   and SF symbols — no app palette, no sloth (at 20pt the figure would blur
@@ -682,12 +688,17 @@ grayscale render. All three are generated — never hand-edited — by
 re-applied by re-running the script.
 
 The **launch screen** (`SplashScreen.storyboard`) is the quietest possible
-version of the same story: the app icon, with its familiar home-screen
-rounded-corner shape baked in, centered on the `background` navy — no
-wordmark, no scene, nothing that competes with the Home screen that fades in
-over it a beat later. The rounded splash image (`SplashIcon.imageset`) is
-generated from the icon by `scripts/generate-splash-icon.py`, so it can never
-drift from the shipped icon art.
+version of the same story: the icon's sloth-on-pillow figure — the icon
+colorway on a transparent background (`SplashSloth.imageset`, emitted by
+`scripts/generate-app-icon.py` so it can never drift from the shipped icon
+art) — sitting flush on the flat `background` navy. No rounded icon
+rectangle, no wordmark, no scene. A launch storyboard is a static snapshot,
+so the moment the app takes over, `LaunchSplashView` (RootView.swift) redraws
+the identical frame and brings the mark alive: the brand halo and the gold
+rising z's (`RisingZs`) start over the still art, and the splash holds for a
+beat (~1.5s past auth readiness) so the first z is actually seen before the
+crossfade to welcome or Home. An active sleep session skips the hold — the
+sleep screen always takes the display immediately.
 
 ## Shield overlay
 
