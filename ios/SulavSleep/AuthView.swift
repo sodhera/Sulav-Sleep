@@ -106,24 +106,28 @@ struct AuthMethodsView: View {
         VStack(spacing: 0) {
             Spacer()
 
-            VStack(spacing: SleepSpacing.md) {
+            VStack(spacing: SleepSpacing.lg) {
                 if showsBrandMark {
-                    // Hero size, matching the welcome screen: the two
-                    // screens crossfade at nearly the same spot, and a
-                    // smaller mark here read as the logo shrinking.
+                    // Hero size and block shape shared with the welcome
+                    // screen (`BrandHeroGeometry`): the gate crossfades the
+                    // two screens, so any difference in mark size or block
+                    // geometry reads as the logo shrinking or twitching.
                     SlothBrandMark(width: SlothBrandMark.heroWidth, zScale: SlothBrandMark.heroZScale)
-                        .padding(.top, SleepSpacing.xl)
-                        .padding(.bottom, SleepSpacing.sm)
                 }
-                Text(title)
-                    .font(SleepFont.hero(30))
-                    .foregroundStyle(SleepColor.ink)
-                Text(subtitle)
-                    .font(SleepFont.body(16))
-                    .foregroundStyle(SleepColor.dim)
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(4)
-                    .frame(maxWidth: 300)
+                VStack(spacing: SleepSpacing.md) {
+                    Text(title)
+                        .font(SleepFont.hero(30))
+                        .foregroundStyle(SleepColor.ink)
+                    Text(subtitle)
+                        .font(SleepFont.body(16))
+                        .foregroundStyle(SleepColor.dim)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(4)
+                        .frame(maxWidth: 300)
+                }
+                // The fixed text band applies only on the brand-hero screen;
+                // the sign-up account step keeps its natural height.
+                .frame(height: showsBrandMark ? BrandHeroGeometry.textBandHeight : nil, alignment: .top)
             }
             .padding(.horizontal, SleepSpacing.xxl)
 

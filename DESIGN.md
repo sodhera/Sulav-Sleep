@@ -435,11 +435,12 @@ subtitle lines inside rows.
 
 ## Onboarding & auth
 
-Two independent paths from a type-led welcome screen (brand mark, kicker,
-brand hero, tagline): a primary "Get started" and a quiet "I already have an
-account". The two paths are never linked to each other — the choice is made
-here, so neither downstream screen carries an "already have an account?"
-cross-link. Someone who picks wrong just backs out to welcome.
+Two independent paths from a type-led welcome screen (brand mark, brand
+hero, tagline — "Block apps and Log your sleep"; the old "Wind down nightly"
+kicker is retired, the mark carries the mood now): a primary "Get started"
+and a quiet "I already have an account". The two paths are never linked to
+each other — the choice is made here, so neither downstream screen carries
+an "already have an account?" cross-link. Someone who picks wrong just backs out to welcome.
 
 The **brand mark** (`SlothBrandMark`, `OnboardingView.swift`) is the app icon
 alive in the UI layer: the sleeping sloth — the home art's closed-eye frame,
@@ -457,6 +458,17 @@ deliberately oversized z's — like the icon's ZZZ — so the animation stays
 legible at corner sizes; under Reduce Motion the chain freezes into the
 icon's static diagonal everywhere. The mark is decorative only: hidden from
 accessibility, never a tap target.
+
+The two hero placements obey a **geometry contract** (`BrandHeroGeometry`):
+the gate *crossfades* welcome and the standalone sign-in screen into each
+other, so the mark must land on exactly the same pixel on both — even a few
+points of drift reads as the logo twitching or shrinking mid-fade. Both
+screens center the same-shaped block (the hero mark, an `lg` gap, a
+fixed-height text band) between a chevron-height header row (welcome renders
+an invisible twin of sign-in's real chevron) and a fixed-height bottom band
+(the provider stack's natural size; welcome bottom-aligns its two smaller
+controls inside the same band). Anything that changes one screen's vertical
+structure must change both.
 
 > Note on history: the welcome screen was previously deliberately type-led
 > with *no* artwork in the UI layer. The brand mark supersedes that — the

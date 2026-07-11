@@ -121,6 +121,24 @@ extension View {
 
 // MARK: - Brand mark
 
+/// The geometry contract between the two brand-hero screens (welcome and the
+/// standalone "Welcome back"). The gate crossfades one into the other, so the
+/// mark must land on *exactly* the same pixel on both — close is not enough;
+/// a few points of drift reads as the logo twitching mid-fade. Both screens
+/// therefore center the same-shaped block — mark, `lg` gap, a text band of
+/// this fixed height — between a chevron-height header row (welcome renders
+/// an invisible twin of sign-in's real one) and a bottom band of this fixed
+/// height (the provider stack's natural size; welcome bottom-aligns its two
+/// smaller controls inside the same band).
+enum BrandHeroGeometry {
+    /// Reserved height for the title + subtitle under the mark, top-aligned:
+    /// fits welcome's 40pt hero and sign-in's 30pt title + subtitle alike.
+    static let textBandHeight: CGFloat = 92
+    /// The sign-in provider stack's natural height — 3 × 58pt buttons with
+    /// 2 × `md` gaps. Welcome's bottom band matches it.
+    static let bottomBandHeight: CGFloat = 198
+}
+
 /// The app icon as a living mark for the onboarding/auth screens: the
 /// sleeping sloth (the home art's closed-eye frame, wearing the scene's
 /// current light) with the icon's static gold ZZZ replaced by the sleep
@@ -177,26 +195,37 @@ private struct WelcomeStep: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // Invisible twin of the sign-in screen's chevron header, so both
+            // screens consume identical vertical structure and the brand
+            // mark holds still through the gate's crossfade — see
+            // `BrandHeroGeometry`.
+            HStack {
+                GlassBackButton {}
+                    .hidden()
+                Spacer()
+            }
+            .padding(.horizontal, SleepSpacing.xxl)
+            .padding(.top, SleepSpacing.md)
+            .accessibilityHidden(true)
+
             Spacer()
 
             VStack(spacing: SleepSpacing.lg) {
                 // The brand mark above the wordmark: the icon's sleeping
-                // sloth with its ZZZ animating — the padding reserves the
-                // headroom the z's rise through so they never crowd the
-                // safe area on short screens.
+                // sloth with its ZZZ animating.
                 SlothBrandMark(width: SlothBrandMark.heroWidth, zScale: SlothBrandMark.heroZScale)
-                    .padding(.top, SleepSpacing.xxl)
-                Text("Wind down nightly")
-                    .sectionLabel()
-                Text("SleepBlock")
-                    .font(SleepFont.hero(40))
-                    .foregroundStyle(SleepColor.ink)
-                Text("Set a bedtime. Quiet the phone. Sleep.")
-                    .font(SleepFont.body(16))
-                    .foregroundStyle(SleepColor.dim)
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(4)
-                    .frame(maxWidth: 300)
+                VStack(spacing: SleepSpacing.md) {
+                    Text("SleepBlock")
+                        .font(SleepFont.hero(40))
+                        .foregroundStyle(SleepColor.ink)
+                    Text("Block apps and Log your sleep")
+                        .font(SleepFont.body(16))
+                        .foregroundStyle(SleepColor.dim)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(4)
+                        .frame(maxWidth: 300)
+                }
+                .frame(height: BrandHeroGeometry.textBandHeight, alignment: .top)
             }
             .padding(.horizontal, SleepSpacing.xxl)
 
@@ -214,6 +243,9 @@ private struct WelcomeStep: View {
                 .foregroundStyle(SleepColor.dim)
                 .frame(maxWidth: .infinity, minHeight: 44)
             }
+            // Bottom-aligned inside the sign-in provider stack's footprint,
+            // per the BrandHeroGeometry contract.
+            .frame(height: BrandHeroGeometry.bottomBandHeight, alignment: .bottom)
             .padding(.horizontal, SleepSpacing.xxl)
             .padding(.bottom, SleepSpacing.xxl)
         }
