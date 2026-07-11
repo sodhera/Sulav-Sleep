@@ -62,9 +62,57 @@ enum SleepSubscription {
     static let entitlementID = "pro"
 
     static func makeDefault() -> SubscriptionProviding {
-        RevenueCatSubscriptionService()
+#if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-review-paywall") {
+            return ReviewPaywallSubscriptionService()
+        }
+#endif
+        return RevenueCatSubscriptionService()
     }
 }
+
+#if DEBUG
+/// Deterministic App Review screenshot data. This exists only in Debug builds
+/// and is activated explicitly with `-review-paywall`; Release builds cannot
+/// compile or select it. It lets us capture the real SwiftUI paywall before
+/// App Store Connect has propagated the live subscription metadata.
+private final class ReviewPaywallSubscriptionService: SubscriptionProviding {
+    var isConfigured: Bool { true }
+
+    func start(onChange: @escaping @MainActor (EntitlementState) -> Void) {
+        Task { @MainActor in onChange(.notEntitled) }
+    }
+
+    func logIn(accountID: String) async {}
+    func logOut() async {}
+
+    func fetchPlans() async -> [SleepPlan] {
+        [
+            SleepPlan(
+                id: "$rc_annual",
+                title: "Yearly",
+                priceString: "$59.99",
+                periodUnit: "year",
+                perMonthString: "$5.00",
+                trialDays: 7,
+                isAnnual: true
+            ),
+            SleepPlan(
+                id: "$rc_monthly",
+                title: "Monthly",
+                priceString: "$5.99",
+                periodUnit: "month",
+                perMonthString: nil,
+                trialDays: 0,
+                isAnnual: false
+            )
+        ]
+    }
+
+    func purchase(planID: String) async throws -> EntitlementState? { nil }
+    func restore() async throws -> EntitlementState { .notEntitled }
+}
+#endif
 
 /// User-facing purchase failures. Cancellation is not one of them.
 struct SubscriptionError: LocalizedError {

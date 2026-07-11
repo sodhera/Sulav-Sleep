@@ -15,6 +15,14 @@ private enum RootScreen: Equatable {
 struct RootView: View {
     var store: SleepStore
 
+    private var showsReviewPaywall: Bool {
+#if DEBUG
+        ProcessInfo.processInfo.arguments.contains("-review-paywall")
+#else
+        false
+#endif
+    }
+
     /// The in-app splash (`LaunchSplashView`) is held up for a beat past auth
     /// readiness so the brand mark's rising z's are actually *seen* animating
     /// — the Keychain restore usually resolves in well under a second, which
@@ -55,7 +63,13 @@ struct RootView: View {
 
     var body: some View {
         ZStack {
-            if store.isOnboarded, let active = store.activeSession {
+            if showsReviewPaywall {
+                // A deterministic, DEBUG-only route for the private screenshot
+                // App Store Connect asks for when reviewing a subscription.
+                SleepBackground(showsMoon: false)
+                SceneReadabilityScrim()
+                PaywallView(store: store)
+            } else if store.isOnboarded, let active = store.activeSession {
                 // Immersive, pitch-black sleep mode takes over the whole screen.
                 SleepModeView(store: store, activeSession: active)
                     .transition(.opacity)

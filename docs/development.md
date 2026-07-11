@@ -21,6 +21,23 @@ truth.
 Defaults: `iPhone 17 Pro`, scheme `SulavSleep`, `Debug`, derived data in
 `ios/build/DerivedData`. Override the device with `IOS_SIMULATOR_DEVICE`.
 
+### Capture the subscription review screenshot
+
+App Store Connect asks for a private review screenshot of the in-app purchase
+screen before live subscription metadata may be available. Debug builds expose
+a deterministic version of the real SwiftUI paywall with representative plans:
+
+```sh
+xcrun simctl launch booted com.sulav.sleepblock -review-paywall
+xcrun simctl io booted screenshot /tmp/SleepBlock-Paywall-Review.png
+```
+
+The route and its plan data are compiled only under `DEBUG`; Release builds
+always use RevenueCat and cannot activate it. The representative prices mirror
+the launch configuration ($59.99 annual / $5.99 monthly) and should be updated
+before capture if App Store Connect pricing changes. The screenshot is review
+evidence only and must not be used as a public App Store marketing screenshot.
+
 ## Build without launching
 
 ```sh
