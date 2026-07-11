@@ -49,10 +49,10 @@ struct OnboardingGateView: View {
                 OnboardingQuestionsView(
                     store: store,
                     onBack: store.isAuthenticated ? nil : { setRoute(.welcome) }
-                ) { name, bedtime, wakeTime, struggles in
+                ) { name, bedtime, wakeTime, struggles, timeSinks in
                     store.completeOnboarding(
                         name: name, bedtime: bedtime, wakeTime: wakeTime,
-                        connectHealth: false, struggles: struggles
+                        connectHealth: false, struggles: struggles, timeSinks: timeSinks
                     )
                 } onExistingAccountNeedsSetup: {
                     questionsInstanceID = UUID()
@@ -275,7 +275,7 @@ struct OnboardingQuestionsView: View {
     /// Back action from the first step (to the welcome screen), or `nil` when
     /// there is nowhere to go back to (post-sign-in quick setup).
     var onBack: (() -> Void)?
-    let onDone: (String, Int, Int, [String]) -> Void
+    let onDone: (String, Int, Int, [String], [String]) -> Void
     /// The account step's sign-up call matched an existing account (Apple/
     /// Google reusing an already-registered identity) instead of creating a
     /// new one. The just-answered questions belong to whoever originally
@@ -289,6 +289,7 @@ struct OnboardingQuestionsView: View {
     @State private var movingForward = true
     @State private var name = ""
     @State private var struggles: Set<SleepStruggle> = []
+    @State private var timeSinks: Set<TimeSinkApp> = []
     @State private var bedtime = 22 * 60 + 30
     @State private var wakeTime = 6 * 60 + 30
     /// Whether this run ends on the account step. Captured once so it does not
@@ -298,7 +299,7 @@ struct OnboardingQuestionsView: View {
     init(
         store: SleepStore,
         onBack: (() -> Void)? = nil,
-        onDone: @escaping (String, Int, Int, [String]) -> Void,
+        onDone: @escaping (String, Int, Int, [String], [String]) -> Void,
         onExistingAccountNeedsSetup: @escaping () -> Void = {}
     ) {
         self.store = store
@@ -309,11 +310,11 @@ struct OnboardingQuestionsView: View {
     }
 
     private enum Step {
-        case name, struggles, bedtime, wake, account
+        case name, struggles, timeSinks, bedtime, wake, account
     }
 
     private var steps: [Step] {
-        var result: [Step] = [.name, .struggles, .bedtime, .wake]
+        var result: [Step] = [.name, .struggles, .timeSinks, .bedtime, .wake]
         if includesAccount { result.append(.account) }
         return result
     }
@@ -458,6 +459,39 @@ struct OnboardingQuestionsView: View {
                     }
                 }
             }
+        case .timeSinks:
+            QuestionLayout(
+                kicker: "Your phone",
+                title: "Which apps keep you up?",
+                subtitle: "The ones you're still in when you meant to be asleep. Choose any."
+            ) {
+                // Short app names fit two per row, so this question compacts
+                // the struggle-row grammar into a 2-column grid of the same
+                // glass capsules — same selection ring, same icon warm-up.
+                LiquidGlassContainer(spacing: SleepSpacing.md) {
+                    LazyVGrid(
+                        columns: [
+                            GridItem(.flexible(), spacing: SleepSpacing.md),
+                            GridItem(.flexible(), spacing: SleepSpacing.md)
+                        ],
+                        spacing: SleepSpacing.md
+                    ) {
+                        ForEach(TimeSinkApp.allCases) { app in
+                            TimeSinkChip(
+                                app: app,
+                                isSelected: timeSinks.contains(app)
+                            ) {
+                                Haptics.heavy()
+                                if timeSinks.contains(app) {
+                                    timeSinks.remove(app)
+                                } else {
+                                    timeSinks.insert(app)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         case .bedtime:
             QuestionLayout(kicker: "Your schedule", title: "When do you usually go to bed?") {
                 TimeAdjuster(minutes: $bedtime)
@@ -545,7 +579,7 @@ struct OnboardingQuestionsView: View {
     private func finish() {
         Keyboard.dismiss()
         Haptics.success()
-        onDone(name, bedtime, wakeTime, struggles.map(\.rawValue))
+        onDone(name, bedtime, wakeTime, struggles.map(\.rawValue), timeSinks.map(\.rawValue))
     }
 
     private func setStep(_ next: Step, forward: Bool) {
@@ -705,6 +739,54 @@ private struct StruggleRow: View {
         // container siblings, over the live scene — which is what made
         // choosing an option visibly lag. The ring, icon, and checkmark
         // carry the selection instead.
+        .liquidGlass(
+            cornerRadius: SleepRadius.pill,
+            interactive: true
+        )
+        .overlay {
+            if isSelected {
+                Capsule(style: .continuous)
+                    .stroke(SleepColor.amber.opacity(0.45), lineWidth: 1)
+            }
+        }
+        .animation(.easeInOut(duration: 0.18), value: isSelected)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
+/// The time-sink question's compact sibling of `StruggleRow`: same glass
+/// capsule, same amber selection ring/icon/checkmark grammar, halved to fit
+/// two app names per row (eight options would overflow the screen as
+/// full-width rows). The tint stays constant for the same reason as
+/// StruggleRow's — toggling glass tint rebuilt the effect across all
+/// container siblings and visibly lagged the tap.
+private struct TimeSinkChip: View {
+    let app: TimeSinkApp
+    let isSelected: Bool
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: SleepSpacing.sm) {
+                Image(systemName: app.systemImage)
+                    .font(.system(size: 15, weight: .regular))
+                    .foregroundStyle(isSelected ? SleepColor.amber : SleepColor.muted)
+                    .frame(width: 20)
+                Text(app.title)
+                    .font(SleepFont.label(15))
+                    .foregroundStyle(SleepColor.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                Spacer(minLength: 0)
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 18, weight: .light))
+                    .foregroundStyle(isSelected ? SleepColor.amber : SleepColor.faint)
+            }
+            .padding(.horizontal, SleepSpacing.lg)
+            .frame(maxWidth: .infinity, minHeight: 54)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
         .liquidGlass(
             cornerRadius: SleepRadius.pill,
             interactive: true

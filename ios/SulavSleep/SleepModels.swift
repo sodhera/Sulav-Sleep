@@ -41,6 +41,14 @@ struct Profile: Codable, Equatable {
     /// sign-up onboarding (raw values of `SleepStruggle`). Kept for future
     /// personalization; empty when the user skipped the question.
     var sleepStruggles: [String]
+    /// The apps the user said eat their night, captured during sign-up
+    /// onboarding (raw values of `TimeSinkApp`). Deliberately *names*, not a
+    /// `FamilyActivitySelection` — the system picker needs Screen Time
+    /// authorization, and a permission sheet mid-sign-up is friction (same
+    /// rule as Apple Health). This answer personalizes the paywall and future
+    /// copy; the real lockdown selection is still made in Blocked apps.
+    /// Empty when the user skipped the question.
+    var timeSinkApps: [String]
     /// Whether the user has dismissed the "connect Apple Health" prompt shown
     /// on Profile. Apple Health is no longer part of onboarding — it's offered
     /// later, in-app, and this stops that prompt from reappearing once waved
@@ -50,7 +58,7 @@ struct Profile: Codable, Equatable {
     init(
         name: String, bedtime: Int, wakeTime: Int, onboarded: Bool,
         healthSyncEnabled: Bool = false, blockDuringSleep: Bool = true, lockdownMaxHours: Int = 6,
-        sleepStruggles: [String] = [], healthPromptDismissed: Bool = false
+        sleepStruggles: [String] = [], timeSinkApps: [String] = [], healthPromptDismissed: Bool = false
     ) {
         self.name = name
         self.bedtime = bedtime
@@ -60,6 +68,7 @@ struct Profile: Codable, Equatable {
         self.blockDuringSleep = blockDuringSleep
         self.lockdownMaxHours = lockdownMaxHours
         self.sleepStruggles = sleepStruggles
+        self.timeSinkApps = timeSinkApps
         self.healthPromptDismissed = healthPromptDismissed
     }
 
@@ -74,6 +83,7 @@ struct Profile: Codable, Equatable {
         blockDuringSleep = try c.decodeIfPresent(Bool.self, forKey: .blockDuringSleep) ?? true
         lockdownMaxHours = try c.decodeIfPresent(Int.self, forKey: .lockdownMaxHours) ?? 6
         sleepStruggles = try c.decodeIfPresent([String].self, forKey: .sleepStruggles) ?? []
+        timeSinkApps = try c.decodeIfPresent([String].self, forKey: .timeSinkApps) ?? []
         healthPromptDismissed = try c.decodeIfPresent(Bool.self, forKey: .healthPromptDismissed) ?? false
     }
 }
@@ -108,6 +118,50 @@ enum SleepStruggle: String, CaseIterable, Identifiable {
         case .wakingAtNight: "eye"
         case .inconsistentSchedule: "calendar.badge.exclamationmark"
         case .wakingTired: "battery.25percent"
+        }
+    }
+}
+
+/// The onboarding "which apps eat your night?" options — the usual suspects
+/// someone is still inside at 1am. Names, not Screen Time tokens (see
+/// `Profile.timeSinkApps`): this is a soft, no-permission question whose
+/// answers personalize the paywall and later nudge the real Blocked apps
+/// selection.
+enum TimeSinkApp: String, CaseIterable, Identifiable {
+    case instagram
+    case tiktok
+    case youtube
+    case x
+    case reddit
+    case snapchat
+    case streaming
+    case games
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .instagram: "Instagram"
+        case .tiktok: "TikTok"
+        case .youtube: "YouTube"
+        case .x: "X"
+        case .reddit: "Reddit"
+        case .snapchat: "Snapchat"
+        case .streaming: "Streaming"
+        case .games: "Games"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .instagram: "camera"
+        case .tiktok: "music.note"
+        case .youtube: "play.rectangle"
+        case .x: "at"
+        case .reddit: "bubble.left.and.bubble.right"
+        case .snapchat: "bolt"
+        case .streaming: "tv"
+        case .games: "gamecontroller"
         }
     }
 }

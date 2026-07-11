@@ -52,12 +52,25 @@ struct RemoteProfile: Codable, Equatable {
     var bedtime: Int
     var wakeTime: Int
     var sleepStruggles: [String]
+    var timeSinkApps: [String]
 
-    init(name: String, bedtime: Int, wakeTime: Int, sleepStruggles: [String]) {
+    init(name: String, bedtime: Int, wakeTime: Int, sleepStruggles: [String], timeSinkApps: [String] = []) {
         self.name = name
         self.bedtime = bedtime
         self.wakeTime = wakeTime
         self.sleepStruggles = sleepStruggles
+        self.timeSinkApps = timeSinkApps
+    }
+
+    // Decode-safe: cloud copies written before `timeSinkApps` existed must
+    // still restore (same pattern as `Profile`).
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        name = try c.decode(String.self, forKey: .name)
+        bedtime = try c.decode(Int.self, forKey: .bedtime)
+        wakeTime = try c.decode(Int.self, forKey: .wakeTime)
+        sleepStruggles = try c.decodeIfPresent([String].self, forKey: .sleepStruggles) ?? []
+        timeSinkApps = try c.decodeIfPresent([String].self, forKey: .timeSinkApps) ?? []
     }
 
     /// From an onboarded local profile. `nil` when there's nothing worth
@@ -68,7 +81,8 @@ struct RemoteProfile: Codable, Equatable {
             name: profile.name,
             bedtime: profile.bedtime,
             wakeTime: profile.wakeTime,
-            sleepStruggles: profile.sleepStruggles
+            sleepStruggles: profile.sleepStruggles,
+            timeSinkApps: profile.timeSinkApps
         )
     }
 
@@ -80,7 +94,8 @@ struct RemoteProfile: Codable, Equatable {
             bedtime: bedtime,
             wakeTime: wakeTime,
             onboarded: true,
-            sleepStruggles: sleepStruggles
+            sleepStruggles: sleepStruggles,
+            timeSinkApps: timeSinkApps
         )
     }
 }
