@@ -8,6 +8,7 @@ import SwiftUI
 private enum RootScreen: Equatable {
     case authLoading
     case onboarding
+    case paywall
     case main
 }
 
@@ -23,6 +24,16 @@ struct RootView: View {
     @State private var splashHoldDone = false
     private static let splashHold: Duration = .seconds(1.5)
 
+    /// The paywall gate waits for the entitlement to *resolve* before showing
+    /// anything past the splash — RevenueCat replays its cached CustomerInfo
+    /// immediately, so this is normally instant — but the wait is capped so a
+    /// first launch with no cache and no network can't hold the splash
+    /// hostage. Past the cap an unresolved state fails **open** (Main, not
+    /// paywall): real subscribers resolve offline from the cache, and locking
+    /// someone out over a network hiccup is worse than one free session.
+    @State private var entitlementWaitExpired = false
+    private static let entitlementWait: Duration = .seconds(4)
+
     // Auth readiness is checked first so a signed-in user reinstalling the app
     // never flashes the welcome screen: the gate needs to know whether to open
     // on welcome (new user) or the quick-setup questions (signed in, no local
@@ -33,6 +44,12 @@ struct RootView: View {
         guard store.isAuthReady, splashHoldDone else { return .authLoading }
         guard store.isAuthenticated else { return .onboarding }
         guard store.isOnboarded else { return .onboarding }
+        // The hard paywall: signed in and onboarded, but resolved as not
+        // subscribed. While the entitlement is still unknown, hold the splash
+        // (briefly, capped) rather than flashing Home and snapping the
+        // paywall over it — or the reverse.
+        if store.needsPaywall { return .paywall }
+        if store.entitlement == .unknown && !entitlementWaitExpired { return .authLoading }
         return .main
     }
 
@@ -78,6 +95,15 @@ struct RootView: View {
                         SleepBackground(showsMoon: false)
                         SceneReadabilityScrim()
                         OnboardingGateView(store: store)
+                    case .paywall:
+                        // The subscription gate, on the same scene as
+                        // onboarding — it *is* the questionnaire's closing
+                        // beat. Note the sleep-mode overlay above outranks
+                        // it: an active night always keeps wake/cancel (and
+                        // the lockdown teardown) reachable, subscribed or not.
+                        SleepBackground(showsMoon: false)
+                        SceneReadabilityScrim()
+                        PaywallView(store: store)
                     case .main:
                         EmptyView() // Handled by the branch above.
                     }
@@ -90,6 +116,10 @@ struct RootView: View {
         .task {
             try? await Task.sleep(for: Self.splashHold)
             splashHoldDone = true
+        }
+        .task {
+            try? await Task.sleep(for: Self.entitlementWait)
+            entitlementWaitExpired = true
         }
     }
 }

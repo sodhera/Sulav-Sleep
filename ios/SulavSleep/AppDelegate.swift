@@ -79,7 +79,10 @@ struct SulavSleepApp: App {
     /// requests do nothing (RootView is already showing welcome or
     /// SleepModeView).
     private func openSleepConfirmation() {
-        guard store.activeSession == nil, store.isAuthenticated, store.isOnboarded else { return }
+        // `needsPaywall` also stands the deep links down: while the hard
+        // paywall is up, Home isn't mounted, so raising the confirmation
+        // would open the app on a control the user can't reach.
+        guard store.activeSession == nil, store.isAuthenticated, store.isOnboarded, !store.needsPaywall else { return }
         Haptics.soft()
         store.selectedTab = .home
         withAnimation(.easeInOut(duration: 0.3)) {

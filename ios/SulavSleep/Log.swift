@@ -22,6 +22,7 @@ enum AppLog {
     static let ui = Logger(subsystem: subsystem, category: "ui")
     static let scene = Logger(subsystem: subsystem, category: "scene")
     static let intents = Logger(subsystem: subsystem, category: "intents")
+    static let paywall = Logger(subsystem: subsystem, category: "paywall")
 }
 
 enum AppSignpost {

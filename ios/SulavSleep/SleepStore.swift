@@ -41,23 +41,32 @@ final class SleepStore {
     /// Views that read `appSelectionData()` also read this, which creates an
     /// `@Observable` tracking dependency so SwiftUI re-renders on changes.
     private(set) var appSelectionRevision = 0
+    /// What RevenueCat knows about the `pro` entitlement. Starts `.unknown`;
+    /// the customer-info stream (which replays the cache immediately, so a
+    /// subscriber resolves offline too) keeps it current. On an unconfigured
+    /// build (no API key) it is `.entitled` from init — dev mode, no paywall.
+    private(set) var entitlement: EntitlementState = .unknown
 
     private let persistence: SleepPersistence
     private let health: SleepHealthProviding
     private let screenTime: ScreenTimeControlling
     private let auth: AuthProviding
+    private let subscription: SubscriptionProviding
 
     init(
         persistence: SleepPersistence = .shared,
         health: SleepHealthProviding? = nil,
         screenTime: ScreenTimeControlling? = nil,
-        auth: AuthProviding? = nil
+        auth: AuthProviding? = nil,
+        subscription: SubscriptionProviding? = nil
     ) {
         self.persistence = persistence
         self.health = health ?? SleepHealth.makeDefault()
         self.screenTime = screenTime ?? SleepScreenTime.makeDefault()
         self.auth = auth ?? SulavAuth.makeDefault()
+        self.subscription = subscription ?? SleepSubscription.makeDefault()
         reload()
+        startSubscriptionTracking()
         Task { [weak self] in await self?.restoreSession() }
     }
 
@@ -166,6 +175,48 @@ final class SleepStore {
         await refreshHealth()
     }
 
+    // MARK: - Subscription
+
+    /// Whether the hard paywall stands between this user and Main: signed in,
+    /// onboarded, and *resolved* as not entitled. `.unknown` never gates —
+    /// the gate acts only on an answer, and RevenueCat's cache answers
+    /// offline for real subscribers — and an unconfigured build (dev mode)
+    /// resolves `.entitled` at init, so it never gates either.
+    var needsPaywall: Bool {
+        isAuthenticated && isOnboarded && entitlement == .notEntitled
+    }
+
+    private func startSubscriptionTracking() {
+        guard subscription.isConfigured else {
+            entitlement = .entitled
+            return
+        }
+        subscription.start { [weak self] state in
+            self?.entitlement = state
+        }
+    }
+
+    func fetchPlans() async -> [SleepPlan] {
+        await subscription.fetchPlans()
+    }
+
+    /// Runs the purchase flow for the paywall. Returns whether the user is
+    /// entitled afterwards; `nil` when they cancelled. Throws
+    /// `SubscriptionError` with a user-facing message on real failures.
+    @MainActor
+    func purchase(planID: String) async throws -> Bool? {
+        guard let state = try await subscription.purchase(planID: planID) else { return nil }
+        entitlement = state
+        return state == .entitled
+    }
+
+    @MainActor
+    func restorePurchases() async throws -> Bool {
+        let state = try await subscription.restore()
+        entitlement = state
+        return state == .entitled
+    }
+
     // MARK: - Onboarding
 
     func completeOnboarding(name: String, bedtime: Int, wakeTime: Int, connectHealth: Bool, struggles: [String] = [], timeSinks: [String] = []) {
@@ -214,6 +265,9 @@ final class SleepStore {
         if let account {
             persistAccount(account)
             persistence.saveLastAccountID(account.id)
+            // Tie the subscription to the account so it follows the user
+            // across devices/reinstalls. Backgrounded — never blocks launch.
+            Task { [subscription] in await subscription.logIn(accountID: account.id) }
             // Signed in but no profile on this device (e.g. a Keychain session
             // synced from another device): restore the cloud copy so the user
             // lands in the app, not back in onboarding. Runs before the ready
@@ -271,6 +325,7 @@ final class SleepStore {
     @MainActor
     func signOut() async {
         await auth.signOut()
+        await subscription.logOut()
         account = nil
         authErrorMessage = nil
         authMessageIsNotice = false
@@ -319,6 +374,7 @@ final class SleepStore {
         account = nil
         authErrorMessage = nil
         persistence.reset()
+        Task { [subscription] in await subscription.logOut() }
         AppLog.store.info("Account deleted (local data wiped)")
     }
 
@@ -372,6 +428,8 @@ final class SleepStore {
         persistAccount(newAccount)
         persistence.saveLastAccountID(newAccount.id)
         persist(refreshWidget: true)
+        // Link the subscription to this account (see restoreSession).
+        Task { [subscription] in await subscription.logIn(accountID: newAccount.id) }
     }
 
     /// Push the local profile to the account's cloud copy, best-effort. Called

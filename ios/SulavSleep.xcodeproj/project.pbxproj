@@ -12,6 +12,9 @@
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		198E5870D78A269255C9D9C1 /* LiquidGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 512730D266670DD636BD803A /* LiquidGlass.swift */; };
 		1A87176D73C3EE6C7051ACFD /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = 71DA860F9B70BD0D45CF7857 /* Auth */; };
+		7C0000000000000000000003 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = 7C0000000000000000000002 /* RevenueCat */; };
+		7C0000000000000000000013 /* SleepSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C0000000000000000000012 /* SleepSubscription.swift */; };
+		7C0000000000000000000015 /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C0000000000000000000014 /* PaywallView.swift */; };
 		1E5168B98C242B90B04B7D9C /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE73361F00ABDB639ED1D41A /* AppDelegate.swift */; };
 		2C9E3A52E958468A363D1635 /* AuthModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C52EBB56370FEA8572A95B0A /* AuthModels.swift */; };
 		30ABD308DAB8167D795A2D9D /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0E16E05E315F1EE37C03F9C /* ProfileView.swift */; };
@@ -109,6 +112,8 @@
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = SulavSleep/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = SulavSleep/Info.plist; sourceTree = "<group>"; };
 		2248DEAF235A937EB6B1B2C7 /* SleepStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepStore.swift; path = SulavSleep/SleepStore.swift; sourceTree = "<group>"; };
+		7C0000000000000000000012 /* SleepSubscription.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepSubscription.swift; path = SulavSleep/SleepSubscription.swift; sourceTree = "<group>"; };
+		7C0000000000000000000014 /* PaywallView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PaywallView.swift; path = SulavSleep/PaywallView.swift; sourceTree = "<group>"; };
 		314F2F155CF97AAF34DA0A4C /* HomeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeView.swift; path = SulavSleep/HomeView.swift; sourceTree = "<group>"; };
 		316EF63C74A39E0CE6D1D1BE /* SleepFormatting.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepFormatting.swift; path = SulavSleep/SleepFormatting.swift; sourceTree = "<group>"; };
 		512730D266670DD636BD803A /* LiquidGlass.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LiquidGlass.swift; path = SulavSleep/LiquidGlass.swift; sourceTree = "<group>"; };
@@ -165,6 +170,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				1A87176D73C3EE6C7051ACFD /* Auth in Frameworks */,
+				7C0000000000000000000003 /* RevenueCat in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -214,6 +220,8 @@
 				116765E93C9E1F418AE0CB6A /* SleepIntents.swift */,
 				740A33B6E6D4861DF61CFBB1 /* SleepModels.swift */,
 				2248DEAF235A937EB6B1B2C7 /* SleepStore.swift */,
+				7C0000000000000000000012 /* SleepSubscription.swift */,
+				7C0000000000000000000014 /* PaywallView.swift */,
 				F69F492AFB4609915E10F59C /* SleepTheme.swift */,
 				F5DB00420EA2535786E040A3 /* Secrets.xcconfig */,
 				907CE4E59D34D87F2C5A0321 /* AuthView.swift */,
@@ -343,6 +351,7 @@
 			name = SulavSleep;
 			packageProductDependencies = (
 				71DA860F9B70BD0D45CF7857 /* Auth */,
+				7C0000000000000000000002 /* RevenueCat */,
 			);
 			productName = SulavSleep;
 			productReference = 13B07F961A680F5B00A75B9A /* SulavSleep.app */;
@@ -470,6 +479,7 @@
 			mainGroup = 83CBB9F61A601CBA00E9B192;
 			packageReferences = (
 				2F49F75CF32564D69E719168 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+				7C0000000000000000000001 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */,
 			);
 			productRefGroup = 83CBBA001A601CBA00E9B192 /* Products */;
 			projectDirPath = "";
@@ -539,6 +549,8 @@
 				CC3D146C5EAF5AB2266E9E6D /* SleepIntents.swift in Sources */,
 				05AC2F4B7D3F4F3896894861 /* SleepModels.swift in Sources */,
 				FA831C765CABBEF773CE99ED /* SleepStore.swift in Sources */,
+				7C0000000000000000000013 /* SleepSubscription.swift in Sources */,
+				7C0000000000000000000015 /* PaywallView.swift in Sources */,
 				9741BE20E4028E51160BDC75 /* SleepTheme.swift in Sources */,
 				60E68C3ACCC4786FCD348BFF /* AuthView.swift in Sources */,
 				2C9E3A52E958468A363D1635 /* AuthModels.swift in Sources */,
@@ -1065,6 +1077,14 @@
 				minimumVersion = 2.0.0;
 			};
 		};
+		7C0000000000000000000001 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/RevenueCat/purchases-ios-spm.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -1072,6 +1092,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 2F49F75CF32564D69E719168 /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Auth;
+		};
+		7C0000000000000000000002 /* RevenueCat */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7C0000000000000000000001 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */;
+			productName = RevenueCat;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
