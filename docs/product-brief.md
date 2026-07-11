@@ -7,13 +7,23 @@ review the rhythm of recent nights — using **real data only**.
 ## Current product
 
 - A welcome screen offers two independent paths. **Sign up**: a questionnaire
-  (name, what gets in the way of sleep, usual bedtime, usual wake time) whose
-  final step is account creation, framed as saving the plan — questions come
-  first because invested users sign up at a higher rate, and the account step
-  carries the same progress bar and back button as the rest of the flow. **Sign
-  in**: a standalone screen (Apple, Google, or manual email/password), then the
-  same questions as a quick setup on a device with no profile. The two paths
-  don't cross-link — you choose on the welcome screen.
+  (name, what gets in the way of sleep, which apps keep you up, usual bedtime,
+  usual wake time) whose final step is account creation, framed as saving the
+  plan — questions come first because invested users sign up at a higher rate,
+  and the account step carries the same progress bar and back button as the
+  rest of the flow. **Sign in**: a standalone screen (Apple, Google, or manual
+  email/password), then the same questions as a quick setup on a device with
+  no profile. The two paths don't cross-link — you choose on the welcome
+  screen.
+- **SleepBlock is a subscription.** Right after the questionnaire commits, a
+  hard paywall (RevenueCat; annual with a 7-day free trial, or monthly) is the
+  only door into the app — placed there deliberately, at the moment of highest
+  intent, when the user has just articulated what breaks their sleep and which
+  apps eat their night. The paywall answers with those exact apps. There is no
+  free tier: a behavior-change app has to let people *feel* the fix, so the
+  trial gives the whole product for a week rather than a crippled subset
+  forever. (An unconfigured build — no RevenueCat key — runs without the
+  paywall for development.)
 - Apple Health is offered *after* onboarding, via a dismissable prompt card at
   the top of Profile (which also keeps the toggle), rather than interrupting
   sign-up with a permission sheet.

@@ -193,13 +193,23 @@ target can inject fakes without new hooks.
 ## Product mechanics
 
 - First launch shows the welcome screen with two independent paths. Sign-up:
-  name, sleep struggles, bedtime, wake, then account creation as the final step
-  of the same flow (progress bar + back throughout) — the questions come first
-  deliberately, since users who have invested in a few answers complete sign-up
-  at a higher rate, and the profile is committed only once that final account
-  step succeeds. Sign-in: a standalone screen, then the same questions as a
-  quick setup if the device has no profile (see "Authentication"). The two paths
-  do not cross-link; the choice is made on the welcome screen.
+  name, sleep struggles, time-sink apps, bedtime, wake, then account creation
+  as the final step of the same flow (progress bar + back throughout) — the
+  questions come first deliberately, since users who have invested in a few
+  answers complete sign-up at a higher rate, and the profile is committed only
+  once that final account step succeeds. Sign-in: a standalone screen, then the
+  same questions as a quick setup if the device has no profile (see
+  "Authentication"). The two paths do not cross-link; the choice is made on the
+  welcome screen.
+- **The time-sink question** ("Which apps keep you up?") collects app *names*
+  (`TimeSinkApp` raw values on `Profile.timeSinkApps`), deliberately not a
+  `FamilyActivitySelection` — the system picker needs Screen Time
+  authorization, and a permission sheet mid-sign-up is friction (the same rule
+  that keeps Apple Health out of onboarding). The answer personalizes the
+  paywall's lock line; the real lockdown selection is still made on the
+  Blocked apps screen.
+- **SleepBlock is a subscription app.** After onboarding, a hard paywall (see
+  "Subscription (RevenueCat)") stands between the questionnaire and Main.
 - **Apple Health is offered in-app, not during onboarding.** A dismissable
   prompt card sits at the top of Profile until the user connects (or waves it
   off); the Profile settings section keeps the toggle. This avoids a system
@@ -336,6 +346,67 @@ Apple Developer capability, Google Cloud OAuth client).
   `.textContentType(.oneTimeCode)` when `AppEnvironment.isTesting` to opt out
   of that prompt in test builds only — production users still get the native
   save-password experience.
+
+## Subscription (RevenueCat)
+
+SleepBlock is a subscription app with a **hard paywall + free trial**: after
+the sign-up questionnaire commits (or a returning unsubscribed user signs in),
+`RootView` shows `PaywallView` instead of Main — no ✕, no skip. The primary
+action starts the App Store free-trial intro offer on the annual plan;
+starting the trial or subscribing is the only way in.
+
+Code map (all behind the app's usual protocol seam):
+
+- `SleepSubscription.swift` — `SubscriptionProviding` +
+  `RevenueCatSubscriptionService`. Streams `CustomerInfo` →
+  `EntitlementState` (`unknown` / `entitled` / `notEntitled`), maps the
+  current offering's packages to SDK-free `SleepPlan` values, runs
+  purchase/restore, and links the RevenueCat identity to the Supabase
+  account id on sign-in/out (`logIn`/`logOut`) so a subscription follows the
+  user across devices.
+- `SleepStore` — `entitlement`, `needsPaywall` (signed in + onboarded +
+  *resolved* not-entitled), and `fetchPlans`/`purchase`/`restorePurchases`
+  intents for the paywall.
+- `PaywallView.swift` — the screen (see DESIGN.md "Paywall").
+- `RootView` — the gate. It never acts on `.unknown`: it holds the splash
+  while the entitlement resolves (RevenueCat replays its cached
+  `CustomerInfo` immediately, so this is normally instant — subscribers
+  resolve offline too), capped at 4s, after which unknown **fails open** to
+  Main; locking a paying user out over a network hiccup is worse than one
+  free session. The sleep-mode overlay outranks the paywall, so an active
+  night's wake/cancel (and the Screen Time shield teardown) stay reachable
+  regardless of subscription state.
+
+Configuration — the same plumbing as the Supabase keys:
+
+1. `REVENUECAT_API_KEY` in the gitignored `ios/SulavSleep/Config.xcconfig`
+   (declared empty in the committed `Secrets.xcconfig`, exposed through
+   `Info.plist`). It's RevenueCat's *public* Apple App Store SDK key
+   (`appl_…`) — client-safe, like the Supabase anon key.
+2. **An empty key is dev mode**: `isConfigured == false`, the store resolves
+   `.entitled` at init, and the paywall never shows — the Simulator and fresh
+   clones run with zero setup.
+
+One-time external setup (dashboards):
+
+1. **App Store Connect** — create the subscription group and two
+   auto-renewable products (suggested ids `sleepblock.pro.annual`,
+   `sleepblock.pro.monthly`), with a **7-day free trial intro offer on the
+   annual** product (the paywall CTA derives "Start N nights free" from the
+   product's intro offer, so the trial length lives in ASC, not code).
+2. **RevenueCat** — create the project + Apple app, import the products,
+   create entitlement **`pro`** (the id `SleepSubscription.entitlementID`
+   checks) attached to both products, and a **current Offering** containing
+   an `$rc_annual` and `$rc_monthly` package. The paywall renders whatever
+   the current offering carries — plans, prices, and trial all come from the
+   dashboard.
+3. Put the app's public Apple API key in `Config.xcconfig`.
+
+Testing purchases: real transactions need a device + sandbox Apple ID (or
+TestFlight). In the Simulator the usual route is a StoreKit configuration
+file synced from App Store Connect (Xcode scheme → Options → StoreKit
+Configuration) once the products exist in ASC; RevenueCat picks it up
+automatically.
 
 ## HealthKit
 

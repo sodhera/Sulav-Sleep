@@ -448,12 +448,13 @@ wearing the scene's current light (`HomeSloth{Day,Dusk,Night}Blink`) over the
 same warm halo that seats Home's sloth — with the icon's static gold ZZZ
 replaced by the sleep screen's rising-z chain (`RisingZs`, now shared from
 `SleepTheme.swift` and parameterized by color and scale: emberDim at full
-size on the sleep screen, gold on the mark). It appears in exactly three
+size on the sleep screen, gold on the mark). It appears in exactly four
 places: above the wordmark on the welcome screen, above the "Welcome back"
-title on the standalone sign-in screen, and small in the questionnaire
+title on the standalone sign-in screen, small in the questionnaire
 header's top-right corner — where it rides the hidden chevron-twin slot, so
 the progress bar stays centered and the sign-up flow (including its account
-step) stays branded without a second large mark. Small marks keep
+step) stays branded without a second large mark — and atop the paywall,
+the questionnaire's closing beat (see "Paywall"). Small marks keep
 deliberately oversized z's — like the icon's ZZZ — so the animation stays
 legible at corner sizes; under Reduce Motion the chain freezes into the
 icon's static diagonal everywhere. The mark is decorative only: hidden from
@@ -483,9 +484,20 @@ bar (now full) and back chevron as every other question, framed as saving the
 plan they just made. The profile is only committed once that step's auth
 succeeds, so "back" from it returns to the wake-time question like any other.
 
-Onboarding stays short: name, sleep struggles, bedtime, wake, account. Apple
-Health is deliberately *not* asked here — a system permission sheet mid-sign-up
-is friction, and the ask lands better in context. Instead a warm, dismissable
+Onboarding stays short: name, sleep struggles, time-sink apps, bedtime, wake,
+account. Apple Health is deliberately *not* asked here — a system permission
+sheet mid-sign-up is friction, and the ask lands better in context.
+
+The **time-sink question** ("Which apps keep you up?") is the struggles
+question pointed at the phone itself: eight usual suspects (Instagram,
+TikTok, YouTube, X, Reddit, Snapchat, Streaming, Games) as a 2-column grid of
+the same glass capsules — short app names fit two per row, and eight
+full-width rows would overflow the screen — with the identical selection
+grammar (constant glass tint, amber ring + icon + filled circle when chosen).
+It asks for *names*, never the system `FamilyActivityPicker`: a Screen Time
+permission sheet mid-sign-up is the same friction the Health rule exists to
+avoid. The answers feed the paywall's lock line and later personalization;
+the real lockdown selection still happens on the Blocked apps screen. Instead a warm, dismissable
 glass card on Profile (`HealthConnectCard`) invites the connection where the
 sleep data actually lives; it persists until connected or waved off, and the
 Profile settings section still has the toggle.
@@ -543,6 +555,42 @@ Auth messages above the provider stack come in two tones: failures ("that
 password isn't right") in `danger` red, and guidance about a normal next step
 ("tap the confirmation link we emailed you") in `amber` — a calm nudge, not an
 alarm. Never style an expected step as an error.
+
+## Paywall
+
+SleepBlock is a subscription app, and the paywall (`PaywallView.swift`) is
+the questionnaire's closing beat: it appears once, between the account step
+and Main, on the same living scene as onboarding. It is deliberately a
+**hard paywall** — no ✕, no "not now" — softened by honesty: the primary
+action starts the App Store free trial, so nobody pays blind, and the
+renewal line under the button states the real price and "cancel anytime" in
+quiet type. It only ever renders off a *resolved* not-entitled answer
+(never a loading guess), and an unconfigured dev build never shows it.
+
+The screen speaks with everything the user just said. Under the brand-mark
+hero and a "Your plan" kicker (the questionnaire's own chrome grammar), the
+first of three glyph-led feature lines names the very apps they chose on the
+time-sink question — "Instagram and TikTok, locked while you sleep" — so the
+pitch reads as *their* plan, not a feature list. Feature lines are cardless
+(glyph chip + one short sentence — containers are for tappable controls);
+the two plan cards *are* tappable, so they are interactive glass
+rounded-rects in one `LiquidGlassContainer`, carrying period, price, and —
+on the annual card — the trial and monthly equivalent in gold, with the
+onboarding selection grammar (constant tint, amber ring + filled circle).
+Annual is preselected. The CTA is the standard `LiquidPrimaryButton`
+("Start 7 nights free", derived from the product's real intro offer), and
+the footer is three quiet text links (Restore purchases · Terms · Privacy)
+over a soft navy floor gradient. Failures and notices reuse the auth
+screen's two-tone rule: `danger` for real failures, `amber` for normal next
+steps ("No subscription to restore on this Apple ID."). Loading and offline
+states stay composed — spinner with a quiet line, or a wifi-slash glyph row
+with a glass "Try again" — never a broken sheet.
+
+One structural rule: the sleep-mode overlay always outranks the paywall.
+An active night keeps *Hold to wake* / cancel — and with them the Screen
+Time shield teardown — reachable no matter what the subscription state
+resolves to. The app never traps a user inside a lockdown behind a
+purchase screen.
 
 ## Motion
 
