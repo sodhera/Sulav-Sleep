@@ -9,9 +9,12 @@ review the rhythm of recent nights — using **real data only**.
 - A welcome screen offers two independent paths. **Sign up**: a ten-step
   questionnaire building an investment arc — name, the one goal you want
   most, what gets in the way of sleep, which apps keep you up, how long the
-  phone keeps you up after you're in bed, how you wake up, usual bedtime,
-  usual wake time — closing with a **plan reveal** ("Building your sleep
-  plan…" resolving into a personalized summary: sleep window, the weekly
+  phone keeps you up after you're in bed, how you wake up, then a schedule
+  pair that asks both your *ideal* and your *current* bedtime and wake time
+  (the ideal becomes the schedule the app enforces; the current is captured
+  to show the gap you're closing) — closing with a **plan reveal**
+  ("Building your sleep plan…" resolving into a personalized summary: your
+  sleep window and how much earlier you're committing to bed, the weekly
   hours to win back from the named apps, the stated goal, under an "I'm
   ready" commitment button) and, as the final step, account creation framed
   as saving that plan. Questions come first because invested users sign up at
