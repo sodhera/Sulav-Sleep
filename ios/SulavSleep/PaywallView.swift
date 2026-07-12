@@ -104,6 +104,29 @@ struct PaywallView: View {
                 }
             }
         }
+        // The badge hangs on the container, not the card: inside a
+        // GlassEffectContainer the composited glass draws over any overlay
+        // attached to a glass card, so a card-level badge renders half
+        // behind its own surface. The trial plan is always sorted first, so
+        // the container's top edge *is* the annual card's top edge.
+        .overlay(alignment: .top) { trialBadge }
+    }
+
+    @ViewBuilder private var trialBadge: some View {
+        if let trial = plans.first, trial.trialDays > 0 {
+            Text("\(trial.trialDays) NIGHTS FREE")
+                .font(SleepFont.label(11))
+                .tracking(1.4)
+                .foregroundStyle(SleepColor.background)
+                .padding(.horizontal, SleepSpacing.md)
+                .padding(.vertical, 5)
+                .background(Capsule().fill(SleepColor.amber))
+                .opacity(trial.id == selectedPlanID ? 1 : 0.55)
+                .offset(y: -12)
+                .allowsHitTesting(false)
+                .animation(.easeInOut(duration: 0.18), value: selectedPlanID)
+                .accessibilityHidden(true)
+        }
     }
 
     private var purchaseBlock: some View {
@@ -279,8 +302,9 @@ struct PaywallView: View {
 /// price fact** — the annual card's price is its monthly equivalent (the
 /// full price lives in a quiet "billed annually" subline and the renewal
 /// line), the monthly card's price is simply its own. The trial is not card
-/// text: it rides the top edge as an amber capsule badge in the primary
-/// button's colors. Selection is the onboarding grammar: constant glass
+/// text: it rides the top edge as an amber capsule badge (`trialBadge`,
+/// attached at the picker level — see planPicker). Selection is the
+/// onboarding grammar: constant glass
 /// tint (toggling it rebuilds the effect and lags the tap — see
 /// StruggleRow), amber ring + filled circle when chosen; the unselected
 /// card dims so the chosen plan reads first.
@@ -322,19 +346,6 @@ private struct PlanCard: View {
             if isSelected {
                 RoundedRectangle(cornerRadius: SleepRadius.lg, style: .continuous)
                     .stroke(SleepColor.amber.opacity(0.45), lineWidth: 1)
-            }
-        }
-        .overlay(alignment: .top) {
-            if plan.trialDays > 0 {
-                Text("\(plan.trialDays) NIGHTS FREE")
-                    .font(SleepFont.label(11))
-                    .tracking(1.4)
-                    .foregroundStyle(SleepColor.background)
-                    .padding(.horizontal, SleepSpacing.md)
-                    .padding(.vertical, 5)
-                    .background(Capsule().fill(SleepColor.amber))
-                    .opacity(isSelected ? 1 : 0.55)
-                    .offset(y: -12)
             }
         }
         .animation(.easeInOut(duration: 0.18), value: isSelected)
