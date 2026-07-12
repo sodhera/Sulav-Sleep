@@ -568,17 +568,20 @@ quiet type. It only ever renders off a *resolved* not-entitled answer
 (never a loading guess), and an unconfigured dev build never shows it.
 
 The screen is deliberately spare: a hard paywall earns its keep by asking
-one question, not by pitching. Under the brand-mark hero sits **one
-headline and nothing else** — no kicker, no subtitle, no feature list —
-and that headline answers *the plan currently selected* rather than
-narrating features: the trial plan reads "Start your 7-nights FREE trial
-to continue," the no-trial plan reads "Unlock SleepBlock to build a sleep
-routine that sticks." Switching the plan card crossfades the headline, so
-the copy always matches the button the user is about to press (the Cal AI
-paywall does the same swap between its trial and no-trial screens). With
-the subtitle gone, the plan cards and CTA get an extra beat of top padding
-to hold them lower on the screen — cardless space, not a wall of copy,
-carries the gap.
+one question, not by pitching. The hero is the brand mark over the
+**"SleepBlock" wordmark** — the same identity the welcome screen leads
+with, signing the screen — and beneath it sits **one headline and nothing
+else** — no kicker, no subtitle, no feature list. That headline answers
+*the plan currently selected* rather than narrating features: the trial
+plan reads "Start your 7-nights FREE trial to continue," the no-trial plan
+reads "Unlock SleepBlock to build a sleep routine that sticks." Switching
+the plan card crossfades the headline, so the copy always matches the
+button the user is about to press (the Cal AI paywall does the same swap
+between its trial and no-trial screens). The whole hero (mark + wordmark +
+headline) floats between two flexible spacers so it sits in the upper
+third rather than jammed under the status bar, while the same lower spacer
+keeps the plan cards and CTA anchored low — cardless space, not a wall of
+copy, carries the gap on any device height.
 
 > Note on history: the paywall previously opened with a "Your plan" kicker,
 > a fixed "Lock your nights in" headline, a two-line subtitle personalizing

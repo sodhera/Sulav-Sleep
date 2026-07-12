@@ -40,16 +40,19 @@ struct PaywallView: View {
         GeometryReader { proxy in
             ScrollView {
                 VStack(spacing: SleepSpacing.xxxl) {
+                    // A flexible spacer above the hero *and* below it (before
+                    // the cards) splits the free space between them, so the
+                    // brand mark + headline sit lower — near the upper third
+                    // rather than jammed under the status bar — instead of
+                    // leaving all the emptiness in one gap below the headline.
+                    Spacer(minLength: SleepSpacing.huge)
                     header
                     if plans.isEmpty {
                         if loadFailed { loadFailureState } else { loadingState }
                     } else {
-                        // A flexible spacer, not a fixed padding: it eats
-                        // whatever room the screen actually has above the
-                        // footer, so the cards and CTA sit low no matter the
-                        // device height, instead of leaving a dead gap below
-                        // the button on taller phones.
-                        Spacer(minLength: SleepSpacing.xxxl)
+                        // The lower flexible spacer keeps the cards and CTA
+                        // anchored low no matter the device height.
+                        Spacer(minLength: SleepSpacing.huge)
                         VStack(spacing: SleepSpacing.xxxl) {
                             planPicker
                             purchaseBlock
@@ -69,12 +72,19 @@ struct PaywallView: View {
 
     // MARK: - Header
 
-    /// One headline, no subtext — it answers the plan currently selected
-    /// rather than repeating what the cards already say: the trial plan
-    /// gets the trial pitch, the no-trial plan gets the app's own pitch.
+    /// Brand mark, the "SleepBlock" wordmark, then one headline — no subtext.
+    /// The wordmark signs the screen (the same identity the welcome screen
+    /// leads with); the headline answers the plan currently selected rather
+    /// than repeating the cards: the trial plan gets the trial pitch, the
+    /// no-trial plan gets the app's own pitch.
     private var header: some View {
-        VStack(spacing: SleepSpacing.lg) {
-            SlothBrandMark(width: 110, zScale: 0.55)
+        VStack(spacing: SleepSpacing.xl) {
+            VStack(spacing: SleepSpacing.sm) {
+                SlothBrandMark(width: 140, zScale: 0.58)
+                Text("SleepBlock")
+                    .font(SleepFont.hero(26))
+                    .foregroundStyle(SleepColor.ink)
+            }
             Text(headline)
                 .font(SleepFont.title(28))
                 .foregroundStyle(SleepColor.ink)
