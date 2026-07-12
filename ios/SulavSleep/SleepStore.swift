@@ -227,6 +227,8 @@ final class SleepStore {
             bedtime: answers.bedtime,
             wakeTime: answers.wakeTime,
             onboarded: true,
+            currentBedtime: answers.currentBedtime,
+            currentWakeTime: answers.currentWakeTime,
             healthSyncEnabled: false,
             sleepStruggles: answers.struggles,
             timeSinkApps: answers.timeSinks,
@@ -883,5 +885,14 @@ enum SleepMath {
         var diff = wakeTime - bedtime
         if diff <= 0 { diff += 1_440 }
         return diff
+    }
+
+    /// The minimal signed distance in minutes from `from` to `to` on a 24h
+    /// clock, in `[-720, 720]`. Positive means `to` falls *later* in the day
+    /// than `from` (the short way round). Used for the ideal-vs-current
+    /// schedule gap: a positive delta from ideal→current means the user
+    /// currently goes to bed / wakes later than they'd like.
+    static func signedClockDelta(from: Int, to: Int) -> Int {
+        (((to - from) % 1_440) + 1_440 + 720) % 1_440 - 720
     }
 }

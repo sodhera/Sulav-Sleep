@@ -280,7 +280,7 @@ final class SupabaseAuthClient: AuthProviding {
     private static let profileMetadataKey = "sleep_profile"
 
     private static func metadataValue(from profile: RemoteProfile) -> AnyJSON {
-        .object([
+        var object: [String: AnyJSON] = [
             "name": .string(profile.name),
             "bedtime_minutes": .integer(profile.bedtime),
             "wake_minutes": .integer(profile.wakeTime),
@@ -289,7 +289,12 @@ final class SupabaseAuthClient: AuthProviding {
             "goal": .string(profile.primaryGoal),
             "late_night_phone": .string(profile.lateNightPhone),
             "wake_feeling": .string(profile.wakeFeeling),
-        ])
+        ]
+        // Optional gap data — only written when the user set a distinct
+        // current time, so an absent key means "no gap", not zero.
+        if let current = profile.currentBedtime { object["current_bedtime_minutes"] = .integer(current) }
+        if let current = profile.currentWakeTime { object["current_wake_minutes"] = .integer(current) }
+        return .object(object)
     }
 
     private static func remoteProfile(from user: User) -> RemoteProfile? {
@@ -306,10 +311,19 @@ final class SupabaseAuthClient: AuthProviding {
             wakeTime: wakeTime,
             sleepStruggles: object["struggles"]?.arrayValue?.compactMap(\.stringValue) ?? [],
             timeSinkApps: object["time_sinks"]?.arrayValue?.compactMap(\.stringValue) ?? [],
+            currentBedtime: clockMinutes(object["current_bedtime_minutes"]),
+            currentWakeTime: clockMinutes(object["current_wake_minutes"]),
             primaryGoal: object["goal"]?.stringValue ?? "",
             lateNightPhone: object["late_night_phone"]?.stringValue ?? "",
             wakeFeeling: object["wake_feeling"]?.stringValue ?? ""
         )
+    }
+
+    /// A minutes-from-midnight value from cloud metadata, or `nil` if absent
+    /// or out of range — same guard the required schedule fields get.
+    private static func clockMinutes(_ json: AnyJSON?) -> Int? {
+        guard let value = json?.intValue, (0..<1_440).contains(value) else { return nil }
+        return value
     }
 
     private static func account(from session: Session) -> AppAccount {
