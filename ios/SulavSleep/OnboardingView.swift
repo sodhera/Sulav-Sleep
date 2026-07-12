@@ -295,15 +295,8 @@ struct OnboardingQuestionsView: View {
     @State private var timeSinks: Set<TimeSinkApp> = []
     @State private var phoneTime: LateNightPhoneTime?
     @State private var feeling: WakeFeeling?
-    // The schedule steps ask *ideal* (the operative target) and *current*
-    // (the reality, for the plan-reveal gap) on one screen each. Both wheels
-    // start at the same sensible default, so a user who never touches the
-    // "usually" wheel produces no gap — honest by construction, no seeded
-    // number (see DESIGN.md "honest data only").
     @State private var bedtime = 22 * 60 + 30
     @State private var wakeTime = 6 * 60 + 30
-    @State private var currentBedtime = 22 * 60 + 30
-    @State private var currentWakeTime = 6 * 60 + 30
     /// Whether the plan step has finished its "Building…" beat and revealed
     /// the summary. Sticky on purpose: backing into the plan step from the
     /// account step shows the summary immediately — the build animation is a
@@ -569,12 +562,8 @@ struct OnboardingQuestionsView: View {
                 }
             }
         case .bedtime:
-            QuestionLayout(kicker: "Your schedule", title: "When do you want to be asleep?") {
-                DualTimePicker(
-                    ideal: $bedtime,
-                    current: $currentBedtime,
-                    currentPrompt: "And when do you usually go to bed now?"
-                )
+            QuestionLayout(kicker: "Your schedule", title: "When do you want to go to bed?") {
+                TimeAdjuster(minutes: $bedtime)
             }
         case .wake:
             QuestionLayout(
@@ -582,11 +571,7 @@ struct OnboardingQuestionsView: View {
                 title: "And when do you want to wake up?",
                 subtitle: "That's a \(SleepFormatting.duration(windowMinutes)) sleep window."
             ) {
-                DualTimePicker(
-                    ideal: $wakeTime,
-                    current: $currentWakeTime,
-                    currentPrompt: "And when do you usually wake now?"
-                )
+                TimeAdjuster(minutes: $wakeTime)
             }
         case .plan:
             PlanStep(
@@ -594,7 +579,6 @@ struct OnboardingQuestionsView: View {
                 name: name,
                 bedtime: bedtime,
                 wakeTime: wakeTime,
-                currentBedtime: gapBedtime,
                 goal: goal,
                 phoneTime: phoneTime,
                 timeSinks: timeSinks
@@ -607,13 +591,6 @@ struct OnboardingQuestionsView: View {
 
     private var windowMinutes: Int {
         SleepMath.windowMinutes(bedtime: bedtime, wakeTime: wakeTime)
-    }
-
-    /// The current bedtime to hand the plan reveal — only when it's genuinely
-    /// later than the ideal, so the gap line appears for someone who admitted
-    /// a later habit and stays silent for a tap-through (both wheels equal).
-    private var gapBedtime: Int? {
-        SleepMath.signedClockDelta(from: bedtime, to: currentBedtime) > 0 ? currentBedtime : nil
     }
 
     // MARK: Actions
@@ -697,11 +674,6 @@ struct OnboardingQuestionsView: View {
             name: name,
             bedtime: bedtime,
             wakeTime: wakeTime,
-            // Persist a current time only when it's a real gap (later than the
-            // ideal) — mirrors what the plan reveal showed, and keeps a
-            // tap-through from storing a redundant duplicate of the ideal.
-            currentBedtime: gapBedtime,
-            currentWakeTime: SleepMath.signedClockDelta(from: wakeTime, to: currentWakeTime) > 0 ? currentWakeTime : nil,
             struggles: struggles.map(\.rawValue),
             timeSinks: timeSinks.map(\.rawValue),
             goal: goal?.rawValue ?? "",
@@ -965,10 +937,6 @@ private struct PlanStep: View {
     let name: String
     let bedtime: Int
     let wakeTime: Int
-    /// The current bedtime *only when it's a real gap* (later than the
-    /// ideal), so the summary's sharpest line — "to bed Xm earlier than your
-    /// usual …" — appears exactly when there's a gap to close.
-    let currentBedtime: Int?
     let goal: SleepGoal?
     let phoneTime: LateNightPhoneTime?
     let timeSinks: Set<TimeSinkApp>
@@ -1006,7 +974,7 @@ private struct PlanStep: View {
                     icon: "moon.zzz",
                     label: "Sleep window",
                     value: "\(SleepFormatting.clock(bedtime)) – \(SleepFormatting.clock(wakeTime))",
-                    detail: windowDetail
+                    detail: "\(SleepFormatting.duration(SleepMath.windowMinutes(bedtime: bedtime, wakeTime: wakeTime))) of sleep a night"
                 )
                 if let phoneTime {
                     GlassRowDivider()
@@ -1028,20 +996,6 @@ private struct PlanStep: View {
     private var firstName: String {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
             .components(separatedBy: " ").first ?? ""
-    }
-
-    /// The sleep-window row's detail line: when the user admitted a later
-    /// habit, the gap is the more compelling read (it *is* the commitment);
-    /// otherwise the honest nightly-duration fact.
-    private var windowDetail: String {
-        if let currentBedtime {
-            let delta = SleepMath.signedClockDelta(from: bedtime, to: currentBedtime)
-            if delta > 0 {
-                return "To bed \(SleepFormatting.duration(delta)) earlier than your usual \(SleepFormatting.clock(currentBedtime))."
-            }
-        }
-        let window = SleepMath.windowMinutes(bedtime: bedtime, wakeTime: wakeTime)
-        return "\(SleepFormatting.duration(window)) of sleep a night."
     }
 
     /// Names the user's own apps back to them — the sharpest line in the
@@ -1089,53 +1043,8 @@ private struct PlanRow: View {
     }
 }
 
-/// The bedtime/wake question's paired control: the **ideal** time (the
-/// operative target — the top wheel answers the step's title) over a softer
-/// follow-up asking the **current** reality, with a live gap line between
-/// them. The two-on-one-screen layout is deliberate: the gap ("1h earlier
-/// than your usual 11:30") reads far stronger when both times are visible at
-/// once than it would across two separate steps. See DESIGN.md.
-struct DualTimePicker: View {
-    @Binding var ideal: Int
-    @Binding var current: Int
-    let currentPrompt: String
-
-    var body: some View {
-        VStack(spacing: SleepSpacing.lg) {
-            TimeAdjuster(minutes: $ideal, height: 132)
-
-            VStack(spacing: SleepSpacing.sm) {
-                Text(currentPrompt)
-                    .font(SleepFont.body(14))
-                    .foregroundStyle(SleepColor.muted)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                TimeAdjuster(minutes: $current, height: 132)
-            }
-
-            if let line = gapLine {
-                Text(line)
-                    .font(SleepFont.body(14))
-                    .foregroundStyle(SleepColor.amber)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentTransition(.numericText())
-                    .transition(.opacity)
-            }
-        }
-        .animation(.easeInOut(duration: 0.2), value: gapLine)
-    }
-
-    /// Only when the user goes to bed / wakes *later* than their ideal — the
-    /// motivating case. Names their own current time back to them.
-    private var gapLine: String? {
-        let delta = SleepMath.signedClockDelta(from: ideal, to: current)
-        guard delta > 0 else { return nil }
-        return "That's \(SleepFormatting.duration(delta)) earlier than your usual \(SleepFormatting.clock(current))."
-    }
-}
-
 struct TimeAdjuster: View {
     @Binding var minutes: Int
-    var height: CGFloat = 160
 
     /// Reference date used to anchor the DatePicker. Only the time component matters.
     private static let calendar = Calendar.current
@@ -1153,8 +1062,7 @@ struct TimeAdjuster: View {
         .labelsHidden()
         .tint(SleepColor.amber)
         .frame(maxWidth: .infinity)
-        .frame(height: height)
-        .clipped()
+        .frame(height: 160)
         .accessibilityLabel("Select time")
     }
 

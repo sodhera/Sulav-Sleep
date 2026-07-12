@@ -495,22 +495,14 @@ steps is the ceiling for this app's bedside-instrument voice. Apple Health is
 deliberately *not* asked here — a system permission sheet mid-sign-up is
 friction, and the ask lands better in context.
 
-The two **schedule steps ask ideal *and* current on one screen each**
-(`DualTimePicker`): "When do you want to be asleep?" (the top wheel, the
-hero) over a softer follow-up "And when do you usually go to bed now?" (a
-second wheel), with a live amber gap line between them ("That's 1h earlier
-than your usual 11:30"). Manufacturing the gap between where the user is and
-where they want to be is the flow's sharpest motivator, and pairing the two
-times on one screen makes that gap legible in the moment — far stronger than
-two separate steps, and it keeps the section at two screens, not four. The
-**ideal is the operative schedule** — `profile.bedtime`/`wakeTime`, what the
-Home countdown, the lockdown window, and the widgets all key off — because a
-commitment app pulls the user toward the goal, never enforces the late habit;
-the current time (`currentBedtime`/`currentWakeTime`, optional) is captured
-purely to power the gap. Both wheels default to the same time, so a
-tap-through stores no gap and shows no fabricated number (honest data only);
-the gap line and its plan-reveal echo appear only when the user actually set
-a later current time.
+The two **schedule steps** are single-wheel and framed as the target the app
+holds the user to — "When do you want to go to bed?" and "And when do you
+want to wake up?" (the wake step carries a live sleep-window readout). That
+target is the operative schedule: `profile.bedtime`/`wakeTime`, what the Home
+countdown, the lockdown window, and the widgets all key off. (An earlier
+revision asked ideal *and* current on each screen to manufacture a gap; it
+was cut — the second wheel made the screen busy, and the plan reveal already
+carries the motivation.)
 
 Selection grammar splits by meaning: **multi-selects** (struggles, time-sink
 apps) allow zero — an empty set is an honest answer — while **single-selects**
@@ -523,10 +515,9 @@ The **plan reveal** is the questionnaire's closing beat before the account
 step: ~1.8s of "Building your sleep plan…" — the brand sloth centered, its
 rising z's the only motion, deliberately never a spinner — resolving with a
 success haptic into a personalized summary in the editorial question chrome:
-a `GlassGroup` of three facts (sleep window — whose detail line is the
-**bedtime gap** "to bed 1h earlier than your usual 11:30" when there is one,
-else the nightly duration; **time to win back each week**, computed from the
-phone-time answer × 7 and naming the user's own apps; the stated goal). The build beat is sticky — backing in from
+a `GlassGroup` of three facts (sleep window + nightly duration; **time to win
+back each week**, computed from the phone-time answer × 7 and naming the
+user's own apps; the stated goal). The build beat is sticky — backing in from
 the account step shows the summary instantly; the pause is a first-arrival
 moment, not a toll. Its CTA is **"I'm ready"** — the flow's one
 micro-commitment, landing right before the account step asks to save the plan

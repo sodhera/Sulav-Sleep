@@ -51,8 +51,6 @@ struct RemoteProfile: Codable, Equatable {
     var name: String
     var bedtime: Int
     var wakeTime: Int
-    var currentBedtime: Int?
-    var currentWakeTime: Int?
     var sleepStruggles: [String]
     var timeSinkApps: [String]
     var primaryGoal: String
@@ -61,14 +59,11 @@ struct RemoteProfile: Codable, Equatable {
 
     init(
         name: String, bedtime: Int, wakeTime: Int, sleepStruggles: [String], timeSinkApps: [String] = [],
-        currentBedtime: Int? = nil, currentWakeTime: Int? = nil,
         primaryGoal: String = "", lateNightPhone: String = "", wakeFeeling: String = ""
     ) {
         self.name = name
         self.bedtime = bedtime
         self.wakeTime = wakeTime
-        self.currentBedtime = currentBedtime
-        self.currentWakeTime = currentWakeTime
         self.sleepStruggles = sleepStruggles
         self.timeSinkApps = timeSinkApps
         self.primaryGoal = primaryGoal
@@ -83,8 +78,6 @@ struct RemoteProfile: Codable, Equatable {
         name = try c.decode(String.self, forKey: .name)
         bedtime = try c.decode(Int.self, forKey: .bedtime)
         wakeTime = try c.decode(Int.self, forKey: .wakeTime)
-        currentBedtime = try c.decodeIfPresent(Int.self, forKey: .currentBedtime)
-        currentWakeTime = try c.decodeIfPresent(Int.self, forKey: .currentWakeTime)
         sleepStruggles = try c.decodeIfPresent([String].self, forKey: .sleepStruggles) ?? []
         timeSinkApps = try c.decodeIfPresent([String].self, forKey: .timeSinkApps) ?? []
         primaryGoal = try c.decodeIfPresent(String.self, forKey: .primaryGoal) ?? ""
@@ -102,8 +95,6 @@ struct RemoteProfile: Codable, Equatable {
             wakeTime: profile.wakeTime,
             sleepStruggles: profile.sleepStruggles,
             timeSinkApps: profile.timeSinkApps,
-            currentBedtime: profile.currentBedtime,
-            currentWakeTime: profile.currentWakeTime,
             primaryGoal: profile.primaryGoal,
             lateNightPhone: profile.lateNightPhone,
             wakeFeeling: profile.wakeFeeling
@@ -118,8 +109,6 @@ struct RemoteProfile: Codable, Equatable {
             bedtime: bedtime,
             wakeTime: wakeTime,
             onboarded: true,
-            currentBedtime: currentBedtime,
-            currentWakeTime: currentWakeTime,
             sleepStruggles: sleepStruggles,
             timeSinkApps: timeSinkApps,
             primaryGoal: primaryGoal,

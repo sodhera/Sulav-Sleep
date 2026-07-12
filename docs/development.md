@@ -166,12 +166,9 @@ target can inject fakes without new hooks.
 - `OnboardingView.swift`: `OnboardingGateView`, the whole pre-app gate. A
   welcome screen offers two independent paths — "Get started" runs the sign-up
   flow (`OnboardingQuestionsView`: name, goal, sleep struggles, time-sink
-  apps, late-night phone time, wake feeling, bedtime, wake — the two schedule
-  steps each ask ideal + current on one screen via `DualTimePicker`, the ideal
-  being the operative target and the current feeding the gap; the wake step
-  keeps a live sleep-window readout — then the plan reveal, and — as the final
-  step — the account creation, embedding `AuthMethodsView`); "I already have
-  an account" goes
+  apps, late-night phone time, wake feeling, bedtime, wake with a live
+  sleep-window readout, the plan reveal, and — as the final step — the account
+  creation, embedding `AuthMethodsView`); "I already have an account" goes
   straight to a standalone `AuthView` (`.signIn`), followed by the same
   questions as a quick setup when the device has no profile. The two paths are
   never linked. Apple Health is not part of onboarding — it's offered later on
@@ -238,21 +235,12 @@ target can inject fakes without new hooks.
 
 - First launch shows the welcome screen with two independent paths. Sign-up:
   name, goal, sleep struggles, time-sink apps, late-night phone time, wake
-  feeling, bedtime + wake (each asking ideal vs. current on one screen), the
-  plan reveal, then account creation as the final step of the same flow
-  (progress bar + back throughout) — the questions come first deliberately,
-  since users who have invested in a few answers complete sign-up at a higher
-  rate; the plan reveal turns those answers into a personalized summary the
-  account step then "saves" and the paywall unlocks; and the profile is
-  committed only once that final account step succeeds.
-- **Ideal vs. current schedule.** The bedtime/wake steps capture both the
-  *ideal* (operative — `profile.bedtime`/`wakeTime`, driving the countdown,
-  lockdown, and widgets) and the *current* reality (`currentBedtime`/
-  `currentWakeTime`, optional). The gap between them is the plan reveal's
-  sharpest line and a live readout on the step itself
-  (`SleepMath.signedClockDelta`). A current time is stored only when it's
-  genuinely later than the ideal, so a tap-through (both wheels equal) records
-  no gap and fabricates no number.
+  feeling, bedtime, wake, the plan reveal, then account creation as the final
+  step of the same flow (progress bar + back throughout) — the questions come
+  first deliberately, since users who have invested in a few answers complete
+  sign-up at a higher rate; the plan reveal turns those answers into a
+  personalized summary the account step then "saves" and the paywall unlocks;
+  and the profile is committed only once that final account step succeeds.
   Sign-in: a standalone screen, then the same questions as a quick setup if
   the device has no profile (see "Authentication"). The two paths do not
   cross-link; the choice is made on the welcome screen.

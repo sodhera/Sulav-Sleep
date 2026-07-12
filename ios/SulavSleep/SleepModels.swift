@@ -23,24 +23,12 @@ enum AppTab: String, CaseIterable, Identifiable, Codable {
 
 struct Profile: Codable, Equatable {
     var name: String
-    /// The **target** bedtime — the schedule the app holds the user to
-    /// (Home countdown, lockdown window, widgets all key off this). During
-    /// sign-up this is captured as the *ideal* ("when do you want to sleep?"),
-    /// not the usual: a commitment app pulls the user toward the goal rather
-    /// than enforcing the late habit. `currentBedtime` records the reality
-    /// they're moving away from, purely to power the plan-reveal gap.
+    /// The target bedtime the app holds the user to — the Home countdown,
+    /// lockdown window, and widgets all key off this. Captured during sign-up
+    /// as the time they want to go to bed.
     var bedtime: Int
-    /// The **target** wake time — the operative wake, captured as the ideal
-    /// (see `bedtime`). `currentWakeTime` holds the reality for the gap.
+    /// The target wake time (see `bedtime`).
     var wakeTime: Int
-    /// Where the user said they *usually* go to bed now — the reality behind
-    /// the ideal `bedtime`. Feeds the plan-reveal gap ("Xm earlier than your
-    /// usual …") and nothing operational. `nil` for profiles from before the
-    /// question, or when it equals the ideal (no gap to show).
-    var currentBedtime: Int?
-    /// Where the user said they *usually* wake now — the reality behind the
-    /// ideal `wakeTime`. See `currentBedtime`.
-    var currentWakeTime: Int?
     var onboarded: Bool
     /// Whether the user has opted into two-way Apple Health sync.
     var healthSyncEnabled: Bool
@@ -85,7 +73,6 @@ struct Profile: Codable, Equatable {
 
     init(
         name: String, bedtime: Int, wakeTime: Int, onboarded: Bool,
-        currentBedtime: Int? = nil, currentWakeTime: Int? = nil,
         healthSyncEnabled: Bool = false, blockDuringSleep: Bool = true, lockdownMaxHours: Int = 6,
         sleepStruggles: [String] = [], timeSinkApps: [String] = [], healthPromptDismissed: Bool = false,
         primaryGoal: String = "", lateNightPhone: String = "", wakeFeeling: String = ""
@@ -93,8 +80,6 @@ struct Profile: Codable, Equatable {
         self.name = name
         self.bedtime = bedtime
         self.wakeTime = wakeTime
-        self.currentBedtime = currentBedtime
-        self.currentWakeTime = currentWakeTime
         self.onboarded = onboarded
         self.healthSyncEnabled = healthSyncEnabled
         self.blockDuringSleep = blockDuringSleep
@@ -113,8 +98,6 @@ struct Profile: Codable, Equatable {
         name = try c.decode(String.self, forKey: .name)
         bedtime = try c.decode(Int.self, forKey: .bedtime)
         wakeTime = try c.decode(Int.self, forKey: .wakeTime)
-        currentBedtime = try c.decodeIfPresent(Int.self, forKey: .currentBedtime)
-        currentWakeTime = try c.decodeIfPresent(Int.self, forKey: .currentWakeTime)
         onboarded = try c.decode(Bool.self, forKey: .onboarded)
         healthSyncEnabled = try c.decodeIfPresent(Bool.self, forKey: .healthSyncEnabled) ?? false
         blockDuringSleep = try c.decodeIfPresent(Bool.self, forKey: .blockDuringSleep) ?? true
@@ -131,15 +114,11 @@ struct Profile: Codable, Equatable {
 /// Everything the sign-up questionnaire collects, handed to
 /// `SleepStore.completeOnboarding` in one piece so the flow's closure
 /// doesn't grow a positional parameter per question. Enum-backed answers
-/// travel as raw values (same rule as `Profile.sleepStruggles`). `bedtime`/
-/// `wakeTime` are the ideals (operative schedule); `currentBedtime`/
-/// `currentWakeTime` are the reality captured for the plan-reveal gap.
+/// travel as raw values (same rule as `Profile.sleepStruggles`).
 struct OnboardingAnswers {
     var name: String
     var bedtime: Int
     var wakeTime: Int
-    var currentBedtime: Int?
-    var currentWakeTime: Int?
     var struggles: [String] = []
     var timeSinks: [String] = []
     var goal: String = ""
