@@ -134,8 +134,8 @@ enum TimeSinkApp: String, CaseIterable, Identifiable {
     case x
     case reddit
     case snapchat
-    case streaming
     case games
+    case other
 
     var id: String { rawValue }
 
@@ -147,8 +147,8 @@ enum TimeSinkApp: String, CaseIterable, Identifiable {
         case .x: "X"
         case .reddit: "Reddit"
         case .snapchat: "Snapchat"
-        case .streaming: "Streaming"
         case .games: "Games"
+        case .other: "Other"
         }
     }
 
@@ -160,8 +160,8 @@ enum TimeSinkApp: String, CaseIterable, Identifiable {
         case .x: "at"
         case .reddit: "bubble.left.and.bubble.right"
         case .snapchat: "bolt"
-        case .streaming: "tv"
         case .games: "gamecontroller"
+        case .other: "ellipsis"
         }
     }
 }

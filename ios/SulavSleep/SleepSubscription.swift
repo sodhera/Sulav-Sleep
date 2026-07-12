@@ -64,7 +64,7 @@ protocol SubscriptionProviding {
 
 enum SleepSubscription {
     /// The single entitlement the app checks, as configured in RevenueCat.
-    static let entitlementID = "pro"
+    static let entitlementID = "SleepBlock Pro"
 
     static func makeDefault() -> SubscriptionProviding {
 #if DEBUG
