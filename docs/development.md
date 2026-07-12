@@ -202,7 +202,8 @@ target can inject fakes without new hooks.
   `SleepModels.swift`) gate Next until answered; multi-selects allow zero.
   The **plan step** (`PlanStep`) runs a ~1.8s "Building your sleep plan…"
   beat (`startPlanBuild`, cancelled if the user backs out mid-build, sticky
-  once revealed) before crossfading to the personalized summary; its "I'm
+  once revealed), with the sloth and status text centered in the full flexible
+  content region, before crossfading to the personalized summary; its "I'm
   ready" CTA advances to the account step (or commits directly on the
   quick-setup path, where the plan step is the final one). All answers travel
   as one `OnboardingAnswers` value into `store.completeOnboarding`.

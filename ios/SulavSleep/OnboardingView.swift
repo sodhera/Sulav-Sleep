@@ -951,6 +951,7 @@ private struct PlanStep: View {
                 building.transition(.opacity)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var building: some View {
@@ -960,7 +961,7 @@ private struct PlanStep: View {
                 .font(SleepFont.body(16))
                 .foregroundStyle(SleepColor.dim)
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Building your sleep plan")
     }

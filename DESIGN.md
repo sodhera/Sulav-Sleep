@@ -512,9 +512,10 @@ All list questions share one full-width capsule row (`OptionRow`; the
 time-sink grid keeps its compact 2-column `TimeSinkChip` sibling).
 
 The **plan reveal** is the questionnaire's closing beat before the account
-step: ~1.8s of "Building your sleep plan…" — the brand sloth centered, its
-rising z's the only motion, deliberately never a spinner — resolving with a
-success haptic into a personalized summary in the editorial question chrome:
+step: ~1.8s of "Building your sleep plan…" — the brand sloth and status text
+centered together in the full flexible region between the progress header and
+the reserved bottom action, its rising z's the only motion, deliberately never
+a spinner — resolving with a success haptic into a personalized summary in the editorial question chrome:
 a `GlassGroup` of three facts (sleep window + nightly duration; **time to win
 back each week**, computed from the phone-time answer × 7 and naming the
 user's own apps; the stated goal). The build beat is sticky — backing in from
