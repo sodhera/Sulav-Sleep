@@ -348,13 +348,15 @@ struct OnboardingQuestionsView: View {
                     .transition(.opacity)
             } else {
                 currentStep
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(
+                        maxWidth: .infinity,
+                        maxHeight: .infinity,
+                        alignment: .topLeading
+                    )
                     .padding(.horizontal, SleepSpacing.xxl)
                     .padding(.top, SleepSpacing.xxxl)
                     .transition(stepTransition)
                     .id(step)
-
-                Spacer(minLength: SleepSpacing.lg)
 
                 actions
                     .padding(.horizontal, SleepSpacing.xxl)
@@ -699,20 +701,20 @@ struct OnboardingQuestionsView: View {
 
 // MARK: - Shared question chrome
 
-/// Top-anchored, editorial question layout: large title, optional supporting
-/// line, then the control. Keeping the complete question block directly below
-/// the progress header gives every step one stable reading position instead
-/// of vertically centering shorter questions. No small-caps kicker — the title
-/// carries the question on its own, so the questionnaire reads cleaner and
-/// each step's self-contained question isn't shadowed by a redundant category
-/// label.
+/// Editorial question layout with two independent anchors: the question stays
+/// at the top while its controls are vertically centered in the space between
+/// the prompt and the bottom action. The flexible spacers collapse for taller
+/// answer groups, so the content still fits compact screens. No small-caps
+/// kicker — the title carries the question on its own, so the questionnaire
+/// reads cleaner and each step's self-contained question isn't shadowed by a
+/// redundant category label.
 private struct QuestionLayout<Content: View>: View {
     let title: String
     var subtitle: String?
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: SleepSpacing.lg) {
+        VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: SleepSpacing.md) {
                 Text(title)
                     .font(SleepFont.title(28))
@@ -727,9 +729,13 @@ private struct QuestionLayout<Content: View>: View {
                 }
             }
 
+            Spacer(minLength: SleepSpacing.lg)
+
             content
-                .padding(.top, SleepSpacing.sm)
+
+            Spacer(minLength: SleepSpacing.lg)
         }
+        .frame(maxHeight: .infinity, alignment: .top)
     }
 }
 

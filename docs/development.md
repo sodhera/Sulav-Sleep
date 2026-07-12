@@ -216,9 +216,11 @@ target can inject fakes without new hooks.
   from it returns to the plan step. Navigation is array-index based so the
   conditional final step is handled uniformly. The questionnaire renders only the active step
   (directional slide transitions, thin amber progress bar, glass back chevron),
-  top-anchors its complete question block 32pt below that header, and keeps the
-  action pinned at the bottom with the intervening flexible spacer
-  and owns the shared lightweight `TimeAdjuster`, used instead of UIKit
+  top-anchors the prompt 32pt below that header, vertically centers the answer
+  controls in the remaining flexible region, and keeps the action pinned at
+  the bottom. The centering spacers collapse when a tall answer group needs
+  room. The questionnaire also owns the shared lightweight `TimeAdjuster`,
+  used instead of UIKit
   `DatePicker`/wheel controls to avoid first-use hitches during transitions.
   The keyboard is pre-warmed in two stages: a flash-free framework load while
   the onboarding gate idles (`Keyboard.warmFrameworks()` — become + resign
