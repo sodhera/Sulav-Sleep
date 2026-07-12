@@ -66,6 +66,31 @@ xcodebuild \
   build
 ```
 
+## Swift package dependencies
+
+The app links Supabase's `Auth` product and RevenueCat's `RevenueCat` product
+through Swift Package Manager. The Xcode project is the source of truth for
+both package declarations. The project and the compatibility workspace each
+have a checked-in `Package.resolved`; keep the two lockfiles identical so the
+same dependency graph is used whether a developer opens
+`SulavSleep.xcodeproj` or `SulavSleep.xcworkspace`.
+
+If Xcode reports `Missing package product 'Auth'` or `Missing package product
+'RevenueCat'`, resolve the graph from the repository root before changing the
+target's Frameworks list:
+
+```sh
+xcodebuild \
+  -resolvePackageDependencies \
+  -workspace ios/SulavSleep.xcworkspace \
+  -scheme SulavSleep \
+  -derivedDataPath ios/build/DerivedData
+```
+
+This refreshes an incomplete local checkout and updates the workspace lockfile
+from the package references declared by the project. A successful resolution
+must list both `Supabase` and `RevenueCat` under `Resolved source packages`.
+
 ## Tests
 
 The project currently ships **no test targets** — the `SulavSleepTests`
