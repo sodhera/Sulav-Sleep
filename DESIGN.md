@@ -482,11 +482,39 @@ answered a few personal questions complete sign-up at a higher rate — and the
 account step is the *final step of that same flow*: it carries the same progress
 bar (now full) and back chevron as every other question, framed as saving the
 plan they just made. The profile is only committed once that step's auth
-succeeds, so "back" from it returns to the wake-time question like any other.
+succeeds, so "back" from it returns to the plan reveal like any other.
 
-Onboarding stays short: name, sleep struggles, time-sink apps, bedtime, wake,
-account. Apple Health is deliberately *not* asked here — a system permission
-sheet mid-sign-up is friction, and the ask lands better in context.
+The questionnaire is an **investment arc**, not a form: who you are → what
+you want → what's in the way → how bad it's gotten → your schedule → the plan
+built from all of it. Ten steps: name, goal, sleep struggles, time-sink apps,
+late-night phone time, wake feeling, bedtime, wake, **plan reveal**, account.
+Every question either personalizes the plan summary/paywall or deepens the
+user's stake in finishing; none is padding — the Cal AI-style long onboarding
+works because each answer visibly *builds* something, and ten calm editorial
+steps is the ceiling for this app's bedside-instrument voice. Apple Health is
+deliberately *not* asked here — a system permission sheet mid-sign-up is
+friction, and the ask lands better in context.
+
+Selection grammar splits by meaning: **multi-selects** (struggles, time-sink
+apps) allow zero — an empty set is an honest answer — while **single-selects**
+(goal, phone time, wake feeling) require a choice before Next enables, because
+the plan speaks to the answer and there is no meaningful "skipped" reading.
+All list questions share one full-width capsule row (`OptionRow`; the
+time-sink grid keeps its compact 2-column `TimeSinkChip` sibling).
+
+The **plan reveal** is the questionnaire's closing beat before the account
+step: ~1.8s of "Building your sleep plan…" — the brand sloth centered, its
+rising z's the only motion, deliberately never a spinner — resolving with a
+success haptic into a personalized summary in the editorial question chrome:
+a `GlassGroup` of three facts (sleep window + nightly duration; **time to win
+back each week**, computed from the phone-time answer × 7 and naming the
+user's own apps; the stated goal). The build beat is sticky — backing in from
+the account step shows the summary instantly; the pause is a first-arrival
+moment, not a toll. Its CTA is **"I'm ready"** — the flow's one
+micro-commitment, landing right before the account step asks to save the plan
+and the paywall asks to unlock it. The summary rows are a data readout, not
+settings rows, so they may carry a dim detail line (the one exception to
+"rows never explain").
 
 The **time-sink question** ("Which apps keep you up?") is the struggles
 question pointed at the phone itself: eight usual suspects (Instagram,
@@ -627,6 +655,41 @@ An active night keeps *Hold to wake* / cancel — and with them the Screen
 Time shield teardown — reachable no matter what the subscription state
 resolves to. The app never traps a user inside a lockdown behind a
 purchase screen.
+
+## Screen Time primer
+
+The last gate before Main (`ScreenTimePrimerView`, SleepScreenTime.swift),
+after the paywall resolves: SleepBlock is an app-blocking app, and this is
+where blocking gets its teeth — asked at peak commitment, right after the
+user paid, never mid-sign-up (the Health rule). The centerpiece is a
+**mock of the iOS permission dialog** with an amber arrow and "Tap Allow"
+beneath its affirmative button — the primer pattern: the user decides to tap
+Allow on *our* screen, so the real system sheet (fired by the primary
+"Turn on app blocking" CTA) is a formality they've already rehearsed.
+
+The mock is deliberately **not Liquid Glass** — it depicts iOS chrome, not
+one of the app's own controls — a plain navy rounded-rect alert with an
+hourglass glyph, the real request title, greeked body lines (rounded bars,
+never fake legalese), and a Don't Allow / Allow button row whose "Allow"
+keeps the **system's blue**: the primer's whole job is pattern-matching
+against the sheet iOS is about to show, and that is the one sanctioned
+exception to the no-blue-identity rule. The mock is decorative and hidden
+from accessibility; the editorial headline above it ("Let SleepBlock put
+your apps to sleep", with a one-line explainer ending in "Calls always
+work.") carries the meaning. The arrow breathes a few points vertically
+(stilled under Reduce Motion) — a guide, not a decoration.
+
+Granting flows straight into the system `FamilyActivityPicker` while the
+intent is hot — authorization alone shields nothing. The primer is
+**one-shot per install, never per account**: its seen-marker lives in the
+app container (wiped by deletion), so a delete-and-reinstall sign-in —
+which silently drops the Screen Time authorization along with the app —
+primes again, while normal launches never re-show it. It completes on
+grant, deny, *or* the quiet "Not now": nobody gets trapped at a gate, and
+the Blocked apps screen stays the always-available fixup path. On the
+simulator Family Controls reports unavailable and the gate never fires;
+the DEBUG launch argument `-review-screentime-primer` renders it
+deterministically (same pattern as `-review-paywall`).
 
 ## Motion
 

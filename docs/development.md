@@ -38,6 +38,22 @@ the launch configuration ($59.99 annual / $5.99 monthly) and should be updated
 before capture if App Store Connect pricing changes. The screenshot is review
 evidence only and must not be used as a public App Store marketing screenshot.
 
+### Preview the Screen Time primer
+
+The permission primer (`ScreenTimePrimerView` — the mock-dialog gate between
+the paywall and Main) never fires on the simulator, where Family Controls
+reports `.unavailable`. A DEBUG-only launch argument renders it
+deterministically:
+
+```sh
+xcrun simctl launch booted com.sulav.sleepblock -review-screentime-primer
+```
+
+Its CTA resolves "denied" on the simulator and falls through to the normal
+root. On a real device the gate shows once per install (marker
+`sulav.screenTimePrimer.v1`, container-backed so a reinstall re-primes; see
+`SleepStore.needsScreenTimePrimer`).
+
 ## Build without launching
 
 ```sh
@@ -149,23 +165,31 @@ target can inject fakes without new hooks.
   `Profile.healthPromptDismissed`).
 - `OnboardingView.swift`: `OnboardingGateView`, the whole pre-app gate. A
   welcome screen offers two independent paths — "Get started" runs the sign-up
-  flow (`OnboardingQuestionsView`: name, sleep struggles, bedtime, wake with a
-  live sleep-window readout, and — as the final step — the account creation,
-  embedding `AuthMethodsView`); "I already have an account" goes straight to a
-  standalone `AuthView` (`.signIn`), followed by the same questions as a quick
-  setup when the device has no profile. The two paths are never linked. Apple
-  Health is not part of onboarding — it's offered later on Profile (see
-  `HealthConnectCard`). `OnboardingQuestionsView` builds its step list
-  dynamically: the account step is appended only when the user is not already
-  signed in (captured once via `includesAccount`), so it appears on the sign-up
-  path but is dropped on the post-sign-in quick setup, where the wake-time
-  question becomes the final step (its button reads "Finish" and commits). The
-  profile is *not* committed until the account step's auth succeeds — an
-  `onChange(store.isAuthenticated)` inside the questionnaire fires
-  `completeOnboarding`, so the gate stays mounted (progress bar + back chevron
-  intact) through account creation and "back" from it returns to the wake step.
-  Navigation is array-index based so the conditional final step is handled
-  uniformly. The questionnaire renders only the active step
+  flow (`OnboardingQuestionsView`: name, goal, sleep struggles, time-sink
+  apps, late-night phone time, wake feeling, bedtime, wake with a live
+  sleep-window readout, the plan reveal, and — as the final step — the account
+  creation, embedding `AuthMethodsView`); "I already have an account" goes
+  straight to a standalone `AuthView` (`.signIn`), followed by the same
+  questions as a quick setup when the device has no profile. The two paths are
+  never linked. Apple Health is not part of onboarding — it's offered later on
+  Profile (see `HealthConnectCard`). Single-select questions (goal, phone
+  time, feeling — `SleepGoal`/`LateNightPhoneTime`/`WakeFeeling` in
+  `SleepModels.swift`) gate Next until answered; multi-selects allow zero.
+  The **plan step** (`PlanStep`) runs a ~1.8s "Building your sleep plan…"
+  beat (`startPlanBuild`, cancelled if the user backs out mid-build, sticky
+  once revealed) before crossfading to the personalized summary; its "I'm
+  ready" CTA advances to the account step (or commits directly on the
+  quick-setup path, where the plan step is the final one). All answers travel
+  as one `OnboardingAnswers` value into `store.completeOnboarding`.
+  `OnboardingQuestionsView` builds its step list dynamically: the account
+  step is appended only when the user is not already signed in (captured once
+  via `includesAccount`), so it appears on the sign-up path but is dropped on
+  the post-sign-in quick setup. The profile is *not* committed until the
+  account step's auth succeeds — an `onChange(store.isAuthenticated)` inside
+  the questionnaire fires `completeOnboarding`, so the gate stays mounted
+  (progress bar + back chevron intact) through account creation and "back"
+  from it returns to the plan step. Navigation is array-index based so the
+  conditional final step is handled uniformly. The questionnaire renders only the active step
   (directional slide transitions, thin amber progress bar, glass back chevron)
   and owns the shared lightweight `TimeAdjuster`, used instead of UIKit
   `DatePicker`/wheel controls to avoid first-use hitches during transitions.
@@ -210,14 +234,16 @@ target can inject fakes without new hooks.
 ## Product mechanics
 
 - First launch shows the welcome screen with two independent paths. Sign-up:
-  name, sleep struggles, time-sink apps, bedtime, wake, then account creation
-  as the final step of the same flow (progress bar + back throughout) — the
-  questions come first deliberately, since users who have invested in a few
-  answers complete sign-up at a higher rate, and the profile is committed only
-  once that final account step succeeds. Sign-in: a standalone screen, then the
-  same questions as a quick setup if the device has no profile (see
-  "Authentication"). The two paths do not cross-link; the choice is made on the
-  welcome screen.
+  name, goal, sleep struggles, time-sink apps, late-night phone time, wake
+  feeling, bedtime, wake, the plan reveal, then account creation as the final
+  step of the same flow (progress bar + back throughout) — the questions come
+  first deliberately, since users who have invested in a few answers complete
+  sign-up at a higher rate; the plan reveal turns those answers into a
+  personalized summary the account step then "saves" and the paywall unlocks;
+  and the profile is committed only once that final account step succeeds.
+  Sign-in: a standalone screen, then the same questions as a quick setup if
+  the device has no profile (see "Authentication"). The two paths do not
+  cross-link; the choice is made on the welcome screen.
 - **The time-sink question** ("Which apps keep you up?") collects app *names*
   (`TimeSinkApp` raw values on `Profile.timeSinkApps`), deliberately not a
   `FamilyActivitySelection` — the system picker needs Screen Time
@@ -227,6 +253,17 @@ target can inject fakes without new hooks.
   Blocked apps screen.
 - **SleepBlock is a subscription app.** After onboarding, a hard paywall (see
   "Subscription (RevenueCat)") stands between the questionnaire and Main.
+- **The Screen Time primer** (`ScreenTimePrimerView`, SleepScreenTime.swift)
+  is the last gate before Main once the entitlement resolves: a mock of the
+  iOS permission dialog with an amber "Tap Allow" arrow, whose CTA fires the
+  real `AuthorizationCenter` request and, when granted, chains straight into
+  the `FamilyActivityPicker`. One-shot **per install** — the seen-marker
+  (`sulav.screenTimePrimer.v1`) lives in the wiped-on-delete container, so a
+  reinstall (where iOS dropped the authorization) primes again. It completes
+  on grant, deny, or "Not now"; the Blocked apps screen stays the fixup path.
+  `SleepStore.needsScreenTimePrimer` gates it in `RootView` (the store also
+  mirrors the marker observably, since live `authorizationStatus` reads are
+  invisible to `@Observable` tracking).
 - **Apple Health is offered in-app, not during onboarding.** A dismissable
   prompt card sits at the top of Profile until the user connects (or waves it
   off); the Profile settings section keeps the toggle. This avoids a system

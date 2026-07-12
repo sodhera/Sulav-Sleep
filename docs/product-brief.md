@@ -6,12 +6,18 @@ review the rhythm of recent nights — using **real data only**.
 
 ## Current product
 
-- A welcome screen offers two independent paths. **Sign up**: a questionnaire
-  (name, what gets in the way of sleep, which apps keep you up, usual bedtime,
-  usual wake time) whose final step is account creation, framed as saving the
-  plan — questions come first because invested users sign up at a higher rate,
-  and the account step carries the same progress bar and back button as the
-  rest of the flow. **Sign in**: a standalone screen (Apple, Google, or manual
+- A welcome screen offers two independent paths. **Sign up**: a ten-step
+  questionnaire building an investment arc — name, the one goal you want
+  most, what gets in the way of sleep, which apps keep you up, how long the
+  phone keeps you up after you're in bed, how you wake up, usual bedtime,
+  usual wake time — closing with a **plan reveal** ("Building your sleep
+  plan…" resolving into a personalized summary: sleep window, the weekly
+  hours to win back from the named apps, the stated goal, under an "I'm
+  ready" commitment button) and, as the final step, account creation framed
+  as saving that plan. Questions come first because invested users sign up at
+  a higher rate; every question feeds the plan/paywall personalization, and
+  the account step carries the same progress bar and back button as the rest
+  of the flow. **Sign in**: a standalone screen (Apple, Google, or manual
   email/password), then the same questions as a quick setup on a device with
   no profile. The two paths don't cross-link — you choose on the welcome
   screen.
@@ -24,6 +30,12 @@ review the rhythm of recent nights — using **real data only**.
   trial gives the whole product for a week rather than a crippled subset
   forever. (An unconfigured build — no RevenueCat key — runs without the
   paywall for development.)
+- After the paywall, a one-time **Screen Time primer** (a mock of the iOS
+  permission dialog with an arrow pointing at Allow) asks for the Family
+  Controls authorization that powers app blocking, flowing straight into the
+  system app picker when granted. It is per-install: deleting the app and
+  signing back in — which drops the authorization — shows it again; "Not now"
+  skips it and the Blocked apps screen remains the fixup path.
 - Apple Health is offered *after* onboarding, via a dismissable prompt card at
   the top of Profile (which also keeps the toggle), rather than interrupting
   sign-up with a permission sheet.
