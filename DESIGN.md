@@ -543,7 +543,12 @@ Questionnaire chrome: a 3pt amber-gradient progress capsule between a round
 glass back chevron and a hidden twin of it (so the bar stays centered at
 whatever size the system draws the button — the twin's slot carries the small
 brand mark, per above), editorial left-aligned questions
-(small-caps kicker → 28pt title → dim supporting line → control), and
+(28pt title → dim supporting line → control). The whole question block is
+top-anchored 32pt below the progress header rather than vertically centered,
+so every step begins at one stable reading position and the flow has the
+immediate top-led rhythm of Cal AI without borrowing its visual identity. The
+bottom action remains pinned to the safe-area band, independent of question
+height. Steps use
 directional slide+fade step transitions (~280ms). Multi-select answers use
 full-width capsule glass rows — muted icon, ink label, trailing circle that
 fills amber when selected. No text "Back" buttons; the chevron is the only way

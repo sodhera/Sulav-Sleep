@@ -347,15 +347,14 @@ struct OnboardingQuestionsView: View {
                 AuthMethodsView(store: store, intent: .signUp, onSwipeBack: { goBack() })
                     .transition(.opacity)
             } else {
-                Spacer()
-
                 currentStep
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, SleepSpacing.xxl)
+                    .padding(.top, SleepSpacing.xxxl)
                     .transition(stepTransition)
                     .id(step)
 
-                Spacer()
+                Spacer(minLength: SleepSpacing.lg)
 
                 actions
                     .padding(.horizontal, SleepSpacing.xxl)
@@ -436,13 +435,12 @@ struct OnboardingQuestionsView: View {
     private var currentStep: some View {
         switch step {
         case .name:
-            QuestionLayout(kicker: "About you", title: "What should we call you?") {
+            QuestionLayout(title: "What should we call you?") {
                 NameField(name: $name, onSubmit: advance)
             }
         case .goal:
             QuestionLayout(
-                kicker: "Your goal",
-                title: "What do you want to change?",
+                title: "What would you like to achieve?",
                 subtitle: "Pick the one that matters most — we'll build your plan around it."
             ) {
                 LiquidGlassContainer(spacing: SleepSpacing.md) {
@@ -462,7 +460,6 @@ struct OnboardingQuestionsView: View {
             }
         case .struggles:
             QuestionLayout(
-                kicker: "Your sleep",
                 title: "What gets in the way of your sleep?",
                 subtitle: "Choose any that apply."
             ) {
@@ -489,7 +486,6 @@ struct OnboardingQuestionsView: View {
             }
         case .timeSinks:
             QuestionLayout(
-                kicker: "Your phone",
                 title: "Which apps keep you up?",
                 subtitle: "The ones you're still in when you meant to be asleep. Choose any."
             ) {
@@ -522,7 +518,6 @@ struct OnboardingQuestionsView: View {
             }
         case .phoneTime:
             QuestionLayout(
-                kicker: "Late nights",
                 title: "How long does your phone keep you up?",
                 subtitle: "After you're already in bed."
             ) {
@@ -543,7 +538,6 @@ struct OnboardingQuestionsView: View {
             }
         case .feeling:
             QuestionLayout(
-                kicker: "Your mornings",
                 title: "How do you usually wake up?"
             ) {
                 LiquidGlassContainer(spacing: SleepSpacing.md) {
@@ -562,12 +556,11 @@ struct OnboardingQuestionsView: View {
                 }
             }
         case .bedtime:
-            QuestionLayout(kicker: "Your schedule", title: "When do you want to go to bed?") {
+            QuestionLayout(title: "When do you want to go to bed?") {
                 TimeAdjuster(minutes: $bedtime)
             }
         case .wake:
             QuestionLayout(
-                kicker: "Your schedule",
                 title: "And when do you want to wake up?",
                 subtitle: "That's a \(SleepFormatting.duration(windowMinutes)) sleep window."
             ) {
@@ -706,10 +699,14 @@ struct OnboardingQuestionsView: View {
 
 // MARK: - Shared question chrome
 
-/// Editorial, left-aligned question layout: small-caps kicker, large title,
-/// optional supporting line, then the control.
+/// Top-anchored, editorial question layout: large title, optional supporting
+/// line, then the control. Keeping the complete question block directly below
+/// the progress header gives every step one stable reading position instead
+/// of vertically centering shorter questions. No small-caps kicker — the title
+/// carries the question on its own, so the questionnaire reads cleaner and
+/// each step's self-contained question isn't shadowed by a redundant category
+/// label.
 private struct QuestionLayout<Content: View>: View {
-    let kicker: String
     let title: String
     var subtitle: String?
     @ViewBuilder var content: Content
@@ -717,7 +714,6 @@ private struct QuestionLayout<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: SleepSpacing.lg) {
             VStack(alignment: .leading, spacing: SleepSpacing.md) {
-                Text(kicker).sectionLabel()
                 Text(title)
                     .font(SleepFont.title(28))
                     .foregroundStyle(SleepColor.ink)
@@ -965,7 +961,6 @@ private struct PlanStep: View {
 
     private var summary: some View {
         QuestionLayout(
-            kicker: "Your plan",
             title: firstName.isEmpty ? "Your plan is ready." : "\(firstName), your plan is ready.",
             subtitle: "Tonight is night one."
         ) {

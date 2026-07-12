@@ -215,7 +215,9 @@ target can inject fakes without new hooks.
   (progress bar + back chevron intact) through account creation and "back"
   from it returns to the plan step. Navigation is array-index based so the
   conditional final step is handled uniformly. The questionnaire renders only the active step
-  (directional slide transitions, thin amber progress bar, glass back chevron)
+  (directional slide transitions, thin amber progress bar, glass back chevron),
+  top-anchors its complete question block 32pt below that header, and keeps the
+  action pinned at the bottom with the intervening flexible spacer
   and owns the shared lightweight `TimeAdjuster`, used instead of UIKit
   `DatePicker`/wheel controls to avoid first-use hitches during transitions.
   The keyboard is pre-warmed in two stages: a flash-free framework load while
