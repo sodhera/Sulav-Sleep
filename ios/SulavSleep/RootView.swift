@@ -9,6 +9,7 @@ private enum RootScreen: Equatable {
     case authLoading
     case onboarding
     case paywall
+    case screenTimePrimer
     case main
 }
 
@@ -18,6 +19,17 @@ struct RootView: View {
     private var showsReviewPaywall: Bool {
 #if DEBUG
         ProcessInfo.processInfo.arguments.contains("-review-paywall")
+#else
+        false
+#endif
+    }
+
+    /// DEBUG-only route to eyeball the Screen Time primer on the simulator,
+    /// where Family Controls reports `.unavailable` and the real gate never
+    /// fires. The CTA will resolve "denied" there and fall through to Main.
+    private var showsPrimerPreview: Bool {
+#if DEBUG
+        ProcessInfo.processInfo.arguments.contains("-review-screentime-primer")
 #else
         false
 #endif
@@ -58,6 +70,12 @@ struct RootView: View {
         // paywall over it — or the reverse.
         if store.needsPaywall { return .paywall }
         if store.entitlement == .unknown && !entitlementWaitExpired { return .authLoading }
+        // Subscribed (or failed open) but Screen Time was never granted on
+        // this install — the CalAI-style permission primer. Covers both the
+        // fresh sign-up (right after the paywall, at peak commitment) and the
+        // delete-and-reinstall sign-in, where iOS silently dropped the
+        // authorization along with the app.
+        if store.needsScreenTimePrimer { return .screenTimePrimer }
         return .main
     }
 
@@ -69,6 +87,10 @@ struct RootView: View {
                 SleepBackground(showsMoon: false)
                 SceneReadabilityScrim()
                 PaywallView(store: store)
+            } else if showsPrimerPreview {
+                SleepBackground(showsMoon: false)
+                SceneReadabilityScrim()
+                ScreenTimePrimerView(store: store)
             } else if store.isOnboarded, let active = store.activeSession {
                 // Immersive, pitch-black sleep mode takes over the whole screen.
                 SleepModeView(store: store, activeSession: active)
@@ -118,6 +140,13 @@ struct RootView: View {
                         SleepBackground(showsMoon: false)
                         SceneReadabilityScrim()
                         PaywallView(store: store)
+                    case .screenTimePrimer:
+                        // The Screen Time permission primer, on the same
+                        // scene — the last gate before Main. See
+                        // ScreenTimePrimerView for the show/skip rules.
+                        SleepBackground(showsMoon: false)
+                        SceneReadabilityScrim()
+                        ScreenTimePrimerView(store: store)
                     case .main:
                         EmptyView() // Handled by the branch above.
                     }

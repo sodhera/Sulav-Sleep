@@ -168,6 +168,182 @@ extension SleepStore {
     }
 }
 
+// MARK: - Screen Time permission primer
+
+/// The full-screen ask that stands between the paywall and Main: SleepBlock
+/// is an app-blocking app, and this is where the blocking gets its teeth.
+/// The centerpiece is a *mock* of the iOS permission dialog with an amber
+/// arrow pointing at Allow — the primer pattern: the user decides to tap
+/// Allow on our screen, so the real system sheet (fired by the CTA) is a
+/// formality they've already rehearsed. Granting flows straight into the
+/// system app picker, so blocking is actually armed — authorization alone
+/// shields nothing.
+///
+/// One-shot per install, never per account: the seen-marker lives in the app
+/// container (`SleepPersistence.screenTimePrimerSeen`), so deleting the app
+/// and signing back in — which silently drops the authorization — primes
+/// again, while normal launches never re-show it. It completes on grant,
+/// deny, *or* skip: nobody gets trapped at a gate, and the Blocked apps
+/// screen remains the always-available fixup path.
+struct ScreenTimePrimerView: View {
+    var store: SleepStore
+
+    @State private var isRequesting = false
+    @State private var showPicker = false
+    @State private var selection = FamilyActivitySelection()
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Spacer()
+
+            VStack(alignment: .leading, spacing: SleepSpacing.md) {
+                Text("One last step").sectionLabel()
+                Text("Let SleepBlock put your apps to sleep")
+                    .font(SleepFont.title(28))
+                    .foregroundStyle(SleepColor.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("iOS will ask for Screen Time access — that's what locks your apps from Sleep Now until you wake. Calls always work.")
+                    .font(SleepFont.body(15))
+                    .foregroundStyle(SleepColor.dim)
+                    .lineSpacing(4)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Spacer()
+
+            MockPermissionDialog()
+
+            Spacer()
+            Spacer()
+
+            VStack(spacing: SleepSpacing.md) {
+                LiquidPrimaryButton(title: "Turn on app blocking", isLoading: isRequesting) {
+                    requestAccess()
+                }
+                Button("Not now") {
+                    Haptics.heavy()
+                    store.completeScreenTimePrimer()
+                }
+                .font(SleepFont.body(15))
+                .foregroundStyle(SleepColor.dim)
+                .frame(maxWidth: .infinity, minHeight: 44)
+            }
+        }
+        .padding(.horizontal, SleepSpacing.xxl)
+        .padding(.bottom, SleepSpacing.xxl)
+        .safeAreaPadding(.top)
+        .safeAreaPadding(.bottom)
+        .familyActivityPicker(isPresented: $showPicker, selection: $selection)
+        .onChange(of: selection) { _, newValue in
+            if let data = SleepScreenTime.encodeSelection(newValue) {
+                store.saveAppSelection(data)
+            }
+        }
+        .onChange(of: showPicker) { _, shown in
+            // Picker dismissed — apps chosen or not, the primer's work is
+            // done and RootView moves on to Main.
+            if !shown { store.completeScreenTimePrimer() }
+        }
+    }
+
+    private func requestAccess() {
+        guard !isRequesting else { return }
+        isRequesting = true
+        Task { @MainActor in
+            let granted = await store.requestScreenTimeAccess()
+            isRequesting = false
+            if granted {
+                // Straight into choosing what locks, while the intent is hot.
+                showPicker = true
+            } else {
+                store.completeScreenTimePrimer()
+            }
+        }
+    }
+}
+
+/// A stylized miniature of the system permission dialog, so the real one is
+/// recognized on sight. Deliberately *not* Liquid Glass — it depicts iOS
+/// chrome, not one of the app's own controls — and the mock "Allow" keeps
+/// the system's blue: the primer's whole job is pattern-matching against the
+/// sheet iOS is about to show (the one sanctioned exception to the
+/// no-blue-identity rule; see DESIGN.md). Decorative only, hidden from
+/// accessibility — the headline above carries the meaning.
+private struct MockPermissionDialog: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var arrowLift = false
+
+    var body: some View {
+        VStack(spacing: SleepSpacing.lg) {
+            VStack(spacing: 0) {
+                VStack(spacing: SleepSpacing.md) {
+                    Image(systemName: "hourglass")
+                        .font(.system(size: 26, weight: .medium))
+                        .foregroundStyle(SleepColor.dim)
+                    Text("\u{201C}SleepBlock\u{201D} Would Like to Access Screen Time")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(SleepColor.ink)
+                        .multilineTextAlignment(.center)
+                    // Greeked body lines — the mock gestures at the sheet's
+                    // legalese without pretending to quote it.
+                    VStack(spacing: 5) {
+                        Capsule().fill(SleepColor.hairline).frame(width: 170, height: 6)
+                        Capsule().fill(SleepColor.hairline).frame(width: 128, height: 6)
+                    }
+                    .padding(.top, 2)
+                }
+                .padding(SleepSpacing.xl)
+
+                Rectangle().fill(SleepColor.hairline).frame(height: 1)
+
+                HStack(spacing: 0) {
+                    Text("Don't Allow")
+                        .font(.system(size: 16))
+                        .foregroundStyle(SleepColor.muted)
+                        .frame(maxWidth: .infinity, minHeight: 46)
+                    Rectangle().fill(SleepColor.hairline).frame(width: 1, height: 46)
+                    Text("Allow")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color(red: 0.04, green: 0.52, blue: 1.0))
+                        .frame(maxWidth: .infinity, minHeight: 46)
+                }
+            }
+            .frame(maxWidth: 300)
+            .background {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(SleepColor.navy.opacity(0.94))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(SleepColor.border, lineWidth: 1)
+            }
+
+            // The amber arrow under the Allow half — the one instruction.
+            HStack(spacing: 0) {
+                Color.clear.frame(maxWidth: .infinity, maxHeight: 0)
+                VStack(spacing: SleepSpacing.sm) {
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(SleepColor.amber)
+                        .offset(y: arrowLift ? -3 : 3)
+                    Text("Tap Allow")
+                        .font(SleepFont.label(13))
+                        .foregroundStyle(SleepColor.amber)
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .frame(maxWidth: 300)
+        }
+        .accessibilityHidden(true)
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) {
+                arrowLift = true
+            }
+        }
+    }
+}
+
 // MARK: - Blocked apps preview (Profile block)
 
 /// Compact, tappable lockdown summary for the Profile screen: a section label
