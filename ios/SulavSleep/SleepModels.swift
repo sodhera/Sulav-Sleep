@@ -54,11 +54,24 @@ struct Profile: Codable, Equatable {
     /// later, in-app, and this stops that prompt from reappearing once waved
     /// off. Connecting via the Profile toggle still works regardless.
     var healthPromptDismissed: Bool
+    /// The one outcome the user said they want most (raw value of
+    /// `SleepGoal`), captured during sign-up. Feeds the plan summary and
+    /// future personalization; empty for profiles from before the question.
+    var primaryGoal: String
+    /// How long they said the phone keeps them up after they're already in
+    /// bed (raw value of `LateNightPhoneTime`). The plan summary turns this
+    /// into the "time to win back each week" number. Empty when unanswered.
+    var lateNightPhone: String
+    /// How they said they usually wake up (raw value of `WakeFeeling`).
+    /// Captured for future personalization; the question itself is the
+    /// emotional anchor of the sign-up flow. Empty when unanswered.
+    var wakeFeeling: String
 
     init(
         name: String, bedtime: Int, wakeTime: Int, onboarded: Bool,
         healthSyncEnabled: Bool = false, blockDuringSleep: Bool = true, lockdownMaxHours: Int = 6,
-        sleepStruggles: [String] = [], timeSinkApps: [String] = [], healthPromptDismissed: Bool = false
+        sleepStruggles: [String] = [], timeSinkApps: [String] = [], healthPromptDismissed: Bool = false,
+        primaryGoal: String = "", lateNightPhone: String = "", wakeFeeling: String = ""
     ) {
         self.name = name
         self.bedtime = bedtime
@@ -70,6 +83,9 @@ struct Profile: Codable, Equatable {
         self.sleepStruggles = sleepStruggles
         self.timeSinkApps = timeSinkApps
         self.healthPromptDismissed = healthPromptDismissed
+        self.primaryGoal = primaryGoal
+        self.lateNightPhone = lateNightPhone
+        self.wakeFeeling = wakeFeeling
     }
 
     // Decode-safe: records written before these fields existed default sensibly.
@@ -85,7 +101,25 @@ struct Profile: Codable, Equatable {
         sleepStruggles = try c.decodeIfPresent([String].self, forKey: .sleepStruggles) ?? []
         timeSinkApps = try c.decodeIfPresent([String].self, forKey: .timeSinkApps) ?? []
         healthPromptDismissed = try c.decodeIfPresent(Bool.self, forKey: .healthPromptDismissed) ?? false
+        primaryGoal = try c.decodeIfPresent(String.self, forKey: .primaryGoal) ?? ""
+        lateNightPhone = try c.decodeIfPresent(String.self, forKey: .lateNightPhone) ?? ""
+        wakeFeeling = try c.decodeIfPresent(String.self, forKey: .wakeFeeling) ?? ""
     }
+}
+
+/// Everything the sign-up questionnaire collects, handed to
+/// `SleepStore.completeOnboarding` in one piece so the flow's closure
+/// doesn't grow a positional parameter per question. Enum-backed answers
+/// travel as raw values (same rule as `Profile.sleepStruggles`).
+struct OnboardingAnswers {
+    var name: String
+    var bedtime: Int
+    var wakeTime: Int
+    var struggles: [String] = []
+    var timeSinks: [String] = []
+    var goal: String = ""
+    var lateNightPhone: String = ""
+    var wakeFeeling: String = ""
 }
 
 /// The onboarding "what's getting in the way of your sleep?" options. The
@@ -162,6 +196,109 @@ enum TimeSinkApp: String, CaseIterable, Identifiable {
         case .snapchat: "bolt"
         case .games: "gamecontroller"
         case .other: "ellipsis"
+        }
+    }
+}
+
+/// The onboarding "what do you want most?" options — the single-select goal
+/// question. One choice only: naming *the* priority is a small commitment,
+/// and the plan summary (and later the app) can speak to it directly instead
+/// of hedging across four.
+enum SleepGoal: String, CaseIterable, Identifiable {
+    case fallAsleepEarlier
+    case wakeUpRested
+    case lessPhoneAtNight
+    case consistentSchedule
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .fallAsleepEarlier: "Fall asleep earlier"
+        case .wakeUpRested: "Wake up with more energy"
+        case .lessPhoneAtNight: "Break the late-night phone habit"
+        case .consistentSchedule: "Keep a consistent schedule"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .fallAsleepEarlier: "moon.stars"
+        case .wakeUpRested: "sunrise"
+        case .lessPhoneAtNight: "iphone.slash"
+        case .consistentSchedule: "calendar"
+        }
+    }
+}
+
+/// The onboarding "how long does your phone keep you up?" options. The point
+/// of the question is the *number*: `weeklyMinutes` is what the plan summary
+/// shows as time to win back, which is the app's whole pitch made personal.
+enum LateNightPhoneTime: String, CaseIterable, Identifiable {
+    case quarterHour
+    case halfHour
+    case hour
+    case twoPlus
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .quarterHour: "15 minutes or less"
+        case .halfHour: "About 30 minutes"
+        case .hour: "About an hour"
+        case .twoPlus: "2 hours or more"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .quarterHour: "hourglass.bottomhalf.filled"
+        case .halfHour: "hourglass"
+        case .hour: "hourglass.tophalf.filled"
+        case .twoPlus: "infinity"
+        }
+    }
+
+    /// A conservative nightly estimate, used only for the weekly math.
+    var nightlyMinutes: Int {
+        switch self {
+        case .quarterHour: 15
+        case .halfHour: 30
+        case .hour: 60
+        case .twoPlus: 120
+        }
+    }
+
+    var weeklyMinutes: Int { nightlyMinutes * 7 }
+}
+
+/// The onboarding "how do you usually wake up?" options. Single-select.
+/// Stored for personalization, but the question earns its step by making the
+/// user *say* the mornings are rough right before the plan reveal.
+enum WakeFeeling: String, CaseIterable, Identifiable {
+    case groggy
+    case tired
+    case okay
+    case rested
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .groggy: "Groggy"
+        case .tired: "Still tired"
+        case .okay: "Okay"
+        case .rested: "Rested"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .groggy: "cloud.fog"
+        case .tired: "battery.25percent"
+        case .okay: "circle.lefthalf.filled"
+        case .rested: "sun.max"
         }
     }
 }

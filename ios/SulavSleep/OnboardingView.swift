@@ -49,11 +49,8 @@ struct OnboardingGateView: View {
                 OnboardingQuestionsView(
                     store: store,
                     onBack: store.isAuthenticated ? nil : { setRoute(.welcome) }
-                ) { name, bedtime, wakeTime, struggles, timeSinks in
-                    store.completeOnboarding(
-                        name: name, bedtime: bedtime, wakeTime: wakeTime,
-                        connectHealth: false, struggles: struggles, timeSinks: timeSinks
-                    )
+                ) { answers in
+                    store.completeOnboarding(answers)
                 } onExistingAccountNeedsSetup: {
                     questionsInstanceID = UUID()
                 }
@@ -262,20 +259,25 @@ private struct WelcomeStep: View {
 
 // MARK: - Questionnaire
 
-/// The sign-up flow: who you are, what's in the way, your sleep window, and —
-/// as the final step — creating the account that saves it all. The account step
-/// is part of this flow (same progress bar and back button) and is only present
-/// when the user is not already signed in; the profile is committed via `onDone`
-/// only once that last step's auth succeeds. When the user arrives already
-/// authenticated (post-sign-in quick setup), the account step is dropped and
-/// the wake-time question becomes the final step. Apple Health is not asked here
-/// — it's offered later, on Profile (see `HealthConnectCard`).
+/// The sign-up flow: who you are, what you want, what's in the way, how bad
+/// it's gotten, your sleep window — then a **plan reveal** ("Building your
+/// sleep plan…" resolving into a personalized summary) and, as the final
+/// step, creating the account that saves it all. Each question deepens the
+/// user's investment and sharpens the plan the paywall then unlocks; the
+/// reveal is what makes the trial feel like unlocking something they built.
+/// The account step is part of this flow (same progress bar and back button)
+/// and is only present when the user is not already signed in; the profile is
+/// committed via `onDone` only once that last step's auth succeeds. When the
+/// user arrives already authenticated (post-sign-in quick setup), the account
+/// step is dropped and the plan reveal becomes the final step. Apple Health
+/// is not asked here — it's offered later, on Profile (see
+/// `HealthConnectCard`).
 struct OnboardingQuestionsView: View {
     let store: SleepStore
     /// Back action from the first step (to the welcome screen), or `nil` when
     /// there is nowhere to go back to (post-sign-in quick setup).
     var onBack: (() -> Void)?
-    let onDone: (String, Int, Int, [String], [String]) -> Void
+    let onDone: (OnboardingAnswers) -> Void
     /// The account step's sign-up call matched an existing account (Apple/
     /// Google reusing an already-registered identity) instead of creating a
     /// new one. The just-answered questions belong to whoever originally
@@ -288,10 +290,19 @@ struct OnboardingQuestionsView: View {
     @State private var step: Step = .name
     @State private var movingForward = true
     @State private var name = ""
+    @State private var goal: SleepGoal?
     @State private var struggles: Set<SleepStruggle> = []
     @State private var timeSinks: Set<TimeSinkApp> = []
+    @State private var phoneTime: LateNightPhoneTime?
+    @State private var feeling: WakeFeeling?
     @State private var bedtime = 22 * 60 + 30
     @State private var wakeTime = 6 * 60 + 30
+    /// Whether the plan step has finished its "Building…" beat and revealed
+    /// the summary. Sticky on purpose: backing into the plan step from the
+    /// account step shows the summary immediately — the build animation is a
+    /// first-arrival moment, not a toll.
+    @State private var planBuilt = false
+    @State private var planBuildTask: Task<Void, Never>?
     /// Whether this run ends on the account step. Captured once so it does not
     /// flip mid-flow when auth flips `isAuthenticated`.
     @State private var includesAccount: Bool
@@ -299,7 +310,7 @@ struct OnboardingQuestionsView: View {
     init(
         store: SleepStore,
         onBack: (() -> Void)? = nil,
-        onDone: @escaping (String, Int, Int, [String], [String]) -> Void,
+        onDone: @escaping (OnboardingAnswers) -> Void,
         onExistingAccountNeedsSetup: @escaping () -> Void = {}
     ) {
         self.store = store
@@ -309,24 +320,19 @@ struct OnboardingQuestionsView: View {
         _includesAccount = State(initialValue: !store.isAuthenticated)
     }
 
+    /// The investment arc: who you are → what you want → what's in the way →
+    /// how bad it's gotten → your schedule → the plan built from all of it.
     private enum Step {
-        case name, struggles, timeSinks, bedtime, wake, account
+        case name, goal, struggles, timeSinks, phoneTime, feeling, bedtime, wake, plan, account
     }
 
     private var steps: [Step] {
-        var result: [Step] = [.name, .struggles, .timeSinks, .bedtime, .wake]
+        var result: [Step] = [.name, .goal, .struggles, .timeSinks, .phoneTime, .feeling, .bedtime, .wake, .plan]
         if includesAccount { result.append(.account) }
         return result
     }
 
     private var currentIndex: Int { steps.firstIndex(of: step) ?? 0 }
-
-    /// The last question step (i.e. not the account step). Its primary action
-    /// commits onboarding rather than advancing — only reachable on the
-    /// post-sign-in quick setup, where there is no account step.
-    private var isTerminalQuestion: Bool {
-        step != .account && currentIndex == steps.count - 1
-    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -433,6 +439,27 @@ struct OnboardingQuestionsView: View {
             QuestionLayout(kicker: "About you", title: "What should we call you?") {
                 NameField(name: $name, onSubmit: advance)
             }
+        case .goal:
+            QuestionLayout(
+                kicker: "Your goal",
+                title: "What do you want most?",
+                subtitle: "Pick the one that matters tonight."
+            ) {
+                LiquidGlassContainer(spacing: SleepSpacing.md) {
+                    VStack(spacing: SleepSpacing.md) {
+                        ForEach(SleepGoal.allCases) { option in
+                            OptionRow(
+                                icon: option.systemImage,
+                                title: option.title,
+                                isSelected: goal == option
+                            ) {
+                                Haptics.heavy()
+                                goal = option
+                            }
+                        }
+                    }
+                }
+            }
         case .struggles:
             QuestionLayout(
                 kicker: "Your sleep",
@@ -444,8 +471,9 @@ struct OnboardingQuestionsView: View {
                 LiquidGlassContainer(spacing: SleepSpacing.md) {
                     VStack(spacing: SleepSpacing.md) {
                         ForEach(SleepStruggle.allCases) { struggle in
-                            StruggleRow(
-                                struggle: struggle,
+                            OptionRow(
+                                icon: struggle.systemImage,
+                                title: struggle.title,
                                 isSelected: struggles.contains(struggle)
                             ) {
                                 Haptics.heavy()
@@ -492,6 +520,47 @@ struct OnboardingQuestionsView: View {
                     }
                 }
             }
+        case .phoneTime:
+            QuestionLayout(
+                kicker: "Late nights",
+                title: "How long does your phone keep you up?",
+                subtitle: "After you're already in bed."
+            ) {
+                LiquidGlassContainer(spacing: SleepSpacing.md) {
+                    VStack(spacing: SleepSpacing.md) {
+                        ForEach(LateNightPhoneTime.allCases) { option in
+                            OptionRow(
+                                icon: option.systemImage,
+                                title: option.title,
+                                isSelected: phoneTime == option
+                            ) {
+                                Haptics.heavy()
+                                phoneTime = option
+                            }
+                        }
+                    }
+                }
+            }
+        case .feeling:
+            QuestionLayout(
+                kicker: "Your mornings",
+                title: "How do you usually wake up?"
+            ) {
+                LiquidGlassContainer(spacing: SleepSpacing.md) {
+                    VStack(spacing: SleepSpacing.md) {
+                        ForEach(WakeFeeling.allCases) { option in
+                            OptionRow(
+                                icon: option.systemImage,
+                                title: option.title,
+                                isSelected: feeling == option
+                            ) {
+                                Haptics.heavy()
+                                feeling = option
+                            }
+                        }
+                    }
+                }
+            }
         case .bedtime:
             QuestionLayout(kicker: "Your schedule", title: "When do you usually go to bed?") {
                 TimeAdjuster(minutes: $bedtime)
@@ -504,6 +573,16 @@ struct OnboardingQuestionsView: View {
             ) {
                 TimeAdjuster(minutes: $wakeTime)
             }
+        case .plan:
+            PlanStep(
+                built: planBuilt,
+                name: name,
+                bedtime: bedtime,
+                wakeTime: wakeTime,
+                goal: goal,
+                phoneTime: phoneTime,
+                timeSinks: timeSinks
+            )
         case .account:
             // Rendered by AuthMethodsView in the body, outside this scaffold.
             EmptyView()
@@ -519,12 +598,18 @@ struct OnboardingQuestionsView: View {
     @ViewBuilder
     private var actions: some View {
         VStack(spacing: SleepSpacing.md) {
-            if isTerminalQuestion {
-                // Quick-setup path (already signed in): the wake step is last,
-                // so its action commits onboarding instead of advancing.
-                LiquidPrimaryButton(title: "Finish", systemImage: "checkmark") {
-                    finish()
+            if step == .plan {
+                // The plan summary's CTA is the flow's micro-commitment — a
+                // small pledge, right before the account step asks to save
+                // the plan (or, on the quick-setup path, before committing
+                // directly). Hidden (not removed) during the build beat so
+                // the layout doesn't jump when it appears.
+                LiquidPrimaryButton(title: "I'm ready", systemImage: "checkmark") {
+                    if includesAccount { advance() } else { finish() }
                 }
+                .opacity(planBuilt ? 1 : 0)
+                .disabled(!planBuilt)
+                .animation(.easeInOut(duration: 0.4), value: planBuilt)
             } else {
                 LiquidPrimaryButton(title: "Next") {
                     advance()
@@ -538,6 +623,12 @@ struct OnboardingQuestionsView: View {
     private var isStepValid: Bool {
         switch step {
         case .name: !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        // Single-select questions require an answer: the plan speaks to the
+        // choice, so there is no meaningful "skipped" reading. Multi-selects
+        // stay skippable — an empty set is an honest answer there.
+        case .goal: goal != nil
+        case .phoneTime: phoneTime != nil
+        case .feeling: feeling != nil
         default: true
         }
     }
@@ -579,12 +670,37 @@ struct OnboardingQuestionsView: View {
     private func finish() {
         Keyboard.dismiss()
         Haptics.success()
-        onDone(name, bedtime, wakeTime, struggles.map(\.rawValue), timeSinks.map(\.rawValue))
+        onDone(OnboardingAnswers(
+            name: name,
+            bedtime: bedtime,
+            wakeTime: wakeTime,
+            struggles: struggles.map(\.rawValue),
+            timeSinks: timeSinks.map(\.rawValue),
+            goal: goal?.rawValue ?? "",
+            lateNightPhone: phoneTime?.rawValue ?? "",
+            wakeFeeling: feeling?.rawValue ?? ""
+        ))
     }
 
     private func setStep(_ next: Step, forward: Bool) {
         movingForward = forward
         withAnimation(.easeInOut(duration: 0.28)) { step = next }
+        if next == .plan && !planBuilt { startPlanBuild() }
+    }
+
+    /// The "Building your sleep plan…" beat: a short, deliberate pause while
+    /// the sloth works, then the summary fades in with a success knock. Long
+    /// enough to feel like the answers *made* something, short enough to
+    /// never read as a spinner. Backing out mid-build cancels the reveal so
+    /// re-entering runs it again from the top.
+    private func startPlanBuild() {
+        planBuildTask?.cancel()
+        planBuildTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_800_000_000)
+            guard !Task.isCancelled, step == .plan else { return }
+            Haptics.success()
+            withAnimation(.easeInOut(duration: 0.45)) { planBuilt = true }
+        }
     }
 }
 
@@ -706,19 +822,23 @@ private struct NameField: View {
     }
 }
 
-private struct StruggleRow: View {
-    let struggle: SleepStruggle
+/// One full-width answer capsule, shared by every list question — the
+/// multi-select struggles and the single-select goal/phone-time/feeling
+/// steps (selection semantics live in the caller; the row just shows state).
+private struct OptionRow: View {
+    let icon: String
+    let title: String
     let isSelected: Bool
     var action: () -> Void
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: SleepSpacing.md) {
-                Image(systemName: struggle.systemImage)
+                Image(systemName: icon)
                     .font(.system(size: 17, weight: .regular))
                     .foregroundStyle(isSelected ? SleepColor.amber : SleepColor.muted)
                     .frame(width: 24)
-                Text(struggle.title)
+                Text(title)
                     .font(SleepFont.label(16))
                     .foregroundStyle(SleepColor.ink)
                 Spacer()
@@ -754,11 +874,11 @@ private struct StruggleRow: View {
     }
 }
 
-/// The time-sink question's compact sibling of `StruggleRow`: same glass
+/// The time-sink question's compact sibling of `OptionRow`: same glass
 /// capsule, same amber selection ring/icon/checkmark grammar, halved to fit
 /// two app names per row (eight options would overflow the screen as
 /// full-width rows). The tint stays constant for the same reason as
-/// StruggleRow's — toggling glass tint rebuilt the effect across all
+/// OptionRow's — toggling glass tint rebuilt the effect across all
 /// container siblings and visibly lagged the tap.
 private struct TimeSinkChip: View {
     let app: TimeSinkApp
@@ -799,6 +919,127 @@ private struct TimeSinkChip: View {
         }
         .animation(.easeInOut(duration: 0.18), value: isSelected)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
+// MARK: - Plan reveal
+
+/// The questionnaire's closing beat before the account step: a short
+/// "Building your sleep plan…" pause — the brand sloth at work, its rising
+/// z's the only motion — resolving into a personalized summary assembled
+/// from the answers just given (the sleep window, the weekly hours the phone
+/// is eating and which apps eat them, the stated goal). The reveal is what
+/// makes the paywall that follows read as unlocking a plan the user built,
+/// not buying a cold product; the "I'm ready" CTA beneath it is the flow's
+/// one micro-commitment.
+private struct PlanStep: View {
+    let built: Bool
+    let name: String
+    let bedtime: Int
+    let wakeTime: Int
+    let goal: SleepGoal?
+    let phoneTime: LateNightPhoneTime?
+    let timeSinks: Set<TimeSinkApp>
+
+    var body: some View {
+        ZStack {
+            if built {
+                summary.transition(.opacity)
+            } else {
+                building.transition(.opacity)
+            }
+        }
+    }
+
+    private var building: some View {
+        VStack(spacing: SleepSpacing.xl) {
+            SlothBrandMark(width: 120, zScale: 0.6)
+            Text("Building your sleep plan…")
+                .font(SleepFont.body(16))
+                .foregroundStyle(SleepColor.dim)
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Building your sleep plan")
+    }
+
+    private var summary: some View {
+        QuestionLayout(
+            kicker: "Your plan",
+            title: firstName.isEmpty ? "Your plan is ready." : "\(firstName), your plan is ready.",
+            subtitle: "Tonight is night one."
+        ) {
+            GlassGroup {
+                PlanRow(
+                    icon: "moon.zzz",
+                    label: "Sleep window",
+                    value: "\(SleepFormatting.clock(bedtime)) – \(SleepFormatting.clock(wakeTime))",
+                    detail: "\(SleepFormatting.duration(SleepMath.windowMinutes(bedtime: bedtime, wakeTime: wakeTime))) of sleep a night"
+                )
+                if let phoneTime {
+                    GlassRowDivider()
+                    PlanRow(
+                        icon: "hourglass",
+                        label: "Time to win back",
+                        value: "\(SleepFormatting.duration(phoneTime.weeklyMinutes)) a week",
+                        detail: sinksLine
+                    )
+                }
+                if let goal {
+                    GlassRowDivider()
+                    PlanRow(icon: goal.systemImage, label: "Your goal", value: goal.title)
+                }
+            }
+        }
+    }
+
+    private var firstName: String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines)
+            .components(separatedBy: " ").first ?? ""
+    }
+
+    /// Names the user's own apps back to them — the sharpest line in the
+    /// summary. Falls back to a generic read when none were picked.
+    private var sinksLine: String {
+        let names = TimeSinkApp.allCases.filter(timeSinks.contains).prefix(2).map(\.title)
+        switch names.count {
+        case 0: return "Back from your phone, into your night."
+        case 1: return "Mostly \(names[0])."
+        default: return "Mostly \(names[0]) & \(names[1])."
+        }
+    }
+}
+
+/// One fact of the plan summary: icon chip, quiet label, ink value, and an
+/// optional dim detail line. Deliberately *not* a `GlassRow` — settings rows
+/// name controls and never explain them, but this is a data readout whose
+/// detail line carries the personalization payload (the user's own apps).
+private struct PlanRow: View {
+    let icon: String
+    let label: String
+    let value: String
+    var detail: String?
+
+    var body: some View {
+        HStack(alignment: .center, spacing: SleepSpacing.md) {
+            GlassRowIcon(icon: icon)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(SleepFont.body(13))
+                    .foregroundStyle(SleepColor.muted)
+                Text(value)
+                    .font(SleepFont.title(17))
+                    .foregroundStyle(SleepColor.ink)
+                if let detail {
+                    Text(detail)
+                        .font(SleepFont.body(13))
+                        .foregroundStyle(SleepColor.dim)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, SleepSpacing.md)
+        .accessibilityElement(children: .combine)
     }
 }
 

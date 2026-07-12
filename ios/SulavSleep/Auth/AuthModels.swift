@@ -53,16 +53,25 @@ struct RemoteProfile: Codable, Equatable {
     var wakeTime: Int
     var sleepStruggles: [String]
     var timeSinkApps: [String]
+    var primaryGoal: String
+    var lateNightPhone: String
+    var wakeFeeling: String
 
-    init(name: String, bedtime: Int, wakeTime: Int, sleepStruggles: [String], timeSinkApps: [String] = []) {
+    init(
+        name: String, bedtime: Int, wakeTime: Int, sleepStruggles: [String], timeSinkApps: [String] = [],
+        primaryGoal: String = "", lateNightPhone: String = "", wakeFeeling: String = ""
+    ) {
         self.name = name
         self.bedtime = bedtime
         self.wakeTime = wakeTime
         self.sleepStruggles = sleepStruggles
         self.timeSinkApps = timeSinkApps
+        self.primaryGoal = primaryGoal
+        self.lateNightPhone = lateNightPhone
+        self.wakeFeeling = wakeFeeling
     }
 
-    // Decode-safe: cloud copies written before `timeSinkApps` existed must
+    // Decode-safe: cloud copies written before the newer fields existed must
     // still restore (same pattern as `Profile`).
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -71,6 +80,9 @@ struct RemoteProfile: Codable, Equatable {
         wakeTime = try c.decode(Int.self, forKey: .wakeTime)
         sleepStruggles = try c.decodeIfPresent([String].self, forKey: .sleepStruggles) ?? []
         timeSinkApps = try c.decodeIfPresent([String].self, forKey: .timeSinkApps) ?? []
+        primaryGoal = try c.decodeIfPresent(String.self, forKey: .primaryGoal) ?? ""
+        lateNightPhone = try c.decodeIfPresent(String.self, forKey: .lateNightPhone) ?? ""
+        wakeFeeling = try c.decodeIfPresent(String.self, forKey: .wakeFeeling) ?? ""
     }
 
     /// From an onboarded local profile. `nil` when there's nothing worth
@@ -82,7 +94,10 @@ struct RemoteProfile: Codable, Equatable {
             bedtime: profile.bedtime,
             wakeTime: profile.wakeTime,
             sleepStruggles: profile.sleepStruggles,
-            timeSinkApps: profile.timeSinkApps
+            timeSinkApps: profile.timeSinkApps,
+            primaryGoal: profile.primaryGoal,
+            lateNightPhone: profile.lateNightPhone,
+            wakeFeeling: profile.wakeFeeling
         )
     }
 
@@ -95,7 +110,10 @@ struct RemoteProfile: Codable, Equatable {
             wakeTime: wakeTime,
             onboarded: true,
             sleepStruggles: sleepStruggles,
-            timeSinkApps: timeSinkApps
+            timeSinkApps: timeSinkApps,
+            primaryGoal: primaryGoal,
+            lateNightPhone: lateNightPhone,
+            wakeFeeling: wakeFeeling
         )
     }
 }

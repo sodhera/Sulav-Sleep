@@ -285,6 +285,10 @@ final class SupabaseAuthClient: AuthProviding {
             "bedtime_minutes": .integer(profile.bedtime),
             "wake_minutes": .integer(profile.wakeTime),
             "struggles": .array(profile.sleepStruggles.map { .string($0) }),
+            "time_sinks": .array(profile.timeSinkApps.map { .string($0) }),
+            "goal": .string(profile.primaryGoal),
+            "late_night_phone": .string(profile.lateNightPhone),
+            "wake_feeling": .string(profile.wakeFeeling),
         ])
     }
 
@@ -296,8 +300,16 @@ final class SupabaseAuthClient: AuthProviding {
         else { return nil }
         // Reject garbage a different/older client version might have written.
         guard (0..<1_440).contains(bedtime), (0..<1_440).contains(wakeTime) else { return nil }
-        let struggles = object["struggles"]?.arrayValue?.compactMap(\.stringValue) ?? []
-        return RemoteProfile(name: name, bedtime: bedtime, wakeTime: wakeTime, sleepStruggles: struggles)
+        return RemoteProfile(
+            name: name,
+            bedtime: bedtime,
+            wakeTime: wakeTime,
+            sleepStruggles: object["struggles"]?.arrayValue?.compactMap(\.stringValue) ?? [],
+            timeSinkApps: object["time_sinks"]?.arrayValue?.compactMap(\.stringValue) ?? [],
+            primaryGoal: object["goal"]?.stringValue ?? "",
+            lateNightPhone: object["late_night_phone"]?.stringValue ?? "",
+            wakeFeeling: object["wake_feeling"]?.stringValue ?? ""
+        )
     }
 
     private static func account(from session: Session) -> AppAccount {

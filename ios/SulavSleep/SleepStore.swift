@@ -65,6 +65,7 @@ final class SleepStore {
         self.screenTime = screenTime ?? SleepScreenTime.makeDefault()
         self.auth = auth ?? SulavAuth.makeDefault()
         self.subscription = subscription ?? SleepSubscription.makeDefault()
+        screenTimePrimerSeen = persistence.screenTimePrimerSeen
         reload()
         startSubscriptionTracking()
         Task { [weak self] in await self?.restoreSession() }
@@ -219,16 +220,19 @@ final class SleepStore {
 
     // MARK: - Onboarding
 
-    func completeOnboarding(name: String, bedtime: Int, wakeTime: Int, connectHealth: Bool, struggles: [String] = [], timeSinks: [String] = []) {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    func completeOnboarding(_ answers: OnboardingAnswers) {
+        let trimmed = answers.name.trimmingCharacters(in: .whitespacesAndNewlines)
         profile = Profile(
             name: trimmed.isEmpty ? "Friend" : trimmed,
-            bedtime: bedtime,
-            wakeTime: wakeTime,
+            bedtime: answers.bedtime,
+            wakeTime: answers.wakeTime,
             onboarded: true,
             healthSyncEnabled: false,
-            sleepStruggles: struggles,
-            timeSinkApps: timeSinks
+            sleepStruggles: answers.struggles,
+            timeSinkApps: answers.timeSinks,
+            primaryGoal: answers.goal,
+            lateNightPhone: answers.lateNightPhone,
+            wakeFeeling: answers.wakeFeeling
         )
         // No seeding: the history is empty until the user logs a real night or
         // connects Apple Health.
@@ -236,12 +240,7 @@ final class SleepStore {
         importedHealthSessions = []
         activeSession = nil
         persist()
-        AppLog.store.info("Onboarding complete (connectHealth=\(connectHealth))")
-        if connectHealth {
-            performAfterStateChange { [weak self] in
-                Task { await self?.enableHealthSync() }
-            }
-        }
+        AppLog.store.info("Onboarding complete")
         syncRemoteProfile()
     }
 
@@ -593,6 +592,32 @@ final class SleepStore {
 
     // MARK: - Sleep lockdown (Screen Time)
 
+    /// Whether the full-screen Screen Time primer stands between this user
+    /// and Main (after the paywall — see `RootView`): onboarded, on real
+    /// hardware, not yet authorized, and not already primed *on this
+    /// install*. The seen-marker deliberately lives in the app container
+    /// (wiped by deletion), so a reinstalled returning user is primed again —
+    /// exactly the case where authorization needs re-granting.
+    var needsScreenTimePrimer: Bool {
+        isAuthenticated && isOnboarded && !screenTimePrimerSeen
+            && screenTimeState == .notAuthorized
+    }
+
+    /// Observable mirror of the container-backed seen-marker, so RootView's
+    /// gate re-computes the moment the primer completes (`screenTimeState`
+    /// alone is a live read, invisible to @Observable tracking). Loaded from
+    /// persistence in `init`.
+    private(set) var screenTimePrimerSeen = false
+
+    /// The primer is a one-shot per install: it completes whether the user
+    /// granted, denied, or skipped — never trap someone at a gate. The
+    /// Blocked apps screen remains the always-available fixup path.
+    func completeScreenTimePrimer() {
+        persistence.markScreenTimePrimerSeen()
+        screenTimePrimerSeen = true
+        AppLog.store.info("Screen Time primer completed")
+    }
+
     /// Requests Screen Time authorization (lazily, from the Apps row — the
     /// picker is useless without it). Returns whether we're allowed to shield.
     /// Writes nothing to the profile: authorization is always read live.
@@ -775,6 +800,11 @@ struct SleepPersistence {
     // confirmed, so the launch-time seed check runs once per account instead
     // of hitting the network at every open. See `SleepStore.restoreSession()`.
     private let cloudSeedCheckedKey = "sulav.cloudSeedChecked.v1"
+    // Whether this install has shown the Screen Time permission primer.
+    // Container-backed on purpose: deleting the app wipes it, so a reinstall
+    // (where the authorization must be re-granted anyway) primes again. Not
+    // cleared by `reset()` — the primer is per-install, not per-account.
+    private let screenTimePrimerKey = "sulav.screenTimePrimer.v1"
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -827,6 +857,10 @@ struct SleepPersistence {
     var cloudSeedCheckedAccountID: String? { defaults.string(forKey: cloudSeedCheckedKey) }
 
     func markCloudSeedChecked(accountID: String) { defaults.set(accountID, forKey: cloudSeedCheckedKey) }
+
+    var screenTimePrimerSeen: Bool { defaults.bool(forKey: screenTimePrimerKey) }
+
+    func markScreenTimePrimerSeen() { defaults.set(true, forKey: screenTimePrimerKey) }
 
     private func decode<T: Decodable>(_ type: T.Type, forKey key: String) -> T? {
         guard let data = defaults.data(forKey: key) else { return nil }
