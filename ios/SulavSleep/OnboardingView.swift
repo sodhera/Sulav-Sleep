@@ -449,8 +449,8 @@ struct OnboardingQuestionsView: View {
         case .goal:
             QuestionLayout(
                 kicker: "Your goal",
-                title: "What do you want most?",
-                subtitle: "Pick the one that matters tonight."
+                title: "What do you want to change?",
+                subtitle: "Pick the one that matters most — we'll build your plan around it."
             ) {
                 LiquidGlassContainer(spacing: SleepSpacing.md) {
                     VStack(spacing: SleepSpacing.md) {
