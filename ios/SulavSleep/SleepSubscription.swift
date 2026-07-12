@@ -258,17 +258,21 @@ final class RevenueCatSubscriptionService: SubscriptionProviding {
         }
 
         // The annual card carries its monthly equivalent so the two plans
-        // compare at a glance, formatted in the product's own locale/currency.
+        // compare at a glance. It must come from the product's own price
+        // formatter — a hand-built formatter can pick a different currency
+        // style ("US$5.83" beside a "USD 69.99" priceString), which reads as
+        // two different systems on one screen.
         var perMonth: String?
         if isAnnual {
-            let formatter = NumberFormatter()
-            formatter.numberStyle = .currency
-            if let locale = product.priceFormatter?.locale {
-                formatter.locale = locale
-            }
-            formatter.currencyCode = product.currencyCode
             let monthly = (product.price as NSDecimalNumber).dividing(by: 12)
-            perMonth = formatter.string(from: monthly)
+            if let formatter = product.priceFormatter {
+                perMonth = formatter.string(from: monthly)
+            } else {
+                let formatter = NumberFormatter()
+                formatter.numberStyle = .currency
+                formatter.currencyCode = product.currencyCode
+                perMonth = formatter.string(from: monthly)
+            }
         }
 
         return SleepPlan(

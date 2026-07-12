@@ -567,24 +567,42 @@ renewal line under the button states the real price and "cancel anytime" in
 quiet type. It only ever renders off a *resolved* not-entitled answer
 (never a loading guess), and an unconfigured dev build never shows it.
 
-The screen speaks with everything the user just said. Under the brand-mark
-hero and a "Your plan" kicker (the questionnaire's own chrome grammar), the
-first of three glyph-led feature lines names the very apps they chose on the
-time-sink question — "Instagram and TikTok, locked while you sleep" — so the
-pitch reads as *their* plan, not a feature list. Feature lines are cardless
-(glyph chip + one short sentence — containers are for tappable controls);
-the two plan cards *are* tappable, so they are interactive glass
-rounded-rects in one `LiquidGlassContainer`, carrying period, price, and —
-on the annual card — the trial and monthly equivalent in gold, with the
-onboarding selection grammar (constant tint, amber ring + filled circle).
-Annual is preselected. The CTA is the standard `LiquidPrimaryButton`
-("Start 7 nights free", derived from the product's real intro offer), and
-the footer is three quiet text links (Restore purchases · Terms · Privacy)
-over a soft navy floor gradient. Failures and notices reuse the auth
-screen's two-tone rule: `danger` for real failures, `amber` for normal next
-steps ("No subscription to restore on this Apple ID."). Loading and offline
-states stay composed — spinner with a quiet line, or a wifi-slash glyph row
-with a glass "Try again" — never a broken sheet.
+The screen is deliberately spare: a hard paywall earns its keep by asking
+one question, not by pitching. Under the brand-mark hero, the headline
+("Lock your nights in") carries exactly **one supporting line**, and that
+line is the personalization payload — the very apps the user chose on the
+time-sink question, "Instagram and TikTok, locked while you sleep." — so
+the pitch reads as *their* plan in a single sentence. No kicker, no
+subtitle paragraph, no feature list.
+
+> Note on history: the paywall previously opened with a "Your plan" kicker,
+> a two-line subtitle, and three glyph-led feature lines. Retired for a
+> minimal single-decision layout (the Cal AI paywall was the reference):
+> every removed element repeated what the headline, the plan cards, or the
+> renewal line already said, and the trial alone was stated four times. The
+> personalized lock line — the only line doing unique work — survives as
+> the one subtitle.
+
+The two plan cards are interactive glass rounded-rects in one
+`LiquidGlassContainer`, each carrying **one price fact**: the annual card's
+trailing price is its monthly equivalent over a quiet "billed annually"
+subline naming the full price; the monthly card is a single row, title and
+price. Both prices read "…/mo", and the monthly equivalent comes from the
+product's own price formatter so the two cards can never mix currency
+styles. The trial is not card text — it rides the annual card's top edge as
+an amber capsule **badge** ("7 NIGHTS FREE", the primary button's
+amber-on-navy colors). Selection keeps the onboarding grammar (constant
+tint, amber ring + filled trailing circle), the unselected card dims to
+~55% so the chosen plan reads first, and annual is preselected. The CTA is
+the standard `LiquidPrimaryButton` ("Start 7 nights free", derived from the
+product's real intro offer), the renewal line beneath it restates the
+selected plan's real terms in quiet type, and the footer is three quiet
+text links (Restore purchases · Terms · Privacy) over a soft navy floor
+gradient. Failures and notices reuse the auth screen's two-tone rule:
+`danger` for real failures, `amber` for normal next steps ("No subscription
+to restore on this Apple ID."). Loading and offline states stay composed —
+spinner with a quiet line, or a wifi-slash glyph row with a glass "Try
+again" — never a broken sheet.
 
 One structural rule: the sleep-mode overlay always outranks the paywall.
 An active night keeps *Hold to wake* / cancel — and with them the Screen

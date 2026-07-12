@@ -43,7 +43,6 @@ struct PaywallView: View {
                 if plans.isEmpty {
                     if loadFailed { loadFailureState } else { loadingState }
                 } else {
-                    features
                     planPicker
                     purchaseBlock
                 }
@@ -59,16 +58,19 @@ struct PaywallView: View {
 
     // MARK: - Header
 
+    /// Headline plus exactly one supporting line — the personalization
+    /// payload. The apps the user just named on the time-sink question are
+    /// the whole pitch; everything else the old feature list said is already
+    /// told by the plan cards and the renewal line.
     private var header: some View {
         VStack(spacing: SleepSpacing.lg) {
             SlothBrandMark(width: 110, zScale: 0.55)
             VStack(spacing: SleepSpacing.md) {
-                Text("Your plan").sectionLabel()
                 Text("Lock your nights in")
                     .font(SleepFont.title(28))
                     .foregroundStyle(SleepColor.ink)
                     .multilineTextAlignment(.center)
-                Text("Start with a free week of better nights.\nCancel anytime.")
+                Text(lockLine)
                     .font(SleepFont.body(15))
                     .foregroundStyle(SleepColor.dim)
                     .multilineTextAlignment(.center)
@@ -78,28 +80,14 @@ struct PaywallView: View {
         .frame(maxWidth: .infinity)
     }
 
-    // MARK: - Features
-
-    /// Three glyph-led lines, cardless (containers are for tappable controls).
-    /// The first line answers the questionnaire in the user's own words: the
-    /// apps they just said keep them up are the apps the lock names.
-    private var features: some View {
-        VStack(alignment: .leading, spacing: SleepSpacing.lg) {
-            FeatureLine(icon: "lock.fill", text: lockLine)
-            FeatureLine(icon: "moon.zzz.fill", text: "One slide to sleep — an honest record by morning")
-            FeatureLine(icon: "chart.bar.fill", text: "Widgets, Live Activity and Apple Health sync")
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
     private var lockLine: String {
         let names = (store.profile?.timeSinkApps ?? [])
             .compactMap { TimeSinkApp(rawValue: $0)?.title }
         switch names.count {
-        case 0: return "Your chosen apps, locked while you sleep"
-        case 1: return "\(names[0]), locked while you sleep"
-        case 2: return "\(names[0]) and \(names[1]), locked while you sleep"
-        default: return "\(names[0]), \(names[1]) and more, locked while you sleep"
+        case 0: return "Your chosen apps, locked while you sleep."
+        case 1: return "\(names[0]), locked while you sleep."
+        case 2: return "\(names[0]) and \(names[1]), locked while you sleep."
+        default: return "\(names[0]), \(names[1]) and more, locked while you sleep."
         }
     }
 
@@ -287,29 +275,15 @@ struct PaywallView: View {
 
 // MARK: - Pieces
 
-/// A glyph-led feature line: the settings rows' icon chip beside one short
-/// sentence. Plain content — no glass, per the containers-are-for-controls
-/// rule.
-private struct FeatureLine: View {
-    let icon: String
-    let text: String
-
-    var body: some View {
-        HStack(spacing: SleepSpacing.md) {
-            GlassRowIcon(icon: icon)
-            Text(text)
-                .font(SleepFont.body(15))
-                .foregroundStyle(SleepColor.ink)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-}
-
-/// One selectable plan: an interactive glass rounded-rect carrying the
-/// period, the price, and — on the annual card — the trial and the monthly
-/// equivalent. Selection is the onboarding grammar: constant glass tint
-/// (toggling it rebuilds the effect and lags the tap — see StruggleRow),
-/// amber ring + filled circle when chosen.
+/// One selectable plan: an interactive glass rounded-rect carrying **one
+/// price fact** — the annual card's price is its monthly equivalent (the
+/// full price lives in a quiet "billed annually" subline and the renewal
+/// line), the monthly card's price is simply its own. The trial is not card
+/// text: it rides the top edge as an amber capsule badge in the primary
+/// button's colors. Selection is the onboarding grammar: constant glass
+/// tint (toggling it rebuilds the effect and lags the tap — see
+/// StruggleRow), amber ring + filled circle when chosen; the unselected
+/// card dims so the chosen plan reads first.
 private struct PlanCard: View {
     let plan: SleepPlan
     let isSelected: Bool
@@ -322,21 +296,16 @@ private struct PlanCard: View {
                     Text(plan.title)
                         .font(SleepFont.label(16))
                         .foregroundStyle(SleepColor.ink)
-                    if let sub = subline {
-                        Text(sub)
+                    if plan.isAnnual {
+                        Text("\(plan.priceString) billed annually")
                             .font(SleepFont.body(13))
-                            .foregroundStyle(SleepColor.gold)
+                            .foregroundStyle(SleepColor.muted)
                     }
                 }
                 Spacer(minLength: SleepSpacing.md)
-                VStack(alignment: .trailing, spacing: SleepSpacing.xs) {
-                    Text(plan.priceString)
-                        .font(SleepFont.title(17))
-                        .foregroundStyle(SleepColor.ink)
-                    Text("per \(plan.periodUnit)")
-                        .font(SleepFont.body(12))
-                        .foregroundStyle(SleepColor.muted)
-                }
+                Text(priceLine)
+                    .font(SleepFont.title(17))
+                    .foregroundStyle(SleepColor.ink)
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 20, weight: .light))
                     .foregroundStyle(isSelected ? SleepColor.amber : SleepColor.faint)
@@ -345,6 +314,7 @@ private struct PlanCard: View {
             .padding(.vertical, SleepSpacing.lg)
             .frame(maxWidth: .infinity, minHeight: 68)
             .contentShape(RoundedRectangle(cornerRadius: SleepRadius.lg, style: .continuous))
+            .opacity(isSelected ? 1 : 0.55)
         }
         .buttonStyle(.plain)
         .liquidGlass(cornerRadius: SleepRadius.lg, interactive: true)
@@ -354,14 +324,42 @@ private struct PlanCard: View {
                     .stroke(SleepColor.amber.opacity(0.45), lineWidth: 1)
             }
         }
+        .overlay(alignment: .top) {
+            if plan.trialDays > 0 {
+                Text("\(plan.trialDays) NIGHTS FREE")
+                    .font(SleepFont.label(11))
+                    .tracking(1.4)
+                    .foregroundStyle(SleepColor.background)
+                    .padding(.horizontal, SleepSpacing.md)
+                    .padding(.vertical, 5)
+                    .background(Capsule().fill(SleepColor.amber))
+                    .opacity(isSelected ? 1 : 0.55)
+                    .offset(y: -12)
+            }
+        }
         .animation(.easeInOut(duration: 0.18), value: isSelected)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityLabel(accessibilitySummary)
     }
 
-    private var subline: String? {
-        var parts: [String] = []
+    private var priceLine: String {
+        if plan.isAnnual, let perMonth = plan.perMonthString {
+            return "\(perMonth)/mo"
+        }
+        switch plan.periodUnit {
+        case "month": return "\(plan.priceString)/mo"
+        case "week": return "\(plan.priceString)/wk"
+        case "year": return "\(plan.priceString)/yr"
+        default: return plan.priceString
+        }
+    }
+
+    /// The badge and subline are visual shorthand; the label reads the whole
+    /// card back in one sentence.
+    private var accessibilitySummary: String {
+        var parts = [plan.title, "\(plan.priceString) per \(plan.periodUnit)"]
         if plan.trialDays > 0 { parts.append("\(plan.trialDays) nights free") }
-        if let perMonth = plan.perMonthString { parts.append("\(perMonth)/mo") }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+        if plan.isAnnual, let perMonth = plan.perMonthString { parts.append("\(perMonth) per month") }
+        return parts.joined(separator: ", ")
     }
 }
