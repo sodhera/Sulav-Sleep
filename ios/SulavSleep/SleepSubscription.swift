@@ -35,6 +35,11 @@ struct SleepPlan: Identifiable, Equatable {
     var perMonthString: String?  // annual plans: localized monthly equivalent
     var trialDays: Int           // 0 when the product carries no intro trial
     var isAnnual: Bool
+    /// Raw price in the product's own currency — arithmetic only (the
+    /// annual-vs-monthly savings percentage), never displayed directly.
+    /// Every display string comes from the product's own localized
+    /// formatting instead.
+    var priceValue: Decimal
 }
 
 protocol SubscriptionProviding {
@@ -95,7 +100,8 @@ private final class ReviewPaywallSubscriptionService: SubscriptionProviding {
                 periodUnit: "year",
                 perMonthString: "$5.00",
                 trialDays: 7,
-                isAnnual: true
+                isAnnual: true,
+                priceValue: 59.99
             ),
             SleepPlan(
                 id: "$rc_monthly",
@@ -104,7 +110,8 @@ private final class ReviewPaywallSubscriptionService: SubscriptionProviding {
                 periodUnit: "month",
                 perMonthString: nil,
                 trialDays: 0,
-                isAnnual: false
+                isAnnual: false,
+                priceValue: 5.99
             )
         ]
     }
@@ -282,7 +289,8 @@ final class RevenueCatSubscriptionService: SubscriptionProviding {
             periodUnit: periodUnit,
             perMonthString: perMonth,
             trialDays: trialDays,
-            isAnnual: isAnnual
+            isAnnual: isAnnual,
+            priceValue: product.price
         )
     }
 }

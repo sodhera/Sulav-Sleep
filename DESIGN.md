@@ -594,7 +594,12 @@ trailing price is its monthly equivalent over a quiet "billed annually"
 subline naming the full price; the monthly card is a single row, title and
 price. Both prices read "…/mo", and the monthly equivalent comes from the
 product's own price formatter so the two cards can never mix currency
-styles. The trial is not card text — it rides the annual card's top edge as
+styles. The annual card's own title states the deal instead of naming the
+period — "Start for free & save 17%" (or "Save 17%" once the trial ends) —
+computed from the two fetched plans' real prices (`SleepPlan.priceValue`,
+arithmetic-only, never displayed) so the percentage always tracks whatever
+RevenueCat actually returns; the monthly card keeps its plain "Monthly"
+title. The trial is not card text — it rides the annual card's top edge as
 an amber capsule **badge** ("7 NIGHTS FREE", the primary button's
 amber-on-navy colors). Selection keeps the onboarding grammar (constant
 tint, amber ring + filled trailing circle), the unselected card dims to

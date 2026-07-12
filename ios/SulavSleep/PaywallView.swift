@@ -104,7 +104,11 @@ struct PaywallView: View {
         LiquidGlassContainer(spacing: SleepSpacing.md) {
             VStack(spacing: SleepSpacing.md) {
                 ForEach(plans) { plan in
-                    PlanCard(plan: plan, isSelected: plan.id == selectedPlanID) {
+                    PlanCard(
+                        plan: plan,
+                        isSelected: plan.id == selectedPlanID,
+                        savingsPercent: plan.isAnnual ? annualSavingsPercent : nil
+                    ) {
                         Haptics.heavy()
                         selectedPlanID = plan.id
                     }
@@ -117,6 +121,20 @@ struct PaywallView: View {
         // behind its own surface. The trial plan is always sorted first, so
         // the container's top edge *is* the annual card's top edge.
         .overlay(alignment: .top) { trialBadge }
+    }
+
+    /// The annual card's own headline states the savings, so it needs the
+    /// real number rather than a hardcoded guess. Computed from the two
+    /// fetched plans' raw prices — never hand-picked, since it must track
+    /// whatever RevenueCat actually returns.
+    private var annualSavingsPercent: Int? {
+        guard let annual = plans.first(where: { $0.isAnnual }),
+              let monthly = plans.first(where: { !$0.isAnnual }),
+              monthly.priceValue > 0
+        else { return nil }
+        let annualMonthly = annual.priceValue / 12
+        let savings = (1 - annualMonthly / monthly.priceValue) * 100
+        return Int((savings as NSDecimalNumber).doubleValue.rounded())
     }
 
     @ViewBuilder private var trialBadge: some View {
@@ -310,7 +328,11 @@ struct PaywallView: View {
 /// full price lives in a quiet "billed annually" subline and the renewal
 /// line), the monthly card's price is simply its own. The trial is not card
 /// text: it rides the top edge as an amber capsule badge (`trialBadge`,
-/// attached at the picker level — see planPicker). Selection is the
+/// attached at the picker level — see planPicker). The annual card's title
+/// states the deal itself ("Start for free & save 17%") rather than naming
+/// the period — the period is already implied by "billed annually" beneath
+/// it, and stating the savings is what actually moves someone off the
+/// monthly card. Selection is the
 /// onboarding grammar: constant glass
 /// tint (toggling it rebuilds the effect and lags the tap — see
 /// StruggleRow), amber ring + filled circle when chosen; the unselected
@@ -318,22 +340,32 @@ struct PaywallView: View {
 private struct PlanCard: View {
     let plan: SleepPlan
     let isSelected: Bool
+    var savingsPercent: Int?
     var action: () -> Void
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: SleepSpacing.md) {
                 VStack(alignment: .leading, spacing: SleepSpacing.xs) {
-                    Text(plan.title)
-                        .font(SleepFont.label(16))
+                    Text(titleText)
+                        .font(SleepFont.label(17))
                         .foregroundStyle(SleepColor.ink)
+                        // The savings headline is long enough to need two
+                        // lines on narrower phones. Without this, the HStack
+                        // measures Text at its unwrapped ideal width, then
+                        // clips it to an ellipsis instead of wrapping once
+                        // the trailing price/checkmark claim their space.
+                        .fixedSize(horizontal: false, vertical: true)
                     if plan.isAnnual {
                         Text("\(plan.priceString) billed annually")
                             .font(SleepFont.body(13))
                             .foregroundStyle(SleepColor.muted)
                     }
                 }
-                Spacer(minLength: SleepSpacing.md)
+                // Claims the leftover width outright rather than leaving it
+                // to Spacer's minLength, so the title actually gets the full
+                // space to wrap into.
+                .frame(maxWidth: .infinity, alignment: .leading)
                 Text(priceLine)
                     .font(SleepFont.title(17))
                     .foregroundStyle(SleepColor.ink)
@@ -360,6 +392,11 @@ private struct PlanCard: View {
         .accessibilityLabel(accessibilitySummary)
     }
 
+    private var titleText: String {
+        guard plan.isAnnual, let percent = savingsPercent else { return plan.title }
+        return plan.trialDays > 0 ? "Start for free & save \(percent)%" : "Save \(percent)%"
+    }
+
     private var priceLine: String {
         if plan.isAnnual, let perMonth = plan.perMonthString {
             return "\(perMonth)/mo"
@@ -373,11 +410,14 @@ private struct PlanCard: View {
     }
 
     /// The badge and subline are visual shorthand; the label reads the whole
-    /// card back in one sentence.
+    /// card back in one sentence. Uses `plan.title` ("Yearly"/"Monthly")
+    /// rather than the savings headline — VoiceOver needs the period name
+    /// even when the on-screen title doesn't say it.
     private var accessibilitySummary: String {
         var parts = [plan.title, "\(plan.priceString) per \(plan.periodUnit)"]
         if plan.trialDays > 0 { parts.append("\(plan.trialDays) nights free") }
         if plan.isAnnual, let perMonth = plan.perMonthString { parts.append("\(perMonth) per month") }
+        if let percent = savingsPercent, plan.isAnnual { parts.append("saves \(percent)% versus monthly") }
         return parts.joined(separator: ", ")
     }
 }
