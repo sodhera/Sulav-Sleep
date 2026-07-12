@@ -43,8 +43,15 @@ struct PaywallView: View {
                 if plans.isEmpty {
                     if loadFailed { loadFailureState } else { loadingState }
                 } else {
-                    planPicker
-                    purchaseBlock
+                    // Extra top padding (beyond the VStack's own spacing)
+                    // holds the cards and CTA lower on the screen, echoing
+                    // Cal AI's rhythm now that there's no subtext filling
+                    // the gap under the headline.
+                    VStack(spacing: SleepSpacing.xxxl) {
+                        planPicker
+                        purchaseBlock
+                    }
+                    .padding(.top, SleepSpacing.huge)
                 }
             }
             .padding(.horizontal, SleepSpacing.xxl)
@@ -58,37 +65,28 @@ struct PaywallView: View {
 
     // MARK: - Header
 
-    /// Headline plus exactly one supporting line — the personalization
-    /// payload. The apps the user just named on the time-sink question are
-    /// the whole pitch; everything else the old feature list said is already
-    /// told by the plan cards and the renewal line.
+    /// One headline, no subtext — it answers the plan currently selected
+    /// rather than repeating what the cards already say: the trial plan
+    /// gets the trial pitch, the no-trial plan gets the app's own pitch.
     private var header: some View {
         VStack(spacing: SleepSpacing.lg) {
             SlothBrandMark(width: 110, zScale: 0.55)
-            VStack(spacing: SleepSpacing.md) {
-                Text("Lock your nights in")
-                    .font(SleepFont.title(28))
-                    .foregroundStyle(SleepColor.ink)
-                    .multilineTextAlignment(.center)
-                Text(lockLine)
-                    .font(SleepFont.body(15))
-                    .foregroundStyle(SleepColor.dim)
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(4)
-            }
+            Text(headline)
+                .font(SleepFont.title(28))
+                .foregroundStyle(SleepColor.ink)
+                .multilineTextAlignment(.center)
+                .animation(.easeInOut(duration: 0.18), value: selectedPlanID)
         }
         .frame(maxWidth: .infinity)
     }
 
-    private var lockLine: String {
-        let names = (store.profile?.timeSinkApps ?? [])
-            .compactMap { TimeSinkApp(rawValue: $0)?.title }
-        switch names.count {
-        case 0: return "Your chosen apps, locked while you sleep."
-        case 1: return "\(names[0]), locked while you sleep."
-        case 2: return "\(names[0]) and \(names[1]), locked while you sleep."
-        default: return "\(names[0]), \(names[1]) and more, locked while you sleep."
+    private var headline: String {
+        guard let plan = selectedPlan else { return "Lock your nights in" }
+        guard plan.trialDays > 0 else {
+            return "Unlock SleepBlock to build a sleep routine that sticks"
         }
+        let nightWord = plan.trialDays == 1 ? "night" : "nights"
+        return "Start your \(plan.trialDays)-\(nightWord) FREE trial to continue"
     }
 
     // MARK: - Plans

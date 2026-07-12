@@ -568,20 +568,25 @@ quiet type. It only ever renders off a *resolved* not-entitled answer
 (never a loading guess), and an unconfigured dev build never shows it.
 
 The screen is deliberately spare: a hard paywall earns its keep by asking
-one question, not by pitching. Under the brand-mark hero, the headline
-("Lock your nights in") carries exactly **one supporting line**, and that
-line is the personalization payload — the very apps the user chose on the
-time-sink question, "Instagram and TikTok, locked while you sleep." — so
-the pitch reads as *their* plan in a single sentence. No kicker, no
-subtitle paragraph, no feature list.
+one question, not by pitching. Under the brand-mark hero sits **one
+headline and nothing else** — no kicker, no subtitle, no feature list —
+and that headline answers *the plan currently selected* rather than
+narrating features: the trial plan reads "Start your 7-nights FREE trial
+to continue," the no-trial plan reads "Unlock SleepBlock to build a sleep
+routine that sticks." Switching the plan card crossfades the headline, so
+the copy always matches the button the user is about to press (the Cal AI
+paywall does the same swap between its trial and no-trial screens). With
+the subtitle gone, the plan cards and CTA get an extra beat of top padding
+to hold them lower on the screen — cardless space, not a wall of copy,
+carries the gap.
 
 > Note on history: the paywall previously opened with a "Your plan" kicker,
-> a two-line subtitle, and three glyph-led feature lines. Retired for a
-> minimal single-decision layout (the Cal AI paywall was the reference):
-> every removed element repeated what the headline, the plan cards, or the
-> renewal line already said, and the trial alone was stated four times. The
-> personalized lock line — the only line doing unique work — survives as
-> the one subtitle.
+> a fixed "Lock your nights in" headline, a two-line subtitle personalizing
+> the user's chosen apps, and — before that — three glyph-led feature
+> lines. Each was retired in turn: the feature lines repeated the plan
+> cards, the fixed headline repeated across both plans regardless of which
+> was selected, and the personalized subtitle was the last static line
+> once the headline itself started doing that job dynamically.
 
 The two plan cards are interactive glass rounded-rects in one
 `LiquidGlassContainer`, each carrying **one price fact**: the annual card's
