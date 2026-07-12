@@ -37,28 +37,32 @@ struct PaywallView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: SleepSpacing.xxxl) {
-                header
-                if plans.isEmpty {
-                    if loadFailed { loadFailureState } else { loadingState }
-                } else {
-                    // Extra top padding (beyond the VStack's own spacing)
-                    // holds the cards and CTA lower on the screen, echoing
-                    // Cal AI's rhythm now that there's no subtext filling
-                    // the gap under the headline.
-                    VStack(spacing: SleepSpacing.xxxl) {
-                        planPicker
-                        purchaseBlock
+        GeometryReader { proxy in
+            ScrollView {
+                VStack(spacing: SleepSpacing.xxxl) {
+                    header
+                    if plans.isEmpty {
+                        if loadFailed { loadFailureState } else { loadingState }
+                    } else {
+                        // A flexible spacer, not a fixed padding: it eats
+                        // whatever room the screen actually has above the
+                        // footer, so the cards and CTA sit low no matter the
+                        // device height, instead of leaving a dead gap below
+                        // the button on taller phones.
+                        Spacer(minLength: SleepSpacing.xxxl)
+                        VStack(spacing: SleepSpacing.xxxl) {
+                            planPicker
+                            purchaseBlock
+                        }
                     }
-                    .padding(.top, SleepSpacing.huge)
                 }
+                .padding(.horizontal, SleepSpacing.xxl)
+                .padding(.top, SleepSpacing.xl)
+                .padding(.bottom, SleepSpacing.lg)
+                .frame(minHeight: proxy.size.height, alignment: .top)
             }
-            .padding(.horizontal, SleepSpacing.xxl)
-            .padding(.top, SleepSpacing.xl)
-            .padding(.bottom, SleepSpacing.lg)
+            .scrollBounceBehavior(.basedOnSize)
         }
-        .scrollBounceBehavior(.basedOnSize)
         .safeAreaInset(edge: .bottom) { footer }
         .task { await loadPlans() }
     }
@@ -75,6 +79,11 @@ struct PaywallView: View {
                 .font(SleepFont.title(28))
                 .foregroundStyle(SleepColor.ink)
                 .multilineTextAlignment(.center)
+                // The flexible spacer lower in this VStack proposes a very
+                // wide, very short frame while solving for the screen's
+                // minHeight; without this, that pass wins and the headline
+                // renders single-line and clips instead of wrapping.
+                .fixedSize(horizontal: false, vertical: true)
                 .animation(.easeInOut(duration: 0.18), value: selectedPlanID)
         }
         .frame(maxWidth: .infinity)
