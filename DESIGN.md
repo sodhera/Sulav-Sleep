@@ -568,10 +568,15 @@ quiet type. It only ever renders off a *resolved* not-entitled answer
 (never a loading guess), and an unconfigured dev build never shows it.
 
 The screen is deliberately spare: a hard paywall earns its keep by asking
-one question, not by pitching. The hero is the brand mark over the
-**"SleepBlock" wordmark** — the same identity the welcome screen leads
-with, signing the screen — and beneath it sits **one headline and nothing
-else** — no kicker, no subtitle, no feature list. That headline answers
+one question, not by pitching. The hero is the brand mark over a small
+tracked small-caps **"SLEEPBLOCK"** signature — the two form one brand
+lockup, the wordmark deliberately quiet (label weight, `dim`, letter-
+spaced) so it reads as the app's own kicker grammar and never competes
+with the headline; when it matched the headline's size and weight the two
+read as twin headlines with no hierarchy. Beneath the lockup sits **one
+headline and nothing else** — no other kicker, no subtitle, no feature
+list — set as the screen's hero (semibold, `ink`, the largest type on the
+screen). That headline answers
 *the plan currently selected* rather than narrating features: the trial
 plan reads "Start your 7-nights FREE trial to continue," the no-trial plan
 reads "Unlock SleepBlock to build a sleep routine that sticks." Switching

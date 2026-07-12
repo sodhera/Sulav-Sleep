@@ -79,14 +79,22 @@ struct PaywallView: View {
     /// no-trial plan gets the app's own pitch.
     private var header: some View {
         VStack(spacing: SleepSpacing.xl) {
-            VStack(spacing: SleepSpacing.sm) {
+            // Logo + wordmark are one brand lockup: the wordmark is a small,
+            // tracked signature sitting tight under the mark — deliberately
+            // *quieter* than the headline (smaller, dim, letter-spaced) so
+            // it never competes with the pitch. When it matched the
+            // headline's size and weight the two read as twin headlines with
+            // no hierarchy.
+            VStack(spacing: SleepSpacing.xs) {
                 SlothBrandMark(width: 140, zScale: 0.58)
                 Text("SleepBlock")
-                    .font(SleepFont.hero(26))
-                    .foregroundStyle(SleepColor.ink)
+                    .font(SleepFont.label(15))
+                    .tracking(2.5)
+                    .textCase(.uppercase)
+                    .foregroundStyle(SleepColor.dim)
             }
             Text(headline)
-                .font(SleepFont.title(28))
+                .font(SleepFont.hero(30))
                 .foregroundStyle(SleepColor.ink)
                 .multilineTextAlignment(.center)
                 // The flexible spacer lower in this VStack proposes a very
