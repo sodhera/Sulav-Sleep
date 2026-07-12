@@ -783,13 +783,16 @@ version of the same story: the icon's sloth-on-pillow figure — the icon
 colorway on a transparent background (`SplashSloth.imageset`, emitted by
 `scripts/generate-app-icon.py` so it can never drift from the shipped icon
 art) — sitting flush on the flat `background` navy. No rounded icon
-rectangle, no wordmark, no scene. A launch storyboard is a static snapshot,
-so the moment the app takes over, `LaunchSplashView` (RootView.swift) redraws
-the identical frame and brings the mark alive: the brand halo and the gold
-rising z's (`RisingZs`) start over the still art, and the splash holds for a
-beat (~1.5s past auth readiness) so the first z is actually seen before the
-crossfade to welcome or Home. An active sleep session skips the hold — the
-sleep screen always takes the display immediately.
+rectangle, no wordmark, no scene, no halo. A launch storyboard is a static
+snapshot, so the moment the app takes over, `LaunchSplashView`
+(RootView.swift) redraws the pixel-identical frame — same asset, same size,
+same full-screen center — and the *only* thing that changes is the gold
+rising z's (`RisingZs`) starting over the still art: their slow fade-in is
+the reveal, and anything else appearing at handoff (even the brand halo)
+reads as a second splash screen. The splash holds for a beat (~1.5s past
+auth readiness) so the first z is actually seen before the crossfade to
+welcome or Home. An active sleep session skips the hold — the sleep screen
+always takes the display immediately.
 
 ## Shield overlay
 

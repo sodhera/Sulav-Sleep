@@ -594,14 +594,24 @@ The splash is a two-stage handoff:
    animate.
 2. `LaunchSplashView` (RootView.swift) is the `.authLoading` screen: the
    same asset at the same 200pt width and screen-center position on the same
-   flat navy, so the storyboard → SwiftUI handoff is invisible — plus the
-   brand halo and the gold `RisingZs` chain, which is where the ZZZ starts
-   animating. `RootView.splashHold` (1.5s) keeps the splash up past auth
-   readiness so the first z is visible before the crossfade; the sleep-mode
-   overlay branch bypasses the hold entirely.
+   flat navy, so the storyboard → SwiftUI handoff is invisible. The *only*
+   thing that changes at handoff is the gold `RisingZs` chain starting —
+   nothing else may appear (an earlier revision faded in the brand halo
+   here, and it read as a second splash screen popping in).
+   `RootView.splashHold` (1.5s) keeps the splash up past auth readiness so
+   the first z is visible before the crossfade; the sleep-mode overlay
+   branch bypasses the hold entirely.
 
-If the storyboard's image size/position changes, `LaunchSplashView.width`
-must change with it, or the handoff jumps.
+Handoff invariants — each of these, broken, is a visible jump:
+
+- `LaunchSplashView.width` must equal the storyboard's SPLASH-ICON width
+  constraint (200pt).
+- `LaunchSplashView` must keep `.ignoresSafeArea()` on its whole stack and
+  must not be centered inside any safe-area-inset container: the storyboard
+  centers on the full screen, while SwiftUI's default safe-area layout sinks
+  a centered image ~13pt lower (status-bar inset > home-indicator inset).
+  This was measured, not theorized: pre-fix the figure sat 42px (@3x) below
+  the storyboard position.
 
 Simulator gotcha: iOS caches a rendered snapshot of the launch screen
 (SplashBoard), and a long-lived simulator can keep showing a stale blank
