@@ -231,8 +231,20 @@ target can inject fakes without new hooks.
   One stage alone wasn't enough: prewarming only at the "Get started" tap ran
   the whole keyboard cold path during the route transition (visible jank,
   first keystrokes lagging), and a presented prewarm on the welcome screen
-  would flash a phantom keyboard. Struggle answers persist to
-  `Profile.sleepStruggles` for future personalization.
+  would flash a phantom keyboard. The presented prewarm is also deferred
+  ~80ms off the tap frame (`DispatchQueue.main.asyncAfter` in `setRoute`) so
+  the keyboard commit doesn't stack onto the questionnaire's first build in
+  the same frame — the residual "Get started" hitch — while still finishing
+  under the 280ms transition and before the name step's 320ms autofocus.
+  Struggle answers persist to `Profile.sleepStruggles` for future
+  personalization. The list-question rows (`OptionRow`, `TimeSinkChip`) keep
+  their glass content *constant* and paint selection entirely in an
+  opacity-faded overlay above the glass (amber ring + amber twins of the icon
+  and trailing glyph, geometry-matched to the base label): changing any pixel
+  inside `glassEffect` content — the earlier icon/checkmark color+symbol swap
+  — re-rendered the glass on every tap, the same lag family as toggling the
+  glass tint, so selecting an option felt sluggish; an overlay fade is a pure
+  composite.
 - `LiquidGlass.swift`: native Liquid Glass wrappers with material fallbacks.
 - `SleepBackground.swift`: Core Animation pixel-night scene, plus
   `SceneReadabilityScrim` — a full-bleed vertical gradient (clear through the
@@ -247,8 +259,20 @@ target can inject fakes without new hooks.
   non-interactive (`isUserInteractionEnabled = false`) — it never reacts to
   touch and can't intercept input meant for the UI above it; depth parallax
   comes from the device-tilt motion effect only.
-- `SleepAssetCache.swift`: launch-time decode cache for the pixel city layers so
-  the first interactive onboarding steps do not pay image decode cost.
+- `SleepAssetCache.swift`: launch-time decode cache for the big scene bitmaps
+  so the first interactive onboarding steps do not pay image-decode cost at
+  interaction time (`UIImage(named:)` defers the decode to first draw). The
+  prewarm list is **phase-derived**: the six city depth planes are named
+  `CityPhase.rawValue + cityLayerNames[i]` (e.g. `NightCitySkyBase`,
+  `DayCityClouds`), matching `citySpecs` in `SleepBackground.swift`, plus the
+  current phase's brand-mark sloth (`HomeSloth{phase}Blink`) and `SplashSloth`.
+  A fixed night-only list would decode art a day/dusk open never draws and
+  miss the layers actually shown; misses fall through to an on-demand decode
+  that is then cached (e.g. the next phase's set at a boundary crossfade), so
+  every name is decoded at most once per run. `SlothBrandMark`
+  (`OnboardingView.swift`) draws its sloth through this cache so the
+  questionnaire-header mark isn't decoding a 1200×720 PNG inside the
+  "Get started" transition.
 - `SleepTheme.swift`: palette, spacing, radius, typography, `Haptics`, and
   `RisingZs` — the animated rising-z chain (the icon's ZZZ, alive),
   parameterized by color and scale. It runs full-size in emberDim on the

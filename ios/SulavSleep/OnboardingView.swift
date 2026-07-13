@@ -84,8 +84,18 @@ struct OnboardingGateView: View {
     private func setRoute(_ next: Route) {
         // Warm the keyboard only while heading to the questionnaire, whose
         // name step autofocuses — so the first keyboard appears instantly
-        // without a phantom flash on the welcome or account screens.
-        if next == .questions { Keyboard.prewarm() }
+        // without a phantom flash on the welcome or account screens. The
+        // presentation is deferred a few frames: it used to start in the
+        // same frame as the tap, stacking the keyboard commit on top of the
+        // questionnaire's first build, and that shared frame was the
+        // residual "Get started" hitch. Started ~80ms in, it is still fully
+        // masked by the 280ms route transition and done before the name
+        // step's 320ms autofocus takes the keyboard over.
+        if next == .questions {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+                Keyboard.prewarm()
+            }
+        }
         withAnimation(.easeInOut(duration: 0.28)) { route = next }
     }
 }
@@ -163,7 +173,7 @@ struct SlothBrandMark: View {
         // behind it if a phase boundary passes while the screen is up.
         TimelineView(.everyMinute) { timeline in
             let phase = CityPhase.current(timeline.date)
-            Image("HomeSloth\(phase.rawValue)Blink")
+            slothImage(phase: phase)
                 .resizable()
                 .scaledToFit()
                 .frame(width: width)
@@ -181,6 +191,19 @@ struct SlothBrandMark: View {
                 }
         }
         .accessibilityHidden(true)
+    }
+
+    /// The sloth art through `SleepAssetCache`, so the mark draws a
+    /// pre-decoded bitmap — a bare `Image(named:)` decoded the 1200×720 PNG
+    /// at first display, which for the questionnaire header landed inside
+    /// the "Get started" transition.
+    private func slothImage(phase: CityPhase) -> Image {
+        #if canImport(UIKit)
+        if let decoded = SleepAssetCache.image(named: "HomeSloth\(phase.rawValue)Blink") {
+            return Image(uiImage: decoded)
+        }
+        #endif
+        return Image("HomeSloth\(phase.rawValue)Blink")
     }
 }
 
@@ -611,6 +634,10 @@ struct OnboardingQuestionsView: View {
                 }
                 .disabled(!isStepValid)
                 .opacity(isStepValid ? 1 : 0.45)
+                // Animated so the enable reads as a fade, not a discrete
+                // repaint dropped into the same frame as the first keystroke
+                // or first option tap that made the step valid.
+                .animation(.easeInOut(duration: 0.18), value: isStepValid)
             }
         }
     }
@@ -835,18 +862,20 @@ private struct OptionRow: View {
 
     var body: some View {
         Button(action: action) {
+            // The label the glass renders is deliberately constant — see the
+            // comment on the selection overlay below.
             HStack(spacing: SleepSpacing.md) {
                 Image(systemName: icon)
                     .font(.system(size: 17, weight: .regular))
-                    .foregroundStyle(isSelected ? SleepColor.amber : SleepColor.muted)
+                    .foregroundStyle(SleepColor.muted)
                     .frame(width: 24)
                 Text(title)
                     .font(SleepFont.label(16))
                     .foregroundStyle(SleepColor.ink)
                 Spacer()
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                Image(systemName: "circle")
                     .font(.system(size: 20, weight: .light))
-                    .foregroundStyle(isSelected ? SleepColor.amber : SleepColor.faint)
+                    .foregroundStyle(SleepColor.faint)
             }
             .padding(.horizontal, SleepSpacing.xl)
             .frame(maxWidth: .infinity, minHeight: 54)
@@ -865,11 +894,31 @@ private struct OptionRow: View {
             cornerRadius: SleepRadius.pill,
             interactive: true
         )
+        // Selection is painted entirely *above* the glass, as one overlay
+        // faded by opacity: the amber ring, plus amber twins of the icon and
+        // trailing glyph sitting exactly over their constant base copies.
+        // Changing any pixel *inside* glassEffect content (the old
+        // color/symbol swap) re-rendered the glass on every tap — the same
+        // failure family as the tint toggle above — while an overlay fade is
+        // a pure composite. The overlay duplicates the base label's geometry
+        // (same paddings, frames, and font metrics) so the twins cover 1:1.
         .overlay {
-            if isSelected {
+            ZStack {
                 Capsule(style: .continuous)
                     .stroke(SleepColor.amber.opacity(0.45), lineWidth: 1)
+                HStack(spacing: SleepSpacing.md) {
+                    Image(systemName: icon)
+                        .font(.system(size: 17, weight: .regular))
+                        .frame(width: 24)
+                    Spacer()
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 20, weight: .light))
+                }
+                .padding(.horizontal, SleepSpacing.xl)
             }
+            .foregroundStyle(SleepColor.amber)
+            .opacity(isSelected ? 1 : 0)
+            .allowsHitTesting(false)
         }
         .animation(.easeInOut(duration: 0.18), value: isSelected)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
@@ -889,10 +938,12 @@ private struct TimeSinkChip: View {
 
     var body: some View {
         Button(action: action) {
+            // Constant glass content; selection lives in the overlay — same
+            // structure as `OptionRow`, see the comments there.
             HStack(spacing: SleepSpacing.sm) {
                 Image(systemName: app.systemImage)
                     .font(.system(size: 15, weight: .regular))
-                    .foregroundStyle(isSelected ? SleepColor.amber : SleepColor.muted)
+                    .foregroundStyle(SleepColor.muted)
                     .frame(width: 20)
                 Text(app.title)
                     .font(SleepFont.label(15))
@@ -900,9 +951,9 @@ private struct TimeSinkChip: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
                 Spacer(minLength: 0)
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                Image(systemName: "circle")
                     .font(.system(size: 18, weight: .light))
-                    .foregroundStyle(isSelected ? SleepColor.amber : SleepColor.faint)
+                    .foregroundStyle(SleepColor.faint)
             }
             .padding(.horizontal, SleepSpacing.lg)
             .frame(maxWidth: .infinity, minHeight: 54)
@@ -914,10 +965,22 @@ private struct TimeSinkChip: View {
             interactive: true
         )
         .overlay {
-            if isSelected {
+            ZStack {
                 Capsule(style: .continuous)
                     .stroke(SleepColor.amber.opacity(0.45), lineWidth: 1)
+                HStack(spacing: SleepSpacing.sm) {
+                    Image(systemName: app.systemImage)
+                        .font(.system(size: 15, weight: .regular))
+                        .frame(width: 20)
+                    Spacer(minLength: 0)
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 18, weight: .light))
+                }
+                .padding(.horizontal, SleepSpacing.lg)
             }
+            .foregroundStyle(SleepColor.amber)
+            .opacity(isSelected ? 1 : 0)
+            .allowsHitTesting(false)
         }
         .animation(.easeInOut(duration: 0.18), value: isSelected)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
