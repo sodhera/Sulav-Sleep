@@ -263,8 +263,12 @@ Two tabs, each with exactly one job:
   than two disconnected chips; read-only, the schedule is edited in
   Settings. The Sleep Now capsule anchors low where a thumb rests, with last
   night as one quiet centered strip beneath it (`Last night 7h 20m · 82 ·
-  🔥3`). With no history the strip renders nothing at all — no hairline, no
-  empty-state copy; the pixel scene carries the space.
+  🔥3`). The strip only appears when the newest night can honestly be called
+  "last night" — it ended this morning or yesterday; older records are stale
+  and never wear that label. With no history (or only stale history) the strip
+  renders nothing at all — no hairline, no empty-state copy; the pixel scene
+  carries the space. (Same recency gate feeds the widget's morning glance, so
+  it never shows weeks-old hours as last night's.)
   Tapping "Sleep Now" does *not* start sleep immediately — the whole screen
   transitions to a **confirmation** that is deliberately near-wordless: a
   "Tonight" kicker, one hero gold number (the sleep you'd get sliding now),
@@ -307,12 +311,37 @@ Two tabs, each with exactly one job:
   The record chart is the **widgets' 7-night bar rhythm brought home** — one
   chart language on every surface. Exactly 7 fixed-width columns, latest
   night rightmost: gold→amber capsules (latest full-strength, earlier nights
-  receding to ~60%) against the quiet target hairline with ~15% headroom,
-  every bar's hours on the shared label plane (`BarHoursLabel` — navy inside
+  receding to ~60%) against the quiet target hairline with ~15% headroom —
+  the hairline is tagged with the goal itself ("8h") on a small navy chip at
+  its trailing end, so it reads as *your target* rather than an unlabeled
+  rule — every bar's hours on the shared label plane (`BarHoursLabel` — navy inside
   the bar, gold above it, split at the bar's edge; see the widget bar rules),
   weekday initials under every slot (latest in amber). Nights not yet logged
   render as hairline stubs, so a young record honestly reads as a week
   filling in.
+
+  The chart is **swipeable by week.** The record is chunked into pages of
+  seven nights, boundaries anchored to the newest night (so the current week
+  is always a full column set and older weeks fill in behind it), laid
+  oldest→newest left→right so the newest week shows by default and the user
+  swipes right to walk back through history — the same "latest rightmost"
+  spatial grammar as a single chart. Below sits an **Instagram-style dot
+  indicator**: a fixed-width window of at most seven dots (amber for the
+  current week, faint for the rest) that never grows however long the record
+  runs — when more weeks are hidden past an edge, the one or two dots on that
+  edge taper down to signal "more this way", so 15 weeks reads as cleanly as
+  3. The strip doubles as a **scrubber** — press and drag it left/right to
+  fast-forward or rewind through weeks (finger travel maps to weeks at a fixed
+  step, with a soft tick as each new week lands), so reaching week 3 of 15 is
+  one drag rather than fifteen swipes. The system's own page dots are
+  suppressed because they clash with the bars and can do none of this. A
+  record of seven nights or fewer stays a single plain chart with no pager
+  chrome.
+  Because the axis carries weekday initials but no dates, every page names its
+  span in a faint centered caption — **"Jun 16 – Jun 22"** — and the newest
+  page appends **"· N days ago"** once its latest night is ≥ 2 calendar days
+  back, so a stale record reads as stale at a glance rather than masquerading
+  as the current week.
 
   > Note on history: the record chart was previously a smoothed amber
   > line-with-area. Retired: it clamped every night into a 4.5–9h band (a
@@ -354,18 +383,48 @@ in its top-right. It is not a half-height sheet (the throwaway-decision
 affordance the app avoids) and not inline rows on Profile. Inside, it carries
 its own `NavigationStack`, so Sleep schedule and Blocked apps push as full pages
 with the onboarding chrome (round glass back chevron, left-aligned editorial
-title, supporting line). The body is three kicker-titled `GlassGroup`s —
+title, supporting line). The body is four kicker-titled `GlassGroup`s —
 **Profile** (editable Name: tap → rename alert; read-only account Email, no
 chevron, middle-truncated — both live here, never on the Profile body),
-**Sleep** (Schedule, Blocked apps, the Apple Health toggle — no explainer
-sublines), and **Account** (Sign out in dim, alone in its group and confirmed
-by an alert before anything happens). **Delete account** is not a glass row at
+**Subscription** (the plan status, see below), **Sleep** (Schedule, Blocked
+apps, the Apple Health toggle — no explainer sublines), and **Account** (Sign
+out in dim, alone in its group and confirmed by an alert before anything
+happens). The order reads *who you are → what you're on → your sleep config →
+account exits*. **Delete account** is not a glass row at
 all: it sits beneath the Account group as bare faded text — a rare,
 irreversible exit that never competes for attention — and confirming it
 requires typing "delete" into the alert before the destructive button
 enables. The pixel-art
 credit sits quietly at the very bottom. The only other sheet in the app is
 Apple's own `FamilyActivityPicker`.
+
+The **Subscription** group answers one question the hard paywall otherwise
+leaves hanging once someone's in: *what am I on, and when does it change?* Its
+first row is a **status readout, not a control** — so, like the plan reveal's
+summary rows, it earns a dim detail line (the one place a settings row explains
+rather than only naming): the **brand sloth turned to gold** — the "you're a
+subscriber" mark — a tier title (**Free trial** / **SleepBlock Pro** / **Not
+subscribed**), and beneath it the renewal fact — "6 days left · renews Jul 20,
+2026" on a trial, "Yearly · Renews Jul 20, 2026" once paid (the date carries
+the year, since a yearly renewal lands up to twelve months out). The gold-sloth
+chip is generated by `scripts/generate-subscription-icon.py` — the lounging
+Home sloth (built for 48–120pt) is a smudge at a 30pt chip, so the script crops
+to the head and recolors it as a **gold medallion** (luminance → gold ramp,
+which keeps the face legible where a flat template tint would flatten it to a
+blob). It sits in the same soft tinted rounded square as every other
+`GlassRowIcon`, so the row still scans with its siblings; the lapsed (**Not
+subscribed**) state falls back to a muted glyph. The **"about to end"** case —
+active but set to cancel — colors that detail line **amber** ("Ends Jul 20,
+2026 · won't renew"): a calm heads-up, never `danger`, which stays reserved for
+real failures (the auth/paywall two-tone rule).
+Beneath the status sits one action, **Manage subscription**, which opens the
+system-managed App Store sheet — the only sanctioned place to switch plans or
+cancel, so the app never builds its own billing UI. The whole group **hides
+when there's no status to show** — an unconfigured dev build, or before the
+first entitlement fetch resolves — the same "never fake a plan" honesty the
+paywall keeps in dev mode; the status is display-only (`SubscriptionStatus`,
+read straight off RevenueCat's `EntitlementInfo`) and never touches the gate's
+three-state entitlement answer.
 
 The **Blocked apps** page follows the same grammar: a one-line supporting
 sentence under the title ("Locked from Sleep Now until you wake. Calls always
@@ -678,18 +737,20 @@ The last gate before Main (`ScreenTimePrimerView`, SleepScreenTime.swift),
 after the paywall resolves: SleepBlock is an app-blocking app, and this is
 where blocking gets its teeth — asked at peak commitment, right after the
 user paid, never mid-sign-up (the Health rule). The centerpiece is a
-**mock of the iOS permission dialog** with an amber arrow and "Tap Allow"
+**mock of the iOS permission dialog** with an amber arrow and "Tap Continue"
 beneath its affirmative button — the primer pattern: the user decides to tap
-Allow on *our* screen, so the real system sheet (fired by the primary
+Continue on *our* screen, so the real system sheet (fired by the primary
 "Turn on app blocking" CTA) is a formality they've already rehearsed.
 
 The mock is deliberately **not Liquid Glass** — it depicts iOS chrome, not
 one of the app's own controls — a plain navy rounded-rect alert with an
 hourglass glyph, the real request title, greeked body lines (rounded bars,
-never fake legalese), and a Don't Allow / Allow button row whose "Allow"
-keeps the **system's blue**: the primer's whole job is pattern-matching
-against the sheet iOS is about to show, and that is the one sanctioned
-exception to the no-blue-identity rule. The mock is decorative and hidden
+never fake legalese), and a Continue / Don't Allow button row. iOS makes
+"Don't Allow" the highlighted default, so the affirmative "Continue" sits on
+the **left** (grey) and the mock keeps the **system's blue** on the
+right-hand "Don't Allow" — the amber arrow points to Continue. The primer's
+whole job is pattern-matching against the sheet iOS is about to show, and
+that blue is the one sanctioned exception to the no-blue-identity rule. The mock is decorative and hidden
 from accessibility; the editorial headline above it ("Let SleepBlock put
 your apps to sleep", with a one-line explainer ending in "Calls always
 work.") carries the meaning. The arrow breathes a few points vertically

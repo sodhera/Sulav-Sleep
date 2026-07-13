@@ -46,6 +46,13 @@ final class SleepStore {
     /// subscriber resolves offline too) keeps it current. On an unconfigured
     /// build (no API key) it is `.entitled` from init — dev mode, no paywall.
     private(set) var entitlement: EntitlementState = .unknown
+    /// Display-only detail about the active subscription (trial vs paid, the
+    /// renewal or end date, whether it's set to cancel) for the Settings
+    /// status row — distinct from `entitlement`, which stays the gate's
+    /// three-state answer. Nil until the first fetch resolves, in dev mode, or
+    /// when there's no entitlement to describe; the Settings subscription
+    /// group hides while it's nil.
+    private(set) var subscriptionStatus: SubscriptionStatus?
 
     private let persistence: SleepPersistence
     private let health: SleepHealthProviding
@@ -84,6 +91,20 @@ final class SleepStore {
     }
 
     var latestSession: SleepSession? { displaySessions.last }
+
+    /// The most recent session, but only when it can honestly be called "last
+    /// night" — i.e. it ended this morning or yesterday. When the newest record
+    /// is older than that (e.g. the user hasn't slept with the app in weeks),
+    /// this is `nil` so the Home strip renders nothing rather than labelling
+    /// stale hours "Last night". `latestSession` still exposes the raw newest
+    /// row for callers that want it (the widget's own recency logic).
+    var lastNightSession: SleepSession? {
+        guard let latest = latestSession else { return nil }
+        let calendar = Calendar.current
+        guard calendar.isDateInToday(latest.end) || calendar.isDateInYesterday(latest.end)
+        else { return nil }
+        return latest
+    }
 
     var targetMinutes: Int {
         guard let profile else { return 8 * 60 }
@@ -149,7 +170,7 @@ final class SleepStore {
         }
         let summary = SleepWidgetSummary(
             nights: recent,
-            latestDurationMinutes: latestSession?.durationMinutes,
+            latestDurationMinutes: lastNightSession?.durationMinutes,
             streak: onTrackStreak,
             targetMinutes: targetMinutes,
             bedtimeMinutes: profile?.bedtime,
@@ -190,11 +211,32 @@ final class SleepStore {
     private func startSubscriptionTracking() {
         guard subscription.isConfigured else {
             entitlement = .entitled
+#if DEBUG
+            // Dev mode has no real subscription, so the status row hides. This
+            // arg injects a sample trial so the Settings row can be previewed
+            // and screenshotted on the Simulator (mirrors `-review-paywall`).
+            if ProcessInfo.processInfo.arguments.contains("-review-subscription") {
+                subscriptionStatus = SubscriptionStatus(
+                    tier: .trial,
+                    willRenew: true,
+                    expiration: Calendar.current.date(byAdding: .day, value: 6, to: Date()),
+                    isAnnual: true
+                )
+            }
+#endif
             return
         }
-        subscription.start { [weak self] state in
+        subscription.start { [weak self] state, status in
             self?.entitlement = state
+            self?.subscriptionStatus = status
         }
+    }
+
+    /// Opens the system-managed subscription sheet so the user can switch
+    /// plans or cancel — the only sanctioned place to change billing.
+    @MainActor
+    func manageSubscriptions() async {
+        await subscription.manageSubscriptions()
     }
 
     func fetchPlans() async -> [SleepPlan] {

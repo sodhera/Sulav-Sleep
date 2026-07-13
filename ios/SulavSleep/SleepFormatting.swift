@@ -26,6 +26,23 @@ enum SleepFormatting {
         return formatter
     }()
 
+    /// Compact month + day, e.g. "Jun 22" — used for the record chart's
+    /// per-week date-range caption.
+    static let monthDay: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.setLocalizedDateFormatFromTemplate("MMM d")
+        return formatter
+    }()
+
+    /// Compact month + day + year, e.g. "Jul 13, 2026" — the subscription
+    /// renewal/end date, where the year carries real information (a yearly
+    /// renewal lands up to twelve months out).
+    static let monthDayYear: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.setLocalizedDateFormatFromTemplate("MMM d yyyy")
+        return formatter
+    }()
+
     static func clock(_ minutes: Int) -> String {
         shortTime.string(from: date(fromMinutes: minutes))
     }

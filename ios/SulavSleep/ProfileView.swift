@@ -209,7 +209,7 @@ private struct ProfileRootScreen: View {
                 }
                 .padding(.top, SleepSpacing.xs)
             } else {
-                RecordBars(sessions: lastSeven, target: store.targetMinutes)
+                RecordChart(sessions: sessions, target: store.targetMinutes)
 
                 historyList
                     .padding(.top, SleepSpacing.xxxl)
@@ -298,6 +298,7 @@ struct SettingsModal: View {
                 header
 
                 profileSection
+                subscriptionSection
                 configSection
                 accountSection
 
@@ -365,6 +366,41 @@ struct SettingsModal: View {
             }
         }
         .padding(.top, SleepSpacing.huge)
+    }
+
+    // MARK: Subscription
+
+    /// The plan status group — trial vs paid, the renewal/end date, and a way
+    /// to manage billing. It hides entirely when there's no status to show
+    /// (dev mode, or before the first entitlement fetch resolves), matching the
+    /// paywall's "never shows in dev mode" rule rather than faking a plan.
+    @ViewBuilder
+    private var subscriptionSection: some View {
+        if let status = store.subscriptionStatus {
+            VStack(alignment: .leading, spacing: SleepSpacing.md) {
+                Text("Subscription").sectionLabel()
+
+                GlassGroup {
+                    SubscriptionStatusRow(status: status)
+
+                    GlassRowDivider()
+
+                    Button {
+                        Haptics.heavy()
+                        Task { await store.manageSubscriptions() }
+                    } label: {
+                        GlassRow(
+                            icon: "creditcard.fill",
+                            iconColor: SleepColor.muted,
+                            title: "Manage subscription",
+                            showsChevron: true
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.top, SleepSpacing.xxl)
+        }
     }
 
     private var header: some View {
@@ -708,6 +744,115 @@ private struct HealthConnectCard: View {
     }
 }
 
+// MARK: - Subscription status
+
+/// The subscription status row: a data readout, not a control — so, like the
+/// plan reveal's summary rows, it carries a dim detail line (the one place a
+/// settings row explains rather than only naming). The "about to end" case
+/// (active but set to cancel) shows its detail in amber: a heads-up, not a
+/// failure, per the app's two-tone rule (`danger` is reserved for real
+/// failures).
+private struct SubscriptionStatusRow: View {
+    let status: SubscriptionStatus
+
+    var body: some View {
+        HStack(spacing: SleepSpacing.md) {
+            icon
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(SleepFont.body(16))
+                    .foregroundStyle(SleepColor.ink)
+                if let detail {
+                    Text(detail)
+                        .font(SleepFont.body(13))
+                        .foregroundStyle(isEnding ? SleepColor.amber : SleepColor.muted)
+                }
+            }
+
+            Spacer(minLength: SleepSpacing.md)
+        }
+        .padding(.vertical, SleepSpacing.md)
+        .frame(minHeight: 52)
+    }
+
+    /// Active but set not to renew — the "about to end" heads-up that colors
+    /// the detail line amber.
+    private var isEnding: Bool { status.tier != .expired && !status.willRenew }
+
+    /// The leading chip. For an entitled user (trial/pro) it's the brand sloth
+    /// turned to gold — the "you're a subscriber" mark
+    /// (`scripts/generate-subscription-icon.py`), sitting in the same soft
+    /// tinted rounded square as every other `GlassRowIcon` so the row still
+    /// scans with its siblings. Expired falls back to a muted SF glyph.
+    @ViewBuilder
+    private var icon: some View {
+        switch status.tier {
+        case .trial, .pro:
+            Image("SubscriptionSloth")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 28, height: 28)
+                .frame(width: 30, height: 30)
+                .background {
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .fill(SleepColor.gold.opacity(0.14))
+                }
+                .accessibilityHidden(true)
+        case .expired:
+            GlassRowIcon(icon: "xmark.circle.fill", color: SleepColor.muted)
+        }
+    }
+
+    private var title: String {
+        switch status.tier {
+        case .trial: return "Free trial"
+        case .pro: return "SleepBlock Pro"
+        case .expired: return "Not subscribed"
+        }
+    }
+
+    private var detail: String? {
+        switch status.tier {
+        case .expired:
+            return "Your access has ended"
+        case .trial, .pro:
+            guard let expiration = status.expiration else {
+                return status.willRenew ? nil : "Set to cancel"
+            }
+            let date = SleepFormatting.monthDayYear.string(from: expiration)
+            if !status.willRenew {
+                return "Ends \(date) · won't renew"
+            }
+            if status.tier == .trial {
+                return "\(daysLeft(until: expiration)) · renews \(date)"
+            }
+            return [planWord, "Renews \(date)"].compactMap { $0 }.joined(separator: " · ")
+        }
+    }
+
+    /// "Yearly" / "Monthly" when the period is known, else nothing.
+    private var planWord: String? {
+        switch status.isAnnual {
+        case .some(true): return "Yearly"
+        case .some(false): return "Monthly"
+        case .none: return nil
+        }
+    }
+
+    /// "6 days left" / "1 day left" / "Ends today" for a trial countdown.
+    private func daysLeft(until date: Date) -> String {
+        let calendar = Calendar.current
+        let days = calendar.dateComponents(
+            [.day],
+            from: calendar.startOfDay(for: Date()),
+            to: calendar.startOfDay(for: date)
+        ).day ?? 0
+        if days <= 0 { return "Ends today" }
+        return days == 1 ? "1 day left" : "\(days) days left"
+    }
+}
+
 // MARK: - Record components
 
 private struct StatBlock: View {
@@ -716,9 +861,14 @@ private struct StatBlock: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
+            // `muted` washes out against the brighter day/dusk sky, so the
+            // label borrows the section-kicker treatment — `dim` over a soft
+            // navy shadow that grounds it across all three scene phases where
+            // a scrim alone can't.
             Text(label)
                 .font(SleepFont.body(13))
-                .foregroundStyle(SleepColor.muted)
+                .foregroundStyle(SleepColor.dim)
+                .shadow(color: SleepColor.background.opacity(0.85), radius: 3, y: 1)
             Text(value)
                 .font(SleepFont.title(26))
                 .foregroundStyle(SleepColor.ink)
@@ -765,8 +915,12 @@ private struct HistoryRow: View {
 /// week filling in — never a lone value stretched across the full width the
 /// way the retired smoothed line chart did.
 private struct RecordBars: View {
+    /// One page's worth of nights (up to `slotCount`), oldest→newest.
     let sessions: [SleepSession]
     let target: Int
+    /// Whether this page is the most recent one — only then does the caption
+    /// append a "· N days ago" cue, so a stale newest week reads as stale.
+    var showsRelativeAge: Bool = true
 
     private static let slotCount = 7
     private static let barWidth: CGFloat = 28
@@ -819,12 +973,23 @@ private struct RecordBars: View {
                 }
             }
             .frame(height: chartHeight, alignment: .bottom)
-            .overlay(alignment: .bottom) {
-                // Target sleep window, as a quiet reference line.
-                Rectangle()
-                    .fill(SleepColor.ink.opacity(0.18))
-                    .frame(height: 1)
-                    .offset(y: -chartHeight * targetFraction)
+            .overlay(alignment: .bottomTrailing) {
+                // Target sleep window, as a quiet reference line — tagged with
+                // the goal itself ("8h") on a small navy chip at the trailing
+                // end, so the line reads as "your target", not an unlabeled
+                // rule. The chip rides just above the line, right-aligned.
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(hoursLabel(target))
+                        .font(SleepFont.label(10))
+                        .foregroundStyle(SleepColor.dim)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(Capsule().fill(SleepColor.navy.opacity(0.72)))
+                    Rectangle()
+                        .fill(SleepColor.ink.opacity(0.18))
+                        .frame(height: 1)
+                }
+                .offset(y: -chartHeight * targetFraction)
             }
 
             HStack(spacing: SleepSpacing.sm) {
@@ -835,9 +1000,38 @@ private struct RecordBars: View {
                         .frame(maxWidth: .infinity)
                 }
             }
+
+            // Weekday initials alone can't tell one week from another (a stale
+            // June week looks just like the current one), so every page names
+            // its date range; the newest page also says how long ago, so an
+            // old record reads as old at a glance.
+            if let dateCaption {
+                Text(dateCaption)
+                    .font(SleepFont.label(11))
+                    .foregroundStyle(SleepColor.faint)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.top, SleepSpacing.xs)
+            }
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilitySummary)
+    }
+
+    /// "Jun 16 – Jun 22" for this page's span, with "· N days ago" appended on
+    /// the newest page once its latest night is ≥ 2 calendar days back.
+    private var dateCaption: String? {
+        guard let first = sessions.first?.end, let last = sessions.last?.end else { return nil }
+        let range = first == last
+            ? SleepFormatting.monthDay.string(from: last)
+            : "\(SleepFormatting.monthDay.string(from: first)) – \(SleepFormatting.monthDay.string(from: last))"
+        guard showsRelativeAge else { return range }
+        let calendar = Calendar.current
+        let days = calendar.dateComponents(
+            [.day],
+            from: calendar.startOfDay(for: last),
+            to: calendar.startOfDay(for: Date())
+        ).day ?? 0
+        return days >= 2 ? "\(range) · \(days) days ago" : range
     }
 
     /// Hours for a bar: "7h" for whole hours, else one decimal ("7.5h").
@@ -852,6 +1046,163 @@ private struct RecordBars: View {
     private var accessibilitySummary: String {
         guard let latest = sessions.last else { return "No nights logged yet" }
         let nights = sessions.count == 1 ? "1 night" : "\(sessions.count) nights"
-        return "Sleep chart, \(nights) logged. Last night \(SleepFormatting.duration(latest.durationMinutes))."
+        var summary = "Sleep chart, \(nights) this week. Latest night \(SleepFormatting.duration(latest.durationMinutes))."
+        if let dateCaption {
+            summary += " \(dateCaption)."
+        }
+        return summary
+    }
+}
+
+/// Swipeable wrapper around `RecordBars`: the record is chunked into pages of
+/// seven nights (boundaries anchored to the newest night, so the current week
+/// is always a full column set and older weeks fill in behind it), and each
+/// page is a self-contained bar chart with its own date-range caption. Pages
+/// sit oldest→newest left→right — matching the "latest rightmost" rhythm of a
+/// single chart — so the newest week shows by default and the user swipes
+/// right to walk back through history. A single week renders as a plain chart
+/// with no pager chrome.
+private struct RecordChart: View {
+    let sessions: [SleepSession]
+    let target: Int
+
+    private static let perPage = 7
+    private let pageHeight: CGFloat = 172
+
+    @State private var page = 0
+
+    /// Oldest→newest pages of up to seven nights, split from the newest night
+    /// backward so the most recent page is always full when the record allows.
+    private var pages: [[SleepSession]] {
+        guard !sessions.isEmpty else { return [] }
+        var result: [[SleepSession]] = []
+        var end = sessions.count
+        while end > 0 {
+            let start = max(0, end - Self.perPage)
+            result.append(Array(sessions[start ..< end]))
+            end = start
+        }
+        return result.reversed()
+    }
+
+    var body: some View {
+        let pages = pages
+        if pages.count <= 1 {
+            RecordBars(sessions: pages.first ?? [], target: target)
+        } else {
+            VStack(spacing: SleepSpacing.md) {
+                TabView(selection: $page) {
+                    ForEach(Array(pages.enumerated()), id: \.offset) { index, week in
+                        RecordBars(
+                            sessions: week,
+                            target: target,
+                            showsRelativeAge: index == pages.count - 1
+                        )
+                        .frame(maxHeight: .infinity, alignment: .top)
+                        .tag(index)
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .frame(height: pageHeight)
+
+                PageDots(count: pages.count, current: $page)
+            }
+            .onAppear { page = pages.count - 1 }
+        }
+    }
+}
+
+/// Instagram-style page indicator, scaled for a record that can run to
+/// dozens of weeks. The strip is a **fixed-width window** of at most
+/// `maxVisible` dots — it never grows no matter how long the record is; when
+/// there are more weeks than fit, the dots on whichever edge still has hidden
+/// weeks shrink to signal "more this way". The current week is amber, the
+/// rest faint. The system's own TabView dots are suppressed because they
+/// clash with the bars and can't do any of this.
+///
+/// The strip is also a **scrubber**: press and drag it left/right to fast-
+/// forward or rewind through weeks (finger travel maps to weeks at a fixed
+/// step), with a soft tick each time a new week lands — so reaching week 3 of
+/// 15 is one drag, not fifteen swipes.
+private struct PageDots: View {
+    let count: Int
+    @Binding var current: Int
+
+    private static let maxVisible = 7
+    private static let dotSize: CGFloat = 7
+    private static let scrubStep: CGFloat = 18 // finger points per week
+
+    // The week the current drag started from, so scrubbing is measured as a
+    // delta rather than an absolute position on a narrow strip.
+    @State private var scrubAnchor: Int?
+
+    // First index of the visible window, slid so the current week stays
+    // centered until the window bumps into either end of the record.
+    private var windowStart: Int {
+        guard count > Self.maxVisible else { return 0 }
+        let half = Self.maxVisible / 2
+        return min(max(0, current - half), count - Self.maxVisible)
+    }
+
+    private var visibleIndices: Range<Int> {
+        windowStart ..< min(count, windowStart + Self.maxVisible)
+    }
+
+    /// Relative size for a dot: full, except the outermost one or two dots on
+    /// an edge that still has weeks hidden beyond it, which taper down.
+    private func scale(for index: Int) -> CGFloat {
+        guard count > Self.maxVisible else { return 1 }
+        let start = windowStart
+        let end = start + Self.maxVisible - 1
+        if start > 0 {
+            if index == start { return 0.45 }
+            if index == start + 1 { return 0.7 }
+        }
+        if end < count - 1 {
+            if index == end { return 0.45 }
+            if index == end - 1 { return 0.7 }
+        }
+        return 1
+    }
+
+    var body: some View {
+        HStack(spacing: SleepSpacing.sm) {
+            ForEach(visibleIndices, id: \.self) { index in
+                Circle()
+                    .fill(index == current ? SleepColor.amber : SleepColor.faint)
+                    .frame(width: Self.dotSize * scale(for: index),
+                           height: Self.dotSize * scale(for: index))
+                    // Stable slot so shrinking a dot never jiggles the row.
+                    .frame(width: Self.dotSize, height: Self.dotSize)
+            }
+        }
+        .frame(height: Self.dotSize)
+        .animation(.easeInOut(duration: 0.2), value: current)
+        // Roomy invisible hit area so the thin strip is easy to grab and scrub.
+        .padding(.vertical, SleepSpacing.sm)
+        .contentShape(Rectangle())
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { value in
+                    let anchor = scrubAnchor ?? current
+                    if scrubAnchor == nil { scrubAnchor = current }
+                    let delta = Int((value.translation.width / Self.scrubStep).rounded())
+                    let target = min(max(0, anchor + delta), count - 1)
+                    if target != current {
+                        Haptics.soft()
+                        current = target
+                    }
+                }
+                .onEnded { _ in scrubAnchor = nil }
+        )
+        .accessibilityElement()
+        .accessibilityLabel("Week \(current + 1) of \(count)")
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: current = min(count - 1, current + 1)
+            case .decrement: current = max(0, current - 1)
+            default: break
+            }
+        }
     }
 }

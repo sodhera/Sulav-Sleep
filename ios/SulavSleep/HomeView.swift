@@ -67,7 +67,7 @@ struct HomeView: View {
                 withAnimation(.easeInOut(duration: 0.3)) { store.showSleepConfirmation = true }
             }
 
-            LastNightStrip(lastSession: store.latestSession, streak: store.onTrackStreak)
+            LastNightStrip(lastSession: store.lastNightSession, streak: store.onTrackStreak)
                 .padding(.top, SleepSpacing.xl)
 
             Spacer().frame(height: SleepSpacing.xl)

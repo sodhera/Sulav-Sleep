@@ -38,6 +38,20 @@ the launch configuration ($59.99 annual / $5.99 monthly) and should be updated
 before capture if App Store Connect pricing changes. The screenshot is review
 evidence only and must not be used as a public App Store marketing screenshot.
 
+### Preview the Settings subscription status
+
+The **Subscription** group in Settings is fed by `store.subscriptionStatus`,
+which is nil in dev mode (no RevenueCat key, no real subscription) — so the
+group hides on the Simulator by default. A DEBUG-only launch argument injects a
+sample trial (6 days left, renewing) so the row can be seen and screenshotted:
+
+```sh
+xcrun simctl launch booted com.sulav.sleepblock -review-subscription
+```
+
+Like `-review-paywall`, the arg is compiled only under `DEBUG`. Against a real
+RevenueCat key the status is live, so the arg is ignored (dev mode only).
+
 ### Preview the Screen Time primer
 
 The permission primer (`ScreenTimePrimerView` — the mock-dialog gate between
@@ -466,16 +480,28 @@ starting the trial or subscribing is the only way in.
 Code map (all behind the app's usual protocol seam):
 
 - `SleepSubscription.swift` — `SubscriptionProviding` +
-  `RevenueCatSubscriptionService`. Streams `CustomerInfo` →
-  `EntitlementState` (`unknown` / `entitled` / `notEntitled`), maps the
-  current offering's packages to SDK-free `SleepPlan` values, runs
-  purchase/restore, and links the RevenueCat identity to the Supabase
-  account id on sign-in/out (`logIn`/`logOut`) so a subscription follows the
-  user across devices.
-- `SleepStore` — `entitlement`, `needsPaywall` (signed in + onboarded +
-  *resolved* not-entitled), and `fetchPlans`/`purchase`/`restorePurchases`
-  intents for the paywall.
+  `RevenueCatSubscriptionService`. Streams `CustomerInfo` → both an
+  `EntitlementState` (`unknown` / `entitled` / `notEntitled`, the paywall
+  gate's answer) and a display-only `SubscriptionStatus?` (tier, `willRenew`,
+  `expirationDate`, best-effort `isAnnual`) for the Settings status row —
+  deliberately kept apart so enriching what's *shown* never disturbs the
+  three-state answer the gate compares. Also maps the current offering's
+  packages to SDK-free `SleepPlan` values, runs purchase/restore, presents the
+  App Store management sheet (`manageSubscriptions` → `showManageSubscriptions`),
+  and links the RevenueCat identity to the Supabase account id on sign-in/out
+  (`logIn`/`logOut`) so a subscription follows the user across devices.
+- `SleepStore` — `entitlement`, `subscriptionStatus`, `needsPaywall` (signed
+  in + onboarded + *resolved* not-entitled), and `fetchPlans`/`purchase`/
+  `restorePurchases`/`manageSubscriptions` intents.
 - `PaywallView.swift` — the screen (see DESIGN.md "Paywall").
+- `ProfileView.swift` — the **Subscription** group in `SettingsModal`
+  (`SubscriptionStatusRow` + Manage subscription), hidden when
+  `subscriptionStatus` is nil (dev mode / unresolved). See DESIGN.md
+  "Navigation & structure".
+- `scripts/generate-subscription-icon.py` — generates the status row's
+  `SubscriptionSloth.imageset` (gold "medallion" sloth head). It derives from
+  the committed `HomeSlothNightAwake` PNG, so — unlike `generate-app-icon.py` —
+  it needs **no source EPS**; re-run it if the base sloth art changes.
 - `RootView` — the gate. It never acts on `.unknown`: it holds the splash
   while the entitlement resolves (RevenueCat replays its cached
   `CustomerInfo` immediately, so this is normally instant — subscribers

@@ -264,11 +264,12 @@ struct ScreenTimePrimerView: View {
 
 /// A stylized miniature of the system permission dialog, so the real one is
 /// recognized on sight. Deliberately *not* Liquid Glass — it depicts iOS
-/// chrome, not one of the app's own controls — and the mock "Allow" keeps
-/// the system's blue: the primer's whole job is pattern-matching against the
-/// sheet iOS is about to show (the one sanctioned exception to the
-/// no-blue-identity rule; see DESIGN.md). Decorative only, hidden from
-/// accessibility — the headline above carries the meaning.
+/// chrome, not one of the app's own controls. The real sheet's affirmative is
+/// "Continue" (left); iOS makes "Don't Allow" (right) the blue default, and the
+/// mock keeps that blue on "Don't Allow": the primer's whole job is
+/// pattern-matching against the sheet iOS is about to show (the one sanctioned
+/// exception to the no-blue-identity rule; see DESIGN.md). Decorative only,
+/// hidden from accessibility — the headline above carries the meaning.
 private struct MockPermissionDialog: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var arrowLift = false
@@ -297,12 +298,12 @@ private struct MockPermissionDialog: View {
                 Rectangle().fill(SleepColor.hairline).frame(height: 1)
 
                 HStack(spacing: 0) {
-                    Text("Don't Allow")
-                        .font(.system(size: 16))
-                        .foregroundStyle(SleepColor.muted)
+                    Text("Continue")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(SleepColor.ink)
                         .frame(maxWidth: .infinity, minHeight: 46)
                     Rectangle().fill(SleepColor.hairline).frame(width: 1, height: 46)
-                    Text("Allow")
+                    Text("Don't Allow")
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(Color(red: 0.04, green: 0.52, blue: 1.0))
                         .frame(maxWidth: .infinity, minHeight: 46)
@@ -318,19 +319,21 @@ private struct MockPermissionDialog: View {
                     .stroke(SleepColor.border, lineWidth: 1)
             }
 
-            // The amber arrow under the Allow half — the one instruction.
+            // The amber arrow under the Continue half — the one instruction.
+            // iOS makes "Don't Allow" the blue default here, so the affirmative
+            // is the grey "Continue" on the left; the guidance must point there.
             HStack(spacing: 0) {
-                Color.clear.frame(maxWidth: .infinity, maxHeight: 0)
                 VStack(spacing: SleepSpacing.sm) {
                     Image(systemName: "arrow.up")
                         .font(.system(size: 20, weight: .semibold))
                         .foregroundStyle(SleepColor.amber)
                         .offset(y: arrowLift ? -3 : 3)
-                    Text("Tap Allow")
+                    Text("Tap Continue")
                         .font(SleepFont.label(13))
                         .foregroundStyle(SleepColor.amber)
                 }
                 .frame(maxWidth: .infinity)
+                Color.clear.frame(maxWidth: .infinity, maxHeight: 0)
             }
             .frame(maxWidth: 300)
         }

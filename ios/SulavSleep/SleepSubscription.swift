@@ -25,6 +25,29 @@ enum EntitlementState: Equatable {
     case notEntitled
 }
 
+/// Display-only detail about the *active* subscription, for the Settings
+/// status row. Deliberately separate from `EntitlementState`: the gate only
+/// ever asks "in or out", and enriching what we *show* must never disturb the
+/// three-state answer the paywall gate compares against. Every field here is
+/// read straight off RevenueCat's `EntitlementInfo`.
+struct SubscriptionStatus: Equatable {
+    /// The three states the status row speaks to. `.trial` is the free intro
+    /// offer, `.pro` a paid (or converted) subscription, `.expired` a lapsed
+    /// one — rare in Settings, since an unentitled user is held at the paywall.
+    enum Tier: Equatable { case trial, pro, expired }
+
+    var tier: Tier
+    /// False once the user has cancelled but access hasn't lapsed yet — the
+    /// "about to end" case the status row flags in amber (a heads-up, not a
+    /// failure, so never `danger`).
+    var willRenew: Bool
+    /// The next renewal date when `willRenew`, otherwise the date access ends.
+    var expiration: Date?
+    /// Best-effort period, inferred from the product id; nil when it can't be
+    /// told apart, in which case the row simply omits the plan word.
+    var isAnnual: Bool?
+}
+
 /// One purchasable plan, mapped out of RevenueCat's `Package` so views never
 /// import the SDK. `id` round-trips back to the package on purchase.
 struct SleepPlan: Identifiable, Equatable {
@@ -47,8 +70,10 @@ protocol SubscriptionProviding {
     var isConfigured: Bool { get }
     /// Configure the SDK and start streaming entitlement changes. `onChange`
     /// fires on the main actor with every resolved CustomerInfo, including
-    /// the first fetch.
-    func start(onChange: @escaping @MainActor (EntitlementState) -> Void)
+    /// the first fetch — the `EntitlementState` gates the paywall, the
+    /// `SubscriptionStatus?` (nil when there's nothing to describe) feeds the
+    /// Settings status row.
+    func start(onChange: @escaping @MainActor (EntitlementState, SubscriptionStatus?) -> Void)
     /// Tie the RevenueCat identity to the signed-in account so a
     /// subscription follows the user across devices and reinstalls.
     func logIn(accountID: String) async
@@ -60,6 +85,10 @@ protocol SubscriptionProviding {
     /// user cancelled (not an error), or throws with a user-facing message.
     func purchase(planID: String) async throws -> EntitlementState?
     func restore() async throws -> EntitlementState
+    /// Present the system-managed subscription sheet (App Store) so the user
+    /// can switch plans or cancel — the only sanctioned place to change
+    /// billing. No-op in dev mode.
+    func manageSubscriptions() async
 }
 
 enum SleepSubscription {
@@ -84,12 +113,13 @@ enum SleepSubscription {
 private final class ReviewPaywallSubscriptionService: SubscriptionProviding {
     var isConfigured: Bool { true }
 
-    func start(onChange: @escaping @MainActor (EntitlementState) -> Void) {
-        Task { @MainActor in onChange(.notEntitled) }
+    func start(onChange: @escaping @MainActor (EntitlementState, SubscriptionStatus?) -> Void) {
+        Task { @MainActor in onChange(.notEntitled, nil) }
     }
 
     func logIn(accountID: String) async {}
     func logOut() async {}
+    func manageSubscriptions() async {}
 
     func fetchPlans() async -> [SleepPlan] {
         [
@@ -139,7 +169,7 @@ final class RevenueCatSubscriptionService: SubscriptionProviding {
 
     var isConfigured: Bool { !apiKey.isEmpty }
 
-    func start(onChange: @escaping @MainActor (EntitlementState) -> Void) {
+    func start(onChange: @escaping @MainActor (EntitlementState, SubscriptionStatus?) -> Void) {
         guard isConfigured else {
             AppLog.paywall.notice("REVENUECAT_API_KEY empty — paywall disabled (dev mode)")
             return
@@ -156,8 +186,17 @@ final class RevenueCatSubscriptionService: SubscriptionProviding {
         // renewals, restores, logIn identity switches.
         Task { @MainActor in
             for await info in Purchases.shared.customerInfoStream {
-                onChange(Self.state(of: info))
+                onChange(Self.state(of: info), Self.status(of: info))
             }
+        }
+    }
+
+    func manageSubscriptions() async {
+        guard isConfigured else { return }
+        do {
+            try await Purchases.shared.showManageSubscriptions()
+        } catch {
+            AppLog.paywall.error("Manage subscriptions failed: \(error.localizedDescription, privacy: .public)")
         }
     }
 
@@ -235,6 +274,35 @@ final class RevenueCatSubscriptionService: SubscriptionProviding {
 
     private static func state(of info: CustomerInfo) -> EntitlementState {
         info.entitlements[SleepSubscription.entitlementID]?.isActive == true ? .entitled : .notEntitled
+    }
+
+    /// Reads the entitlement's period/renewal detail for the Settings status
+    /// row. Nil when there's no entitlement at all — the row hides rather than
+    /// inventing a status. The trial and intro period types both read as a
+    /// trial to the user; anything active-and-not-trial is `.pro`.
+    private static func status(of info: CustomerInfo) -> SubscriptionStatus? {
+        guard let entitlement = info.entitlements[SleepSubscription.entitlementID] else { return nil }
+        let tier: SubscriptionStatus.Tier
+        if !entitlement.isActive {
+            tier = .expired
+        } else if entitlement.periodType == .trial || entitlement.periodType == .intro {
+            tier = .trial
+        } else {
+            tier = .pro
+        }
+
+        // EntitlementInfo carries no billing period, so infer it from the
+        // product id (our ids end ".annual"/".monthly"); unknown → omit.
+        let id = entitlement.productIdentifier.lowercased()
+        let isAnnual: Bool? = (id.contains("annual") || id.contains("year")) ? true
+            : (id.contains("month") ? false : nil)
+
+        return SubscriptionStatus(
+            tier: tier,
+            willRenew: entitlement.willRenew,
+            expiration: entitlement.expirationDate,
+            isAnnual: isAnnual
+        )
     }
 
     private static func plan(from package: Package) -> SleepPlan? {
