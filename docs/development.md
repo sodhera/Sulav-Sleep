@@ -520,6 +520,12 @@ Configuration — the same plumbing as the Supabase keys:
 2. **An empty key is dev mode**: `isConfigured == false`, the store resolves
    `.entitled` at init, and the paywall never shows — the Simulator and fresh
    clones run with zero setup.
+3. **Release builds refuse to ship without keys**: the app target's first
+   build phase ("Guard Release Secrets" in `project.pbxproj`) fails any
+   Release build where `REVENUECAT_API_KEY`, `SUPABASE_URL`, or
+   `SUPABASE_ANON_KEY` is empty — dev mode in a Release archive would
+   silently disable the paywall (everyone entitled) and break auth. Debug
+   builds are exempt, keeping the zero-setup dev mode above.
 
 One-time external setup (dashboards):
 
@@ -529,8 +535,8 @@ One-time external setup (dashboards):
    annual** product (the paywall CTA derives "Start N nights free" from the
    product's intro offer, so the trial length lives in ASC, not code).
 2. **RevenueCat** — create the project + Apple app, import the products,
-   create entitlement **`pro`** (the id `SleepSubscription.entitlementID`
-   checks) attached to both products, and a **current Offering** containing
+   create entitlement **`SleepBlock Pro`** (must match
+   `SleepSubscription.entitlementID` exactly) attached to both products, and a **current Offering** containing
    an `$rc_annual` and `$rc_monthly` package. The paywall renders whatever
    the current offering carries — plans, prices, and trial all come from the
    dashboard.

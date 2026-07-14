@@ -8,7 +8,7 @@ import RevenueCat
 // The model is a **hard paywall with a free trial**: after onboarding, the
 // only way into the app is starting the trial (an App Store intro offer on
 // the annual plan) or subscribing — see `RootView` and DESIGN.md. The gate
-// hinges on one entitlement, `pro`.
+// hinges on one entitlement, `SleepBlock Pro` (`entitlementID` below).
 //
 // Configuration lives in `REVENUECAT_API_KEY` (Secrets/Config.xcconfig →
 // Info.plist, same plumbing as the Supabase keys). An **empty key means dev
