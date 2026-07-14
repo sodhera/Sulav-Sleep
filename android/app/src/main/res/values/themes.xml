@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Deep-navy launch window so cold start never flashes white; Compose
+         paints everything after that. -->
+    <style name="Theme.SleepBlock" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#08111E</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

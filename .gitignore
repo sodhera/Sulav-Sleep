@@ -37,9 +37,6 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
-# generated native folders
-/android
-
 # iOS build/generated output
 /ios/Pods/
 /ios/build/

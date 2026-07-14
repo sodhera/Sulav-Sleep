@@ -1,0 +1,10 @@
+.gradle/
+build/
+local.properties
+.idea/
+.DS_Store
+/captures
+.externalNativeBuild
+.cxx
+# Machine-specific secrets (mirrors ios Config.xcconfig — see docs/android.md)
+secrets.properties
