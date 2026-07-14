@@ -189,10 +189,14 @@ private enum class Step {
 
 @Composable
 private fun QuestionnaireScreen(store: SleepStore, onExit: () -> Unit) {
-    val needsAccount = !store.isAuthenticated
-    val steps = remember(needsAccount) { Step.steps(needsAccount) }
+    // Decided once when the flow opens: the moment the account step's sign-up
+    // succeeds, isAuthenticated flips mid-composition — recomputing this would
+    // shrink the steps list under a live index and crash before the
+    // completeOnboarding effect can run.
+    val needsAccount = remember { !store.isAuthenticated }
+    val steps = remember { Step.steps(needsAccount) }
     var index by rememberSaveable { mutableStateOf(0) }
-    val step = steps[index]
+    val step = steps[index.coerceIn(0, steps.lastIndex)]
 
     // Answers
     var name by rememberSaveable { mutableStateOf("") }

@@ -16,8 +16,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -80,7 +84,13 @@ fun SleepModeScreen(store: SleepStore) {
             modifier = Modifier.fillMaxSize().systemBarsPadding().padding(horizontal = 24.dp),
         ) {
             Spacer(Modifier.weight(1f))
-            Text("💤", fontSize = 56.sp)
+            // Ember only on OLED black — never a platform-colored emoji.
+            Icon(
+                Icons.Default.DarkMode,
+                contentDescription = null,
+                tint = SleepColors.emberDim,
+                modifier = Modifier.size(56.dp),
+            )
             Spacer(Modifier.height(24.dp))
             SectionLabel("Asleep")
             Spacer(Modifier.height(8.dp))
