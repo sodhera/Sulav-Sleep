@@ -11,6 +11,13 @@ Coffee Talk, and quiet Tokyo night pixel art**. The pixel aesthetic lives in the
 *environment* (the background scene), never in the usability layer. The UI
 itself is minimal, editorial, and built on native iOS **Liquid Glass**.
 
+> Platforms: this document is written against the flagship iOS app. The
+> Android port (`android/`, see `docs/android.md`) follows the same palette,
+> type scale, structure, and copy rules, but renders the *fallback* glass
+> grammar (translucent deep-navy surfaces + hairline borders) over the
+> widgets' minimal night gradient — Liquid Glass and the living pixel scene
+> are iOS-only until the scene is ported.
+
 > Note on history: earlier iterations used a purple "Lullaby" night sky. That
 > direction is retired. The current system is warm amber against deep navy, with
 > **no purple, no neon, no saturated/cyberpunk blues**.
