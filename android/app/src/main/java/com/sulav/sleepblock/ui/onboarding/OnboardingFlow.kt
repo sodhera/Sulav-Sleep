@@ -49,6 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -56,6 +57,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sulav.sleepblock.R
+import com.sulav.sleepblock.auth.SulavAuth
 import com.sulav.sleepblock.data.LateNightPhoneTime
 import com.sulav.sleepblock.data.OnboardingAnswers
 import com.sulav.sleepblock.data.SleepFormatting
@@ -180,7 +182,30 @@ private fun SignInScreen(store: SleepStore, onBack: () -> Unit) {
         ) {
             store.signInEmail(email.trim(), password)
         }
+        GoogleProviderButton(store, label = "Sign in with Google")
         Spacer(Modifier.height(24.dp))
+    }
+}
+
+/**
+ * The branded Google pill (white, official-mark colors are phase-2 art),
+ * rendered only when a web client id is configured. Names the action being
+ * taken, per the provider-stack rule.
+ */
+@Composable
+private fun GoogleProviderButton(store: SleepStore, label: String) {
+    if (!SulavAuth.googleConfigured) return
+    val activity = LocalContext.current as? android.app.Activity ?: return
+    Spacer(Modifier.height(12.dp))
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(58.dp)
+            .background(Color.White, CircleShape)
+            .clickable(enabled = !store.isAuthenticating) { store.signInWithGoogle(activity) },
+    ) {
+        Text(label, style = SleepType.body, color = Color(0xFF1F1F1F), fontWeight = FontWeight.Medium)
     }
 }
 
@@ -523,6 +548,7 @@ private fun AccountStep(store: SleepStore) {
         ) {
             store.signUpEmail(email.trim(), password)
         }
+        GoogleProviderButton(store, label = "Sign up with Google")
         Spacer(Modifier.height(24.dp))
     }
 }

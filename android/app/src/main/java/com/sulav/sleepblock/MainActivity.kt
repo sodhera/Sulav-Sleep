@@ -15,6 +15,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sulav.sleepblock.data.SleepStore
 import com.sulav.sleepblock.ui.MainScreen
 import com.sulav.sleepblock.ui.onboarding.OnboardingFlow
+import com.sulav.sleepblock.ui.paywall.PaywallScreen
 import com.sulav.sleepblock.ui.sleep.SleepModeScreen
 import com.sulav.sleepblock.ui.theme.NightBackground
 import com.sulav.sleepblock.ui.theme.SleepBlockTheme
@@ -41,8 +42,11 @@ class MainActivity : ComponentActivity() {
 fun RootScreen(store: SleepStore = viewModel()) {
     val destination = when {
         !store.isAuthReady -> Destination.SPLASH
+        // An active night always outranks the paywall: Hold to wake (and the
+        // lockdown teardown) stays reachable whatever the entitlement says.
         store.activeSession != null -> Destination.SLEEP
         !store.isAuthenticated || !store.isOnboarded -> Destination.ONBOARDING
+        store.needsPaywall -> Destination.PAYWALL
         else -> Destination.MAIN
     }
     Crossfade(targetState = destination, label = "root") { target ->
@@ -54,9 +58,10 @@ fun RootScreen(store: SleepStore = viewModel()) {
             }
             Destination.SLEEP -> SleepModeScreen(store)
             Destination.ONBOARDING -> OnboardingFlow(store)
+            Destination.PAYWALL -> PaywallScreen(store)
             Destination.MAIN -> MainScreen(store)
         }
     }
 }
 
-private enum class Destination { SPLASH, SLEEP, ONBOARDING, MAIN }
+private enum class Destination { SPLASH, SLEEP, ONBOARDING, PAYWALL, MAIN }

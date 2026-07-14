@@ -32,6 +32,8 @@ interface AuthProviding {
     suspend fun currentAccount(): AppAccount?
     suspend fun signUp(email: String, password: String): AuthResult
     suspend fun signIn(email: String, password: String): AuthResult
+    /** GoTrue id_token grant with a Google ID token from Credential Manager. */
+    suspend fun signInWithGoogleIdToken(idToken: String): AuthResult
     suspend fun signOut()
     suspend fun fetchRemoteProfile(): RemoteProfile?
     suspend fun saveRemoteProfile(profile: RemoteProfile)
@@ -52,6 +54,11 @@ object SulavAuth {
     }
 
     const val TAG = "SleepAuth"
+
+    /** Whether the Google provider button should render at all. */
+    val googleConfigured: Boolean
+        get() = BuildConfig.GOOGLE_WEB_CLIENT_ID.isNotEmpty() &&
+            !BuildConfig.GOOGLE_WEB_CLIENT_ID.startsWith("your-")
 }
 
 object DisabledAuthClient : AuthProviding {
@@ -59,6 +66,8 @@ object DisabledAuthClient : AuthProviding {
     override suspend fun signUp(email: String, password: String): AuthResult =
         throw AuthException.Unknown("Sign-in isn't configured yet.")
     override suspend fun signIn(email: String, password: String): AuthResult =
+        throw AuthException.Unknown("Sign-in isn't configured yet.")
+    override suspend fun signInWithGoogleIdToken(idToken: String): AuthResult =
         throw AuthException.Unknown("Sign-in isn't configured yet.")
     override suspend fun signOut() {}
     override suspend fun fetchRemoteProfile(): RemoteProfile? = null
@@ -155,6 +164,18 @@ class SupabaseAuthClient(
         saveSession(response)
         val user = response["user"]!!.jsonObject
         Log.i(SulavAuth.TAG, "Signed in with email")
+        AuthResult(account(user), isNewAccount = isNewAccount(user), remoteProfile = remoteProfile(user))
+    }
+
+    override suspend fun signInWithGoogleIdToken(idToken: String): AuthResult = withContext(Dispatchers.IO) {
+        val body = buildJsonObject {
+            put("provider", "google")
+            put("id_token", idToken)
+        }
+        val response = request("POST", "$baseUrl/auth/v1/token?grant_type=id_token", body)
+        saveSession(response)
+        val user = response["user"]!!.jsonObject
+        Log.i(SulavAuth.TAG, "Signed in with Google")
         AuthResult(account(user), isNewAccount = isNewAccount(user), remoteProfile = remoteProfile(user))
     }
 

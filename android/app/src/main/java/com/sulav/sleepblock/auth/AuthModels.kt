@@ -91,5 +91,7 @@ sealed class AuthException(val userMessage: String, val isNotice: Boolean = fals
     )
     object RateLimited : AuthException("Too many attempts. Wait a moment and try again.")
     object Network : AuthException("Couldn't reach the network. Try again.")
+    /** A deliberate user action — the UI shows nothing for it. */
+    object Cancelled : AuthException("Sign-in was cancelled.")
     class Unknown(detail: String) : AuthException(detail)
 }

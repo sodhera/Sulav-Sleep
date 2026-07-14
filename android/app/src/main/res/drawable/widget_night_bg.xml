@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The widgets' minimal night gradient (skyTop -> background) with rounded
+     corners; the amber floor glow is carried by the sloth art itself. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient
+        android:angle="270"
+        android:startColor="#152238"
+        android:endColor="#08111E" />
+    <corners android:radius="24dp" />
+</shape>

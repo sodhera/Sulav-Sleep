@@ -1,5 +1,6 @@
 package com.sulav.sleepblock.data
 
+import android.app.Activity
 import android.app.Application
 import android.util.Log
 import androidx.compose.runtime.getValue
@@ -11,10 +12,16 @@ import com.sulav.sleepblock.auth.AppAccount
 import com.sulav.sleepblock.auth.AuthException
 import com.sulav.sleepblock.auth.AuthProviding
 import com.sulav.sleepblock.auth.AuthResult
+import com.sulav.sleepblock.auth.GoogleCredential
 import com.sulav.sleepblock.auth.RemoteProfile
 import com.sulav.sleepblock.auth.SulavAuth
+import com.sulav.sleepblock.subscription.EntitlementState
+import com.sulav.sleepblock.subscription.SleepPlan
+import com.sulav.sleepblock.subscription.SleepSubscriptionFactory
+import com.sulav.sleepblock.subscription.SubscriptionProviding
 import com.sulav.sleepblock.blocking.SleepAppBlocking
 import com.sulav.sleepblock.blocking.SleepLockdownService
+import com.sulav.sleepblock.widget.SleepWidget
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
@@ -30,6 +37,7 @@ class SleepStore(application: Application) : AndroidViewModel(application) {
 
     private val persistence = SleepPersistence(application)
     private val auth: AuthProviding = SulavAuth.makeDefault(application)
+    private val subscription: SubscriptionProviding = SleepSubscriptionFactory.makeDefault(application)
 
     var profile: Profile? by mutableStateOf(null)
         private set
@@ -56,9 +64,38 @@ class SleepStore(application: Application) : AndroidViewModel(application) {
     var lastSignInWasNewAccount: Boolean = false
         private set
 
+    /**
+     * What RevenueCat knows about the `pro` entitlement. UNKNOWN never gates;
+     * an unconfigured build resolves ENTITLED at init (dev mode, no paywall).
+     */
+    var entitlement: EntitlementState by mutableStateOf(EntitlementState.UNKNOWN)
+        private set
+
     init {
         reload()
+        subscription.start { state -> entitlement = state }
         viewModelScope.launch { restoreSession() }
+    }
+
+    // MARK: - Subscription
+
+    /** Whether the hard paywall stands between this user and Main. */
+    val needsPaywall: Boolean
+        get() = isAuthenticated && isOnboarded && entitlement == EntitlementState.NOT_ENTITLED
+
+    suspend fun fetchPlans(): List<SleepPlan> = subscription.fetchPlans()
+
+    /** Null when cancelled; true when entitled afterwards. */
+    suspend fun purchase(activity: Activity, plan: SleepPlan): Boolean? {
+        val state = subscription.purchase(activity, plan) ?: return null
+        entitlement = state
+        return state == EntitlementState.ENTITLED
+    }
+
+    suspend fun restorePurchases(): Boolean {
+        val state = subscription.restore()
+        entitlement = state
+        return state == EntitlementState.ENTITLED
     }
 
     // MARK: - Derived state
@@ -179,6 +216,7 @@ class SleepStore(application: Application) : AndroidViewModel(application) {
         account?.let { restored ->
             persistence.account = restored
             persistence.lastAccountID = restored.id
+            subscription.logIn(restored.id)
             // Signed in but no profile on this device: restore the cloud copy
             // so the user lands in the app, not back in onboarding.
             if (profile == null) {
@@ -196,9 +234,16 @@ class SleepStore(application: Application) : AndroidViewModel(application) {
 
     fun signInEmail(email: String, password: String) = performAuth { auth.signIn(email, password) }
 
+    /** Credential Manager → Supabase id_token grant. Cancel shows nothing. */
+    fun signInWithGoogle(activity: Activity) = performAuth {
+        val idToken = GoogleCredential.idToken(activity)
+        auth.signInWithGoogleIdToken(idToken)
+    }
+
     fun signOut() {
         viewModelScope.launch {
             auth.signOut()
+            subscription.logOut()
             account = null
             authErrorMessage = null
             authMessageIsNotice = false
@@ -254,6 +299,8 @@ class SleepStore(application: Application) : AndroidViewModel(application) {
                 lastSignInWasNewAccount = result.isNewAccount
                 adoptSignedInAccount(result.account, result.remoteProfile)
                 Log.i(TAG, "Signed in (provider=${result.account.provider}, new=${result.isNewAccount})")
+            } catch (e: AuthException.Cancelled) {
+                // Deliberate user action — show nothing.
             } catch (e: AuthException) {
                 authErrorMessage = e.userMessage
                 authMessageIsNotice = e.isNotice
@@ -291,6 +338,8 @@ class SleepStore(application: Application) : AndroidViewModel(application) {
         persistence.account = newAccount
         persistence.lastAccountID = newAccount.id
         persist()
+        // Tie the subscription to the account so it follows across devices.
+        subscription.logIn(newAccount.id)
     }
 
     /** Best-effort push of the local profile to the account's cloud copy. */
@@ -363,6 +412,8 @@ class SleepStore(application: Application) : AndroidViewModel(application) {
         persistence.profile = profile
         persistence.sessions = sessions
         persistence.activeSession = activeSession
+        // Keep the home-screen widget's snapshot current.
+        viewModelScope.launch { SleepWidget.refresh(getApplication()) }
     }
 
     private companion object {

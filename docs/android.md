@@ -85,19 +85,50 @@ Shipped in the MVP:
   schedule steppers, sign out, delete account). Honest data only — no
   seeded history.
 
-Deferred to phase 2 (each is its own project):
+Shipped in phase 2 (July 2026):
 
-- **App blocking.** Android has no Screen Time shield equivalent; the plan
-  is UsageStats/`UsageEvents` detection + an overlay (or Accessibility
-  Service), which is Play-policy sensitive and needs its own design pass.
-  Until then the sleep confirmation states "No apps blocked tonight".
-- **Paywall.** RevenueCat purchases-android + Google Play products. The
-  BuildConfig key is already plumbed; entitlement currently resolves
-  "entitled" (dev-mode policy).
-- **Google sign-in** (Credential Manager), Health Connect import, home-screen
-  widgets, the pixel-art living scene, the sloth brand art (launcher icon is
-  a placeholder crescent — export real art via the iOS
-  `scripts/generate-app-icon.py` pipeline), Material haptics pass.
+- **App blocking** (`blocking/`). Android has no Screen Time shield API, so
+  blocking is *usage-access polling + a shield the app presents itself*:
+  `SleepLockdownService` (a specialUse foreground service, running only
+  while a session is active) polls `UsageEvents` every second for the
+  foreground app and launches `ShieldActivity` — night sloth, "Time to
+  sleep", one "Good night" exit — over anything on the blocked list.
+  Holding SYSTEM_ALERT_WINDOW exempts the service from background-launch
+  restrictions. The Blocked apps screen (Settings → Sleep) carries the
+  "Block while you sleep" toggle, deep-links to the two special-permission
+  grants (usage access, display over other apps), and lists launcher apps
+  via a manifest `<queries>` filter (no QUERY_ALL_PACKAGES).
+  `willLockDuringSleep` = toggle ∧ live permissions ∧ non-empty selection.
+  *Honest limitation vs iOS:* enforcement is app-level, not OS-level — a
+  determined user can revoke the permissions or force-stop the app; there
+  is no scheduled DeviceActivityMonitor equivalent, so the shield only
+  guards while a session runs.
+- **Real sloth art.** `scripts/generate-android-assets.py` (run after
+  `generate-app-icon.py`) ports the iOS art: adaptive launcher icon
+  (foreground + Android 13 monochrome) and the in-app sloth marks
+  (welcome/paywall brand, Home awake/drowsy, sleep screen + shield night
+  sloth).
+- **Home-screen widget** (`widget/SleepWidget.kt`, Glance): the small
+  "tonight" tile — BEDTIME + hero clock + awake sloth; ember sleep face
+  with "since" while a night runs; "Set a schedule" empty state. Refreshed
+  on every persistence write and every 30 minutes.
+- **Paywall** (`ui/paywall/`, `subscription/`). RevenueCat purchases-android
+  behind the same three-state entitlement gate as iOS (`UNKNOWN` never
+  gates; unconfigured key = dev mode, entitled at init). Hard paywall
+  between onboarding and Main; an active night always outranks it. Needs
+  `REVENUECAT_API_KEY` + Play Console products (entitlement id `pro`) to go
+  live; terms/privacy footer links land with the Play listing.
+- **Google sign-in** (`auth/GoogleCredential.kt`): Credential Manager →
+  Google ID token → Supabase `id_token` grant. The provider buttons render
+  only when `GOOGLE_WEB_CLIENT_ID` (the *web* client id Supabase is
+  configured with) is set in secrets.properties.
+
+Still deferred (phase 3):
+
+- Health Connect import, the pixel-art living scene, richer widget family
+  (medium/large with the 7-night bars), Material haptics pass, the official
+  multicolor Google "G" mark on the provider pill, subscription status row
+  in Settings, Play Store listing (terms/privacy URLs).
 
 ## Design language
 

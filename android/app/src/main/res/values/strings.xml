@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">SleepBlock</string>
+    <string name="widget_description">Tonight\'s bedtime at a glance — and the sleeping sloth while a night runs.</string>
 </resources>
