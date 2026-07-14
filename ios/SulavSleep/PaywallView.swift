@@ -26,11 +26,12 @@ struct PaywallView: View {
     @State private var message: String?
     @State private var messageIsNotice = false
 
-    /// Apple's standard EULA covers subscription terms until the app ships
-    /// its own. The privacy URL must point at the app's real policy before
-    /// App Store review — both links are required on a paywall.
+    /// Terms points at Apple's Standard EULA (the app's App Store Connect
+    /// license agreement), which is professionally drafted and applies by
+    /// default; Privacy points at the app's own policy (Apple provides no
+    /// privacy policy). Both links are required on a paywall.
     private static let termsURL = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
-    private static let privacyURL = URL(string: "https://sodhera.com/sleepblock/privacy")!
+    private static let privacyURL = URL(string: "https://www.orecci.com/sleepblock/privacy-policy.html")!
 
     private var selectedPlan: SleepPlan? {
         plans.first { $0.id == selectedPlanID }
