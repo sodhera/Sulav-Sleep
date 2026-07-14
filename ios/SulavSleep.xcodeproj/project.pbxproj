@@ -335,6 +335,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "SulavSleep" */;
 			buildPhases = (
+				F800000000000000000000B1 /* Guard Release Secrets */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
@@ -522,6 +523,24 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		F800000000000000000000B1 /* Guard Release Secrets */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Guard Release Secrets";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Fail fast when a Release build is about to ship without its service keys.\n# An empty REVENUECAT_API_KEY silently disables the paywall (dev mode grants\n# everyone the pro entitlement) and empty Supabase keys break auth \u2014 neither\n# errors at runtime. Keys come from Config.xcconfig (gitignored; see\n# docs/auth-setup.md), so any machine without it must not produce a Release build.\nif [ \"$CONFIGURATION\" = \"Release\" ]; then\n  for key in REVENUECAT_API_KEY SUPABASE_URL SUPABASE_ANON_KEY; do\n    if [ -z \"$(eval echo \\\"\\$$key\\\")\" ]; then\n      echo \"error: $key is empty in a Release build. Create ios/SulavSleep/Config.xcconfig from Config.xcconfig.example (docs/auth-setup.md) \u2014 shipping without it would disable the paywall and break auth.\"\n      exit 1\n    fi\n  done\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		13B07F871A680F5B00A75B9A /* Sources */ = {
