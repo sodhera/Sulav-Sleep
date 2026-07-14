@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -48,11 +49,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.sulav.sleepblock.R
 import com.sulav.sleepblock.data.LateNightPhoneTime
 import com.sulav.sleepblock.data.OnboardingAnswers
 import com.sulav.sleepblock.data.SleepFormatting
@@ -118,7 +121,13 @@ private fun WelcomeScreen(onGetStarted: () -> Unit, onSignIn: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Spacer(Modifier.weight(1f))
-        Text("🦥", fontSize = 64.sp)
+        // The brand mark: the icon's sleeping sloth (generated art, see
+        // scripts/generate-android-assets.py). Decorative only.
+        Image(
+            painter = painterResource(R.drawable.sloth_brand),
+            contentDescription = null,
+            modifier = Modifier.fillMaxWidth(0.5f),
+        )
         Spacer(Modifier.height(24.dp))
         Text("SleepBlock", style = SleepType.hero)
         Spacer(Modifier.height(12.dp))

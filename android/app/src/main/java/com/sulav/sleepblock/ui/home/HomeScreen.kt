@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -45,11 +46,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.sulav.sleepblock.R
 import com.sulav.sleepblock.data.SleepFormatting
 import com.sulav.sleepblock.data.SleepMath
 import com.sulav.sleepblock.data.SleepStore
@@ -110,7 +113,18 @@ private fun HomeBody(store: SleepStore) {
         SectionLabel(SleepFormatting.greeting())
         Spacer(Modifier.height(4.dp))
         Text(profile.name, style = SleepType.hero)
-        Spacer(Modifier.height(40.dp))
+        Spacer(Modifier.height(24.dp))
+        // The home sloth is the state: awake through the day, heavy-lidded
+        // once bedtime is within 90 minutes or just past.
+        val drowsy = minutesToBed <= 90 || pastBedtime
+        Image(
+            painter = painterResource(
+                if (drowsy) R.drawable.sloth_home_drowsy else R.drawable.sloth_home_awake
+            ),
+            contentDescription = null,
+            modifier = Modifier.fillMaxWidth(0.45f),
+        )
+        Spacer(Modifier.height(24.dp))
         if (pastBedtime) {
             Text("Wind down", style = SleepType.title, color = SleepColors.amber)
             Text("It's past your bedtime", style = SleepType.body, color = SleepColors.dim)
@@ -192,9 +206,17 @@ private fun SleepConfirmationPanel(store: SleepStore) {
             color = SleepColors.dim,
         )
         Spacer(Modifier.height(24.dp))
-        // App blocking is Android phase 2, so tonight's lockdown row states
-        // the honest fact: nothing is blocked yet.
-        Text("No apps blocked tonight", style = SleepType.body, color = SleepColors.muted)
+        // Tonight's lockdown as one honest line — the single source of truth
+        // is store.willLockDuringSleep, never a stored flag.
+        Text(
+            if (store.willLockDuringSleep) {
+                "${store.blockedPackages.size} app${if (store.blockedPackages.size == 1) "" else "s"} blocked tonight"
+            } else {
+                "No apps blocked tonight"
+            },
+            style = SleepType.body,
+            color = if (store.willLockDuringSleep) SleepColors.amber else SleepColors.muted,
+        )
         Spacer(Modifier.weight(1f))
         SlideToSleep(onComplete = { store.startSleep() })
         Spacer(Modifier.height(16.dp))

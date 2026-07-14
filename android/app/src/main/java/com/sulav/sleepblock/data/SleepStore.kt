@@ -13,6 +13,8 @@ import com.sulav.sleepblock.auth.AuthProviding
 import com.sulav.sleepblock.auth.AuthResult
 import com.sulav.sleepblock.auth.RemoteProfile
 import com.sulav.sleepblock.auth.SulavAuth
+import com.sulav.sleepblock.blocking.SleepAppBlocking
+import com.sulav.sleepblock.blocking.SleepLockdownService
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
@@ -93,6 +95,49 @@ class SleepStore(application: Application) : AndroidViewModel(application) {
                 streak += 1
             }
             return streak
+        }
+
+    // MARK: - Sleep lockdown (app blocking)
+
+    /** The user's "Block while you sleep" switch. On by default. */
+    val blockingEnabled: Boolean get() = profile?.blockDuringSleep ?: true
+
+    /** Bumped when the selection changes so Compose re-reads it. */
+    private var blockedRevision by mutableStateOf(0)
+
+    val blockedPackages: Set<String>
+        get() {
+            @Suppress("UNUSED_EXPRESSION") blockedRevision
+            return persistence.blockedPackages
+        }
+
+    fun saveBlockedPackages(packages: Set<String>) {
+        persistence.blockedPackages = packages
+        blockedRevision += 1
+    }
+
+    fun setBlockingEnabled(on: Boolean) {
+        val current = profile ?: return
+        if (current.blockDuringSleep == on) return
+        profile = current.copy(blockDuringSleep = on)
+        persist()
+        Log.i(TAG, "Sleep blocking switched ${if (on) "on" else "off"}")
+    }
+
+    /**
+     * Whether tonight's Sleep Now will actually shield anything: blocking on,
+     * both special permissions granted (checked live, mirroring the iOS rule
+     * that authorization is never persisted), and at least one app chosen.
+     * The single source of truth across Home, the confirmation panel, and
+     * the Blocked apps screen.
+     */
+    val willLockDuringSleep: Boolean
+        get() {
+            val context = getApplication<Application>()
+            return blockingEnabled &&
+                SleepAppBlocking.hasUsageAccess(context) &&
+                SleepAppBlocking.hasOverlayPermission(context) &&
+                blockedPackages.isNotEmpty()
         }
 
     // MARK: - Lifecycle
@@ -264,6 +309,9 @@ class SleepStore(application: Application) : AndroidViewModel(application) {
         // the panel after waking.
         showSleepConfirmation = false
         persist()
+        if (willLockDuringSleep) {
+            SleepLockdownService.start(getApplication())
+        }
         Log.i(TAG, "Sleep session started")
     }
 
@@ -271,6 +319,7 @@ class SleepStore(application: Application) : AndroidViewModel(application) {
     fun cancelSleep() {
         activeSession = null
         persist()
+        SleepLockdownService.stop(getApplication())
         Log.i(TAG, "Sleep session canceled (not logged)")
     }
 
@@ -287,6 +336,7 @@ class SleepStore(application: Application) : AndroidViewModel(application) {
         )
         activeSession = null
         persist()
+        SleepLockdownService.stop(getApplication())
         Log.i(TAG, "Logged night: ${minutes}m")
     }
 

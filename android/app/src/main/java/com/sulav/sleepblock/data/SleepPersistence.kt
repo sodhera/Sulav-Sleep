@@ -40,6 +40,15 @@ class SleepPersistence(context: Context) {
         get() = prefs.getString("lastAccountID", null)
         set(value) = prefs.edit().putString("lastAccountID", value).apply()
 
+    /**
+     * Package names chosen on the Blocked apps screen. Read by the lockdown
+     * service at session start; kept outside Profile because it's
+     * device-bound (installed apps don't travel across devices).
+     */
+    var blockedPackages: Set<String>
+        get() = prefs.getStringSet("blockedPackages", emptySet()) ?: emptySet()
+        set(value) = prefs.edit().putStringSet("blockedPackages", value).apply()
+
     /** Wipe after account deletion — no previous user left to protect. */
     fun reset() {
         prefs.edit()

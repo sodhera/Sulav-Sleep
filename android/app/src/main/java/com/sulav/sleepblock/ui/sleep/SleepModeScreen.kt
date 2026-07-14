@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -35,10 +36,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.sulav.sleepblock.R
 import com.sulav.sleepblock.data.SleepFormatting
 import com.sulav.sleepblock.data.SleepStore
 import com.sulav.sleepblock.ui.theme.SectionLabel
@@ -84,12 +87,12 @@ fun SleepModeScreen(store: SleepStore) {
             modifier = Modifier.fillMaxSize().systemBarsPadding().padding(horizontal = 24.dp),
         ) {
             Spacer(Modifier.weight(1f))
-            // Ember only on OLED black — never a platform-colored emoji.
-            Icon(
-                Icons.Default.DarkMode,
+            // The night sloth — the app's sloth banked down to the ember
+            // family, the one figure lit on the OLED dark.
+            Image(
+                painter = painterResource(R.drawable.sloth_night),
                 contentDescription = null,
-                tint = SleepColors.emberDim,
-                modifier = Modifier.size(56.dp),
+                modifier = Modifier.fillMaxWidth(0.5f),
             )
             Spacer(Modifier.height(24.dp))
             SectionLabel("Asleep")

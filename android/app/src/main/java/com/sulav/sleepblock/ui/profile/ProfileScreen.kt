@@ -35,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -227,6 +228,7 @@ private fun SettingsSheet(store: SleepStore, onClose: () -> Unit) {
     var showRename by rememberSaveable { mutableStateOf(false) }
     var showSignOut by rememberSaveable { mutableStateOf(false) }
     var showDelete by rememberSaveable { mutableStateOf(false) }
+    var showBlockedApps by rememberSaveable { mutableStateOf(false) }
     var bedtime by rememberSaveable(profile.bedtime) { mutableStateOf(profile.bedtime) }
     var wakeTime by rememberSaveable(profile.wakeTime) { mutableStateOf(profile.wakeTime) }
     val scope = rememberCoroutineScope()
@@ -275,6 +277,15 @@ private fun SettingsSheet(store: SleepStore, onClose: () -> Unit) {
                         wakeTime = it
                         store.saveSchedule(bedtime, it)
                     }
+                    HorizontalDivider(color = SleepColors.hairline)
+                    SettingsRow(
+                        "Blocked apps",
+                        when {
+                            !store.blockingEnabled -> "Off"
+                            store.blockedPackages.isEmpty() -> "None"
+                            else -> "${store.blockedPackages.size} chosen"
+                        },
+                    ) { showBlockedApps = true }
                 }
                 Spacer(Modifier.height(32.dp))
 
@@ -297,6 +308,10 @@ private fun SettingsSheet(store: SleepStore, onClose: () -> Unit) {
                 Spacer(Modifier.height(48.dp))
             }
         }
+    }
+
+    if (showBlockedApps) {
+        BlockedAppsSheet(store, onClose = { showBlockedApps = false })
     }
 
     if (showRename) {
@@ -430,8 +445,15 @@ private fun SettingsRow(title: String, value: String, dim: Boolean = false, onCl
             .padding(vertical = 18.dp),
     ) {
         Text(title, style = SleepType.body, color = if (dim) SleepColors.dim else SleepColors.ink)
-        Spacer(Modifier.weight(1f))
-        Text(value, style = SleepType.body, color = SleepColors.muted, maxLines = 1)
+        Spacer(Modifier.weight(1f).padding(start = 16.dp))
+        Text(
+            value,
+            style = SleepType.body,
+            color = SleepColors.muted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(start = 16.dp),
+        )
     }
 }
 

@@ -1,7 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- App blocking: see who is in the foreground (special access, granted
+         in system Settings — the Blocked apps screen deep-links there). -->
+    <uses-permission
+        android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+    <!-- App blocking: allows the shield to appear from the background. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
+    <!-- The Blocked apps picker lists launcher apps without QUERY_ALL_PACKAGES. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
 
     <application
         android:label="@string/app_name"
@@ -25,6 +43,27 @@
                 <data android:scheme="sleepblock" />
             </intent-filter>
         </activity>
+
+        <!-- The 2am shield a blocked app opens onto. Never in recents. -->
+        <activity
+            android:name=".blocking.ShieldActivity"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:noHistory="true"
+            android:showWhenLocked="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.SleepBlock"
+            android:exported="false" />
+
+        <!-- Night watch: polls the foreground app during an active session. -->
+        <service
+            android:name=".blocking.SleepLockdownService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="App blocking during a user-started sleep session: monitors the foreground app and shows a shield over apps the user chose to block for the night." />
+        </service>
     </application>
 
 </manifest>
