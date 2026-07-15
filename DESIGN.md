@@ -574,6 +574,12 @@ Selection grammar splits by meaning: **multi-selects** (struggles, time-sink
 apps) allow zero — an empty set is an honest answer — while **single-selects**
 (goal, phone time, wake feeling) require a choice before Next enables, because
 the plan speaks to the answer and there is no meaningful "skipped" reading.
+
+> Android revision (July 2026): on Android, **every** questionnaire step
+> holds Next until the user actually interacts — multi-selects require at
+> least one choice, and the schedule wheels require a scroll. A deliberate
+> product call (nobody should be able to tap through blank); if it proves
+> out, iOS adopts the same rule and the paragraph above changes.
 All list questions share one full-width capsule row (`OptionRow`; the
 time-sink grid keeps its compact 2-column `TimeSinkChip` sibling).
 

@@ -126,9 +126,15 @@ Shipped in phase 2 (July 2026):
 Still deferred (phase 3):
 
 - Health Connect import, the pixel-art living scene, richer widget family
-  (medium/large with the 7-night bars), Material haptics pass, the official
-  multicolor Google "G" mark on the provider pill, subscription status row
-  in Settings, Play Store listing (terms/privacy URLs).
+  (medium/large with the 7-night bars), Material haptics pass, subscription
+  status row in Settings, Play Store listing (terms/privacy URLs).
+
+Questionnaire notes: the schedule steps use a snapping wheel picker
+(`ui/theme/WheelTimePicker.kt`, 5-minute steps), and every step requires an
+interaction before Next enables (see the DESIGN.md Android note). The
+sign-in screen mirrors iOS "Welcome back": brand hero + provider stack
+(Google pill with the real "G" from the iOS asset, quiet glass email path
+that reveals the form in place; back unwinds form → providers → welcome).
 
 ## Design language
 

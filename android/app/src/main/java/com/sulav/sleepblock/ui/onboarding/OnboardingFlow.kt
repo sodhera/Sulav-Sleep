@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -31,6 +32,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.HourglassEmpty
+import androidx.compose.material.icons.filled.MailOutline
+import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -72,6 +79,7 @@ import com.sulav.sleepblock.ui.theme.PrimaryButton
 import com.sulav.sleepblock.ui.theme.SectionLabel
 import com.sulav.sleepblock.ui.theme.SleepColors
 import com.sulav.sleepblock.ui.theme.SleepType
+import com.sulav.sleepblock.ui.theme.WheelTimePicker
 import com.sulav.sleepblock.ui.theme.glassSurface
 import kotlinx.coroutines.delay
 
@@ -151,61 +159,117 @@ private fun WelcomeScreen(onGetStarted: () -> Unit, onSignIn: () -> Unit) {
 
 // MARK: - Sign in
 
+/**
+ * The returning-user path, in the iOS "Welcome back" grammar: the brand
+ * sloth centered as a hero over the title, the provider stack anchored at
+ * the bottom (Google's white pill, then the quiet glass email path). The
+ * email form replaces the stack in place; back unwinds form → providers →
+ * welcome, mirroring the iOS edge-swipe rule.
+ */
 @Composable
 private fun SignInScreen(store: SleepStore, onBack: () -> Unit) {
+    var showEmailForm by rememberSaveable { mutableStateOf(false) }
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
 
-    BackHandler(onBack = onBack)
+    val back: () -> Unit = {
+        if (showEmailForm) {
+            store.clearAuthMessage()
+            showEmailForm = false
+        } else {
+            onBack()
+        }
+    }
+    BackHandler(onBack = back)
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .systemBarsPadding()
-            .padding(horizontal = 24.dp)
-            .verticalScroll(rememberScrollState()),
+            .padding(horizontal = 24.dp),
     ) {
-        BackChevron(onBack)
-        Spacer(Modifier.height(24.dp))
-        Text("Welcome back", style = SleepType.hero, fontSize = 34.sp)
-        Spacer(Modifier.height(8.dp))
-        Text("Sign in to pick up your sleep record.", style = SleepType.body, color = SleepColors.dim)
-        Spacer(Modifier.height(32.dp))
-        AuthFields(
-            email = email, onEmail = { email = it },
-            password = password, onPassword = { password = it },
-        )
-        AuthMessage(store)
-        Spacer(Modifier.height(24.dp))
-        PrimaryButton(
-            if (store.isAuthenticating) "Signing in…" else "Sign in",
-            enabled = !store.isAuthenticating && email.isNotBlank() && password.isNotBlank(),
-        ) {
-            store.signInEmail(email.trim(), password)
+        BackChevron(back)
+        Spacer(Modifier.weight(1f))
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+            Image(
+                painter = painterResource(R.drawable.sloth_brand),
+                contentDescription = null,
+                modifier = Modifier.fillMaxWidth(0.45f),
+            )
+            Spacer(Modifier.height(24.dp))
+            Text("Welcome back", style = SleepType.hero, fontSize = 34.sp)
+            Spacer(Modifier.height(8.dp))
+            Text("Sign in to pick up your sleep record.", style = SleepType.body, color = SleepColors.dim)
         }
-        GoogleProviderButton(store, label = "Sign in with Google")
+        Spacer(Modifier.weight(1f))
+
+        if (showEmailForm) {
+            AuthFields(
+                email = email, onEmail = { email = it },
+                password = password, onPassword = { password = it },
+            )
+            AuthMessage(store)
+            Spacer(Modifier.height(16.dp))
+            PrimaryButton(
+                if (store.isAuthenticating) "Signing in…" else "Sign in",
+                enabled = !store.isAuthenticating && email.isNotBlank() && password.isNotBlank(),
+            ) {
+                store.signInEmail(email.trim(), password)
+            }
+        } else {
+            AuthMessage(store)
+            Spacer(Modifier.height(16.dp))
+            GoogleProviderButton(store, label = "Sign in with Google")
+            Spacer(Modifier.height(12.dp))
+            EmailProviderButton(label = "Sign in with email") { showEmailForm = true }
+        }
         Spacer(Modifier.height(24.dp))
     }
 }
 
 /**
- * The branded Google pill (white, official-mark colors are phase-2 art),
- * rendered only when a web client id is configured. Names the action being
- * taken, per the provider-stack rule.
+ * The branded provider pill: white, the official multicolor "G", one shared
+ * label size — deliberately never the app's amber (that gradient is for the
+ * app's own actions). Always rendered; an unconfigured build answers the
+ * tap with a calm error instead of hiding the path.
  */
 @Composable
 private fun GoogleProviderButton(store: SleepStore, label: String) {
-    if (!SulavAuth.googleConfigured) return
     val activity = LocalContext.current as? android.app.Activity ?: return
-    Spacer(Modifier.height(12.dp))
-    Box(
-        contentAlignment = Alignment.Center,
+    Row(
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
             .height(58.dp)
             .background(Color.White, CircleShape)
             .clickable(enabled = !store.isAuthenticating) { store.signInWithGoogle(activity) },
     ) {
-        Text(label, style = SleepType.body, color = Color(0xFF1F1F1F), fontWeight = FontWeight.Medium)
+        Image(
+            painter = painterResource(R.drawable.ic_google_g),
+            contentDescription = null,
+            modifier = Modifier.size(20.dp),
+        )
+        Spacer(Modifier.width(10.dp))
+        Text(label, fontSize = 17.sp, color = Color(0xFF1F1F1F), fontWeight = FontWeight.Medium)
+    }
+}
+
+/** The quiet glass email path with an ink envelope. */
+@Composable
+private fun EmailProviderButton(label: String, onClick: () -> Unit) {
+    Row(
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(58.dp)
+            .glassSurface(RoundedCornerShape(29.dp))
+            .clickable(onClick = onClick),
+    ) {
+        Icon(Icons.Default.MailOutline, null, tint = SleepColors.ink, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(10.dp))
+        Text(label, fontSize = 17.sp, color = SleepColors.ink, fontWeight = FontWeight.Medium)
     }
 }
 
@@ -241,6 +305,10 @@ private fun QuestionnaireScreen(store: SleepStore, onExit: () -> Unit) {
     var wakeFeeling by rememberSaveable { mutableStateOf("") }
     var bedtime by rememberSaveable { mutableStateOf(23 * 60) }       // 11:00 PM
     var wakeTime by rememberSaveable { mutableStateOf(7 * 60) }       // 7:00 AM
+    // The schedule wheels must actually be touched before Next enables —
+    // every step requires an interaction (see DESIGN.md, Android note).
+    var bedtimeTouched by rememberSaveable { mutableStateOf(false) }
+    var wakeTouched by rememberSaveable { mutableStateOf(false) }
     var planRevealed by rememberSaveable { mutableStateOf(false) }
 
     val answers = OnboardingAnswers(
@@ -342,10 +410,18 @@ private fun QuestionnaireScreen(store: SleepStore, onExit: () -> Unit) {
                         }
                     }
                     Step.BEDTIME -> QuestionPage("When do you want to go to bed?", "The schedule SleepBlock holds you to.") {
-                        TimeAdjuster(minutes = bedtime, onChange = { bedtime = it })
+                        WheelTimePicker(
+                            minutes = bedtime,
+                            onChange = { bedtime = it },
+                            onInteracted = { bedtimeTouched = true },
+                        )
                     }
                     Step.WAKE -> QuestionPage("And when do you want to wake up?", sleepWindowLine(bedtime, wakeTime)) {
-                        TimeAdjuster(minutes = wakeTime, onChange = { wakeTime = it })
+                        WheelTimePicker(
+                            minutes = wakeTime,
+                            onChange = { wakeTime = it },
+                            onInteracted = { wakeTouched = true },
+                        )
                     }
                     Step.PLAN -> PlanReveal(
                         answers = answers,
@@ -357,14 +433,19 @@ private fun QuestionnaireScreen(store: SleepStore, onExit: () -> Unit) {
             }
         }
 
-        // Pinned bottom action.
+        // Pinned bottom action. Every step requires a real interaction
+        // before Next enables — nobody can tap through blank.
         val nextEnabled = when (step) {
             Step.NAME -> name.isNotBlank()
             Step.GOAL -> goal.isNotEmpty()
+            Step.STRUGGLES -> struggles.isNotEmpty()
+            Step.TIME_SINKS -> timeSinks.isNotEmpty()
             Step.PHONE_TIME -> phoneTime.isNotEmpty()
             Step.WAKE_FEELING -> wakeFeeling.isNotEmpty()
+            Step.BEDTIME -> bedtimeTouched
+            Step.WAKE -> wakeTouched
             Step.PLAN -> planRevealed
-            else -> true
+            Step.ACCOUNT -> true
         }
         if (step != Step.ACCOUNT) {
             PrimaryButton(
@@ -428,34 +509,6 @@ private fun OptionRow(title: String, selected: Boolean, onClick: () -> Unit) {
 private fun Set<String>.toggle(value: String): Set<String> =
     if (value in this) this - value else this + value
 
-// MARK: - Time adjuster
-
-/** 15-minute stepper pair with a hero time readout (MVP stand-in for the iOS wheel). */
-@Composable
-private fun TimeAdjuster(minutes: Int, onChange: (Int) -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-        Text(SleepFormatting.clockTime(minutes), style = SleepType.hero, color = SleepColors.gold)
-        Spacer(Modifier.height(24.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            StepChip("−15 min") { onChange((minutes - 15).mod(1_440)) }
-            StepChip("+15 min") { onChange((minutes + 15).mod(1_440)) }
-        }
-    }
-}
-
-@Composable
-private fun StepChip(label: String, onClick: () -> Unit) {
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier
-            .glassSurface(RoundedCornerShape(24.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 24.dp, vertical = 12.dp),
-    ) {
-        Text(label, style = SleepType.body, color = SleepColors.ink)
-    }
-}
-
 private fun sleepWindowLine(bedtime: Int, wakeTime: Int): String {
     val window = SleepMath.windowMinutes(bedtime, wakeTime)
     return "That's ${SleepFormatting.duration(window)} of sleep a night."
@@ -474,12 +527,20 @@ private fun PlanReveal(answers: OnboardingAnswers, revealed: Boolean, onRevealed
         }
     }
     if (!revealed) {
+        // The build beat: the brand sloth and status line centered together,
+        // its presence the only motion — deliberately never a bare spinner.
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxWidth().padding(top = 80.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = 64.dp),
         ) {
-            CircularProgressIndicator(color = SleepColors.amber)
+            Image(
+                painter = painterResource(R.drawable.sloth_brand),
+                contentDescription = null,
+                modifier = Modifier.fillMaxWidth(0.4f),
+            )
             Spacer(Modifier.height(24.dp))
+            CircularProgressIndicator(color = SleepColors.amber, modifier = Modifier.size(22.dp))
+            Spacer(Modifier.height(16.dp))
             Text("Building your sleep plan…", style = SleepType.body, color = SleepColors.dim)
         }
         return
@@ -491,39 +552,91 @@ private fun PlanReveal(answers: OnboardingAnswers, revealed: Boolean, onRevealed
     val sinkNames = answers.timeSinks
         .mapNotNull { raw -> TimeSinkApp.entries.find { it.raw == raw }?.title }
 
-    QuestionPage("Your sleep plan is ready", null) {
-        PlanFact(
-            "SLEEP WINDOW",
-            "${SleepFormatting.clockTime(answers.bedtime)} → ${SleepFormatting.clockTime(answers.wakeTime)}",
-            "${SleepFormatting.duration(window)} a night",
-        )
+    QuestionPage("Your sleep plan is ready", "Built from everything you just told us.") {
+        // The hero fact: tonight's window, moon → sun, on one glass card.
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .fillMaxWidth()
+                .glassSurface()
+                .border(1.dp, SleepColors.amber.copy(alpha = 0.35f), RoundedCornerShape(20.dp))
+                .padding(vertical = 24.dp, horizontal = 20.dp),
+        ) {
+            SectionLabel("Sleep window")
+            Spacer(Modifier.height(12.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Icon(Icons.Default.DarkMode, null, tint = SleepColors.amber, modifier = Modifier.size(18.dp))
+                Text(
+                    SleepFormatting.clockTime(answers.bedtime),
+                    style = SleepType.hero, fontSize = 24.sp, color = SleepColors.gold, maxLines = 1,
+                )
+                Text("→", style = SleepType.body, color = SleepColors.muted)
+                Icon(Icons.Default.WbSunny, null, tint = SleepColors.gold, modifier = Modifier.size(18.dp))
+                Text(
+                    SleepFormatting.clockTime(answers.wakeTime),
+                    style = SleepType.hero, fontSize = 24.sp, color = SleepColors.gold, maxLines = 1,
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "${SleepFormatting.duration(window)} of sleep a night",
+                style = SleepType.body, color = SleepColors.dim,
+            )
+        }
+        Spacer(Modifier.height(12.dp))
         phone?.let {
             PlanFact(
-                "TIME TO WIN BACK",
-                "${SleepFormatting.duration(it.weeklyMinutes)} a week",
-                if (sinkNames.isEmpty()) "from late-night scrolling"
+                icon = Icons.Default.HourglassEmpty,
+                kicker = "Time to win back",
+                value = "${SleepFormatting.duration(it.weeklyMinutes)} a week",
+                detail = if (sinkNames.isEmpty()) "from late-night scrolling"
                 else "from ${sinkNames.take(3).joinToString(", ")}",
             )
         }
-        goal?.let { PlanFact("YOUR GOAL", it.title, null) }
+        goal?.let {
+            PlanFact(
+                icon = Icons.Default.Flag,
+                kicker = "Your goal",
+                value = it.title,
+                detail = null,
+            )
+        }
     }
 }
 
 @Composable
-private fun PlanFact(kicker: String, value: String, detail: String?) {
-    Column(
+private fun PlanFact(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    kicker: String,
+    value: String,
+    detail: String?,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 12.dp)
             .glassSurface()
-            .padding(20.dp),
+            .padding(horizontal = 20.dp, vertical = 18.dp),
     ) {
-        SectionLabel(kicker)
-        Spacer(Modifier.height(6.dp))
-        Text(value, style = SleepType.title, color = SleepColors.gold)
-        detail?.let {
-            Spacer(Modifier.height(2.dp))
-            Text(it, style = SleepType.body, color = SleepColors.dim)
+        // Glyph chip in the settings-row grammar: soft amber-tinted square.
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(40.dp)
+                .background(SleepColors.amber.copy(alpha = 0.14f), RoundedCornerShape(12.dp)),
+        ) {
+            Icon(icon, null, tint = SleepColors.amber, modifier = Modifier.size(20.dp))
+        }
+        Spacer(Modifier.width(16.dp))
+        Column {
+            SectionLabel(kicker)
+            Spacer(Modifier.height(4.dp))
+            Text(value, style = SleepType.title, fontSize = 20.sp, color = SleepColors.gold)
+            detail?.let {
+                Spacer(Modifier.height(2.dp))
+                Text(it, style = SleepType.body, fontSize = 14.sp, color = SleepColors.dim)
+            }
         }
     }
 }
@@ -536,6 +649,18 @@ private fun AccountStep(store: SleepStore) {
     var password by rememberSaveable { mutableStateOf("") }
 
     QuestionPage("Save your sleep plan", "Create an account so your plan and record follow you.") {
+        GoogleProviderButton(store, label = "Sign up with Google")
+        Spacer(Modifier.height(20.dp))
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            HorizontalDivider(color = SleepColors.hairline, modifier = Modifier.weight(1f))
+            Text(
+                "or with email",
+                style = SleepType.label,
+                modifier = Modifier.padding(horizontal = 12.dp),
+            )
+            HorizontalDivider(color = SleepColors.hairline, modifier = Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(20.dp))
         AuthFields(
             email = email, onEmail = { email = it },
             password = password, onPassword = { password = it },
@@ -548,7 +673,6 @@ private fun AccountStep(store: SleepStore) {
         ) {
             store.signUpEmail(email.trim(), password)
         }
-        GoogleProviderButton(store, label = "Sign up with Google")
         Spacer(Modifier.height(24.dp))
     }
 }
