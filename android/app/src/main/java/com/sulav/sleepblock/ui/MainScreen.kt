@@ -68,7 +68,11 @@ fun MainScreen(store: SleepStore) {
 @Composable
 private fun TabIcon(store: SleepStore, tab: AppTab) {
     val selected = store.selectedTab == tab
-    IconButton(onClick = { store.selectedTab = tab }) {
+    val haptics = com.sulav.sleepblock.ui.theme.rememberHaptics()
+    IconButton(onClick = {
+        haptics.knock()
+        store.selectedTab = tab
+    }) {
         Icon(
             imageVector = if (tab == AppTab.HOME) Icons.Default.Home else Icons.Default.Person,
             contentDescription = if (tab == AppTab.HOME) "Home" else "Profile",

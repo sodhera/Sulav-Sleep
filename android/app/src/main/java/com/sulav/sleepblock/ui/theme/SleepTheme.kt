@@ -69,29 +69,6 @@ fun SleepBlockTheme(content: @Composable () -> Unit) {
     MaterialTheme(colorScheme = NightColorScheme, content = content)
 }
 
-/** The minimal night gradient with a faint amber floor glow. */
-@Composable
-fun NightBackground(content: @Composable () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(SleepColors.skyTop, SleepColors.background)))
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        0f to Color.Transparent,
-                        0.75f to Color.Transparent,
-                        1f to SleepColors.amber.copy(alpha = 0.08f),
-                    )
-                )
-        )
-        content()
-    }
-}
-
 /** Small-caps section kicker (the app's one section-label grammar). */
 @Composable
 fun SectionLabel(text: String, modifier: Modifier = Modifier) {
@@ -106,8 +83,12 @@ fun PrimaryButton(
     enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
+    val haptics = rememberHaptics()
     Button(
-        onClick = onClick,
+        onClick = {
+            haptics.knock()
+            onClick()
+        },
         enabled = enabled,
         shape = CircleShape,
         colors = ButtonDefaults.buttonColors(
@@ -130,8 +111,12 @@ fun SecondaryButton(
     enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
+    val haptics = rememberHaptics()
     Button(
-        onClick = onClick,
+        onClick = {
+            haptics.knock()
+            onClick()
+        },
         enabled = enabled,
         shape = CircleShape,
         colors = ButtonDefaults.buttonColors(

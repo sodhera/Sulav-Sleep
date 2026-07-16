@@ -32,15 +32,28 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.sulav.sleepblock.R
+import com.sulav.sleepblock.data.DebugFlags
 import com.sulav.sleepblock.data.SleepStore
 import com.sulav.sleepblock.subscription.SleepPlan
 import com.sulav.sleepblock.ui.theme.NightBackground
 import com.sulav.sleepblock.ui.theme.PrimaryButton
 import com.sulav.sleepblock.ui.theme.SleepColors
 import com.sulav.sleepblock.ui.theme.SleepType
+import com.sulav.sleepblock.ui.theme.SlothBrandMark
 import com.sulav.sleepblock.ui.theme.glassSurface
 import kotlinx.coroutines.launch
+
+/** Deterministic preview content for `--ez review-paywall true` builds. */
+private val samplePlans = listOf(
+    SleepPlan(
+        id = "annual", title = "Annual", isAnnual = true,
+        price = "$59.99", monthlyEquivalent = "$5.00", trialDays = 7, rcPackage = null,
+    ),
+    SleepPlan(
+        id = "monthly", title = "Monthly", isAnnual = false,
+        price = "$5.99", monthlyEquivalent = null, trialDays = 0, rcPackage = null,
+    ),
+)
 
 /**
  * The hard paywall (mirrors ios PaywallView): appears once between the
@@ -63,7 +76,11 @@ fun PaywallScreen(store: SleepStore) {
     LaunchedEffect(loadKey) {
         loadFailed = false
         plans = null
-        val fetched = store.fetchPlans()
+        val fetched = store.fetchPlans().ifEmpty {
+            // Debug preview (mirrors iOS -review-paywall): sample plans so
+            // the screen renders deterministically on an unconfigured build.
+            if (DebugFlags.reviewPaywall) samplePlans else emptyList()
+        }
         if (fetched.isEmpty()) {
             loadFailed = true
         } else {
@@ -78,11 +95,7 @@ fun PaywallScreen(store: SleepStore) {
             modifier = Modifier.fillMaxSize().systemBarsPadding().padding(horizontal = 24.dp),
         ) {
             Spacer(Modifier.weight(1f))
-            Image(
-                painter = painterResource(R.drawable.sloth_brand),
-                contentDescription = null,
-                modifier = Modifier.fillMaxWidth(0.4f),
-            )
+            SlothBrandMark(Modifier.fillMaxWidth(0.4f))
             Spacer(Modifier.height(8.dp))
             Text("SLEEPBLOCK", style = SleepType.label, color = SleepColors.dim)
             Spacer(Modifier.height(24.dp))

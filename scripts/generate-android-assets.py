@@ -40,6 +40,18 @@ IN_APP_MARKS = {
     "HomeSlothNightBlink": "sloth_home_blink",
 }
 
+# The living-scene layers (pixel art, copied verbatim — the app upscales
+# with nearest-neighbor so the pixels stay crisp).
+SCENE_PHASES = {"Night": "night", "Dusk": "dusk", "Day": "day"}
+SCENE_LAYERS = {
+    "SkyBase": "sky",
+    "Clouds": "clouds",
+    "FarSkyline": "far",
+    "MidSkyline": "mid",
+    "NearSkyline": "near",
+    "FrontSkyline": "front",
+}
+
 
 def imageset_png(name: str) -> Image.Image:
     path = XCASSETS / f"{name}.imageset" / f"{name}.png"
@@ -92,6 +104,19 @@ def emit_in_app_marks() -> None:
         print(f"{imageset} -> drawable-nodpi/{drawable}.png {img.size}")
 
 
+def emit_scene_layers() -> None:
+    out_dir = RES / "drawable-nodpi"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for phase, phase_slug in SCENE_PHASES.items():
+        for layer, layer_slug in SCENE_LAYERS.items():
+            imageset = XCASSETS / f"{phase}City{layer}.imageset"
+            png = next(imageset.glob("*.png"))
+            img = Image.open(png).convert("RGBA")
+            img.save(out_dir / f"city_{phase_slug}_{layer_slug}.png")
+    print(f"scene layers emitted ({len(SCENE_PHASES) * len(SCENE_LAYERS)})")
+
+
 if __name__ == "__main__":
     emit_launcher_foreground()
     emit_in_app_marks()
+    emit_scene_layers()

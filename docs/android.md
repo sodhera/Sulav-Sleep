@@ -123,11 +123,39 @@ Shipped in phase 2 (July 2026):
   only when `GOOGLE_WEB_CLIENT_ID` (the *web* client id Supabase is
   configured with) is set in secrets.properties.
 
+Shipped in the July 2026 polish pass:
+
+- **The living pixel city** (`ui/theme/SleepScene.kt`): the iOS scene's
+  layers (sky, clouds, four skylines) ported by the asset script, drawn
+  nearest-neighbor with a slow shared-phase parallax drift, following the
+  day/dusk/night bands with a crossfade at the boundary, under the same
+  readability-scrim rules. The sleep screen stays OLED black; widgets keep
+  the flat gradient.
+- **Haptics** (`ui/theme/Haptics.kt`): the knock on every shared button,
+  wheel-detent ticks, the slide-to-sleep eight-detent ratchet + success,
+  and the hold buttons' five-detent ratchet — wired centrally so call
+  sites can't forget.
+- **Blocking-permission primer** (`ui/onboarding/BlockingPrimerScreen.kt`):
+  the last gate before Main — a two-grant checklist with live status that
+  deep-links into system Settings, auto-completing when both grants land;
+  "Not now" always works, one-shot per install.
+- **Subscription status in Settings**: tier + renewal readout off
+  RevenueCat's entitlement (trial/pro/won't-renew tones) + Manage
+  subscription → the Play subscriptions page. Hidden when there's no
+  status (dev mode) — never a faked plan.
+- **Review switches** (`data/DebugFlags.kt`, debug builds only) — the
+  Android `-review-*`:
+  `adb shell am start -n com.sulav.sleepblock/.MainActivity --ez review-paywall true`
+  renders the hard paywall with sample plans; `--ez review-subscription
+  true` injects a sample trial into the Settings row.
+- **The brand mark alive** (`ui/theme/SlothBrandMark.kt`): the rising gold
+  z's on welcome, sign-in, the plan build beat, and the paywall.
+
 Still deferred (phase 3):
 
-- Health Connect import, the pixel-art living scene, richer widget family
-  (medium/large with the 7-night bars), Material haptics pass, subscription
-  status row in Settings, Play Store listing (terms/privacy URLs).
+- Health Connect import, richer widget family (medium/large with the
+  7-night bars), day/dusk scene tilt parallax (drift only for now),
+  Play Store listing (terms/privacy URLs).
 
 Questionnaire notes: the schedule steps use a snapping wheel picker
 (`ui/theme/WheelTimePicker.kt`, 5-minute steps), and every step requires an

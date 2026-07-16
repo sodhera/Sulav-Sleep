@@ -38,6 +38,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -61,6 +62,7 @@ import com.sulav.sleepblock.ui.theme.SectionLabel
 import com.sulav.sleepblock.ui.theme.SleepColors
 import com.sulav.sleepblock.ui.theme.SleepType
 import com.sulav.sleepblock.ui.theme.glassSurface
+import com.sulav.sleepblock.ui.theme.rememberHaptics
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
@@ -250,8 +252,17 @@ private fun SlideToSleep(onComplete: () -> Unit) {
     val maxOffset = (trackWidthPx - knobPx - paddingPx * 2).coerceAtLeast(1f)
     val progress = (offsetPx / maxOffset).coerceIn(0f, 1f)
 
+    // The night's richest haptics: the knob ratchets through eight detents
+    // on the way across, and completion is the strongest cue in the app.
+    val haptics = rememberHaptics()
+    var lastDetent by remember { mutableStateOf(0) }
     val drag = rememberDraggableState { delta ->
         offsetPx = (offsetPx + delta).coerceIn(0f, maxOffset)
+        val detent = (progress * 8).toInt()
+        if (detent != lastDetent) {
+            lastDetent = detent
+            haptics.tick()
+        }
     }
 
     Box(
@@ -269,7 +280,11 @@ private fun SlideToSleep(onComplete: () -> Unit) {
                 orientation = Orientation.Horizontal,
                 onDragStopped = {
                     if (progress >= 0.97f) {
+                        haptics.success()
                         onComplete()
+                    } else if (progress > 0.05f) {
+                        // Released short: a soft acknowledging tap.
+                        haptics.tick()
                     }
                     offsetPx = 0f
                 },

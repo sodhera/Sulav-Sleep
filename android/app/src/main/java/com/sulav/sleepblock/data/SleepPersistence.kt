@@ -49,6 +49,15 @@ class SleepPersistence(context: Context) {
         get() = prefs.getStringSet("blockedPackages", emptySet()) ?: emptySet()
         set(value) = prefs.edit().putStringSet("blockedPackages", value).apply()
 
+    /**
+     * Whether this install has shown the blocking-permission primer. Per
+     * install, not per account (mirrors the iOS Screen Time primer rule) —
+     * deliberately not cleared by [reset].
+     */
+    var blockingPrimerSeen: Boolean
+        get() = prefs.getBoolean("blockingPrimerSeen", false)
+        set(value) = prefs.edit().putBoolean("blockingPrimerSeen", value).apply()
+
     /** Wipe after account deletion — no previous user left to protect. */
     fun reset() {
         prefs.edit()

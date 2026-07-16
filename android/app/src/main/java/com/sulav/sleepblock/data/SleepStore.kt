@@ -19,6 +19,7 @@ import com.sulav.sleepblock.subscription.EntitlementState
 import com.sulav.sleepblock.subscription.SleepPlan
 import com.sulav.sleepblock.subscription.SleepSubscriptionFactory
 import com.sulav.sleepblock.subscription.SubscriptionProviding
+import com.sulav.sleepblock.subscription.SubscriptionStatus
 import com.sulav.sleepblock.blocking.SleepAppBlocking
 import com.sulav.sleepblock.blocking.SleepLockdownService
 import com.sulav.sleepblock.widget.SleepWidget
@@ -71,17 +72,54 @@ class SleepStore(application: Application) : AndroidViewModel(application) {
     var entitlement: EntitlementState by mutableStateOf(EntitlementState.UNKNOWN)
         private set
 
+    /** Settings display detail; the group hides while null (dev mode too). */
+    var subscriptionStatus: SubscriptionStatus? by mutableStateOf(null)
+        private set
+
     init {
         reload()
-        subscription.start { state -> entitlement = state }
+        subscription.start { state, status ->
+            entitlement = state
+            subscriptionStatus = status
+        }
+        // Debug preview (mirrors iOS -review-subscription): a sample trial
+        // so the Settings row can be seen on an unconfigured build.
+        if (DebugFlags.reviewSubscription && subscriptionStatus == null) {
+            subscriptionStatus = SubscriptionStatus(
+                tier = SubscriptionStatus.Tier.TRIAL,
+                willRenew = true,
+                expiresAtMillis = System.currentTimeMillis() + 6L * 24 * 3600 * 1000,
+                isAnnual = true,
+            )
+        }
         viewModelScope.launch { restoreSession() }
+    }
+
+    /** Whether the blocking-permission primer stands between Main and us. */
+    val needsBlockingPrimer: Boolean
+        get() {
+            val context = getApplication<Application>()
+            return isAuthenticated && isOnboarded && !blockingPrimerSeen &&
+                (!SleepAppBlocking.hasUsageAccess(context) || !SleepAppBlocking.hasOverlayPermission(context))
+        }
+
+    /** Observable mirror of the container-backed seen-marker. */
+    var blockingPrimerSeen: Boolean by mutableStateOf(persistence.blockingPrimerSeen)
+        private set
+
+    /** One-shot per install; completes on grant or "Not now" — never a trap. */
+    fun completeBlockingPrimer() {
+        persistence.blockingPrimerSeen = true
+        blockingPrimerSeen = true
+        Log.i(TAG, "Blocking primer completed")
     }
 
     // MARK: - Subscription
 
     /** Whether the hard paywall stands between this user and Main. */
     val needsPaywall: Boolean
-        get() = isAuthenticated && isOnboarded && entitlement == EntitlementState.NOT_ENTITLED
+        get() = (isAuthenticated && isOnboarded && entitlement == EntitlementState.NOT_ENTITLED) ||
+            (DebugFlags.reviewPaywall && isAuthenticated && isOnboarded)
 
     suspend fun fetchPlans(): List<SleepPlan> = subscription.fetchPlans()
 

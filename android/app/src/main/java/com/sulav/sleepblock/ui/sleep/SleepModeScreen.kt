@@ -47,6 +47,7 @@ import com.sulav.sleepblock.data.SleepStore
 import com.sulav.sleepblock.ui.theme.SectionLabel
 import com.sulav.sleepblock.ui.theme.SleepColors
 import com.sulav.sleepblock.ui.theme.SleepType
+import com.sulav.sleepblock.ui.theme.rememberHaptics
 import kotlinx.coroutines.delay
 
 /**
@@ -165,6 +166,7 @@ private fun HoldButton(
 ) {
     var pressed by remember { mutableStateOf(false) }
     var completed by remember { mutableStateOf(false) }
+    val haptics = rememberHaptics()
     val progress by animateFloatAsState(
         targetValue = if (pressed) 1f else 0f,
         animationSpec = tween(if (pressed) holdMillis else 250),
@@ -172,10 +174,21 @@ private fun HoldButton(
         finishedListener = { value ->
             if (value >= 1f && pressed && !completed) {
                 completed = true
+                haptics.success()
                 onComplete()
             }
         },
     )
+    // Five-detent ratchet while the ember fill sweeps.
+    var lastDetent by remember { mutableStateOf(0) }
+    LaunchedEffect(progress) {
+        val detent = (progress * 5).toInt()
+        if (pressed && detent != lastDetent) {
+            lastDetent = detent
+            haptics.tick()
+        }
+        if (!pressed) lastDetent = 0
+    }
 
     Box(
         contentAlignment = Alignment.Center,
@@ -188,6 +201,7 @@ private fun HoldButton(
                     while (true) {
                         val down = awaitPointerEvent()
                         if (down.changes.any { it.pressed }) {
+                            haptics.knock()
                             pressed = true
                             // Wait for release.
                             while (awaitPointerEvent().changes.any { it.pressed }) { /* held */ }

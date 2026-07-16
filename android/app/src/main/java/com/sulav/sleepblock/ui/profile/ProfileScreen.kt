@@ -1,5 +1,8 @@
 package com.sulav.sleepblock.ui.profile
 
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -34,15 +37,19 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.sulav.sleepblock.R
 import com.sulav.sleepblock.data.SleepFormatting
 import com.sulav.sleepblock.data.SleepSession
 import com.sulav.sleepblock.data.SleepStore
+import com.sulav.sleepblock.subscription.SubscriptionStatus
 import com.sulav.sleepblock.ui.theme.NightBackground
 import com.sulav.sleepblock.ui.theme.SectionLabel
 import com.sulav.sleepblock.ui.theme.SleepColors
@@ -225,6 +232,7 @@ private fun weekdayInitial(session: SleepSession): String =
 @Composable
 private fun SettingsSheet(store: SleepStore, onClose: () -> Unit) {
     val profile = store.profile ?: return
+    val context = LocalContext.current
     var showRename by rememberSaveable { mutableStateOf(false) }
     var showSignOut by rememberSaveable { mutableStateOf(false) }
     var showDelete by rememberSaveable { mutableStateOf(false) }
@@ -264,6 +272,29 @@ private fun SettingsSheet(store: SleepStore, onClose: () -> Unit) {
                     SettingsRow("Email", store.account?.email ?: "—", onClick = null)
                 }
                 Spacer(Modifier.height(32.dp))
+
+                // What am I on, and when does it change? Hidden when there's
+                // no status to show (dev mode, or before the first fetch) —
+                // the app never fakes a plan.
+                store.subscriptionStatus?.let { status ->
+                    SectionLabel("Subscription")
+                    Spacer(Modifier.height(8.dp))
+                    SettingsGroup {
+                        SubscriptionStatusRow(status)
+                        HorizontalDivider(color = SleepColors.hairline)
+                        SettingsRow("Manage subscription", "") {
+                            // The Play-managed sheet is the only sanctioned
+                            // place to switch plans or cancel.
+                            context.startActivity(
+                                Intent(
+                                    Intent.ACTION_VIEW,
+                                    Uri.parse("https://play.google.com/store/account/subscriptions"),
+                                )
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(32.dp))
+                }
 
                 SectionLabel("Sleep")
                 Spacer(Modifier.height(8.dp))
@@ -425,6 +456,59 @@ private fun SettingsSheet(store: SleepStore, onClose: () -> Unit) {
                 }
             },
         )
+    }
+}
+
+/**
+ * The status readout, not a control — the one settings row that earns a dim
+ * detail line: the brand sloth as the "you're a subscriber" mark, the tier
+ * title, and the renewal fact beneath. "About to end" reads amber — a calm
+ * heads-up, never danger.
+ */
+@Composable
+private fun SubscriptionStatusRow(status: SubscriptionStatus) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp),
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(40.dp)
+                .background(SleepColors.gold.copy(alpha = 0.16f), RoundedCornerShape(12.dp)),
+        ) {
+            Image(
+                painter = painterResource(R.drawable.sloth_brand),
+                contentDescription = null,
+                modifier = Modifier.size(30.dp),
+            )
+        }
+        Spacer(Modifier.size(14.dp))
+        Column {
+            Text(
+                when (status.tier) {
+                    SubscriptionStatus.Tier.TRIAL -> "Free trial"
+                    SubscriptionStatus.Tier.PRO -> "SleepBlock Pro"
+                    SubscriptionStatus.Tier.NONE -> "Not subscribed"
+                },
+                style = SleepType.body,
+                fontWeight = FontWeight.Medium,
+            )
+            status.expiresAtMillis?.let { expires ->
+                val date = java.time.Instant.ofEpochMilli(expires)
+                    .atZone(java.time.ZoneId.systemDefault())
+                    .format(java.time.format.DateTimeFormatter.ofPattern("MMM d, yyyy"))
+                val (line, color) = when {
+                    !status.willRenew -> "Ends $date · won't renew" to SleepColors.amber
+                    status.tier == SubscriptionStatus.Tier.TRIAL -> {
+                        val days = ((expires - System.currentTimeMillis()) / 86_400_000L).coerceAtLeast(0)
+                        "$days days left · renews $date" to SleepColors.muted
+                    }
+                    else -> "${if (status.isAnnual) "Yearly" else "Monthly"} · Renews $date" to SleepColors.muted
+                }
+                Text(line, style = SleepType.body, fontSize = 13.sp, color = color)
+            }
+        }
     }
 }
 

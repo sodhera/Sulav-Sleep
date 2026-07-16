@@ -112,6 +112,11 @@ private fun centeredIndex(state: LazyListState): Int {
 private fun WheelColumn(items: List<String>, state: LazyListState, width: androidx.compose.ui.unit.Dp) {
     val flingBehavior = rememberSnapFlingBehavior(lazyListState = state)
     val centered by remember { derivedStateOf { centeredIndex(state) } }
+    // Each detent under the center band ticks, like the iOS wheel.
+    val haptics = rememberHaptics()
+    LaunchedEffect(centered) {
+        if (state.isScrollInProgress) haptics.tick()
+    }
     LazyColumn(
         state = state,
         flingBehavior = flingBehavior,

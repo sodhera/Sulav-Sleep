@@ -79,8 +79,10 @@ import com.sulav.sleepblock.ui.theme.PrimaryButton
 import com.sulav.sleepblock.ui.theme.SectionLabel
 import com.sulav.sleepblock.ui.theme.SleepColors
 import com.sulav.sleepblock.ui.theme.SleepType
+import com.sulav.sleepblock.ui.theme.SlothBrandMark
 import com.sulav.sleepblock.ui.theme.WheelTimePicker
 import com.sulav.sleepblock.ui.theme.glassSurface
+import com.sulav.sleepblock.ui.theme.rememberHaptics
 import kotlinx.coroutines.delay
 
 /**
@@ -131,13 +133,9 @@ private fun WelcomeScreen(onGetStarted: () -> Unit, onSignIn: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Spacer(Modifier.weight(1f))
-        // The brand mark: the icon's sleeping sloth (generated art, see
-        // scripts/generate-android-assets.py). Decorative only.
-        Image(
-            painter = painterResource(R.drawable.sloth_brand),
-            contentDescription = null,
-            modifier = Modifier.fillMaxWidth(0.5f),
-        )
+        // The brand mark alive: the icon's sleeping sloth with the rising
+        // z's (see SlothBrandMark). Decorative only.
+        SlothBrandMark(Modifier.fillMaxWidth(0.5f))
         Spacer(Modifier.height(24.dp))
         Text("SleepBlock", style = SleepType.hero)
         Spacer(Modifier.height(12.dp))
@@ -191,11 +189,7 @@ private fun SignInScreen(store: SleepStore, onBack: () -> Unit) {
         BackChevron(back)
         Spacer(Modifier.weight(1f))
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-            Image(
-                painter = painterResource(R.drawable.sloth_brand),
-                contentDescription = null,
-                modifier = Modifier.fillMaxWidth(0.45f),
-            )
+            SlothBrandMark(Modifier.fillMaxWidth(0.45f))
             Spacer(Modifier.height(24.dp))
             Text("Welcome back", style = SleepType.hero, fontSize = 34.sp)
             Spacer(Modifier.height(8.dp))
@@ -482,6 +476,7 @@ private fun QuestionPage(title: String, supporting: String?, content: @Composabl
 @Composable
 private fun OptionRow(title: String, selected: Boolean, onClick: () -> Unit) {
     val shape = RoundedCornerShape(28.dp)
+    val haptics = rememberHaptics()
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -490,7 +485,10 @@ private fun OptionRow(title: String, selected: Boolean, onClick: () -> Unit) {
             .glassSurface(shape)
             // The selection ring is one of the strokes that carries meaning.
             .then(if (selected) Modifier.border(2.dp, SleepColors.amber, shape) else Modifier)
-            .clickable(onClick = onClick)
+            .clickable {
+                haptics.knock()
+                onClick()
+            }
             .padding(horizontal = 20.dp, vertical = 16.dp),
     ) {
         Text(title, style = SleepType.body, modifier = Modifier.weight(1f))
@@ -533,11 +531,7 @@ private fun PlanReveal(answers: OnboardingAnswers, revealed: Boolean, onRevealed
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.fillMaxWidth().padding(top = 64.dp),
         ) {
-            Image(
-                painter = painterResource(R.drawable.sloth_brand),
-                contentDescription = null,
-                modifier = Modifier.fillMaxWidth(0.4f),
-            )
+            SlothBrandMark(Modifier.fillMaxWidth(0.4f))
             Spacer(Modifier.height(24.dp))
             CircularProgressIndicator(color = SleepColors.amber, modifier = Modifier.size(22.dp))
             Spacer(Modifier.height(16.dp))

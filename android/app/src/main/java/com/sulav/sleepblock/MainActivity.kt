@@ -12,8 +12,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.sulav.sleepblock.data.DebugFlags
 import com.sulav.sleepblock.data.SleepStore
 import com.sulav.sleepblock.ui.MainScreen
+import com.sulav.sleepblock.ui.onboarding.BlockingPrimerScreen
 import com.sulav.sleepblock.ui.onboarding.OnboardingFlow
 import com.sulav.sleepblock.ui.paywall.PaywallScreen
 import com.sulav.sleepblock.ui.sleep.SleepModeScreen
@@ -24,6 +26,7 @@ import com.sulav.sleepblock.ui.theme.SleepColors
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        DebugFlags.readFrom(intent)
         enableEdgeToEdge()
         setContent {
             SleepBlockTheme {
@@ -47,6 +50,9 @@ fun RootScreen(store: SleepStore = viewModel()) {
         store.activeSession != null -> Destination.SLEEP
         !store.isAuthenticated || !store.isOnboarded -> Destination.ONBOARDING
         store.needsPaywall -> Destination.PAYWALL
+        // After the paywall resolves: blocking gets its teeth at peak
+        // commitment, never mid-sign-up (the iOS Screen Time primer rule).
+        store.needsBlockingPrimer -> Destination.PRIMER
         else -> Destination.MAIN
     }
     Crossfade(targetState = destination, label = "root") { target ->
@@ -59,9 +65,10 @@ fun RootScreen(store: SleepStore = viewModel()) {
             Destination.SLEEP -> SleepModeScreen(store)
             Destination.ONBOARDING -> OnboardingFlow(store)
             Destination.PAYWALL -> PaywallScreen(store)
+            Destination.PRIMER -> BlockingPrimerScreen(store)
             Destination.MAIN -> MainScreen(store)
         }
     }
 }
 
-private enum class Destination { SPLASH, SLEEP, ONBOARDING, PAYWALL, MAIN }
+private enum class Destination { SPLASH, SLEEP, ONBOARDING, PAYWALL, PRIMER, MAIN }
