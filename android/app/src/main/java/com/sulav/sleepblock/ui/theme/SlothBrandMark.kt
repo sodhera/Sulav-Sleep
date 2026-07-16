@@ -15,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
@@ -37,10 +38,12 @@ fun SlothBrandMark(modifier: Modifier = Modifier) {
             contentDescription = null,
             modifier = Modifier.fillMaxWidth(),
         )
+        // The sloth sleeps with its head on the left of the pillow, so the
+        // chain rises off the left third — never over its feet.
         RisingZs(
             modifier = Modifier
-                .align(Alignment.TopEnd)
-                .offset(x = (-8).dp, y = (-6).dp),
+                .align(BiasAlignment(horizontalBias = -0.45f, verticalBias = -1f))
+                .offset(y = (-2).dp),
         )
     }
 }

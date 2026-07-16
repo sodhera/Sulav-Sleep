@@ -97,20 +97,30 @@ private fun SceneLayers(phase: CityPhase) {
     }
 
     val drift = rememberInfiniteTransition(label = "drift")
-    // One shared 0→1 phase; each plane maps it to its own tiny travel so
-    // the parallax stays coherent (a slow ping-pong nobody consciously sees).
-    val t by drift.animateFloat(
+    // Clouds ride their own faster cycle so the sky visibly breathes; the
+    // skylines share a slower phase with travel growing toward the front,
+    // which is what reads as depth.
+    val cloudT by drift.animateFloat(
         initialValue = -1f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 90_000, easing = LinearEasing),
+            animation = tween(durationMillis = 40_000, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse,
         ),
-        label = "t",
+        label = "clouds",
+    )
+    val skylineT by drift.animateFloat(
+        initialValue = -1f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 60_000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "skylines",
     )
 
-    // Travel in px per plane: sky static, clouds and skylines increasing.
-    val travels = listOf(0f, 26f, 10f, 18f, 30f, 44f)
+    // Travel in px per plane: sky static, clouds lively, skylines deepening.
+    val travels = listOf(0f, 70f, 20f, 40f, 65f, 90f)
     ids.forEachIndexed { index, resId ->
         if (resId == 0) return@forEachIndexed
         val bitmap = ImageBitmap.imageResource(resId)
@@ -122,10 +132,11 @@ private fun SceneLayers(phase: CityPhase) {
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer {
-                    // Slight oversize gives the drift somewhere to go.
-                    scaleX = 1.12f
-                    scaleY = 1.12f
-                    translationX = t * travels[index]
+                    // The oversize gives the drift somewhere to go without
+                    // ever exposing a layer edge.
+                    scaleX = 1.2f
+                    scaleY = 1.2f
+                    translationX = (if (index == 1) cloudT else skylineT) * travels[index]
                 },
         )
     }

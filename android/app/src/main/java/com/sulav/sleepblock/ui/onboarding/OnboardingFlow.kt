@@ -336,7 +336,9 @@ private fun QuestionnaireScreen(store: SleepStore, onExit: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxSize().systemBarsPadding().padding(horizontal = 24.dp),
     ) {
-        // Progress header: chevron + centered bar.
+        // Progress header: chevron + centered bar + the small brand mark
+        // riding the chevron-twin slot (per DESIGN.md), so the sign-up flow
+        // stays branded without a second large mark.
         Row(verticalAlignment = Alignment.CenterVertically) {
             BackChevron(back)
             LinearProgressIndicator(
@@ -345,7 +347,9 @@ private fun QuestionnaireScreen(store: SleepStore, onExit: () -> Unit) {
                 trackColor = SleepColors.hairline,
                 modifier = Modifier.weight(1f).padding(horizontal = 16.dp),
             )
-            Spacer(Modifier.size(48.dp))
+            Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                SlothBrandMark(Modifier.width(48.dp))
+            }
         }
         Spacer(Modifier.height(32.dp))
 
