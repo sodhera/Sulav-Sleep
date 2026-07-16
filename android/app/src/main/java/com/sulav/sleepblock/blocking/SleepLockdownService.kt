@@ -34,6 +34,7 @@ class SleepLockdownService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var blocked: Set<String> = emptySet()
     private var lastShieldAt = 0L
+    private var watching = false
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -45,8 +46,13 @@ class SleepLockdownService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        Log.i(TAG, "Lockdown started for ${blocked.size} app(s)")
-        scope.launch { watch() }
+        // Idempotent: a resume start (app relaunch, boot receiver) while the
+        // watch is already running must not stack a second poller.
+        if (!watching) {
+            watching = true
+            Log.i(TAG, "Lockdown started for ${blocked.size} app(s)")
+            scope.launch { watch() }
+        }
         return START_STICKY
     }
 
@@ -63,23 +69,29 @@ class SleepLockdownService : Service() {
         var since = System.currentTimeMillis() - 60_000
         var foreground: String? = null
         while (scope.isActive) {
-            val now = System.currentTimeMillis()
-            val events = usage.queryEvents(since, now)
-            val event = UsageEvents.Event()
-            while (events.hasNextEvent()) {
-                events.getNextEvent(event)
-                if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED) {
-                    foreground = event.packageName
+            // One bad iteration (a transient UsageStats/ActivityManager
+            // hiccup) must never silently end the night watch.
+            try {
+                val now = System.currentTimeMillis()
+                val events = usage.queryEvents(since, now)
+                val event = UsageEvents.Event()
+                while (events.hasNextEvent()) {
+                    events.getNextEvent(event)
+                    if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED) {
+                        foreground = event.packageName
+                    }
                 }
-            }
-            since = now
-            val current = foreground
-            if (current != null && current in blocked && current != packageName) {
-                // Debounce: the shield needs a beat to reach the foreground.
-                if (now - lastShieldAt > 2_000) {
-                    lastShieldAt = now
-                    showShield(current)
+                since = now
+                val current = foreground
+                if (current != null && current in blocked && current != packageName) {
+                    // Debounce: the shield needs a beat to reach the foreground.
+                    if (now - lastShieldAt > 2_000) {
+                        lastShieldAt = now
+                        showShield(current)
+                    }
                 }
+            } catch (e: Exception) {
+                Log.e(TAG, "Watch iteration failed (continuing): ${e.message}")
             }
             delay(1_000)
         }

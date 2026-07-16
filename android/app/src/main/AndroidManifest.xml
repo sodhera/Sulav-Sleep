@@ -12,6 +12,8 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- Resume the lockdown if the phone reboots mid-night. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- The Blocked apps picker lists launcher apps without QUERY_ALL_PACKAGES. -->
     <queries>
@@ -65,6 +67,16 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/sleep_widget_info" />
+        </receiver>
+
+        <!-- Resumes the night watch after a reboot or app update mid-night. -->
+        <receiver
+            android:name=".blocking.LockdownBootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
         </receiver>
 
         <!-- Night watch: polls the foreground app during an active session. -->

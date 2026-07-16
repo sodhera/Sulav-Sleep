@@ -78,6 +78,11 @@ class SleepStore(application: Application) : AndroidViewModel(application) {
 
     init {
         reload()
+        // A session that survived a process death (OEM kill, crash, update)
+        // resumes its lockdown the moment the app is back.
+        if (activeSession != null && willLockDuringSleep) {
+            SleepLockdownService.start(application)
+        }
         subscription.start { state, status ->
             entitlement = state
             subscriptionStatus = status
