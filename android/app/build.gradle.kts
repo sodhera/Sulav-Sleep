@@ -25,7 +25,7 @@ android {
         applicationId = "com.sulav.sleepblock"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
+        versionCode = 2
         versionName = "1.0"
 
         buildConfigField("String", "SUPABASE_URL", "\"${secret("SUPABASE_URL")}\"")
@@ -34,10 +34,31 @@ android {
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${secret("GOOGLE_WEB_CLIENT_ID")}\"")
     }
 
+    // Only configured when a release keystore exists (see docs/android.md —
+    // generated once via keytool, gitignored). Without it, `assembleRelease`
+    // still produces an unsigned APK for local inspection, but Play Console
+    // will reject it — signing is required to upload.
+    val releaseKeystoreFile = secret("RELEASE_STORE_FILE").ifEmpty { null }
+        ?.let { rootProject.file(it) }
+        ?.takeIf { it.exists() }
+    signingConfigs {
+        if (releaseKeystoreFile != null) {
+            create("release") {
+                storeFile = releaseKeystoreFile
+                storePassword = secret("RELEASE_STORE_PASSWORD")
+                keyAlias = secret("RELEASE_KEY_ALIAS")
+                keyPassword = secret("RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (releaseKeystoreFile != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
     compileOptions {
