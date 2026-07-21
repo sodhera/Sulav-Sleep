@@ -955,24 +955,53 @@ always takes the display immediately.
 ## Shield overlay
 
 The Screen Time shield (`ShieldConfigProvider.swift`, the
-`SulavSleepShieldConfig` extension) is what a blocked app shows at 2am — the
-one brand surface the user meets at their weakest moment, so it speaks in the
-app's own voice, not Apple's gray card. The system renders the shield itself
-from a static `ShieldConfiguration`; the only expressive slot is the icon, so
-the icon *is* the brand mark: the night sloth on its warm amber halo with the
-gold rising-z chain alive above it, `RisingZs`' full 7.5-second cycle baked
-frame-by-frame into an animated `UIImage` (the extension can't run SwiftUI —
-it pre-renders ~38 frames of the same keyframes at build-the-config time).
-The mark breathes on the shield exactly like it does on the welcome screen.
+`SulavSleepShieldConfig` extension) is what a blocked app shows when the user
+tries to open it during the blocking window — the one brand surface the user
+meets at their weakest moment, so it speaks in the app's own voice, not
+Apple's gray card. The system renders the shield itself from a static
+`ShieldConfiguration`; the only expressive slot is the icon, so the icon *is*
+the brand mark: the night sloth on its warm amber halo with the gold rising-z
+chain alive above it, `RisingZs`' full 7.5-second cycle baked frame-by-frame
+into an animated `UIImage` (the extension can't run SwiftUI — it pre-renders
+~38 frames of the same keyframes at build-the-config time). The mark breathes
+on the shield exactly like it does on the welcome screen.
 
-Around it, the app's text hierarchy on the shield's dark blur (`background`
-navy under `.systemUltraThinMaterialDark`): ink title "Time to sleep", dim
-subtitle ("This app/site is asleep until you wake. Head back to bed."), and a
-single amber "Good night" button that dismisses the shield. There is
-deliberately no "Open SleepBlock" button — the Shield Action API can't
-actually open the app, and the shield never offers an action it can't honor
-(the same rule as the widget capsule). Under the hood both button slots just
-close; one honest button is the whole interaction.
+### Two-phase blocking
+
+Blocking starts automatically at the user's scheduled bedtime, **not** when
+they tap Sleep Now. The `DeviceActivityMonitor` extension applies the shield
+at interval start and writes a `LockdownPhase` to the App Group defaults, so
+the shield extensions render the right copy:
+
+**Pre-sleep phase** (bedtime arrives → user hasn't started a session):
+- Title: "Time for bed"
+- Subtitle: "This app is blocked until you wake. Put your phone down and head
+  to bed."
+- Primary button: **"Sleep Now"** (amber) — closes the shield and fires a
+  local notification with the `sleepblock://sleep` deep link. Tapping the
+  notification opens the app on the sleep confirmation panel. (The Shield
+  Action API cannot directly launch the host app; the notification is the
+  bridge.)
+- Secondary button: "OK" (dim) — just dismisses the shield.
+
+**Active sleep phase** (user tapped Sleep Now, session running):
+- Title: "Time to sleep"
+- Subtitle: "This app is asleep until you wake. Head back to bed."
+- Primary button: **"Good night"** (amber) — dismisses the shield.
+- No secondary button.
+
+When `startSleep()` calls `startLockdown()`, the phase flips from `presleep`
+to `active`. The next time the shield renders, it picks up the new phase and
+shows the firm lockdown copy. At wake time (or max-hours cap), the monitor
+clears both the shield and the phase.
+
+### Shared state
+
+The phase is communicated via App Group UserDefaults (`sulav.lock.phase`),
+readable by all four targets (main app, monitor, shield config, shield
+action). The shield extensions hardcode the App Group name and key because
+they don't include `SleepLockdownShared.swift` in their target — keeping the
+jetsam-constrained shield process lean.
 
 The extension can't see the app's asset catalog, so it bundles its own
 downsized copy of the night sloth (`ShieldSloth.png`, 480px, from
@@ -980,7 +1009,7 @@ downsized copy of the night sloth (`ShieldSloth.png`, 480px, from
 extensions live under a tight memory ceiling, and a killed extension falls
 back to Apple's generic shield — the exact thing this exists to replace. The
 mark always wears night light (never day/dusk): the shield only appears
-during sleep lockdown.
+during the blocking window.
 
 ## What to avoid
 

@@ -688,9 +688,21 @@ automatically.
   silently falls back to Apple's generic gray shield. Shields only render on
   device (Family Controls), so verify composition changes with a quick AppKit
   port of the drawing code if needed — the math is plain CoreGraphics.
-- Both shield buttons can only `.close` (`ShieldActionHandler.swift` — the
-  Shield Action API cannot open the host app), so the shield shows a single
-  "Good night" button; don't add copy that promises navigation.
+- **Two-phase blocking**: The `DeviceActivityMonitor` extension now applies the
+  shield at `intervalDidStart` (bedtime) in the **pre-sleep** phase, not just
+  clears it at `intervalDidEnd`. The phase (`presleep` / `active`) is stored in
+  App Group defaults (`sulav.lock.phase`) and read by the shield extensions:
+  - *Pre-sleep*: title "Time for bed", primary "Sleep Now" (fires a local
+    notification with `sleepblock://sleep`), secondary "OK" (closes).
+  - *Active*: title "Time to sleep", primary "Good night" (closes).
+  `startLockdown()` writes `active`; `endLockdown()` and the monitor's
+  `intervalDidEnd` / `eventDidReachThreshold` clear it.
+- The Shield Action API cannot open the host app, so the pre-sleep "Sleep Now"
+  button posts a local notification with the deep link — tapping the
+  notification opens the app on the sleep confirmation panel
+  (`SleepAppDelegate` handles the notification tap via
+  `UNUserNotificationCenterDelegate`). Provisional notification authorization
+  (no prompt) is requested at launch.
 
 ## App Intents
 
