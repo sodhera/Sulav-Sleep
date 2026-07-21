@@ -926,11 +926,47 @@ private struct RecordBars: View {
     private static let barWidth: CGFloat = 28
     private let chartHeight: CGFloat = 120
 
-    /// Fixed 7 columns, latest night in the rightmost slot; missing nights
-    /// lead-pad as nil.
+    /// Fixed 7 columns where each column is a calendar day.  The rightmost
+    /// column is the latest night's date; the leftmost is six calendar days
+    /// earlier.  Sessions are placed into the column that matches their `end`
+    /// date (start-of-day).  Missed days appear as `nil` — the hairline
+    /// placeholder bar — in the correct position, so gaps are visible.
     private var slots: [SleepSession?] {
-        let recent = Array(sessions.suffix(Self.slotCount))
-        return Array(repeating: nil, count: Self.slotCount - recent.count) + recent
+        guard let latest = sessions.last else {
+            return Array(repeating: nil, count: Self.slotCount)
+        }
+        let calendar = Calendar.current
+        let latestDay = calendar.startOfDay(for: latest.end)
+        // Map each session to its day-offset from the latest night.
+        var byOffset: [Int: SleepSession] = [:]
+        for session in sessions.suffix(Self.slotCount) {
+            let sessionDay = calendar.startOfDay(for: session.end)
+            let offset = calendar.dateComponents([.day], from: sessionDay, to: latestDay).day ?? 0
+            if offset >= 0 && offset < Self.slotCount {
+                byOffset[offset] = session
+            }
+        }
+        // Build the 7-slot array: index 0 = six days ago … index 6 = latest.
+        return (0 ..< Self.slotCount).map { index in
+            let daysBack = Self.slotCount - 1 - index
+            return byOffset[daysBack]
+        }
+    }
+
+    /// The calendar date for each slot, used by the weekday labels so even
+    /// missed-day columns show the correct day letter.
+    private var slotDates: [Date] {
+        let calendar = Calendar.current
+        let latestDay: Date
+        if let latest = sessions.last {
+            latestDay = calendar.startOfDay(for: latest.end)
+        } else {
+            latestDay = calendar.startOfDay(for: Date())
+        }
+        return (0 ..< Self.slotCount).map { index in
+            let daysBack = Self.slotCount - 1 - index
+            return calendar.date(byAdding: .day, value: -daysBack, to: latestDay)!
+        }
     }
 
     var body: some View {
@@ -993,8 +1029,9 @@ private struct RecordBars: View {
             }
 
             HStack(spacing: SleepSpacing.sm) {
+                let dates = slotDates
                 ForEach(Array(slots.enumerated()), id: \.offset) { index, session in
-                    Text(session.map { SleepFormatting.narrowWeekday.string(from: $0.end) } ?? " ")
+                    Text(SleepFormatting.narrowWeekday.string(from: dates[index]))
                         .font(SleepFont.label(11))
                         .foregroundStyle(index == Self.slotCount - 1 ? SleepColor.amber : SleepColor.faint)
                         .frame(maxWidth: .infinity)
@@ -1071,16 +1108,33 @@ private struct RecordChart: View {
 
     @State private var page = 0
 
-    /// Oldest→newest pages of up to seven nights, split from the newest night
-    /// backward so the most recent page is always full when the record allows.
+    /// Oldest→newest pages, each spanning a 7-calendar-day window anchored from
+    /// the newest night backward.  Because `RecordBars` maps sessions onto a
+    /// 7-day grid by date, pages must also be date-aligned — otherwise sessions
+    /// that fall outside a 7-day span (due to sparse logging) would be silently
+    /// dropped.
     private var pages: [[SleepSession]] {
-        guard !sessions.isEmpty else { return [] }
+        guard let latest = sessions.last else { return [] }
+        let calendar = Calendar.current
+        let latestDay = calendar.startOfDay(for: latest.end)
+
+        // Walk backward from the newest night in 7-day steps.  Each page
+        // collects sessions whose `end` date falls within [windowStart,
+        // windowEnd).
         var result: [[SleepSession]] = []
-        var end = sessions.count
-        while end > 0 {
-            let start = max(0, end - Self.perPage)
-            result.append(Array(sessions[start ..< end]))
-            end = start
+        var windowEnd = calendar.date(byAdding: .day, value: 1, to: latestDay)!
+        let earliest = calendar.startOfDay(for: sessions.first!.end)
+
+        while windowEnd > earliest {
+            let windowStart = calendar.date(byAdding: .day, value: -Self.perPage, to: windowEnd)!
+            let page = sessions.filter { session in
+                let day = calendar.startOfDay(for: session.end)
+                return day >= windowStart && day < windowEnd
+            }
+            if !page.isEmpty {
+                result.append(page)
+            }
+            windowEnd = windowStart
         }
         return result.reversed()
     }
