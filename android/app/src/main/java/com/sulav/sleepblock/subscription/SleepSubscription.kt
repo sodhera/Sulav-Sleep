@@ -67,12 +67,17 @@ interface SubscriptionProviding {
 
 object SleepSubscriptionFactory {
     fun makeDefault(context: Context): SubscriptionProviding {
-        val key = BuildConfig.REVENUECAT_API_KEY
-        if (key.isEmpty() || key.startsWith("your-")) {
-            Log.i(TAG, "RevenueCat key missing — dev mode, no paywall")
-            return DisabledSubscription
-        }
-        return RevenueCatSubscription(context, key)
+        // TEMPORARY: paywall disabled for demo screen recording.
+        // To re-enable, remove this line and uncomment the block below.
+        Log.i(TAG, "Paywall temporarily disabled for demo — all users entitled")
+        return DisabledSubscription
+
+        // val key = BuildConfig.REVENUECAT_API_KEY
+        // if (key.isEmpty() || key.startsWith("your-")) {
+        //     Log.i(TAG, "RevenueCat key missing — dev mode, no paywall")
+        //     return DisabledSubscription
+        // }
+        // return RevenueCatSubscription(context, key)
     }
 
     const val TAG = "SleepSubscription"

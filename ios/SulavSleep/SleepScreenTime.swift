@@ -23,10 +23,11 @@ protocol ScreenTimeControlling {
     func requestAuthorization() async -> Bool
     func startLockdown()
     func endLockdown()
-    /// Schedules a DeviceActivityMonitor interval that only *clears* the shield
-    /// — at the scheduled wake time, or after `maxHours` — even if the app
-    /// isn't foregrounded. The shield itself is only ever applied by
-    /// `startLockdown()`, called when the user taps Sleep Now.
+    /// Schedules a DeviceActivityMonitor interval around the bedtime→wake
+    /// window. At interval start (bedtime), the monitor extension applies the
+    /// shield in the pre-sleep phase. At interval end (wake time) or when the
+    /// max-hours cap is reached, the monitor clears both the shield and the
+    /// phase — even if the app isn't foregrounded.
     func scheduleLockdown(bedtimeMinutes: Int, wakeMinutes: Int, maxHours: Int)
     func cancelScheduledLockdown()
     var hasSelection: Bool { get }
@@ -88,13 +89,15 @@ final class ScreenTimeService: ScreenTimeControlling {
         store.shield.applicationCategories = selection.categoryTokens.isEmpty
             ? nil
             : .specific(selection.categoryTokens)
-        AppLog.app.info("Sleep lockdown applied (\(selection.applicationTokens.count) apps)")
+        SleepLockdownSelection.setPhase(.active)
+        AppLog.app.info("Sleep lockdown applied as active (\(selection.applicationTokens.count) apps)")
     }
 
     func endLockdown() {
         guard isSupported else { return }
         store.shield.applications = nil
         store.shield.applicationCategories = nil
+        SleepLockdownSelection.clearPhase()
         AppLog.app.info("Sleep lockdown cleared")
     }
 

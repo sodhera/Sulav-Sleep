@@ -46,25 +46,66 @@ class ShieldConfigProvider: ShieldConfigurationDataSource {
     private static let dim = UIColor(red: 0xB7 / 255.0, green: 0xBD / 255.0, blue: 0xC7 / 255.0, alpha: 1)
     private static let bg = UIColor(red: 0.03, green: 0.07, blue: 0.12, alpha: 1) // ~#08111E
 
+    // MARK: - Phase-aware shield configuration
+
+    /// App Group constants — hardcoded because this extension target does not
+    /// include `SleepLockdownShared.swift` (adding it would pull in
+    /// FamilyControls / DeviceActivity, bloating the jetsam-constrained
+    /// shield process).
+    private static let appGroup = "group.com.sulav.sleepblock"
+    private static let phaseKey = "sulav.lock.phase"
+
+    /// Whether the current lockdown is the pre-sleep nudge or the firm active
+    /// session lock.
+    private var isPresleep: Bool {
+        let raw = UserDefaults(suiteName: Self.appGroup)?.string(forKey: Self.phaseKey)
+        return raw == "presleep"
+    }
+
     private func makeConfig(noun: String) -> ShieldConfiguration {
-        ShieldConfiguration(
-            backgroundBlurStyle: .systemUltraThinMaterialDark,
-            backgroundColor: Self.bg,
-            icon: Self.brandMarkIcon ?? UIImage(systemName: "moon.zzz.fill"),
-            title: ShieldConfiguration.Label(
-                text: "Time to sleep",
-                color: Self.ink
-            ),
-            subtitle: ShieldConfiguration.Label(
-                text: "\(noun) is asleep until you wake. Head back to bed.",
-                color: Self.dim
-            ),
-            primaryButtonLabel: ShieldConfiguration.Label(
-                text: "Good night",
-                color: .black
-            ),
-            primaryButtonBackgroundColor: Self.amber
-        )
+        if isPresleep {
+            return ShieldConfiguration(
+                backgroundBlurStyle: .systemUltraThinMaterialDark,
+                backgroundColor: Self.bg,
+                icon: Self.brandMarkIcon ?? UIImage(systemName: "moon.zzz.fill"),
+                title: ShieldConfiguration.Label(
+                    text: "Time for bed",
+                    color: Self.ink
+                ),
+                subtitle: ShieldConfiguration.Label(
+                    text: "\(noun) is blocked until you wake. Put your phone down and head to bed.",
+                    color: Self.dim
+                ),
+                primaryButtonLabel: ShieldConfiguration.Label(
+                    text: "Sleep Now",
+                    color: .black
+                ),
+                primaryButtonBackgroundColor: Self.amber,
+                secondaryButtonLabel: ShieldConfiguration.Label(
+                    text: "OK",
+                    color: Self.dim
+                )
+            )
+        } else {
+            return ShieldConfiguration(
+                backgroundBlurStyle: .systemUltraThinMaterialDark,
+                backgroundColor: Self.bg,
+                icon: Self.brandMarkIcon ?? UIImage(systemName: "moon.zzz.fill"),
+                title: ShieldConfiguration.Label(
+                    text: "Time to sleep",
+                    color: Self.ink
+                ),
+                subtitle: ShieldConfiguration.Label(
+                    text: "\(noun) is asleep until you wake. Head back to bed.",
+                    color: Self.dim
+                ),
+                primaryButtonLabel: ShieldConfiguration.Label(
+                    text: "Good night",
+                    color: .black
+                ),
+                primaryButtonBackgroundColor: Self.amber
+            )
+        }
     }
 
     // MARK: - Brand mark icon

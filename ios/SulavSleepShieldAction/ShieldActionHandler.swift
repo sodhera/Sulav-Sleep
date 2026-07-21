@@ -1,17 +1,35 @@
 import ManagedSettings
 import ManagedSettingsUI
 import UIKit
+import UserNotifications
 
 // ShieldActionExtension: handles button taps on the shield overlay when the
-// user tries to open a blocked app during sleep. The primary button opens
-// SleepBlock via a URL scheme so the user lands on the sleep screen. The
-// secondary button simply dismisses the shield.
+// user tries to open a blocked app during sleep.
+//
+// **Pre-sleep phase** ("Time for bed" shield):
+//   Primary "Sleep Now": closes the shield and posts a local notification with
+//   the `sleepblock://sleep` deep link, nudging the user into the app's sleep
+//   confirmation screen. Direct URL opening isn't available from a shield
+//   extension, so the notification is the bridge.
+//   Secondary "OK": just closes the shield.
+//
+// **Active sleep phase** ("Time to sleep" shield):
+//   Primary "Good night": closes the shield (current behavior).
 //
 // Note: ShieldActionExtensions run in their own sandboxed process. Direct
-// UIApplication.shared is not available. We open the URL through the
-// extensionContext or low-level API.
+// UIApplication.shared is not available.
 
 class ShieldActionHandler: ShieldActionDelegate {
+
+    /// App Group constants — hardcoded because this extension target does not
+    /// include `SleepLockdownShared.swift`.
+    private static let appGroup = "group.com.sulav.sleepblock"
+    private static let phaseKey = "sulav.lock.phase"
+
+    private var isPresleep: Bool {
+        let raw = UserDefaults(suiteName: Self.appGroup)?.string(forKey: Self.phaseKey)
+        return raw == "presleep"
+    }
 
     override func handle(action: ShieldAction,
                          for application: ApplicationToken,
@@ -32,21 +50,43 @@ class ShieldActionHandler: ShieldActionDelegate {
     }
 
     private func handleAction(_ action: ShieldAction,
-                              completionHandler: @escaping (ShieldActionResponse) -> Void) {
+                               completionHandler: @escaping (ShieldActionResponse) -> Void) {
         switch action {
         case .primaryButtonPressed:
-            // Attempting to open the main app directly via URL scheme is blocked
-            // by Apple in the ShieldAction API. The standard approach is to just
-            // close the shield and rely on the user to open the app manually, or
-            // trigger a local notification. We will just close the shield.
+            if isPresleep {
+                // Post a notification with the deep link so the user can tap
+                // it to open SleepBlock's confirmation screen.
+                postSleepNowNotification()
+            }
             completionHandler(.close)
 
         case .secondaryButtonPressed:
-            // Just dismiss the shield — the app underneath stays blocked.
             completionHandler(.close)
 
         @unknown default:
             completionHandler(.close)
         }
+    }
+
+    // MARK: - Local notification
+
+    /// Fires a local notification whose default action opens
+    /// `sleepblock://sleep`, landing the user on the sleep confirmation panel.
+    private func postSleepNowNotification() {
+        let content = UNMutableNotificationContent()
+        content.title = "Ready to sleep?"
+        content.body = "Tap to start your sleep session."
+        content.sound = .default
+        // The deep link is carried via userInfo so AppDelegate's
+        // `userNotificationCenter(_:didReceive:)` can route it, or the system
+        // opens it via the URL scheme when the notification is tapped.
+        content.userInfo = ["url": "sleepblock://sleep"]
+
+        let request = UNNotificationRequest(
+            identifier: "sulav.sleep.presleep-nudge",
+            content: content,
+            trigger: nil  // fire immediately
+        )
+        UNUserNotificationCenter.current().add(request)
     }
 }

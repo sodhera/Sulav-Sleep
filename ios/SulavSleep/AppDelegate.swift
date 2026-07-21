@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import UserNotifications
 
 // MARK: - Interactive edge-swipe back
 
@@ -27,8 +28,49 @@ extension UINavigationController: @retroactive UIGestureRecognizerDelegate {
     }
 }
 
+// MARK: - Notification delegate (pre-sleep shield deep link)
+
+/// Handles taps on the local notification that the shield action extension
+/// fires when the user presses "Sleep Now" during the pre-sleep phase.
+/// Tapping the notification opens the app and routes to the sleep
+/// confirmation, exactly like `sleepblock://sleep`.
+class SleepAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    func application(_ application: UIApplication,
+                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
+        UNUserNotificationCenter.current().delegate = self
+        // Provisional authorization lets us post quiet notifications from the
+        // shield extension without an upfront permission prompt.
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .provisional]) { _, _ in }
+        return true
+    }
+
+    /// Notification tapped — extract the deep link and route to sleep
+    /// confirmation via the same internal notification that Siri intents use.
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
+        let userInfo = response.notification.request.content.userInfo
+        if let urlString = userInfo["url"] as? String,
+           let url = URL(string: urlString),
+           url.scheme == "sleepblock", url.host == "sleep" {
+            AppLog.app.info("Notification tapped with sleepblock://sleep")
+            NotificationCenter.default.post(name: .sleepConfirmationRequested, object: nil)
+        }
+        completionHandler()
+    }
+
+    /// Show notifications even when the app is in the foreground (the shield
+    /// action fires the notification while the app may already be visible).
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound])
+    }
+}
+
 @main
 struct SulavSleepApp: App {
+    @UIApplicationDelegateAdaptor(SleepAppDelegate.self) var appDelegate
     @State private var store = SleepStore()
     @Environment(\.scenePhase) private var scenePhase
 
