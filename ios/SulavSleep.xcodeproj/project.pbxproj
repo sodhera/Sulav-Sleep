@@ -11,7 +11,8 @@
 		09AFEF368C3AA0418E7EE898 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 314F2F155CF97AAF34DA0A4C /* HomeView.swift */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		198E5870D78A269255C9D9C1 /* LiquidGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 512730D266670DD636BD803A /* LiquidGlass.swift */; };
-		1A87176D73C3EE6C7051ACFD /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = 71DA860F9B70BD0D45CF7857 /* Auth */; };
+		1A87176D73C3EE6C7051ACFD /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 71DA860F9B70BD0D45CF7857 /* Supabase */; };
+		F900000000000000000000B2 /* SleepCloudService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F900000000000000000000B1 /* SleepCloudService.swift */; };
 		7C0000000000000000000003 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = 7C0000000000000000000002 /* RevenueCat */; };
 		7C0000000000000000000013 /* SleepSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C0000000000000000000012 /* SleepSubscription.swift */; };
 		7C0000000000000000000015 /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C0000000000000000000014 /* PaywallView.swift */; };
@@ -138,6 +139,7 @@
 		F100000000000000000FC1 /* SleepLiveActivity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepLiveActivity.swift; path = SulavSleep/SleepLiveActivity.swift; sourceTree = "<group>"; };
 		F100000000000000000FD1 /* SleepAssetCache.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepAssetCache.swift; path = SulavSleep/SleepAssetCache.swift; sourceTree = "<group>"; };
 		F100000000000000000FE1 /* SleepConfirmationPanel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepConfirmationPanel.swift; path = SulavSleep/SleepConfirmationPanel.swift; sourceTree = "<group>"; };
+		F900000000000000000000B1 /* SleepCloudService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepCloudService.swift; path = SulavSleep/SleepCloudService.swift; sourceTree = "<group>"; };
 		F400000000000000000000A2 /* SulavSleepWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SulavSleepWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		F400000000000000000000B1 /* SulavSleepWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SulavSleepWidget.swift; path = SulavSleepWidget/SulavSleepWidget.swift; sourceTree = "<group>"; };
 		F400000000000000000000B2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = SulavSleepWidget/Info.plist; sourceTree = "<group>"; };
@@ -169,7 +171,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1A87176D73C3EE6C7051ACFD /* Auth in Frameworks */,
+				1A87176D73C3EE6C7051ACFD /* Supabase in Frameworks */,
 				7C0000000000000000000003 /* RevenueCat in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -226,6 +228,7 @@
 				F5DB00420EA2535786E040A3 /* Secrets.xcconfig */,
 				907CE4E59D34D87F2C5A0321 /* AuthView.swift */,
 				13CAC730E7CB269B04C769A7 /* Auth */,
+				F900000000000000000000B1 /* SleepCloudService.swift */,
 			);
 			name = SulavSleep;
 			sourceTree = "<group>";
@@ -351,7 +354,7 @@
 			);
 			name = SulavSleep;
 			packageProductDependencies = (
-				71DA860F9B70BD0D45CF7857 /* Auth */,
+				71DA860F9B70BD0D45CF7857 /* Supabase */,
 				7C0000000000000000000002 /* RevenueCat */,
 			);
 			productName = SulavSleep;
@@ -574,6 +577,7 @@
 				60E68C3ACCC4786FCD348BFF /* AuthView.swift in Sources */,
 				2C9E3A52E958468A363D1635 /* AuthModels.swift in Sources */,
 				7114F43B85E6E229559E5013 /* SupabaseAuthClient.swift in Sources */,
+				F900000000000000000000B2 /* SleepCloudService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1107,10 +1111,10 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		71DA860F9B70BD0D45CF7857 /* Auth */ = {
+		71DA860F9B70BD0D45CF7857 /* Supabase */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 2F49F75CF32564D69E719168 /* XCRemoteSwiftPackageReference "supabase-swift" */;
-			productName = Auth;
+			productName = Supabase;
 		};
 		7C0000000000000000000002 /* RevenueCat */ = {
 			isa = XCSwiftPackageProductDependency;

@@ -5,7 +5,7 @@ import AuthenticationServices
 #if canImport(CryptoKit)
 import CryptoKit
 #endif
-import Auth
+import Supabase
 
 // MARK: - Provider protocol (so the store can be tested with a mock)
 
@@ -44,6 +44,10 @@ protocol AuthProviding {
 }
 
 enum SulavAuth {
+    /// Shared SupabaseClient used by both auth and cloud services. `nil`
+    /// when Config.xcconfig is missing.
+    static var sharedClient: SupabaseClient?
+
     /// The real Supabase-backed client when `Config.xcconfig` has real
     /// values, otherwise a no-op client so the app still builds/runs (auth
     /// calls just fail) for anyone who hasn't wired up credentials yet. See
@@ -53,7 +57,9 @@ enum SulavAuth {
             AppLog.app.notice("Supabase config missing — auth screen will show errors until Config.xcconfig is set up")
             return DisabledAuthClient()
         }
-        return SupabaseAuthClient(url: url, anonKey: anonKey)
+        let client = SupabaseClient(supabaseURL: url, supabaseKey: anonKey)
+        sharedClient = client
+        return SupabaseAuthClient(supabaseClient: client, url: url, anonKey: anonKey)
     }
 }
 
@@ -92,10 +98,12 @@ enum SupabaseConfig {
 // MARK: - Real Supabase implementation
 
 final class SupabaseAuthClient: AuthProviding {
-    private let client: AuthClient
-    /// Project base URL (e.g. `https://<ref>.supabase.co`) and anon key, kept so
-    /// we can reach non-auth endpoints like `/functions/v1/...` directly; the
-    /// `AuthClient` above only speaks to `/auth/v1`.
+    /// The umbrella Supabase client — shared with `SleepCloudService` so
+    /// PostgREST queries get the same automatic auth-header injection.
+    let supabaseClient: SupabaseClient
+    private var client: AuthClient { supabaseClient.auth }
+    /// Project base URL and anon key, kept for the Edge Function call
+    /// (`delete-account`) which uses a raw URLRequest.
     private let baseURL: URL
     private let anonKey: String
 
@@ -115,16 +123,10 @@ final class SupabaseAuthClient: AuthProviding {
         }
     }
 
-    init(url: URL, anonKey: String) {
+    init(supabaseClient: SupabaseClient, url: URL, anonKey: String) {
+        self.supabaseClient = supabaseClient
         self.baseURL = url
         self.anonKey = anonKey
-        // Keychain-backed local storage, so session tokens are never written
-        // into our own UserDefaults blob.
-        client = AuthClient(
-            url: url.appendingPathComponent("auth/v1"),
-            headers: ["apikey": anonKey],
-            localStorage: AuthClient.Configuration.defaultLocalStorage
-        )
     }
 
     func signInWithApple(idToken: String, nonce: String) async throws -> AuthResult {
@@ -340,7 +342,7 @@ final class SupabaseAuthClient: AuthProviding {
         }
         // GoTrue's structured error codes, for the failures a user can actually
         // cause; anything unmapped falls through with its server message.
-        if let authError = error as? Auth.AuthError {
+        if let authError = error as? Supabase.AuthError {
             switch authError.errorCode {
             case .invalidCredentials: return .invalidCredentials
             case .userAlreadyExists, .emailExists: return .emailAlreadyRegistered

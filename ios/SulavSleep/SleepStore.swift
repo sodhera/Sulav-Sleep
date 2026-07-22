@@ -58,6 +58,7 @@ final class SleepStore {
     private let health: SleepHealthProviding
     private let screenTime: ScreenTimeControlling
     private let auth: AuthProviding
+    private let cloud: CloudSyncing
     private let subscription: SubscriptionProviding
 
     init(
@@ -65,12 +66,15 @@ final class SleepStore {
         health: SleepHealthProviding? = nil,
         screenTime: ScreenTimeControlling? = nil,
         auth: AuthProviding? = nil,
+        cloud: CloudSyncing? = nil,
         subscription: SubscriptionProviding? = nil
     ) {
         self.persistence = persistence
         self.health = health ?? SleepHealth.makeDefault()
         self.screenTime = screenTime ?? SleepScreenTime.makeDefault()
         self.auth = auth ?? SulavAuth.makeDefault()
+        // Cloud must be created after auth (auth creates the shared SupabaseClient)
+        self.cloud = cloud ?? SleepCloud.makeDefault()
         self.subscription = subscription ?? SleepSubscription.makeDefault()
         screenTimePrimerSeen = persistence.screenTimePrimerSeen
         reload()
@@ -283,7 +287,7 @@ final class SleepStore {
         activeSession = nil
         persist()
         AppLog.store.info("Onboarding complete")
-        syncRemoteProfile()
+        syncCloudProfile()
     }
 
     // MARK: - Auth
@@ -311,32 +315,46 @@ final class SleepStore {
             Task { [subscription] in await subscription.logIn(accountID: account.id) }
             // Signed in but no profile on this device (e.g. a Keychain session
             // synced from another device): restore the cloud copy so the user
-            // lands in the app, not back in onboarding. Runs before the ready
-            // flip so onboarding never flashes — but capped so a slow network
-            // can't hold the launch screen hostage; worst case the user gets
-            // the quick setup they'd have gotten anyway.
-            if profile == nil, let remote = await Self.withTimeout(seconds: 5, { [auth] in await auth.fetchRemoteProfile() }) {
-                profile = remote.asLocalProfile
-                persist(refreshWidget: false)
-                AppLog.store.info("Restored profile from cloud (launch)")
-            } else if persistence.cloudSeedCheckedAccountID != account.id,
-                      let localCopy = RemoteProfile(profile: profile) {
-                // Signed in with a local profile: make sure the account has a
-                // cloud copy (accounts predating profile sync won't until they
-                // sign in again otherwise). Backgrounded — never blocks launch
-                // — and remembered once confirmed, so the app stays fully
-                // offline at every later open instead of re-checking the
-                // cloud each launch. (A launch that had to *seed* the copy
-                // re-confirms on the next one before marking.)
-                Task { [auth, persistence] in
-                    if await auth.fetchRemoteProfile() == nil {
-                        AppLog.store.info("Seeding missing cloud profile from this device")
-                        await auth.saveRemoteProfile(localCopy)
-                    } else {
-                        persistence.markCloudSeedChecked(accountID: account.id)
+            // lands in the app, not back in onboarding.
+            if profile == nil {
+                // Try the profiles table first; fall back to legacy auth
+                // metadata for accounts that predate the table migration.
+                if let cloudProfile = await Self.withTimeout(seconds: 5, { [cloud] in
+                    await cloud.fetchProfile(userId: account.id)
+                }) {
+                    profile = cloudProfile.asLocalProfile
+                    persist(refreshWidget: false)
+                    AppLog.store.info("Restored profile from cloud table (launch)")
+                } else if let remote = await Self.withTimeout(seconds: 5, { [auth] in
+                    await auth.fetchRemoteProfile()
+                }) {
+                    profile = remote.asLocalProfile
+                    persist(refreshWidget: false)
+                    AppLog.store.info("Restored profile from auth metadata (launch)")
+                    // Migrate legacy metadata to the profiles table
+                    Task { [cloud] in
+                        await cloud.upsertProfile(CloudProfile(from: remote), userId: account.id)
+                        AppLog.store.info("Migrated legacy metadata profile to table")
                     }
                 }
+            } else if !persistence.cloudMigrated(accountID: account.id) {
+                // First launch after the cloud sync update: seed the table
+                // from local data so the user's history is backed up.
+                let localProfile = CloudProfile(profile: profile)
+                let localSessions = sessions.filter { $0.source == .local }
+                Task { [cloud, persistence] in
+                    if let cp = localProfile {
+                        await cloud.upsertProfile(cp, userId: account.id)
+                    }
+                    if !localSessions.isEmpty {
+                        await cloud.upsertSessions(localSessions, userId: account.id)
+                    }
+                    persistence.markCloudMigrated(accountID: account.id)
+                    AppLog.store.info("Seeded cloud tables from local data")
+                }
             }
+            // Restore cloud sessions and merge with local
+            Task { [weak self] in await self?.restoreCloudSessions() }
         } else {
             clearPersistedAccount()
         }
@@ -460,10 +478,21 @@ final class SleepStore {
         if profile == nil, let remoteProfile {
             profile = remoteProfile.asLocalProfile
             AppLog.store.info("Restored profile from cloud")
-        } else if remoteProfile == nil, let localCopy = RemoteProfile(profile: profile) {
-            // Account predates profile sync (or its cloud copy was lost): seed
-            // it from this device so the next fresh install skips onboarding.
-            Task { await auth.saveRemoteProfile(localCopy) }
+        } else if profile == nil {
+            // Try cloud table (profile may exist in the table but not metadata)
+            Task { [cloud] in
+                if let cloudProfile = await cloud.fetchProfile(userId: newAccount.id) {
+                    await MainActor.run {
+                        self.profile = cloudProfile.asLocalProfile
+                        self.persist(refreshWidget: true)
+                    }
+                    AppLog.store.info("Restored profile from cloud table (sign-in)")
+                }
+            }
+        }
+        // Sync local profile to cloud table
+        if let cp = CloudProfile(profile: profile) {
+            Task { [cloud] in await cloud.upsertProfile(cp, userId: newAccount.id) }
         }
         account = newAccount
         persistAccount(newAccount)
@@ -471,13 +500,34 @@ final class SleepStore {
         persist(refreshWidget: true)
         // Link the subscription to this account (see restoreSession).
         Task { [subscription] in await subscription.logIn(accountID: newAccount.id) }
+        // Restore cloud sessions and merge
+        Task { [weak self] in await self?.restoreCloudSessions() }
     }
 
-    /// Push the local profile to the account's cloud copy, best-effort. Called
+    /// Push the local profile to the cloud table, best-effort. Called
     /// after every profile-shaping change (onboarding, name, schedule).
-    private func syncRemoteProfile() {
-        guard isAuthenticated, let remote = RemoteProfile(profile: profile) else { return }
-        Task { [auth] in await auth.saveRemoteProfile(remote) }
+    private func syncCloudProfile() {
+        guard isAuthenticated, let userId = account?.id,
+              let cp = CloudProfile(profile: profile) else { return }
+        Task { [cloud] in await cloud.upsertProfile(cp, userId: userId) }
+    }
+
+    /// Fetch sleep sessions from the cloud table and merge with local.
+    /// Called at launch and after sign-in, backgrounded.
+    @MainActor
+    private func restoreCloudSessions() async {
+        guard let userId = account?.id else { return }
+        let cloudSessions = await cloud.fetchSessions(userId: userId)
+        guard !cloudSessions.isEmpty else { return }
+        // Merge cloud sessions into local using the same night-dedup logic
+        // as Health merge. Local wins on conflict.
+        let merged = SleepMerge.merge(local: self.sessions, health: cloudSessions)
+        let added = merged.count - self.sessions.count
+        if added > 0 {
+            self.sessions = merged
+            persist(refreshWidget: true)
+            AppLog.store.info("Restored \(added) session(s) from cloud")
+        }
     }
 
     /// Race `operation` against a deadline, returning `nil` when the deadline
@@ -561,6 +611,11 @@ final class SleepStore {
             SleepLiveActivity.end()
         }
         AppLog.store.info("Logged night: \(minutes)m")
+
+        // Sync to cloud
+        if let userId = account?.id {
+            Task { [cloud] in await cloud.upsertSessions([session], userId: userId) }
+        }
 
         if profile?.healthSyncEnabled == true {
             Task {
@@ -748,7 +803,7 @@ final class SleepStore {
         self.profile = profile
         persist()
         rescheduleLockdown()
-        syncRemoteProfile()
+        syncCloudProfile()
     }
 
     func saveName(_ name: String) {
@@ -759,7 +814,7 @@ final class SleepStore {
         profile.name = trimmed
         self.profile = profile
         persist(refreshWidget: false)
-        syncRemoteProfile()
+        syncCloudProfile()
     }
 
     private func persist(refreshWidget: Bool = true) {
@@ -899,6 +954,18 @@ struct SleepPersistence {
     var cloudSeedCheckedAccountID: String? { defaults.string(forKey: cloudSeedCheckedKey) }
 
     func markCloudSeedChecked(accountID: String) { defaults.set(accountID, forKey: cloudSeedCheckedKey) }
+
+    // Whether the local profile + sessions for this account have been
+    // migrated to the cloud tables (one-time seed on app update).
+    private let cloudMigratedKey = "sulav.cloudMigrated.v1"
+
+    func cloudMigrated(accountID: String) -> Bool {
+        defaults.string(forKey: cloudMigratedKey) == accountID
+    }
+
+    func markCloudMigrated(accountID: String) {
+        defaults.set(accountID, forKey: cloudMigratedKey)
+    }
 
     var screenTimePrimerSeen: Bool { defaults.bool(forKey: screenTimePrimerKey) }
 
