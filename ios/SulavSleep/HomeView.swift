@@ -12,6 +12,8 @@ struct HomeView: View {
     var store: SleepStore
     let profile: Profile
 
+    @State private var showingScheduleEditor = false
+
     var body: some View {
         ZStack {
             // The flag lives on the store so the widget/shield deep link can
@@ -40,7 +42,14 @@ struct HomeView: View {
         .task {
             // Request standard authorization when the user actually reaches
             // the main app interface, rather than immediately on cold boot.
-            try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
+            _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
+        }
+        .sheet(isPresented: $showingScheduleEditor) {
+            NavigationStack {
+                ScheduleScreen(store: store, profile: profile)
+            }
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
         }
     }
 
@@ -60,10 +69,16 @@ struct HomeView: View {
                 VStack(spacing: SleepSpacing.xxl) {
                     HomeSloth(profile: profile, now: timeline.date)
 
-                    ScheduleCapsule(
-                        bedtime: SleepFormatting.clock(profile.bedtime),
-                        wake: SleepFormatting.clock(profile.wakeTime)
-                    )
+                    Button {
+                        Haptics.heavy()
+                        showingScheduleEditor = true
+                    } label: {
+                        ScheduleCapsule(
+                            bedtime: SleepFormatting.clock(profile.bedtime),
+                            wake: SleepFormatting.clock(profile.wakeTime)
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
             }
 

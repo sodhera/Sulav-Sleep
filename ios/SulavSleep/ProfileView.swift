@@ -591,9 +591,9 @@ enum SettingsDestination: Hashable {
     case blockedApps
 }
 
-// MARK: - Sleep schedule (pushed)
+// MARK: - Sleep schedule (pushed or sheet)
 
-private struct ScheduleScreen: View {
+struct ScheduleScreen: View {
     var store: SleepStore
     let profile: Profile
 
@@ -643,7 +643,7 @@ private struct ScheduleScreen: View {
     }
 }
 
-private enum ScheduleMode: String, CaseIterable, Identifiable {
+enum ScheduleMode: String, CaseIterable, Identifiable {
     case bed
     case wake
 
