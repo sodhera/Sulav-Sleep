@@ -1,4 +1,5 @@
 import SwiftUI
+import UserNotifications
 
 // Home is the bedside instrument: one glance says how long until bed, one
 // action starts the night. The composition is a single centered column with
@@ -36,6 +37,11 @@ struct HomeView: View {
         }
         .padding(.horizontal, SleepSpacing.xxl)
         .safeAreaPadding(.top)
+        .task {
+            // Request standard authorization when the user actually reaches
+            // the main app interface, rather than immediately on cold boot.
+            try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
+        }
     }
 
     private var homeContent: some View {

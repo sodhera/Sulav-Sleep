@@ -38,10 +38,6 @@ class SleepAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCente
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = self
-        // We request standard authorization (not provisional) because the shield
-        // extension's "Sleep Now" button posts a local notification that must
-        // drop down as a banner for the user to tap (the deep link bridge).
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
         return true
     }
 
