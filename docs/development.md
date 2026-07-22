@@ -405,25 +405,32 @@ Apple Developer capability, Google Cloud OAuth client).
   everything else (key `sulav.account.v1`), purely for optimistic UI paint
   before the async Keychain session-restore check (`SleepStore.restoreSession`)
   completes.
-- **Cloud profile sync**: the onboarding profile (name, schedule, struggles —
-  `RemoteProfile`, the account-portable slice of `Profile`) is mirrored into
-  Supabase **auth user metadata** under the `sleep_profile` key: no separate
-  table, no RLS policy, nothing new to configure. It's pushed best-effort by
-  `SleepStore.syncRemoteProfile()` after onboarding and name/schedule edits,
-  and restored by `adoptSignedInAccount` on sign-in (and by `restoreSession`
-  at launch, capped at 5s) whenever the device has no local profile — this is
-  what lets a returning user sign in after a reinstall and land straight in
-  the app instead of re-answering the questionnaire. Local-first still holds:
-  when both copies exist, the device's wins; accounts predating sync get their
-  cloud copy seeded on first sign-in. The launch-time backfill (seeding a
-  missing cloud copy for an already-signed-in device) runs in a background
-  task and is remembered per account once the cloud copy is confirmed
-  (`sulav.cloudSeedChecked.v1`, cleared by `reset()`), so it doesn't re-query
-  Supabase at every app open — the app stays fully offline on a routine
-  launch. Device-bound settings (Health sync,
-  Screen Time lockdown, prompt dismissals) deliberately do **not** sync — they
-  hinge on per-device permission grants. Sleep *history* doesn't sync either
-  (per `product-brief.md`).
+- **Cloud sync** (`SleepCloudService.swift`): profiles and sleep sessions are
+  persisted to two Supabase Postgres tables (`profiles`, `sleep_sessions`),
+  both protected by RLS policies scoped to `auth.uid()`. The app uses the
+  `Supabase` umbrella product (not just `Auth`), so the shared
+  `SupabaseClient` handles automatic JWT injection for all PostgREST queries.
+  - *Profile sync*: `SleepStore.syncCloudProfile()` upserts to the `profiles`
+    table after every profile-shaping change (onboarding, name, schedule).
+    On restore (fresh device/reinstall), `restoreSession` fetches from the
+    table first; if empty, falls back to legacy `sleep_profile` auth metadata
+    for pre-migration accounts and migrates the data to the table.
+  - *Session sync*: `wakeUp()` fire-and-forget upserts the new session to
+    `sleep_sessions`. On restore, cloud sessions are merged with local using
+    `SleepMerge` (same night-dedup as Health merge; local wins on conflict).
+  - *Migration*: on the first launch after the cloud sync update, existing
+    local profiles and sessions are bulk-seeded to the tables (tracked by
+    `sulav.cloudMigrated.v1`). Legacy auth metadata is still readable but no
+    longer written; new data goes straight to the tables.
+  - *Offline-first*: all cloud calls are best-effort fire-and-forget. The local
+    device is always the source of truth. Cloud is a durable backup that
+    enables cross-device profile restore and survives device loss.
+  - Device-bound settings (Health sync, Screen Time lockdown, prompt
+    dismissals) deliberately do **not** sync — they hinge on per-device
+    permission grants.
+  - SQL migration: `supabase/migrations/001_create_tables.sql` — must be
+    run in the Supabase SQL Editor or via `supabase db push` before the
+    feature goes live.
 - **Shared-device account switch**: `sulav.lastAccountID.v1` records who signed
   in last and — unlike the cached `AppAccount` — survives sign-out, so
   `adoptSignedInAccount` can tell a returning user (local data kept) from a
