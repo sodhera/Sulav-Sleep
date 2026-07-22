@@ -373,13 +373,25 @@ private struct EmberHoldButton: View {
     }
 
     private func endHold() {
-        guard !isComplete else { return }
         holdTask?.cancel()
         isHolding = false
         lastTick = -1
-        if progress > 0.02 { Haptics.soft() }
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-            progress = 0
+        
+        if isComplete {
+            // The button used to never reset because completing the hold would
+            // unmount the view. Now that it triggers an alert, it must reset.
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(250))
+                isComplete = false
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    progress = 0
+                }
+            }
+        } else {
+            if progress > 0.02 { Haptics.soft() }
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                progress = 0
+            }
         }
     }
 }
