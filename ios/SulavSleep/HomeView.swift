@@ -78,7 +78,7 @@ struct HomeView: View {
                             wake: SleepFormatting.clock(profile.wakeTime)
                         )
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(ScheduleCapsuleButtonStyle())
                 }
             }
 
@@ -217,7 +217,6 @@ private struct ScheduleCapsule: View {
         }
         .padding(.horizontal, SleepSpacing.xl)
         .frame(height: 36)
-        .liquidGlass(cornerRadius: SleepRadius.pill)
     }
 
     private func endpoint(icon: String, time: String) -> some View {
@@ -230,6 +229,17 @@ private struct ScheduleCapsule: View {
                 .foregroundStyle(SleepColor.dim)
                 .monospacedDigit()
         }
+    }
+}
+
+private struct ScheduleCapsuleButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        let pressed = configuration.isPressed
+        return configuration.label
+            .liquidGlass(cornerRadius: SleepRadius.pill, tint: SleepColor.glassFill, interactive: true)
+            .scaleEffect(pressed ? 0.965 : 1)
+            .opacity(pressed ? 0.96 : 1)
+            .animation(.spring(response: 0.3, dampingFraction: 0.58), value: pressed)
     }
 }
 
