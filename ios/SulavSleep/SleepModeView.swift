@@ -30,6 +30,8 @@ struct SleepModeView: View {
 
     @State private var now = Date()
     @State private var showControls = false
+    @State private var showingCancelConfirmation = false
+    @State private var cancelConfirmationText = ""
 
     private var elapsedMinutes: Int {
         max(0, Int(now.timeIntervalSince(activeSession.start) / 60))
@@ -155,7 +157,8 @@ struct SleepModeView: View {
                             duration: 0.8
                         ) {
                             Haptics.rigid()
-                            store.cancelSleep()
+                            cancelConfirmationText = ""
+                            showingCancelConfirmation = true
                         }
                         .padding(.top, SleepSpacing.sm)
                     }
@@ -183,6 +186,19 @@ struct SleepModeView: View {
             }
         }
         .statusBarHidden(true)
+        .alert("Cancel Sleep?", isPresented: $showingCancelConfirmation) {
+            TextField("Type \"I don't care about my sleep\"", text: $cancelConfirmationText)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+            Button("Nevermind", role: .cancel) { Haptics.heavy() }
+            Button("Cancel Sleep", role: .destructive) {
+                Haptics.heavy()
+                store.cancelSleep()
+            }
+            .disabled(cancelConfirmationText.trimmingCharacters(in: .whitespaces).lowercased() != "i don't care about my sleep")
+        } message: {
+            Text("This will end your sleep session without saving. Type \"I don't care about my sleep\" to confirm.")
+        }
     }
 
     /// Shared label for both the iOS 26+ glass and the pre-26 fallback "Back
