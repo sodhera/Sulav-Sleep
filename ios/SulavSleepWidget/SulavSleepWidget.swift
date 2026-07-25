@@ -42,6 +42,9 @@ struct SleepEntry: TimelineEntry {
 }
 
 struct SleepProvider: TimelineProvider {
+    /// Minute-stepped entries per awake timeline — three hours, then reload.
+    private static let awakeMinuteEntries = 180
+
     func placeholder(in context: Context) -> SleepEntry {
         SleepEntry(date: Date(), summary: .gallerySample)
     }
@@ -73,32 +76,20 @@ struct SleepProvider: TimelineProvider {
             return
         }
 
-        // Awake: countdown/timer text is system-driven (`Text(_, style:)`),
-        // so entries only exist to flip *states*: the sloth's eyelids at the
-        // drowsy boundary, then the bedtime and wake boundaries. The app
-        // pushes a reload on every real change; the policy is a fallback.
+        // Awake: one entry a minute for the next few hours. The countdown is
+        // rendered statically to the minute (see `compactInterval`), so it
+        // needs an entry per minute to stay live — and minute steps also mean
+        // every state flip in the window (drowsy, bedtime, midnight's column
+        // shift, wake) lands within a minute for free, instead of needing an
+        // ad-hoc entry each. Entries inside one timeline cost nothing; only
+        // the reload at the end does, so this is ~8 reloads a day.
+        let second = Calendar.current.component(.second, from: now)
+        let firstStep = now.addingTimeInterval(TimeInterval(60 - second))
         var entries = [SleepEntry(date: now, summary: summary)]
-        var refresh = now.addingTimeInterval(3600)
-        // The chart's columns are a date grid anchored to today, so it has to
-        // be redrawn when the date changes or the bars sit a day stale until
-        // the next boundary happens to fire.
-        if let midnight = Calendar.current.nextDate(
-            after: now, matching: DateComponents(hour: 0, minute: 0), matchingPolicy: .nextTime
-        ) {
-            entries.append(SleepEntry(date: midnight, summary: summary))
+        entries += (0 ..< Self.awakeMinuteEntries).map { minute in
+            SleepEntry(date: firstStep.addingTimeInterval(TimeInterval(minute) * 60), summary: summary)
         }
-        if let bedtime = summary.bedtimeMinutes {
-            let nextBed = SleepWidgetClock.nextOccurrence(ofMinuteOfDay: bedtime, after: now)
-            let drowsyStart = nextBed.addingTimeInterval(-TimeInterval(TonightState.drowsyLeadMinutes * 60))
-            if drowsyStart > now {
-                entries.append(SleepEntry(date: drowsyStart, summary: summary))
-            }
-            entries.append(SleepEntry(date: nextBed, summary: summary))
-            if let wake = summary.wakeMinutes {
-                refresh = SleepWidgetClock.nextOccurrence(ofMinuteOfDay: wake, after: now)
-            }
-        }
-        completion(Timeline(entries: entries, policy: .after(refresh)))
+        completion(Timeline(entries: entries, policy: .after(entries.last?.date ?? now)))
     }
 }
 
@@ -160,7 +151,6 @@ enum TonightState {
     static func from(_ summary: SleepWidgetSummary, at now: Date) -> TonightState {
         if let since = summary.asleepSince { return .asleep(since: since) }
         guard let bed = summary.bedtimeMinutes else { return .noSchedule }
-        let bedDate = SleepWidgetClock.date(fromMinuteOfDay: bed, onDayOf: now)
         if let wake = summary.wakeMinutes,
            SleepWidgetClock.isInWindow(now: now, bedtimeMinutes: bed, wakeMinutes: wake) {
             // The bedtime that *opened this window*, which after midnight is
@@ -183,6 +173,20 @@ enum SleepWidgetClock {
         components.hour = normalized / 60
         components.minute = normalized % 60
         return Calendar.current.date(from: components) ?? day
+    }
+
+    /// A countdown/count-up magnitude to the minute: "35m", "1h 44m", "12h".
+    ///
+    /// Rendered statically from the timeline entry's date rather than with
+    /// `Text(_, style: .relative)`, which spells out seconds under an hour
+    /// ("35 min, 32 sec") — too long for a hero numeral and visibly churning.
+    /// The provider emits an entry a minute so this stays live.
+    static func compactInterval(between a: Date, and b: Date) -> String {
+        let minutes = max(0, Int(abs(b.timeIntervalSince(a)) / 60))
+        if minutes < 60 { return "\(minutes)m" }
+        let hours = minutes / 60
+        let rest = minutes % 60
+        return rest == 0 ? "\(hours)h" : "\(hours)h \(rest)m"
     }
 
     /// The most recent occurrence of a minute-of-day at or before `now`
@@ -313,7 +317,7 @@ private struct SleepWidgetView: View {
     private var awakeBody: some View {
         switch family {
         case .systemSmall:
-            TonightView(summary: entry.summary, tonight: tonight)
+            TonightView(summary: entry.summary, tonight: tonight, now: entry.date)
         case .systemLarge:
             LargeSleepView(summary: entry.summary, tonight: tonight, now: entry.date)
         default:
@@ -466,6 +470,7 @@ private struct AsleepFaceView: View {
 private struct TonightView: View {
     let summary: SleepWidgetSummary
     let tonight: TonightState
+    let now: Date
 
     var body: some View {
         switch tonight {
@@ -499,14 +504,12 @@ private struct TonightView: View {
 
             Spacer(minLength: 4)
 
-            // `.relative` is system-driven: it keeps ticking between timeline
-            // entries, and past the date it counts up on its own.
-            Text(bedtime, style: .relative)
-                .font(SleepFont.hero(26))
+            Text(SleepWidgetClock.compactInterval(between: now, and: bedtime))
+                .font(SleepFont.hero(30))
                 .foregroundStyle(past ? SleepColor.amber : SleepColor.ink)
                 .monospacedDigit()
                 .widgetAccentable()
-                .minimumScaleFactor(0.5)
+                .minimumScaleFactor(0.6)
                 .lineLimit(1)
 
             Text(bedtime, format: .dateTime.hour().minute())
@@ -614,11 +617,11 @@ private struct MediumSleepView: View {
                 SleepBars(
                     nights: summary.nights,
                     target: summary.targetMinutes,
-                    height: 64,
+                    height: 58,
                     anchorDay: SleepDay.key(for: now),
-                    wholeHours: true
+                    showValues: false
                 )
-                .frame(maxWidth: 168)
+                .frame(maxWidth: 160)
             }
 
             Spacer(minLength: 2)
@@ -627,9 +630,9 @@ private struct MediumSleepView: View {
             // the sloth anchors the corner, the countdown sits in the middle
             // where the eye crosses between them, and the capsule closes it.
             HStack(alignment: .center, spacing: SleepSpacing.sm) {
-                WidgetSloth(pose: tonight.slothPose, height: 40)
+                WidgetSloth(pose: tonight.slothPose, height: 38)
                 Spacer(minLength: 0)
-                MediumCountdown(tonight: tonight)
+                MediumCountdown(tonight: tonight, now: now)
                 Spacer(minLength: 0)
                 WidgetActionCapsule(signedIn: summary.isSignedIn ?? true)
             }
@@ -650,6 +653,7 @@ private struct MediumSleepView: View {
 /// its own once bedtime passes.
 private struct MediumCountdown: View {
     let tonight: TonightState
+    let now: Date
 
     var body: some View {
         switch tonight {
@@ -663,12 +667,12 @@ private struct MediumCountdown: View {
     }
 
     private func block(kicker: String, date: Date, tint: Color) -> some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 1) {
             Text(kicker)
                 .font(SleepFont.label(9)).tracking(1.1)
                 .foregroundStyle(SleepColor.muted)
-            Text(date, style: .relative)
-                .font(SleepFont.title(15))
+            Text(SleepWidgetClock.compactInterval(between: now, and: date))
+                .font(SleepFont.title(17))
                 .foregroundStyle(tint)
                 .monospacedDigit()
                 .minimumScaleFactor(0.6)
@@ -780,7 +784,7 @@ private struct LargeSleepView: View {
             // and the one action — anchored where a glance lands last.
             HStack(spacing: SleepSpacing.md) {
                 WidgetSloth(pose: tonight.slothPose, height: 44)
-                TonightFooter(tonight: tonight)
+                TonightFooter(tonight: tonight, now: now)
                 WidgetActionCapsule(signedIn: summary.isSignedIn ?? true)
             }
         }
@@ -792,6 +796,7 @@ private struct LargeSleepView: View {
 /// mood, so this stays text-only — no doubled moon glyphs.
 private struct TonightFooter: View {
     let tonight: TonightState
+    let now: Date
 
     var body: some View {
         Group {
@@ -801,9 +806,10 @@ private struct TonightFooter: View {
                     Text("Bedtime \(bedtime, format: .dateTime.hour().minute())")
                         .font(SleepFont.body(13))
                         .foregroundStyle(SleepColor.dim)
-                    (Text("in ") + Text(bedtime, style: .relative))
+                    Text("in \(SleepWidgetClock.compactInterval(between: now, and: bedtime))")
                         .font(SleepFont.body(12))
                         .foregroundStyle(SleepColor.muted)
+                        .monospacedDigit()
                         .lineLimit(1)
                 }
             case .pastBedtime(let bedtime):
@@ -813,7 +819,7 @@ private struct TonightFooter: View {
                         .foregroundStyle(SleepColor.amber)
                     // How far past, not a nudge — same fact Home and the
                     // shield now lead with, so all three agree.
-                    Text(bedtime, style: .relative)
+                    Text(SleepWidgetClock.compactInterval(between: now, and: bedtime))
                         .font(SleepFont.body(12))
                         .foregroundStyle(SleepColor.muted)
                         .monospacedDigit()
@@ -1027,9 +1033,11 @@ private struct SleepBars: View {
     /// renders against.
     let anchorDay: Date
     var showWeekdays: Bool = false
-    /// Whole hours, no unit ("7") for the medium widget's narrow columns;
-    /// the large widget keeps one decimal + unit ("7.5h").
-    var wholeHours: Bool = false
+    /// Hour figures on the bars. Off for medium: at ~20pt columns the labels
+    /// are unreadable and read as speckle, and the hero numeral beside the
+    /// chart already gives last night. Medium's bars are a *rhythm*, not a
+    /// table — large has the room to be both.
+    var showValues: Bool = true
 
     private static let slotCount = 7
 
@@ -1093,12 +1101,14 @@ private struct SleepBars: View {
                                 .frame(height: barHeight)
                                 .frame(maxWidth: .infinity)
                                 .widgetAccentable()
-                            BarHoursLabel(
-                                text: hoursLabel(night.durationMinutes),
-                                fontSize: 9,
-                                plane: 5,
-                                barHeight: barHeight
-                            )
+                            if showValues {
+                                BarHoursLabel(
+                                    text: hoursLabel(night.durationMinutes),
+                                    fontSize: 9,
+                                    plane: 5,
+                                    barHeight: barHeight
+                                )
+                            }
                         }
                         .opacity(index == newestLogged ? 1 : 0.62)
                         .frame(maxWidth: .infinity, alignment: .bottom)
@@ -1109,24 +1119,17 @@ private struct SleepBars: View {
                 }
             }
             .frame(height: height, alignment: .bottom)
-            .overlay(alignment: .bottomTrailing) {
+            .overlay(alignment: .bottom) {
                 if !nights.isEmpty {
-                    // Target sleep window as a quiet reference line, tagged
-                    // with the goal itself on a navy chip at the trailing end
-                    // — same as the app's chart, so the line reads as "your
-                    // target" rather than an unlabeled rule.
-                    VStack(alignment: .trailing, spacing: 1) {
-                        Text(targetLabel)
-                            .font(SleepFont.label(9))
-                            .foregroundStyle(SleepColor.dim)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 0.5)
-                            .background(Capsule().fill(SleepColor.navy.opacity(0.72)))
-                        Rectangle()
-                            .fill(SleepColor.ink.opacity(0.18))
-                            .frame(height: 1)
-                    }
-                    .offset(y: -height * targetFraction)
+                    // Target sleep window as a quiet reference line — bare, no
+                    // chip. Profile's chart tags the line with the goal, but at
+                    // widget width the chip is wider than a column and lands on
+                    // top of the bars it's meant to be measuring. The line
+                    // alone still does its job.
+                    Rectangle()
+                        .fill(SleepColor.ink.opacity(0.18))
+                        .frame(height: 1)
+                        .offset(y: -height * targetFraction)
                 }
             }
 
@@ -1144,21 +1147,10 @@ private struct SleepBars: View {
         }
     }
 
-    /// The target chip: hours and minutes, because it echoes a schedule the
-    /// user chose rather than a measurement ("7h 45m", not "7.8h").
-    private var targetLabel: String {
-        let hours = target / 60
-        let rest = target % 60
-        return rest == 0 ? "\(hours)h" : "\(hours)h \(rest)m"
-    }
-
-    /// Hours for a bar: whole-number "7" when `wholeHours`, else "7.5h"
-    /// (one decimal, no trailing .0).
+    /// Hours for a bar: "7h" for whole hours, else one decimal ("7.5h") —
+    /// the same figures Profile's bars carry.
     private func hoursLabel(_ minutes: Int) -> String {
         let hours = Double(minutes) / 60
-        if wholeHours {
-            return "\(Int(hours.rounded()))"
-        }
         let rounded = (hours * 10).rounded() / 10
         return rounded == rounded.rounded()
             ? "\(Int(rounded))h"

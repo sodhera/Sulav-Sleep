@@ -917,6 +917,12 @@ Rules:
   figure instead of fighting the user's tint.
 - Duration is the only metric on every surface — the retired 0–100 score
   (see the Profile section's history note) never appears on a widget.
+- Countdowns read **"35m" / "1h 44m" / "8h"**, rendered statically from the
+  timeline entry's date. `Text(_, style: .relative)` looks like the obvious
+  choice and self-updates, but under an hour it spells out seconds — "35 min,
+  32 sec" — which is too long for a hero numeral and visibly churns. The
+  provider emits one entry a minute instead, which also lands every state flip
+  (drowsy, bedtime, midnight's column shift, wake) within a minute for free.
 - Bars: **the same chart as Profile's, at widget size** — one grammar, one
   implementation shape, so the two can't drift. Gold→amber capsules against a
   faint target hairline tagged with the goal on a navy chip; the newest
@@ -929,6 +935,12 @@ Rules:
   (`SleepDay.key` — the day you woke up, shared by both targets). Days with no
   night render as the empty state's quiet hairline stubs, and weekday initials
   sit under *every* slot including the empty ones.
+  Two things Profile's chart carries that the widget drops, because a 158pt
+  tile is not a scrollable screen: the target line goes **bare, no goal chip**
+  (the chip is wider than a widget column and lands on the very bars it is
+  measuring), and **medium drops the hour figures** on the bars — at ~20pt
+  columns they read as speckle, and the hero numeral beside the chart already
+  gives last night. Medium's bars are a *rhythm*; large has room to be both.
   Earlier revisions right-packed the nights and lead-padded with blanks, which
   meant a skipped night left no gap — the bars just slid over, so a week with
   Tuesday missing looked identical to a week that began on Wednesday, and a
