@@ -54,16 +54,63 @@ class ShieldConfigProvider: ShieldConfigurationDataSource {
     /// shield process).
     private static let appGroup = "group.com.sulav.sleepblock"
     private static let phaseKey = "sulav.lock.phase"
+    private static let bedtimeKey = "sulav.lock.bedtimeMinutes"
+    private static let snoozeCountKey = "sulav.lock.snoozeCount"
+    private static let snoozeLimit = 2
+    private static let snoozeMinutes = 5
+
+    private static var groupDefaults: UserDefaults? { UserDefaults(suiteName: appGroup) }
 
     /// Whether the current lockdown is the pre-sleep nudge or the firm active
     /// session lock.
     private var isPresleep: Bool {
-        let raw = UserDefaults(suiteName: Self.appGroup)?.string(forKey: Self.phaseKey)
+        let raw = Self.groupDefaults?.string(forKey: Self.phaseKey)
         return raw == "presleep"
+    }
+
+    /// Whether this night still has a "5 more minutes" left. Once spent, the
+    /// secondary button disappears entirely rather than degrading to a dead
+    /// "OK" — the active-phase shield already ships with a single button, so
+    /// one button is established grammar here.
+    private var snoozeAvailable: Bool {
+        (Self.groupDefaults?.integer(forKey: Self.snoozeCountKey) ?? 0) < Self.snoozeLimit
+    }
+
+    /// Minutes since the user's bedtime, for the subtitle. Nil when bedtime
+    /// isn't known yet (no lockdown has been scheduled on this install).
+    private var minutesPastBedtime: Int? {
+        guard let bedtime = Self.groupDefaults?.object(forKey: Self.bedtimeKey) as? Int else { return nil }
+        let calendar = Calendar.current
+        let now = calendar.component(.hour, from: Date()) * 60 + calendar.component(.minute, from: Date())
+        var diff = now - bedtime
+        if diff < 0 { diff += 1_440 }   // bedtime last night, now past midnight
+        return diff
+    }
+
+    /// "18 minutes" / "1h 15m" — a growing number is better friction than
+    /// scolding copy, and it's the honest answer to "how late am I?".
+    private static func pastBedtimePhrase(_ minutes: Int) -> String {
+        if minutes < 1 { return "right at your bedtime" }
+        if minutes < 60 {
+            return minutes == 1 ? "1 minute past your bedtime" : "\(minutes) minutes past your bedtime"
+        }
+        let hours = minutes / 60
+        let rest = minutes % 60
+        return rest == 0
+            ? "\(hours)h past your bedtime"
+            : "\(hours)h \(rest)m past your bedtime"
     }
 
     private func makeConfig(noun: String) -> ShieldConfiguration {
         if isPresleep {
+            // Lead with how late it is when we know — the number grows every
+            // time they come back, which does more than any wording can.
+            let subtitle: String
+            if let late = minutesPastBedtime {
+                subtitle = "You're \(Self.pastBedtimePhrase(late)). \(noun) is blocked until you wake."
+            } else {
+                subtitle = "\(noun) is blocked until you wake. Put your phone down and head to bed."
+            }
             return ShieldConfiguration(
                 backgroundBlurStyle: .systemUltraThinMaterialDark,
                 backgroundColor: Self.bg,
@@ -73,7 +120,7 @@ class ShieldConfigProvider: ShieldConfigurationDataSource {
                     color: Self.ink
                 ),
                 subtitle: ShieldConfiguration.Label(
-                    text: "\(noun) is blocked until you wake. Put your phone down and head to bed.",
+                    text: subtitle,
                     color: Self.dim
                 ),
                 primaryButtonLabel: ShieldConfiguration.Label(
@@ -81,10 +128,16 @@ class ShieldConfigProvider: ShieldConfigurationDataSource {
                     color: .black
                 ),
                 primaryButtonBackgroundColor: Self.amber,
-                secondaryButtonLabel: ShieldConfiguration.Label(
-                    text: "OK",
-                    color: Self.dim
-                )
+                // The escape hatch takes the quiet secondary slot, never the
+                // amber one — a shield whose loudest control is "not yet"
+                // argues against itself. It replaces the old "OK", which only
+                // ever closed the shield, so nothing usable was displaced.
+                secondaryButtonLabel: snoozeAvailable
+                    ? ShieldConfiguration.Label(
+                        text: "\(Self.snoozeMinutes) more minutes",
+                        color: Self.dim
+                    )
+                    : nil
             )
         } else {
             return ShieldConfiguration(

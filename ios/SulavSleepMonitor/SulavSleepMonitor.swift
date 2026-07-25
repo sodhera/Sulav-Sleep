@@ -23,12 +23,19 @@ final class SulavSleepMonitor: DeviceActivityMonitor {
 
     override func intervalDidStart(for activity: DeviceActivityName) {
         super.intervalDidStart(for: activity)
-        guard activity == sleepActivityName else { return }
-        applyShield()
+        if activity == sleepActivityName {
+            applyShield()
+        } else if activity == sleepSnoozeActivityName {
+            // A "5 more minutes" grant just ran out — put the shield back.
+            reapplyAfterSnooze()
+        }
     }
 
     override func intervalDidEnd(for activity: DeviceActivityName) {
         super.intervalDidEnd(for: activity)
+        // Only the bedtime→wake window ends the lockdown. The snooze activity's
+        // end is deliberately a no-op: it exists only for its *start*, and
+        // treating it as "wake time" would unshield the rest of the night.
         guard activity == sleepActivityName else { return }
         clearShield()
     }
@@ -42,6 +49,24 @@ final class SulavSleepMonitor: DeviceActivityMonitor {
     /// Applies the shield at bedtime in the pre-sleep phase. The user hasn't
     /// tapped Sleep Now yet, so the shield copy nudges them toward the app.
     private func applyShield() {
+        shieldSelectedApps()
+        SleepLockdownSelection.setPhase(.presleep)
+        // A new night, a fresh allowance. Tying the reset to the interval
+        // start rather than a calendar date means it lines up exactly with the
+        // lockdown window, including one that crosses midnight.
+        SleepLockdownSelection.resetSnoozes()
+    }
+
+    /// Re-arms the shield when a snooze expires. Deliberately leaves the phase
+    /// and the spent-snooze count alone: the user is still in the same window,
+    /// and resetting the count here would hand out an unlimited supply.
+    private func reapplyAfterSnooze() {
+        guard SleepLockdownSelection.currentPhase() != nil else { return }
+        shieldSelectedApps()
+        SleepLockdownSelection.clearSnoozeWindow()
+    }
+
+    private func shieldSelectedApps() {
         let selection = SleepLockdownSelection.decode(
             SleepLockdownSelection.groupDefaults()?.data(forKey: SleepLockdownSelection.selectionKey)
         )
@@ -49,12 +74,12 @@ final class SulavSleepMonitor: DeviceActivityMonitor {
         store.shield.applicationCategories = selection.categoryTokens.isEmpty
             ? nil
             : .specific(selection.categoryTokens)
-        SleepLockdownSelection.setPhase(.presleep)
     }
 
     private func clearShield() {
         store.shield.applications = nil
         store.shield.applicationCategories = nil
         SleepLockdownSelection.clearPhase()
+        SleepLockdownSelection.resetSnoozes()
     }
 }

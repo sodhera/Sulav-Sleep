@@ -994,20 +994,46 @@ the shield extensions render the right copy:
 
 **Pre-sleep phase** (bedtime arrives → user hasn't started a session):
 - Title: "Time for bed"
-- Subtitle: "This app is blocked until you wake. Put your phone down and head
-  to bed."
+- Subtitle: **"You're 18 minutes past your bedtime. This app is blocked until
+  you wake."** The lateness leads, and the number grows every time they come
+  back — a fact does more than scolding copy. Falls back to the old wording
+  ("…Put your phone down and head to bed.") until a lockdown has been
+  scheduled and bedtime is known to the App Group.
 - Primary button: **"Sleep Now"** (amber) — closes the shield and fires a
   local notification with the `sleepblock://sleep` deep link. Tapping the
   notification opens the app on the sleep confirmation panel. (The Shield
   Action API cannot directly launch the host app; the notification is the
   bridge.)
-- Secondary button: "OK" (dim) — just dismisses the shield.
+- Secondary button: **"5 more minutes"** (dim) — lifts the block for five
+  minutes. Twice a night, then the button disappears.
 
 **Active sleep phase** (user tapped Sleep Now, session running):
 - Title: "Time to sleep"
 - Subtitle: "This app is asleep until you wake. Head back to bed."
 - Primary button: **"Good night"** (amber) — dismisses the shield.
 - No secondary button.
+
+### The snooze
+
+`ShieldConfiguration` has exactly two button slots, so the escape hatch had to
+displace something. It took the **secondary** slot, which previously held an
+"OK" that only closed the shield — a dead control in the scarcer half of the
+UI. It stays in the quiet slot deliberately: a shield whose loudest button is
+"not yet" argues against itself, so amber keeps saying *Sleep Now* and the way
+out is plain text underneath.
+
+It exists **only in the pre-sleep phase**. Snoozing out of a session the user
+deliberately started would make lockdown mean nothing, and `lockdownMaxHours`
+is already the sanctioned exit from one. That boundary is what makes offering
+a snooze before sleep safe rather than corrosive.
+
+**Two per night, then gone.** Uncapped, "5 more minutes" is an off switch with
+extra steps; the point is that it runs out. The allowance resets at the
+lockdown window's interval start, which lines up exactly with the night —
+including one crossing midnight — with no date arithmetic. Once spent, the
+secondary label is dropped entirely rather than degrading to a dead "OK": the
+active-phase shield already ships one button, so a single button is
+established grammar here.
 
 When `startSleep()` calls `startLockdown()`, the phase flips from `presleep`
 to `active`. The next time the shield renders, it picks up the new phase and

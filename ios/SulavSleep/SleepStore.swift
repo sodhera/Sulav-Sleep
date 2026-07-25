@@ -182,6 +182,10 @@ final class SleepStore {
         sessions = snapshot.sessions
         activeSession = snapshot.activeSession
         account = persistence.loadAccount()
+        // Safety net for the shield snooze: if a "5 more minutes" grant lapsed
+        // while the timed re-arm didn't fire, restore the block now. Cheap and
+        // a no-op unless a snooze is actually outstanding.
+        screenTime.reapplyShieldIfSnoozeExpired()
         if refreshWidget {
             updateWidgetSoon()
         }

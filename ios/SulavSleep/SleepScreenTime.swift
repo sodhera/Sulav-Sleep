@@ -30,6 +30,12 @@ protocol ScreenTimeControlling {
     /// phase — even if the app isn't foregrounded.
     func scheduleLockdown(bedtimeMinutes: Int, wakeMinutes: Int, maxHours: Int)
     func cancelScheduledLockdown()
+    /// Puts the shield back if a "5 more minutes" snooze has run out. The
+    /// timed re-arm lives in a DeviceActivity callback that a sandboxed
+    /// extension isn't guaranteed to get, so the app also checks whenever it
+    /// comes to the foreground — worst case the block returns when the user
+    /// next opens SleepBlock rather than never.
+    func reapplyShieldIfSnoozeExpired()
     var hasSelection: Bool { get }
     /// Opaque encoded FamilyActivitySelection so callers can stay framework-free.
     func selectionData() -> Data?
@@ -101,8 +107,26 @@ final class ScreenTimeService: ScreenTimeControlling {
         AppLog.app.info("Sleep lockdown cleared")
     }
 
+    func reapplyShieldIfSnoozeExpired() {
+        guard isSupported,
+              SleepLockdownSelection.currentPhase() != nil,
+              SleepLockdownSelection.snoozeHasExpired()
+        else { return }
+        let selection = SleepScreenTime.decodeSelection(selectionData())
+        store.shield.applications = selection.applicationTokens.isEmpty ? nil : selection.applicationTokens
+        store.shield.applicationCategories = selection.categoryTokens.isEmpty
+            ? nil
+            : .specific(selection.categoryTokens)
+        SleepLockdownSelection.clearSnoozeWindow()
+        deviceActivityCenter.stopMonitoring([sleepSnoozeActivityName])
+        AppLog.app.info("Snooze expired — shield re-applied")
+    }
+
     func scheduleLockdown(bedtimeMinutes: Int, wakeMinutes: Int, maxHours: Int) {
         guard isSupported else { return }
+        // Mirrored into the App Group so the shield extension can say how far
+        // past bedtime the user is without reaching into the app's profile.
+        SleepLockdownSelection.setBedtimeMinutes(bedtimeMinutes)
         let selection = SleepScreenTime.decodeSelection(selectionData())
         let schedule = DeviceActivitySchedule(
             intervalStart: dateComponents(fromMinutes: bedtimeMinutes),

@@ -761,10 +761,35 @@ nights on first launch after upgrading.
   clears it at `intervalDidEnd`. The phase (`presleep` / `active`) is stored in
   App Group defaults (`sulav.lock.phase`) and read by the shield extensions:
   - *Pre-sleep*: title "Time for bed", primary "Sleep Now" (fires a local
-    notification with `sleepblock://sleep`), secondary "OK" (closes).
+    notification with `sleepblock://sleep`), secondary "5 more minutes".
   - *Active*: title "Time to sleep", primary "Good night" (closes).
   `startLockdown()` writes `active`; `endLockdown()` and the monitor's
   `intervalDidEnd` / `eventDidReachThreshold` clear it.
+- **Snooze ("5 more minutes")** — pre-sleep only, twice per lockdown window.
+  State lives in App Group defaults beside the phase (`SleepLockdownSelection`):
+  `sulav.lock.bedtimeMinutes` (mirrored by `scheduleLockdown` so the shield can
+  say how late it is), `sulav.lock.snoozeCount`, `sulav.lock.snoozeUntil`.
+  The allowance resets in the monitor's `applyShield()` at interval start, so
+  it matches the night exactly — no date math, and midnight-crossing windows
+  work for free.
+
+  `ShieldActionResponse` has no "allow for N minutes", so the action extension
+  drops the shield off `ManagedSettingsStore` itself. Nothing in an extension
+  can run a timer, so the block's return trip has **three** chances, in order
+  of reliability:
+  1. `SulavSleepMonitor` receives `intervalDidStart` for `sleepSnoozeActivityName`
+     and re-applies. That activity's `intervalDidEnd` is a deliberate no-op —
+     treating it as wake time would unshield the rest of the night.
+  2. `ScreenTimeService.reapplyShieldIfSnoozeExpired()`, called from
+     `SleepStore.reload()` on every foreground.
+  3. The next scheduled `intervalDidStart` (following bedtime).
+
+  DeviceActivity rejects intervals under 15 minutes, so the re-arm schedule
+  runs from the snooze expiry to +20 min; only its *start* is meaningful.
+  Scheduling from inside an extension is the flakiest link — hence (2). The
+  shield-action target needs `com.apple.developer.family-controls` for
+  `DeviceActivityCenter`; it is present in `-device.entitlements` only, so
+  this path exists on device builds and is inert on the Simulator.
 - The Shield Action API cannot open the host app, so the pre-sleep "Sleep Now"
   button posts a local notification with the deep link — tapping the
   notification opens the app on the sleep confirmation panel
