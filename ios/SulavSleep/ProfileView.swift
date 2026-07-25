@@ -936,11 +936,13 @@ private struct RecordBars: View {
             return Array(repeating: nil, count: Self.slotCount)
         }
         let calendar = Calendar.current
-        let latestDay = calendar.startOfDay(for: latest.end)
-        // Map each session to its day-offset from the latest night.
+        let latestDay = SleepMerge.key(for: latest.end, calendar: calendar)
+        // Map each session to its day-offset from the latest night. `sessions`
+        // arrives already collapsed to one entry per sleep day by
+        // `SleepMerge.merge`, so no two can land in the same slot.
         var byOffset: [Int: SleepSession] = [:]
         for session in sessions.suffix(Self.slotCount) {
-            let sessionDay = calendar.startOfDay(for: session.end)
+            let sessionDay = SleepMerge.key(for: session.end, calendar: calendar)
             let offset = calendar.dateComponents([.day], from: sessionDay, to: latestDay).day ?? 0
             if offset >= 0 && offset < Self.slotCount {
                 byOffset[offset] = session
@@ -959,7 +961,7 @@ private struct RecordBars: View {
         let calendar = Calendar.current
         let latestDay: Date
         if let latest = sessions.last {
-            latestDay = calendar.startOfDay(for: latest.end)
+            latestDay = SleepMerge.key(for: latest.end, calendar: calendar)
         } else {
             latestDay = calendar.startOfDay(for: Date())
         }
@@ -1116,19 +1118,19 @@ private struct RecordChart: View {
     private var pages: [[SleepSession]] {
         guard let latest = sessions.last else { return [] }
         let calendar = Calendar.current
-        let latestDay = calendar.startOfDay(for: latest.end)
+        let latestDay = SleepMerge.key(for: latest.end, calendar: calendar)
 
         // Walk backward from the newest night in 7-day steps.  Each page
-        // collects sessions whose `end` date falls within [windowStart,
+        // collects sessions whose sleep day falls within [windowStart,
         // windowEnd).
         var result: [[SleepSession]] = []
         var windowEnd = calendar.date(byAdding: .day, value: 1, to: latestDay)!
-        let earliest = calendar.startOfDay(for: sessions.first!.end)
+        let earliest = SleepMerge.key(for: sessions.first!.end, calendar: calendar)
 
         while windowEnd > earliest {
             let windowStart = calendar.date(byAdding: .day, value: -Self.perPage, to: windowEnd)!
             let page = sessions.filter { session in
-                let day = calendar.startOfDay(for: session.end)
+                let day = SleepMerge.key(for: session.end, calendar: calendar)
                 return day >= windowStart && day < windowEnd
             }
             if !page.isEmpty {

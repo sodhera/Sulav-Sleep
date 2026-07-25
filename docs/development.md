@@ -345,6 +345,29 @@ target can inject fakes without new hooks.
   (old records' `score` keys are ignored on decode; "on track" for the
   streak now means ≥85% of the sleep target).
 - Profile/Home show a deduplicated merge of local + Health nights.
+- **Sleep days.** A night belongs to **the day you woke up** — `SleepMerge.key`
+  is `startOfDay(session.end)`, so a Fri 23:00 → Sat 07:00 night is Saturday's.
+  Crossing midnight changes nothing; only `end` is read. This matches Apple
+  Health/Oura/Whoop and the moment the app is actually read (you wake, open it,
+  today's column holds the sleep you just got).
+  `SleepMerge.key` is the *only* day rule — every view calls it rather than
+  re-deriving one. It used to shift back 12h while the views bucketed on plain
+  `startOfDay(end)`, and the disagreement let a ≥45-min afternoon nap (which
+  clears `SleepNightBuilder.minimumNightMinutes`) share a chart column with the
+  night you woke from that morning and silently overwrite it — an 8h night
+  rendered as a 1h bar, Home called the nap "Last night", the streak reset.
+- `SleepMerge.merge` therefore returns **at most one session per sleep day**.
+  Collisions resolve by *longest wins*, with Health breaking ties. Longest,
+  not source precedence: "Health wins" is right for one night recorded twice
+  (Health measured it; the local record is button-press timing) but wrong for
+  two genuinely different events, and it failed when the night was local and
+  the nap came from Health. Every display surface inherits this invariant —
+  none of them dedupe again.
+- `onTrackStreak` counts consecutive on-track nights on *consecutive sleep
+  days*, and the run must reach today or yesterday to still be live (yesterday
+  because tonight's sleep hasn't happened yet). Before the day check it counted
+  qualifying records regardless of gaps, so a good night in June plus a good
+  night in July read as a streak of 2.
 - Schedule/name edits persist immediately. There is no in-app "reset all data"
   action — sign out is the only account-level exit, and it keeps the local
   profile so signing back in skips the questionnaire.

@@ -115,13 +115,34 @@ final class SleepStore {
         return SleepMath.windowMinutes(bedtime: profile.bedtime, wakeTime: profile.wakeTime)
     }
 
+    /// Consecutive on-track nights, counted back from the most recent one.
+    ///
+    /// A night is on track when it reaches at least 85% of the sleep target —
+    /// the same bar the retired 0–100 score set at "score ≥ 80" — *and* falls on
+    /// the sleep day right after the night before it. The day check is what
+    /// makes this a streak: without it a good night in June and a good night in
+    /// July counted as 2.
+    ///
+    /// The run must reach today or yesterday to still be live. Yesterday counts
+    /// because tonight's sleep hasn't happened yet — a streak shouldn't visibly
+    /// lapse all day and come back at breakfast.
     var onTrackStreak: Int {
-        // A night is on track when it reaches at least 85% of the sleep
-        // target — the same bar the retired 0–100 score set at "score ≥ 80".
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
         var streak = 0
+        var expectedDay: Date?
+        // `displaySessions` is one entry per sleep day, oldest first.
         for session in displaySessions.reversed() {
+            let day = SleepMerge.key(for: session.end, calendar: calendar)
+            if let expectedDay {
+                guard day == expectedDay else { break }
+            } else {
+                let daysAgo = calendar.dateComponents([.day], from: day, to: today).day ?? .max
+                guard daysAgo <= 1 else { break }
+            }
             guard session.durationMinutes * 100 >= targetMinutes * 85 else { break }
             streak += 1
+            expectedDay = calendar.date(byAdding: .day, value: -1, to: day)
         }
         return streak
     }
@@ -849,25 +870,60 @@ final class SleepStore {
 // MARK: - History merge (pure, testable)
 
 enum SleepMerge {
+    /// Collapses local and Health records into **at most one session per sleep
+    /// day**, newest last. Every display surface reads the result, so this is
+    /// the single place a night is bound to a day — the chart, the history
+    /// pages, `latestSession`, "Last night", and the streak all inherit it and
+    /// none of them re-bucket.
     static func merge(
         local: [SleepSession],
         health: [SleepSession],
         calendar: Calendar = .current
     ) -> [SleepSession] {
         var byNight: [Date: SleepSession] = [:]
-        for session in local {
-            byNight[key(for: session.end, calendar: calendar)] = session
-        }
-        for session in health {
-            byNight[key(for: session.end, calendar: calendar)] = session // Health wins
+        for session in local + health {
+            let day = key(for: session.end, calendar: calendar)
+            byNight[day] = byNight[day].map { preferred($0, session) } ?? session
         }
         return byNight.values.sorted { $0.end < $1.end }
     }
 
-    /// A stable per-night key. Shifting back 12h keeps early-morning wake times
-    /// grouped with the evening they belong to.
+    /// Which of two records sharing a sleep day is *that day's night*.
+    ///
+    /// Longest wins. The old rule was "Health wins", which is right for one
+    /// night recorded twice — Health measured it, the local record is only
+    /// button-press timing — but wrong for two genuinely different events. A
+    /// 45-minute afternoon nap clears `SleepNightBuilder.minimumNightMinutes`
+    /// and lands on the same day as the night you woke from that morning; under
+    /// source precedence it displaced a full night, so the chart showed an hour,
+    /// Home called it "Last night", and the streak reset. Duration tells the two
+    /// apart without guessing at a nap cutoff.
+    ///
+    /// Health still breaks ties, which is exactly the same-night case: two
+    /// records of one sleep agree on duration, and Health's is authoritative.
+    /// Order-independent, so the merge doesn't depend on which list came first.
+    static func preferred(_ a: SleepSession, _ b: SleepSession) -> SleepSession {
+        if a.durationMinutes != b.durationMinutes {
+            return a.durationMinutes > b.durationMinutes ? a : b
+        }
+        if a.source != b.source {
+            return a.source == .healthKit ? a : b
+        }
+        return a
+    }
+
+    /// The sleep day a night belongs to: **the day you woke up**.
+    ///
+    /// Matches Apple Health, Oura, and Whoop, and matches when the app is
+    /// actually read — you wake, open it, and today's column holds the sleep you
+    /// just got. Crossing midnight is irrelevant; only `end` is consulted, so a
+    /// Friday 23:00 → Saturday 07:00 night is Saturday's.
+    ///
+    /// This is the only day rule in the app. It previously shifted back 12h
+    /// here while every view bucketed on plain `startOfDay(end)`, and the two
+    /// disagreeing was what let a nap silently overwrite a night.
     static func key(for end: Date, calendar: Calendar = .current) -> Date {
-        calendar.startOfDay(for: end.addingTimeInterval(-12 * 3600))
+        calendar.startOfDay(for: end)
     }
 }
 
