@@ -900,10 +900,12 @@ struct SleepPersistence {
     // device (wipe it). Cleared by `reset()` — after account deletion there is
     // no previous user left to protect.
     private let lastAccountIDKey = "sulav.lastAccountID.v1"
-    // The id of the account whose cloud profile copy this install has already
-    // confirmed, so the launch-time seed check runs once per account instead
-    // of hitting the network at every open. See `SleepStore.restoreSession()`.
-    private let cloudSeedCheckedKey = "sulav.cloudSeedChecked.v1"
+    // Written by builds between d1dcd33 and 31e122a to gate a launch-time seed
+    // of the *legacy* auth-metadata profile. The profiles-table migration
+    // replaced that path — `cloudMigratedKey` below is its direct successor —
+    // so nothing reads this any more. Still cleared by `reset()` so account
+    // deletion doesn't strand it on installs that predate the migration.
+    private let legacyCloudSeedCheckedKey = "sulav.cloudSeedChecked.v1"
     // Whether this install has shown the Screen Time permission primer.
     // Container-backed on purpose: deleting the app wipes it, so a reinstall
     // (where the authorization must be re-granted anyway) primes again. Not
@@ -936,7 +938,7 @@ struct SleepPersistence {
         defaults.removeObject(forKey: activeKey)
         defaults.removeObject(forKey: accountKey)
         defaults.removeObject(forKey: lastAccountIDKey)
-        defaults.removeObject(forKey: cloudSeedCheckedKey)
+        defaults.removeObject(forKey: legacyCloudSeedCheckedKey)
     }
 
     /// Whether the app has been launched before on this install. Backed by the
@@ -957,10 +959,6 @@ struct SleepPersistence {
     var lastAccountID: String? { defaults.string(forKey: lastAccountIDKey) }
 
     func saveLastAccountID(_ id: String) { defaults.set(id, forKey: lastAccountIDKey) }
-
-    var cloudSeedCheckedAccountID: String? { defaults.string(forKey: cloudSeedCheckedKey) }
-
-    func markCloudSeedChecked(accountID: String) { defaults.set(accountID, forKey: cloudSeedCheckedKey) }
 
     // Whether the local profile + sessions for this account have been
     // migrated to the cloud tables (one-time seed on app update).
