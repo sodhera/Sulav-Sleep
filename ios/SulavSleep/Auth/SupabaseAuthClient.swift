@@ -317,7 +317,15 @@ final class SupabaseAuthClient: AuthProviding {
     private static func account(from session: Session) -> AppAccount {
         let provider = session.user.appMetadata["provider"]?.stringValue
         return AppAccount(
-            id: session.user.id.uuidString,
+            // Lowercased deliberately. `UUID.uuidString` renders uppercase,
+            // but Postgres serves `auth.users.id` lowercase — and RevenueCat
+            // treats the App User ID as an opaque, *case-sensitive* string.
+            // Uppercasing here silently forked every account into a second
+            // RevenueCat customer, so an entitlement granted against the real
+            // Supabase UUID never reached the device (it stayed on the paywall
+            // with `entitlements: {}`). Postgres parses `uuid` case-
+            // insensitively, so the cloud tables never noticed the difference.
+            id: session.user.id.uuidString.lowercased(),
             email: session.user.email,
             provider: AuthProvider(rawValue: provider ?? "email") ?? .email
         )

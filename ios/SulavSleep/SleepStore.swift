@@ -468,7 +468,14 @@ final class SleepStore {
     ///   consistent pair and never routes through onboarding on the way in.
     @MainActor
     private func adoptSignedInAccount(_ newAccount: AppAccount, remoteProfile: RemoteProfile?) {
-        if let previousID = persistence.lastAccountID, previousID != newAccount.id, profile != nil || !sessions.isEmpty {
+        // Case-insensitive: installs from before the account id was lowercased
+        // (see `SupabaseAuthClient.account(from:)`) hold an uppercase
+        // `lastAccountID`, and a bare `!=` would read the same user as a
+        // different one on first launch after upgrading — wiping their profile
+        // and nights.
+        if let previousID = persistence.lastAccountID,
+           previousID.caseInsensitiveCompare(newAccount.id) != .orderedSame,
+           profile != nil || !sessions.isEmpty {
             profile = nil
             sessions = []
             importedHealthSessions = []
@@ -959,8 +966,12 @@ struct SleepPersistence {
     // migrated to the cloud tables (one-time seed on app update).
     private let cloudMigratedKey = "sulav.cloudMigrated.v1"
 
+    /// Case-insensitive for the same reason as the account-switch check in
+    /// `adoptSignedInAccount` — a pre-lowercasing install stored the uppercase
+    /// id, and an exact compare would re-run the one-time migration.
     func cloudMigrated(accountID: String) -> Bool {
-        defaults.string(forKey: cloudMigratedKey) == accountID
+        defaults.string(forKey: cloudMigratedKey)?
+            .caseInsensitiveCompare(accountID) == .orderedSame
     }
 
     func markCloudMigrated(accountID: String) {

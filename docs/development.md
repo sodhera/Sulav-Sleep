@@ -555,6 +555,44 @@ file synced from App Store Connect (Xcode scheme → Options → StoreKit
 Configuration) once the products exist in ASC; RevenueCat picks it up
 automatically.
 
+### App User ID case (gotcha)
+
+The RevenueCat App User ID is the Supabase `auth.users.id`, and it **must be
+lowercase**. Postgres serves the UUID lowercase, but Swift's
+`UUID.uuidString` renders it uppercase, so `SupabaseAuthClient.account(from:)`
+lowercases it explicitly. RevenueCat treats the App User ID as an opaque,
+case-sensitive string: without that call the SDK identifies as
+`AADE23E7-…` while the dashboard customer is `aade23e7-…`, silently forking
+every account into two customer records. The symptom is a granted entitlement
+that never reaches the device — the user sits on the hard paywall while the
+dashboard insists they are `Active`.
+
+To check what a Simulator build is actually identifying as, read the SDK's
+own defaults out of the app container (no code change, no rebuild):
+
+```bash
+plutil -p "$(xcrun simctl get_app_container booted com.sulav.sleepblock data)/Library/Preferences/com.revenuecat.user_defaults.plist"
+```
+
+`com.revenuecat.userdefaults.appUserID.new` is the live ID, and the
+`purchaserInfo.<id>` blob is the cached `CustomerInfo` — decode it to see
+whether `subscriber.entitlements` is actually empty.
+
+Two related traps when a dashboard grant "doesn't work":
+
+- A dashboard grant is **not pushed** to the device. `customerInfoStream`
+  only emits when the SDK refetches (configure, or foreground with a stale
+  cache), so force-quit and relaunch after granting.
+- **Restore purchases cannot help in the Simulator.** There is no App Store
+  receipt without a StoreKit configuration file, so `restorePurchases()`
+  throws and the paywall shows "Couldn't reach the App Store to restore."
+
+Because the account id is also the key for `lastAccountID` and the
+cloud-migration marker, both comparisons are case-insensitive — an install
+predating the lowercasing holds the uppercase id, and an exact compare would
+read the same user as a different one and wipe their local profile and
+nights on first launch after upgrading.
+
 ## HealthKit
 
 - Entitlement `com.apple.developer.healthkit` + `NSHealth{Share,Update}Usage`
