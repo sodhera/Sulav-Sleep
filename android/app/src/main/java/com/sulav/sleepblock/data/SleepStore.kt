@@ -27,6 +27,7 @@ import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 
 /**
  * The app's single state holder — a Kotlin port of the iOS `SleepStore`
@@ -166,13 +167,40 @@ class SleepStore(application: Application) : AndroidViewModel(application) {
     val targetMinutes: Int
         get() = profile?.let { SleepMath.windowMinutes(it.bedtime, it.wakeTime) } ?: (8 * 60)
 
-    /** Nights in a row reaching ≥85% of the sleep target. */
+    /**
+     * Consecutive on-track nights (≥85% of the sleep target) on *consecutive
+     * sleep days*, counted back from the most recent. The run must reach today
+     * or yesterday to still be live — yesterday because tonight's sleep hasn't
+     * happened yet and a streak shouldn't visibly lapse all day.
+     *
+     * Mirrors iOS `SleepStore.onTrackStreak`. Without the day check this
+     * counted qualifying records regardless of gaps, so a good night in June
+     * and a good night in July read as a streak of 2 — and because sessions
+     * sync through Supabase, the same user saw a different number on each
+     * platform.
+     *
+     * A sleep day is the day you woke up (iOS `SleepMerge.key`). iOS gets one
+     * night per day from its local+Health merge; Android has no Health import
+     * yet, so collapse here by the same rule — longest wins — rather than
+     * letting a second session on one day break the chain.
+     */
     val onTrackStreak: Int
         get() {
+            val today = LocalDate.now()
+            val byDay = displaySessions
+                .groupBy { it.end.atZone(ZoneId.systemDefault()).toLocalDate() }
+                .mapValues { (_, daySessions) -> daySessions.maxBy { it.durationMinutes } }
             var streak = 0
-            for (session in displaySessions.reversed()) {
-                if (session.durationMinutes * 100 < targetMinutes * 85) break
+            var expectedDay: LocalDate? = null
+            for (day in byDay.keys.sortedDescending()) {
+                if (expectedDay != null) {
+                    if (day != expectedDay) break
+                } else {
+                    if (ChronoUnit.DAYS.between(day, today) > 1) break
+                }
+                if (byDay.getValue(day).durationMinutes * 100 < targetMinutes * 85) break
                 streak += 1
+                expectedDay = day.minusDays(1)
             }
             return streak
         }

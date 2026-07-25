@@ -81,6 +81,13 @@ Shipped in the MVP:
 - Sleep loop: Home countdown → slide-to-sleep confirmation → OLED sleep
   screen (hold-to-wake 1.2s / tap back-to-sleep / hold-to-cancel 0.8s) →
   logged night. Duration is the only metric; ≥85%-of-target streak.
+- A night belongs to **the day you woke up**, matching iOS `SleepMerge.key`.
+  `onTrackStreak` requires consecutive sleep days and a run reaching today or
+  yesterday, and collapses multiple sessions on one day by longest-wins — iOS
+  gets that collapse from its local+Health merge, which Android has no
+  equivalent of until Health Connect lands. Both platforms must agree here:
+  sessions sync through Supabase, so a date-blind streak showed the same user
+  different numbers depending on which phone they opened.
 - Profile: stat band, 7-night bar rhythm, recent nights, settings (rename,
   schedule steppers, sign out, delete account). Honest data only — no
   seeded history.
