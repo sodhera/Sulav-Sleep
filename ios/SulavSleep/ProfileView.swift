@@ -917,7 +917,14 @@ private struct HistoryRow: View {
 private struct RecordBars: View {
     /// One page's worth of nights (up to `slotCount`), oldest→newest.
     let sessions: [SleepSession]
+    /// The sleep day of the rightmost column. On the newest page this is
+    /// *today*, not the latest logged night, so a missed last night shows as an
+    /// empty column rather than sliding the window back a day.
+    let anchorDay: Date
     let target: Int
+    /// Newest logged sleep day across the whole record, for the relative-age
+    /// cue. Record-wide because this page may legitimately hold no nights.
+    var latestLoggedDay: Date?
     /// Whether this page is the most recent one — only then does the caption
     /// append a "· N days ago" cue, so a stale newest week reads as stale.
     var showsRelativeAge: Bool = true
@@ -932,23 +939,19 @@ private struct RecordBars: View {
     /// date (start-of-day).  Missed days appear as `nil` — the hairline
     /// placeholder bar — in the correct position, so gaps are visible.
     private var slots: [SleepSession?] {
-        guard let latest = sessions.last else {
-            return Array(repeating: nil, count: Self.slotCount)
-        }
         let calendar = Calendar.current
-        let latestDay = SleepMerge.key(for: latest.end, calendar: calendar)
-        // Map each session to its day-offset from the latest night. `sessions`
+        // Map each session to its day-offset from `anchorDay`. `sessions`
         // arrives already collapsed to one entry per sleep day by
         // `SleepMerge.merge`, so no two can land in the same slot.
         var byOffset: [Int: SleepSession] = [:]
         for session in sessions.suffix(Self.slotCount) {
             let sessionDay = SleepMerge.key(for: session.end, calendar: calendar)
-            let offset = calendar.dateComponents([.day], from: sessionDay, to: latestDay).day ?? 0
+            let offset = calendar.dateComponents([.day], from: sessionDay, to: anchorDay).day ?? 0
             if offset >= 0 && offset < Self.slotCount {
                 byOffset[offset] = session
             }
         }
-        // Build the 7-slot array: index 0 = six days ago … index 6 = latest.
+        // Build the 7-slot array: index 0 = six days ago … index 6 = anchor.
         return (0 ..< Self.slotCount).map { index in
             let daysBack = Self.slotCount - 1 - index
             return byOffset[daysBack]
@@ -959,15 +962,9 @@ private struct RecordBars: View {
     /// missed-day columns show the correct day letter.
     private var slotDates: [Date] {
         let calendar = Calendar.current
-        let latestDay: Date
-        if let latest = sessions.last {
-            latestDay = SleepMerge.key(for: latest.end, calendar: calendar)
-        } else {
-            latestDay = calendar.startOfDay(for: Date())
-        }
         return (0 ..< Self.slotCount).map { index in
             let daysBack = Self.slotCount - 1 - index
-            return calendar.date(byAdding: .day, value: -daysBack, to: latestDay)!
+            return calendar.date(byAdding: .day, value: -daysBack, to: anchorDay)!
         }
     }
 
@@ -1017,7 +1014,7 @@ private struct RecordBars: View {
                 // end, so the line reads as "your target", not an unlabeled
                 // rule. The chip rides just above the line, right-aligned.
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text(hoursLabel(target))
+                    Text(targetLabel(target))
                         .font(SleepFont.label(10))
                         .foregroundStyle(SleepColor.dim)
                         .padding(.horizontal, 5)
@@ -1057,20 +1054,36 @@ private struct RecordBars: View {
     }
 
     /// "Jun 16 – Jun 22" for this page's span, with "· N days ago" appended on
-    /// the newest page once its latest night is ≥ 2 calendar days back.
+    /// the newest page once the newest logged night is ≥ 2 calendar days back.
+    ///
+    /// Names the **window** this page covers, not the span of nights that
+    /// happen to be logged in it. A page is always seven days wide, so a lone
+    /// night used to caption a full week as a single date ("Jul 24"), which
+    /// under-described what the columns showed. This is also what DESIGN.md
+    /// describes ("every page names its span").
     private var dateCaption: String? {
-        guard let first = sessions.first?.end, let last = sessions.last?.end else { return nil }
-        let range = first == last
-            ? SleepFormatting.monthDay.string(from: last)
-            : "\(SleepFormatting.monthDay.string(from: first)) – \(SleepFormatting.monthDay.string(from: last))"
-        guard showsRelativeAge else { return range }
+        let dates = slotDates
+        guard let first = dates.first, let last = dates.last else { return nil }
+        let range = "\(SleepFormatting.monthDay.string(from: first)) – \(SleepFormatting.monthDay.string(from: last))"
+        guard showsRelativeAge, let latestLoggedDay else { return range }
         let calendar = Calendar.current
         let days = calendar.dateComponents(
             [.day],
-            from: calendar.startOfDay(for: last),
+            from: latestLoggedDay,
             to: calendar.startOfDay(for: Date())
         ).day ?? 0
         return days >= 2 ? "\(range) · \(days) days ago" : range
+    }
+
+    /// The target chip echoes a *setting* — the schedule the user picked — so
+    /// it reads in hours and minutes. Decimal hours turned a perfectly round
+    /// 10:45 PM → 6:30 AM window into "7.8h", which looks like a measurement
+    /// nobody chose. Whole hours stay bare ("8h"); the bars keep decimals,
+    /// since a measured night genuinely is 8.9h.
+    private func targetLabel(_ minutes: Int) -> String {
+        let hours = minutes / 60
+        let remainder = minutes % 60
+        return remainder == 0 ? "\(hours)h" : "\(hours)h \(remainder)m"
     }
 
     /// Hours for a bar: "7h" for whole hours, else one decimal ("7.5h").
@@ -1110,48 +1123,74 @@ private struct RecordChart: View {
 
     @State private var page = 0
 
-    /// Oldest→newest pages, each spanning a 7-calendar-day window anchored from
-    /// the newest night backward.  Because `RecordBars` maps sessions onto a
-    /// 7-day grid by date, pages must also be date-aligned — otherwise sessions
-    /// that fall outside a 7-day span (due to sparse logging) would be silently
-    /// dropped.
-    private var pages: [[SleepSession]] {
-        guard let latest = sessions.last else { return [] }
+    /// One page's 7-day window: `anchorDay` is the rightmost column.
+    private struct Page {
+        var anchorDay: Date
+        var sessions: [SleepSession]
+    }
+
+    /// Oldest→newest pages, each a 7-calendar-day window. The newest page is
+    /// anchored to **today**, and older pages step back from it in 7-day
+    /// blocks. `RecordBars` maps sessions onto the same date grid, so pages
+    /// must be date-aligned or sparse records would drop nights.
+    ///
+    /// Anchoring to today rather than to the newest logged night is what makes
+    /// a *missed* last night visible. The window used to end at whatever night
+    /// you last logged, so skipping a night didn't leave a gap — it just slid
+    /// the whole chart back a day, and the record looked identical whether you
+    /// slept last night or not. Interior gaps showed; trailing ones couldn't.
+    ///
+    /// The newest page is kept even when it holds nothing, so "logged nothing
+    /// this week" reads as an empty week instead of quietly showing an older
+    /// one as if it were current.
+    private var pages: [Page] {
+        guard let first = sessions.first else { return [] }
         let calendar = Calendar.current
-        let latestDay = SleepMerge.key(for: latest.end, calendar: calendar)
+        let earliest = SleepMerge.key(for: first.end, calendar: calendar)
 
-        // Walk backward from the newest night in 7-day steps.  Each page
-        // collects sessions whose sleep day falls within [windowStart,
-        // windowEnd).
-        var result: [[SleepSession]] = []
-        var windowEnd = calendar.date(byAdding: .day, value: 1, to: latestDay)!
-        let earliest = SleepMerge.key(for: sessions.first!.end, calendar: calendar)
-
-        while windowEnd > earliest {
-            let windowStart = calendar.date(byAdding: .day, value: -Self.perPage, to: windowEnd)!
+        var result: [Page] = []
+        var anchor = calendar.startOfDay(for: Date())
+        while true {
+            let windowStart = calendar.date(byAdding: .day, value: -(Self.perPage - 1), to: anchor)!
             let page = sessions.filter { session in
                 let day = SleepMerge.key(for: session.end, calendar: calendar)
-                return day >= windowStart && day < windowEnd
+                return day >= windowStart && day <= anchor
             }
-            if !page.isEmpty {
-                result.append(page)
+            // `result.isEmpty` is the newest page — always kept.
+            if !page.isEmpty || result.isEmpty {
+                result.append(Page(anchorDay: anchor, sessions: page))
             }
-            windowEnd = windowStart
+            if windowStart <= earliest { break }
+            anchor = calendar.date(byAdding: .day, value: -1, to: windowStart)!
         }
         return result.reversed()
+    }
+
+    /// The most recent logged sleep day across the whole record, for the newest
+    /// page's "· N days ago" cue. Read record-wide rather than per page because
+    /// the newest page can now legitimately be empty.
+    private var latestLoggedDay: Date? {
+        sessions.last.map { SleepMerge.key(for: $0.end) }
     }
 
     var body: some View {
         let pages = pages
         if pages.count <= 1 {
-            RecordBars(sessions: pages.first ?? [], target: target)
+            RecordBars(
+                sessions: pages.first?.sessions ?? [],
+                anchorDay: pages.first?.anchorDay ?? Calendar.current.startOfDay(for: Date()),
+                target: target,
+                latestLoggedDay: latestLoggedDay
+            )
         } else {
             VStack(spacing: SleepSpacing.md) {
                 TabView(selection: $page) {
                     ForEach(Array(pages.enumerated()), id: \.offset) { index, week in
                         RecordBars(
-                            sessions: week,
+                            sessions: week.sessions,
+                            anchorDay: week.anchorDay,
                             target: target,
+                            latestLoggedDay: latestLoggedDay,
                             showsRelativeAge: index == pages.count - 1
                         )
                         .frame(maxHeight: .infinity, alignment: .top)

@@ -316,10 +316,12 @@ Two tabs, each with exactly one job:
   mixed in.
 
   The record chart is the **widgets' 7-night bar rhythm brought home** — one
-  chart language on every surface. Exactly 7 fixed-width columns, latest
-  night rightmost: gold→amber capsules (latest full-strength, earlier nights
+  chart language on every surface. Exactly 7 fixed-width columns, **today
+  rightmost** on the newest page: gold→amber capsules (latest full-strength,
+  earlier nights
   receding to ~60%) against the quiet target hairline with ~15% headroom —
-  the hairline is tagged with the goal itself ("8h") on a small navy chip at
+  the hairline is tagged with the goal itself ("8h", or "7h 45m" when the
+  schedule isn't a round hour) on a small navy chip at
   its trailing end, so it reads as *your target* rather than an unlabeled
   rule — every bar's hours on the shared label plane (`BarHoursLabel` — navy inside
   the bar, gold above it, split at the bar's edge; see the widget bar rules),
@@ -327,9 +329,23 @@ Two tabs, each with exactly one job:
   render as hairline stubs, so a young record honestly reads as a week
   filling in.
 
+  The rightmost column is **today, not the last night logged.** Anchoring to
+  the newest night made a missed night invisible: the window simply slid back
+  a day, so the record looked identical whether you slept last night or not,
+  and only gaps *between* two logged nights ever showed. Today-anchored, a
+  missed night is the hairline stub it should be, and the chart agrees with
+  the streak instead of contradicting it. The target chip reads in hours and
+  minutes because it echoes a setting the user chose — decimal hours turned a
+  round 10:45 PM → 6:30 AM schedule into "7.8h", which looks like a
+  measurement rather than a decision. Bars keep decimals; a measured night
+  genuinely is 8.9h.
+
   The chart is **swipeable by week.** The record is chunked into pages of
-  seven nights, boundaries anchored to the newest night (so the current week
-  is always a full column set and older weeks fill in behind it), laid
+  seven days, boundaries anchored to today and stepping back in 7-day blocks
+  (so the current week is always a full column set and older weeks fill in
+  behind it). Empty older weeks are skipped, but the newest page is kept even
+  when nothing is logged in it — "nothing this week" must read as an empty
+  week, not as an older week silently presented as the current one. Laid
   oldest→newest left→right so the newest week shows by default and the user
   swipes right to walk back through history — the same "latest rightmost"
   spatial grammar as a single chart. Below sits an **Instagram-style dot
@@ -346,9 +362,12 @@ Two tabs, each with exactly one job:
   chrome.
   Because the axis carries weekday initials but no dates, every page names its
   span in a faint centered caption — **"Jun 16 – Jun 22"** — and the newest
-  page appends **"· N days ago"** once its latest night is ≥ 2 calendar days
-  back, so a stale record reads as stale at a glance rather than masquerading
-  as the current week.
+  page appends **"· N days ago"** once the newest logged night is ≥ 2 calendar
+  days back, so a stale record reads as stale at a glance rather than
+  masquerading as the current week. The caption names the **window**, not the
+  span of nights inside it: a page is always seven days wide, so a lone night
+  captioning a full week as a single date ("Jul 24") under-described what the
+  columns were showing.
 
   > Note on history: the record chart was previously a smoothed amber
   > line-with-area. Retired: it clamped every night into a 4.5–9h band (a
