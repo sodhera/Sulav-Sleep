@@ -811,29 +811,35 @@ private struct TonightFooter: View {
     var body: some View {
         Group {
             switch tonight {
+            // The countdown leads and carries the weight; the clock time drops
+            // to the supporting line beneath it, same order as small and
+            // medium. The bedtime is a setting the user already knows — the
+            // interval is the part that changes.
             case .beforeBed(let bedtime, _):
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("Bedtime \(bedtime, format: .dateTime.hour().minute())")
+                    (Text("Bedtime in ")
                         .font(SleepFont.body(13))
                         .foregroundStyle(SleepColor.dim)
-                    Text("in \(SleepWidgetClock.compactInterval(between: now, and: bedtime))")
-                        .font(SleepFont.body(12))
-                        .foregroundStyle(SleepColor.muted)
+                     + Text(SleepWidgetClock.compactInterval(between: now, and: bedtime))
+                        .font(SleepFont.hero(15))
+                        .foregroundStyle(SleepColor.ink))
                         .monospacedDigit()
                         .lineLimit(1)
+                    clock(bedtime)
                 }
             case .pastBedtime(let bedtime):
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("Past bedtime")
-                        .font(SleepFont.body(13))
+                    // Number first, matching the shield's "18 minutes past
+                    // bedtime" — one phrasing across every surface.
+                    (Text(SleepWidgetClock.compactInterval(between: now, and: bedtime))
+                        .font(SleepFont.hero(15))
                         .foregroundStyle(SleepColor.amber)
-                    // How far past, not a nudge — same fact Home and the
-                    // shield now lead with, so all three agree.
-                    Text(SleepWidgetClock.compactInterval(between: now, and: bedtime))
-                        .font(SleepFont.body(12))
-                        .foregroundStyle(SleepColor.muted)
+                     + Text(" past bedtime")
+                        .font(SleepFont.body(13))
+                        .foregroundStyle(SleepColor.dim))
                         .monospacedDigit()
                         .lineLimit(1)
+                    clock(bedtime)
                 }
             case .noSchedule:
                 Text("Set a schedule for a bedtime reminder")
@@ -844,6 +850,14 @@ private struct TonightFooter: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// The bedtime itself, quiet, under the interval.
+    private func clock(_ bedtime: Date) -> some View {
+        Text(bedtime, format: .dateTime.hour().minute())
+            .font(SleepFont.body(12))
+            .foregroundStyle(SleepColor.muted)
+            .lineLimit(1)
     }
 }
 

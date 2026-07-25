@@ -871,10 +871,16 @@ The surfaces split one job:
   streak on its trailing side, then last night's duration as a hero numeral
   tagged "LAST NIGHT", tall full-width bars with weekday initials and in-bar
   hour labels, then a hairline and a **mini-Home footer** anchored to the
-  bottom edge: the sloth as tonight's figure, a two-line tonight text
-  (bedtime + countdown, or the past-bedtime elapsed — text only, no moon
-  glyphs; the sloth *is* the glyph), and the Sleep Now capsule on the
-  trailing side — the same figure→instrument→action order medium reads in.
+  bottom edge: the sloth as tonight's figure, a two-line tonight block, and
+  the Sleep Now capsule on the trailing side — the same
+  figure→instrument→action order medium reads in. The block leads with the
+  interval and drops the clock time beneath it — **"Bedtime in 22m"** over
+  "10:45 PM", with the interval carrying semibold weight inside the
+  otherwise-regular line, or **"2h 16m past bedtime"** in amber once you're
+  over (number first, matching the shield). Text only, no moon glyphs; the
+  sloth *is* the glyph. The bedtime is a setting the user already knows —
+  the interval is the part that changes, so it gets the weight, same as
+  small and medium.
   Large previously opened straight onto the bars, on the reasoning that the
   rightmost full-strength bar *was* last night so a numeral would repeat it.
   Anchoring the grid to today broke that — the last column is empty whenever
