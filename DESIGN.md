@@ -1003,13 +1003,21 @@ the shield extensions render the right copy:
 
 **Pre-sleep phase** (bedtime arrives → user hasn't started a session):
 - Title: "Time for bed"
-- Subtitle: **"You're 18 minutes past your bedtime."** One line, one fact. The
-  number grows every time they come back, which does more than scolding copy.
-  Nothing else belongs here: the user is looking at a block screen, so saying
-  the app is blocked spends four wrapped lines restating what they can see,
-  and the buttons already state the options. Falls back to "Put your phone
-  down and head to bed." until a lockdown has been scheduled and bedtime is
-  known to the App Group.
+- Title: **"18 minutes past bedtime"** — the lateness takes the bold slot, and
+  "Time for bed" steps down to the subtitle. `ShieldConfiguration.Label`
+  carries a string and a colour and nothing else, so a phrase *inside* the
+  subtitle cannot be emphasised; putting the number in the title is the only
+  way to give it weight. It earns that weight — it is the one thing on the
+  screen the user doesn't already know, and the only part that changes as the
+  night runs on.
+- Subtitle: **"Time for bed."** One short line. Nothing else belongs here: the
+  user is looking at a block screen, so saying the app is blocked spends
+  wrapped lines restating what they can see, and the buttons already state the
+  options.
+- In the first minute, and before any lockdown has been scheduled (bedtime
+  isn't in the App Group yet), the shield keeps its original pairing — title
+  "Time for bed", subtitle "Put your phone down and head to bed." A bold
+  "0 minutes past bedtime" is a worse sentence than the one it replaces.
 - Primary button: **"Sleep Now"** (amber) — closes the shield and fires a
   local notification with the `sleepblock://sleep` deep link. Tapping the
   notification opens the app on the sleep confirmation panel. (The Shield

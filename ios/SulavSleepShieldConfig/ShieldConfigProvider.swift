@@ -76,8 +76,8 @@ class ShieldConfigProvider: ShieldConfigurationDataSource {
         (Self.groupDefaults?.integer(forKey: Self.snoozeCountKey) ?? 0) < Self.snoozeLimit
     }
 
-    /// Minutes since the user's bedtime, for the subtitle. Nil when bedtime
-    /// isn't known yet (no lockdown has been scheduled on this install).
+    /// Minutes since the user's bedtime. Nil when bedtime isn't known yet (no
+    /// lockdown has been scheduled on this install).
     private var minutesPastBedtime: Int? {
         guard let bedtime = Self.groupDefaults?.object(forKey: Self.bedtimeKey) as? Int else { return nil }
         let calendar = Calendar.current
@@ -87,40 +87,51 @@ class ShieldConfigProvider: ShieldConfigurationDataSource {
         return diff
     }
 
-    /// "18 minutes" / "1h 15m" — a growing number is better friction than
-    /// scolding copy, and it's the honest answer to "how late am I?".
-    private static func pastBedtimePhrase(_ minutes: Int) -> String {
-        if minutes < 1 { return "right at your bedtime" }
+    /// The lateness as a **title** — "5 minutes past bedtime".
+    ///
+    /// It lives in the title slot because that is the only way to make it
+    /// bold: `ShieldConfiguration.Label` carries a string and a colour and
+    /// nothing else, so there is no way to emphasise part of the subtitle.
+    /// The system renders the title large and bold, so the growing number —
+    /// the one fact on this screen the user doesn't already know — gets the
+    /// weight, and "Time for bed" steps down to the subtitle.
+    ///
+    /// Nil in the first minute (a bold "0 minutes past bedtime" is silly) and
+    /// when bedtime is unknown; the shield then keeps "Time for bed" as its
+    /// title, exactly as before.
+    private var lateTitle: String? {
+        guard let minutes = minutesPastBedtime, minutes >= 1 else { return nil }
+        return "\(Self.lateAmount(minutes)) past bedtime"
+    }
+
+    /// "5 minutes" / "1 minute" / "1h 15m" / "2h".
+    private static func lateAmount(_ minutes: Int) -> String {
         if minutes < 60 {
-            return minutes == 1 ? "1 minute past your bedtime" : "\(minutes) minutes past your bedtime"
+            return minutes == 1 ? "1 minute" : "\(minutes) minutes"
         }
         let hours = minutes / 60
         let rest = minutes % 60
-        return rest == 0
-            ? "\(hours)h past your bedtime"
-            : "\(hours)h \(rest)m past your bedtime"
+        return rest == 0 ? "\(hours)h" : "\(hours)h \(rest)m"
     }
 
     private func makeConfig(noun: String) -> ShieldConfiguration {
         if isPresleep {
-            // One short line. The lateness is the only thing here the user
-            // doesn't already know — they are staring at a block screen, so
-            // spelling out that the app is blocked spends four wrapped lines
-            // restating the obvious, and the buttons already say what their
-            // options are. The number grows every time they come back, which
-            // does more work than any amount of wording.
-            let subtitle = minutesPastBedtime.map { "You're \(Self.pastBedtimePhrase($0))." }
-                ?? "Put your phone down and head to bed."
+            // The number leads and takes the bold title slot; "Time for bed"
+            // steps down to the subtitle. Both stay to one short line each —
+            // the user is staring at a block screen, so restating that the app
+            // is blocked only spends wrapped lines on what they can already
+            // see, and the buttons say what the options are.
+            let late = lateTitle
             return ShieldConfiguration(
                 backgroundBlurStyle: .systemUltraThinMaterialDark,
                 backgroundColor: Self.bg,
                 icon: Self.brandMarkIcon ?? UIImage(systemName: "moon.zzz.fill"),
                 title: ShieldConfiguration.Label(
-                    text: "Time for bed",
+                    text: late ?? "Time for bed",
                     color: Self.ink
                 ),
                 subtitle: ShieldConfiguration.Label(
-                    text: subtitle,
+                    text: late == nil ? "Put your phone down and head to bed." : "Time for bed.",
                     color: Self.dim
                 ),
                 primaryButtonLabel: ShieldConfiguration.Label(
