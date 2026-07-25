@@ -11,6 +11,18 @@ struct WidgetNight: Codable, Identifiable {
     var id: Date { end }
 }
 
+/// Which day a night belongs to: **the day you woke up**.
+///
+/// Lives here because this file is a member of both targets, and the rule has
+/// to be identical on both — the widget chart and the app chart are the same
+/// chart in two sizes, and they'd drift the moment each computed its own.
+/// `SleepMerge.key` in the app delegates to this. See DESIGN.md.
+enum SleepDay {
+    static func key(for end: Date, calendar: Calendar = .current) -> Date {
+        calendar.startOfDay(for: end)
+    }
+}
+
 struct SleepWidgetSummary: Codable {
     var nights: [WidgetNight]          // most recent last, up to 7
     var latestDurationMinutes: Int?

@@ -926,8 +926,12 @@ enum SleepMerge {
     /// This is the only day rule in the app. It previously shifted back 12h
     /// here while every view bucketed on plain `startOfDay(end)`, and the two
     /// disagreeing was what let a nap silently overwrite a night.
+    ///
+    /// The implementation lives in `SleepDay` (SleepWidgetShared.swift) because
+    /// the widget extension doesn't compile this file and its chart has to
+    /// bucket identically.
     static func key(for end: Date, calendar: Calendar = .current) -> Date {
-        calendar.startOfDay(for: end)
+        SleepDay.key(for: end, calendar: calendar)
     }
 }
 

@@ -846,17 +846,23 @@ carries real state the whole time. One sloth per widget, never two.
 The surfaces split one job:
 
 - **Small (home screen) — tonight.** A bedtime instrument, not a stats tile:
-  text block top-leading (moon glyph + "BEDTIME" caps kicker, hero clock
-  time, a system-driven "in Xh Ym" countdown), the sloth lounging
-  bottom-trailing with its eyes matching the hour. Past bedtime the
-  countdown gives way to an amber "Wind down" and the sloth goes drowsy.
+  text block top-leading (moon glyph + a "BEDTIME IN" / "PAST BEDTIME" caps
+  kicker, then the **countdown as the hero numerals** with the clock time as
+  the supporting line beneath), the sloth lounging bottom-trailing with its
+  eyes matching the hour. The countdown holds the hero slot because the
+  bedtime is a setting the user already knows, while "how long have I got" is
+  what a glance is actually asking. Past bedtime it counts *up* in amber and
+  the sloth goes drowsy — the same turn-around Home makes, rather than the
+  wordless "Wind down" of earlier revisions.
   Small is tonight-only: the quiet last-night line of earlier revisions is
   retired — the record lives on medium/large, and the sloth earns the room.
 - **Medium — the morning glance.** Last night's duration as the hero
   numeral under a moon-glyph "SLEEP" kicker, a streak/average line beneath
-  it, and the sloth lounging under the numbers — the brand figure at rest,
-  balancing the action capsule diagonally; the 7-night bar rhythm on the
-  right with the Sleep Now capsule anchored below it, on the trailing edge.
+  it, and the 7-night bar rhythm on the right. Along the bottom runs a band
+  reading left→right as **figure, instrument, action**: the sloth anchoring
+  the corner, the bedtime countdown centred where the eye crosses between
+  them, and the Sleep Now capsule closing it. The countdown earns the middle
+  because it is the only live thing on an otherwise retrospective tile.
   Deliberately no "Last night" label: the hero *is* last night — the same
   night as the rightmost full-strength bar.
 - **Large — the record + tonight.** The moon-glyph "SLEEP" header with the
@@ -911,12 +917,22 @@ Rules:
   figure instead of fighting the user's tint.
 - Duration is the only metric on every surface — the retired 0–100 score
   (see the Profile section's history note) never appears on a widget.
-- Bars: gold→amber capsules against a faint target hairline; the latest night
-  is full-strength, earlier nights recede to ~60% so "last night" reads first.
-  The chart always lays out **exactly 7 fixed-width columns** — nights not yet
-  logged render as the empty state's quiet hairline stubs, so one logged night
-  is one narrow bar in the rightmost slot, never a lone capsule stretched
-  across the full chart width. The vertical scale carries ~15% headroom above
+- Bars: **the same chart as Profile's, at widget size** — one grammar, one
+  implementation shape, so the two can't drift. Gold→amber capsules against a
+  faint target hairline tagged with the goal on a navy chip; the newest
+  *logged* night is full-strength and earlier nights recede to ~60% so "last
+  night" reads first. Note *logged*, not last column: the grid is anchored to
+  today, so the final column is empty whenever last night wasn't logged, and
+  keying the emphasis to it would dim every bar.
+  The chart lays out **exactly 7 fixed-width columns on a date grid**, today
+  rightmost, each night in the column for the day it belongs to
+  (`SleepDay.key` — the day you woke up, shared by both targets). Days with no
+  night render as the empty state's quiet hairline stubs, and weekday initials
+  sit under *every* slot including the empty ones.
+  Earlier revisions right-packed the nights and lead-padded with blanks, which
+  meant a skipped night left no gap — the bars just slid over, so a week with
+  Tuesday missing looked identical to a week that began on Wednesday, and a
+  missed *last* night was invisible entirely. The vertical scale carries ~15% headroom above
   the tallest value (usually the target), so the target hairline reads as a
   reference line *inside* the chart rather than a stray rule flush against
   its top edge.

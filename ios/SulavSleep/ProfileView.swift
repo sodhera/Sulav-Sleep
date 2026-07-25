@@ -973,9 +973,16 @@ private struct RecordBars: View {
         let scaleMinutes = CGFloat(max(target, maxNight)) * 1.15
         let targetFraction = CGFloat(target) / scaleMinutes
 
+        // The newest *logged* night wears full strength, not the last column.
+        // Now that the window is anchored to today, the last column is empty
+        // whenever last night wasn't logged — keying the emphasis to it would
+        // dim every bar on the chart.
+        let columns = slots
+        let newestLogged = columns.lastIndex(where: { $0 != nil })
+
         VStack(spacing: SleepSpacing.sm) {
             HStack(alignment: .bottom, spacing: SleepSpacing.sm) {
-                ForEach(Array(slots.enumerated()), id: \.offset) { index, session in
+                ForEach(Array(columns.enumerated()), id: \.offset) { index, session in
                     if let session {
                         let barHeight = max(6, chartHeight * CGFloat(session.durationMinutes) / scaleMinutes)
                         ZStack(alignment: .bottom) {
@@ -997,7 +1004,7 @@ private struct RecordBars: View {
                                 barHeight: barHeight
                             )
                         }
-                        .opacity(index == Self.slotCount - 1 ? 1 : 0.62)
+                        .opacity(index == newestLogged ? 1 : 0.62)
                         .frame(maxWidth: .infinity, alignment: .bottom)
                     } else {
                         Capsule().fill(SleepColor.hairline)
@@ -1029,7 +1036,7 @@ private struct RecordBars: View {
 
             HStack(spacing: SleepSpacing.sm) {
                 let dates = slotDates
-                ForEach(Array(slots.enumerated()), id: \.offset) { index, session in
+                ForEach(Array(columns.enumerated()), id: \.offset) { index, session in
                     Text(SleepFormatting.narrowWeekday.string(from: dates[index]))
                         .font(SleepFont.label(11))
                         .foregroundStyle(index == Self.slotCount - 1 ? SleepColor.amber : SleepColor.faint)

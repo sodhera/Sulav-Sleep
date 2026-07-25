@@ -79,6 +79,14 @@ struct SleepProvider: TimelineProvider {
         // pushes a reload on every real change; the policy is a fallback.
         var entries = [SleepEntry(date: now, summary: summary)]
         var refresh = now.addingTimeInterval(3600)
+        // The chart's columns are a date grid anchored to today, so it has to
+        // be redrawn when the date changes or the bars sit a day stale until
+        // the next boundary happens to fire.
+        if let midnight = Calendar.current.nextDate(
+            after: now, matching: DateComponents(hour: 0, minute: 0), matchingPolicy: .nextTime
+        ) {
+            entries.append(SleepEntry(date: midnight, summary: summary))
+        }
         if let bedtime = summary.bedtimeMinutes {
             let nextBed = SleepWidgetClock.nextOccurrence(ofMinuteOfDay: bedtime, after: now)
             let drowsyStart = nextBed.addingTimeInterval(-TimeInterval(TonightState.drowsyLeadMinutes * 60))
@@ -155,7 +163,11 @@ enum TonightState {
         let bedDate = SleepWidgetClock.date(fromMinuteOfDay: bed, onDayOf: now)
         if let wake = summary.wakeMinutes,
            SleepWidgetClock.isInWindow(now: now, bedtimeMinutes: bed, wakeMinutes: wake) {
-            return .pastBedtime(bedtime: bedDate)
+            // The bedtime that *opened this window*, which after midnight is
+            // yesterday's. `date(fromMinuteOfDay:onDayOf:)` would hand back
+            // tonight's — ~21 hours in the future at 1am — and anything
+            // measuring elapsed time from it would count the wrong way.
+            return .pastBedtime(bedtime: SleepWidgetClock.previousOccurrence(ofMinuteOfDay: bed, atOrBefore: now))
         }
         let nextBed = SleepWidgetClock.nextOccurrence(ofMinuteOfDay: bed, after: now)
         let drowsy = nextBed.timeIntervalSince(now) <= TimeInterval(Self.drowsyLeadMinutes * 60)
@@ -171,6 +183,15 @@ enum SleepWidgetClock {
         components.hour = normalized / 60
         components.minute = normalized % 60
         return Calendar.current.date(from: components) ?? day
+    }
+
+    /// The most recent occurrence of a minute-of-day at or before `now`
+    /// (today's if it has already passed, otherwise yesterday's).
+    static func previousOccurrence(ofMinuteOfDay minutes: Int, atOrBefore now: Date) -> Date {
+        let today = date(fromMinuteOfDay: minutes, onDayOf: now)
+        if today <= now { return today }
+        return Calendar.current.date(byAdding: .day, value: -1, to: today)
+            ?? today.addingTimeInterval(-86_400)
     }
 
     /// The next future occurrence of a minute-of-day (tonight or tomorrow).
@@ -294,9 +315,9 @@ private struct SleepWidgetView: View {
         case .systemSmall:
             TonightView(summary: entry.summary, tonight: tonight)
         case .systemLarge:
-            LargeSleepView(summary: entry.summary, tonight: tonight)
+            LargeSleepView(summary: entry.summary, tonight: tonight, now: entry.date)
         default:
-            MediumSleepView(summary: entry.summary, tonight: tonight)
+            MediumSleepView(summary: entry.summary, tonight: tonight, now: entry.date)
         }
     }
 }
@@ -460,37 +481,38 @@ private struct TonightView: View {
     }
 
     private func bedtimeBody(bedtime: Date, past: Bool) -> some View {
+        // The countdown is the instrument, so it takes the hero numerals and
+        // the clock time steps down to the supporting line — the bedtime is a
+        // setting the user already knows, while "how long have I got" is the
+        // thing a glance is actually asking. Mirrors Home, which counts up in
+        // amber once you're over.
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 5) {
                 Image(systemName: past ? "moon.zzz.fill" : "moon.fill")
                     .font(.system(size: 11))
                     .foregroundStyle(SleepColor.amber)
                     .widgetAccentable()
-                Text("BEDTIME")
+                Text(past ? "PAST BEDTIME" : "BEDTIME IN")
                     .font(SleepFont.label(11)).tracking(1.4)
                     .foregroundStyle(SleepColor.muted)
             }
 
             Spacer(minLength: 4)
 
-            Text(bedtime, format: .dateTime.hour().minute())
-                .font(SleepFont.hero(28))
-                .foregroundStyle(SleepColor.ink)
+            // `.relative` is system-driven: it keeps ticking between timeline
+            // entries, and past the date it counts up on its own.
+            Text(bedtime, style: .relative)
+                .font(SleepFont.hero(26))
+                .foregroundStyle(past ? SleepColor.amber : SleepColor.ink)
+                .monospacedDigit()
                 .widgetAccentable()
-                .minimumScaleFactor(0.7)
+                .minimumScaleFactor(0.5)
                 .lineLimit(1)
 
-            if past {
-                Text("Wind down")
-                    .font(SleepFont.body(12))
-                    .foregroundStyle(SleepColor.amber)
-                    .lineLimit(1)
-            } else {
-                (Text("in ") + Text(bedtime, style: .relative))
-                    .font(SleepFont.body(12))
-                    .foregroundStyle(SleepColor.dim)
-                    .lineLimit(1)
-            }
+            Text(bedtime, format: .dateTime.hour().minute())
+                .font(SleepFont.body(12))
+                .foregroundStyle(SleepColor.dim)
+                .lineLimit(1)
 
             Spacer(minLength: 6)
 
@@ -536,11 +558,13 @@ private struct TonightView: View {
 private struct MediumSleepView: View {
     let summary: SleepWidgetSummary
     let tonight: TonightState
+    let now: Date
 
     var body: some View {
         if summary.isEmpty {
             EmptyStatsView(pose: tonight.slothPose, signedIn: summary.isSignedIn ?? true, showButton: !tonight.isAsleep)
         } else {
+            VStack(spacing: 4) {
             HStack(alignment: .top, spacing: SleepSpacing.lg) {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 5) {
@@ -581,22 +605,34 @@ private struct MediumSleepView: View {
                             .foregroundStyle(SleepColor.muted)
                     }
 
-                    Spacer(minLength: 2)
-
-                    WidgetSloth(pose: tonight.slothPose, height: 46)
+                    Spacer(minLength: 0)
                 }
                 .frame(maxHeight: .infinity, alignment: .top)
 
                 Spacer(minLength: 0)
 
-                VStack(alignment: .trailing, spacing: 0) {
-                    SleepBars(nights: summary.nights, target: summary.targetMinutes, height: 64, wholeHours: true)
+                SleepBars(
+                    nights: summary.nights,
+                    target: summary.targetMinutes,
+                    height: 64,
+                    anchorDay: SleepDay.key(for: now),
+                    wholeHours: true
+                )
+                .frame(maxWidth: 168)
+            }
 
-                    Spacer(minLength: 6)
+            Spacer(minLength: 2)
 
-                    WidgetActionCapsule(signedIn: summary.isSignedIn ?? true)
-                }
-                .frame(maxWidth: 168, maxHeight: .infinity)
+            // The bottom band reads left→right as figure, instrument, action:
+            // the sloth anchors the corner, the countdown sits in the middle
+            // where the eye crosses between them, and the capsule closes it.
+            HStack(alignment: .center, spacing: SleepSpacing.sm) {
+                WidgetSloth(pose: tonight.slothPose, height: 40)
+                Spacer(minLength: 0)
+                MediumCountdown(tonight: tonight)
+                Spacer(minLength: 0)
+                WidgetActionCapsule(signedIn: summary.isSignedIn ?? true)
+            }
             }
         }
     }
@@ -604,6 +640,41 @@ private struct MediumSleepView: View {
     private var averageDuration: Int? {
         guard !summary.nights.isEmpty else { return nil }
         return summary.nights.reduce(0) { $0 + $1.durationMinutes } / summary.nights.count
+    }
+}
+
+/// The medium widget's countdown, centred in the bottom band. Two tight
+/// lines so it reads as one small instrument rather than a sentence — the
+/// kicker carries the direction, the numerals carry the value, exactly like
+/// Home. `.relative` keeps ticking between timeline entries and counts up on
+/// its own once bedtime passes.
+private struct MediumCountdown: View {
+    let tonight: TonightState
+
+    var body: some View {
+        switch tonight {
+        case .beforeBed(let bedtime, _):
+            block(kicker: "BEDTIME IN", date: bedtime, tint: SleepColor.ink)
+        case .pastBedtime(let bedtime):
+            block(kicker: "PAST BEDTIME", date: bedtime, tint: SleepColor.amber)
+        case .noSchedule, .asleep:
+            EmptyView()
+        }
+    }
+
+    private func block(kicker: String, date: Date, tint: Color) -> some View {
+        VStack(spacing: 0) {
+            Text(kicker)
+                .font(SleepFont.label(9)).tracking(1.1)
+                .foregroundStyle(SleepColor.muted)
+            Text(date, style: .relative)
+                .font(SleepFont.title(15))
+                .foregroundStyle(tint)
+                .monospacedDigit()
+                .minimumScaleFactor(0.6)
+                .lineLimit(1)
+        }
+        .fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -651,6 +722,7 @@ private struct EmptyStatsView: View {
 private struct LargeSleepView: View {
     let summary: SleepWidgetSummary
     let tonight: TonightState
+    let now: Date
 
     var body: some View {
         VStack(alignment: .leading, spacing: SleepSpacing.md) {
@@ -689,7 +761,13 @@ private struct LargeSleepView: View {
                 // No hero numeral: the labeled bars carry the week, hour
                 // figures included — a second duration on top would just
                 // repeat the rightmost bar.
-                SleepBars(nights: summary.nights, target: summary.targetMinutes, height: 128, showWeekdays: true)
+                SleepBars(
+                    nights: summary.nights,
+                    target: summary.targetMinutes,
+                    height: 128,
+                    anchorDay: SleepDay.key(for: now),
+                    showWeekdays: true
+                )
             }
 
             Spacer(minLength: 0)
@@ -728,14 +806,18 @@ private struct TonightFooter: View {
                         .foregroundStyle(SleepColor.muted)
                         .lineLimit(1)
                 }
-            case .pastBedtime:
+            case .pastBedtime(let bedtime):
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Past bedtime")
                         .font(SleepFont.body(13))
                         .foregroundStyle(SleepColor.amber)
-                    Text("Wind down and sleep")
+                    // How far past, not a nudge — same fact Home and the
+                    // shield now lead with, so all three agree.
+                    Text(bedtime, style: .relative)
                         .font(SleepFont.body(12))
                         .foregroundStyle(SleepColor.muted)
+                        .monospacedDigit()
+                        .lineLimit(1)
                 }
             case .noSchedule:
                 Text("Set a schedule for a bedtime reminder")
@@ -940,6 +1022,10 @@ private struct SleepBars: View {
     let nights: [WidgetNight]
     let target: Int
     let height: CGFloat
+    /// Anchors the rightmost column. Passed in (rather than read from `Date()`)
+    /// so it comes from the timeline entry, which is what WidgetKit actually
+    /// renders against.
+    let anchorDay: Date
     var showWeekdays: Bool = false
     /// Whole hours, no unit ("7") for the medium widget's narrow columns;
     /// the large widget keeps one decimal + unit ("7.5h").
@@ -947,11 +1033,34 @@ private struct SleepBars: View {
 
     private static let slotCount = 7
 
-    /// Fixed 7 columns, latest night in the rightmost slot; missing nights
-    /// lead-pad as nil.
+    /// Fixed 7 columns on a **date** grid, rightmost = `anchorDay` (today).
+    ///
+    /// This used to right-pack the nights and lead-pad with nils, which meant
+    /// a skipped night didn't leave a gap — the bars just slid over, so a week
+    /// with Tuesday missing looked identical to a week that started on
+    /// Wednesday. Now each night lands in the column for the day it belongs to
+    /// and misses render as hairline stubs, matching the app's chart exactly
+    /// (same `SleepDay.key`, same anchor).
     private var slots: [WidgetNight?] {
-        let recent = Array(nights.suffix(Self.slotCount))
-        return Array(repeating: nil, count: Self.slotCount - recent.count) + recent
+        let calendar = Calendar.current
+        var byOffset: [Int: WidgetNight] = [:]
+        for night in nights.suffix(Self.slotCount) {
+            let day = SleepDay.key(for: night.end, calendar: calendar)
+            let offset = calendar.dateComponents([.day], from: day, to: anchorDay).day ?? 0
+            if offset >= 0 && offset < Self.slotCount {
+                byOffset[offset] = night
+            }
+        }
+        return (0 ..< Self.slotCount).map { byOffset[Self.slotCount - 1 - $0] }
+    }
+
+    /// The calendar date under each column, so even a missed day shows the
+    /// right weekday letter instead of a blank.
+    private var slotDates: [Date] {
+        let calendar = Calendar.current
+        return (0 ..< Self.slotCount).map {
+            calendar.date(byAdding: .day, value: -(Self.slotCount - 1 - $0), to: anchorDay)!
+        }
     }
 
     var body: some View {
@@ -962,9 +1071,15 @@ private struct SleepBars: View {
         let scaleMinutes = CGFloat(max(target, maxNight)) * 1.15
         let targetFraction = CGFloat(target) / scaleMinutes
 
+        // Full strength goes to the newest *logged* night, not the last column
+        // — anchored to today, the last column is empty whenever last night
+        // wasn't logged, and every bar would end up dimmed.
+        let columns = slots
+        let newestLogged = columns.lastIndex(where: { $0 != nil })
+
         VStack(spacing: 4) {
             HStack(alignment: .bottom, spacing: 5) {
-                ForEach(Array(slots.enumerated()), id: \.offset) { index, night in
+                ForEach(Array(columns.enumerated()), id: \.offset) { index, night in
                     if let night {
                         let barHeight = max(6, height * CGFloat(night.durationMinutes) / scaleMinutes)
                         ZStack(alignment: .bottom) {
@@ -985,7 +1100,7 @@ private struct SleepBars: View {
                                 barHeight: barHeight
                             )
                         }
-                        .opacity(index == Self.slotCount - 1 ? 1 : 0.62)
+                        .opacity(index == newestLogged ? 1 : 0.62)
                         .frame(maxWidth: .infinity, alignment: .bottom)
                     } else {
                         Capsule().fill(SleepColor.hairline).frame(height: 4)
@@ -994,27 +1109,47 @@ private struct SleepBars: View {
                 }
             }
             .frame(height: height, alignment: .bottom)
-            .overlay(alignment: .bottom) {
+            .overlay(alignment: .bottomTrailing) {
                 if !nights.isEmpty {
-                    // Target sleep window, as a quiet reference line.
-                    Rectangle()
-                        .fill(SleepColor.ink.opacity(0.18))
-                        .frame(height: 1)
-                        .offset(y: -height * targetFraction)
+                    // Target sleep window as a quiet reference line, tagged
+                    // with the goal itself on a navy chip at the trailing end
+                    // — same as the app's chart, so the line reads as "your
+                    // target" rather than an unlabeled rule.
+                    VStack(alignment: .trailing, spacing: 1) {
+                        Text(targetLabel)
+                            .font(SleepFont.label(9))
+                            .foregroundStyle(SleepColor.dim)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 0.5)
+                            .background(Capsule().fill(SleepColor.navy.opacity(0.72)))
+                        Rectangle()
+                            .fill(SleepColor.ink.opacity(0.18))
+                            .frame(height: 1)
+                    }
+                    .offset(y: -height * targetFraction)
                 }
             }
 
             if showWeekdays, !nights.isEmpty {
+                let dates = slotDates
                 HStack(spacing: 5) {
-                    ForEach(Array(slots.enumerated()), id: \.offset) { _, night in
-                        Text(night.map { SleepFormatting.narrowWeekday.string(from: $0.end) } ?? " ")
+                    ForEach(Array(columns.enumerated()), id: \.offset) { index, _ in
+                        Text(SleepFormatting.narrowWeekday.string(from: dates[index]))
                             .font(SleepFont.label(10))
-                            .foregroundStyle(SleepColor.muted)
+                            .foregroundStyle(index == Self.slotCount - 1 ? SleepColor.amber : SleepColor.muted)
                             .frame(maxWidth: .infinity)
                     }
                 }
             }
         }
+    }
+
+    /// The target chip: hours and minutes, because it echoes a schedule the
+    /// user chose rather than a measurement ("7h 45m", not "7.8h").
+    private var targetLabel: String {
+        let hours = target / 60
+        let rest = target % 60
+        return rest == 0 ? "\(hours)h" : "\(hours)h \(rest)m"
     }
 
     /// Hours for a bar: whole-number "7" when `wholeHours`, else "7.5h"
