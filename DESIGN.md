@@ -253,10 +253,19 @@ Two tabs, each with exactly one job:
   faint amber halo behind it carries the app's warm-light-against-cold-night
   story; and the sloth *breathes* — a barely-there 3.6s body swell anchored
   at the pillow (stilled under Reduce Motion), which keeps it a creature
-  rather than a sticker while staying under the notice threshold. For a few
-  hours after bedtime the countdown gives way to a "Wind down" nudge
-  (mirroring the small widget) instead of counting 20-odd hours to
-  *tomorrow's* bedtime — the sloth stays drowsy through that window.
+  rather than a sticker while staying under the notice threshold.
+
+  Past bedtime the countdown **turns around** rather than rolling over: the
+  kicker reads **"Past bedtime"** and the same hero numerals count *up*, in
+  amber. Rolling over answered a question nobody asked — telling someone who
+  is up too late that tomorrow's bedtime is 20 hours away, when the fact that
+  matters is how far past tonight's they are. (An earlier revision showed a
+  wordless "Wind down" for four hours and then rolled over anyway; the number
+  is the more useful thing, and it shouldn't stop halfway through the night.)
+  It runs the **whole bedtime→wake window** — the same span the shield covers,
+  so Home and the shield never describe one moment two ways. After wake time a
+  forward countdown is genuinely correct, and it returns. The sloth stays
+  drowsy throughout. The small widget still shows its own "Wind down" nudge.
 
   > Note on history: Home's hero was previously a 270° **bedtime ring**
   > (gold→amber fill over the waking day, a moon marker riding the tip, the

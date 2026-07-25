@@ -109,10 +109,17 @@ struct HomeView: View {
 
 /// The screen's hero: the app's sloth lounging on its pillow, with the
 /// bedtime countdown beneath it. The sloth is the *state* — awake through
-/// the day, heavy-lidded once bedtime is near or just past — and the
-/// numerals are the *instrument*. Once bedtime passes the countdown gives
-/// way to a "wind down" nudge (mirroring the small widget) instead of
-/// counting 20-odd hours to *tomorrow's* bedtime.
+/// the day, heavy-lidded once bedtime is near or past — and the numerals are
+/// the *instrument*.
+///
+/// Past bedtime the countdown **turns around** rather than rolling over: the
+/// kicker becomes "Past bedtime" and the numerals count *up* from it. Rolling
+/// over answered a question nobody asked — telling someone who is up too late
+/// that tomorrow's bedtime is 20 hours away, when the fact that matters is
+/// how far past tonight's they are. It runs the whole sleep window, so Home
+/// and the shield ("You're 16 minutes past your bedtime") never disagree
+/// about the same moment. After wake time a forward countdown is genuinely
+/// the right answer, and it returns.
 private struct HomeSloth: View {
     let profile: Profile
     let now: Date
@@ -121,8 +128,6 @@ private struct HomeSloth: View {
     @State private var eyesShut = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// Minutes after bedtime during which Home shows the wind-down state.
-    private static let windDownWindow = 4 * 60
     /// Minutes before bedtime at which the sloth's eyelids get heavy.
     private static let drowsyLead = 90
 
@@ -134,7 +139,11 @@ private struct HomeSloth: View {
         // past bedtime — that is the minute blocking starts. Excluding 0 left
         // it in neither state: Home fell through to the countdown, which
         // answered "24h 00m".
-        let isPastBedtime = sinceBedtime < Self.windDownWindow
+        //
+        // The window is bedtime→wake, the same span the shield covers, so the
+        // two surfaces always describe the current moment the same way.
+        let sleepWindow = SleepMath.windowMinutes(bedtime: profile.bedtime, wakeTime: profile.wakeTime)
+        let isPastBedtime = sinceBedtime < sleepWindow
         let isDrowsy = isPastBedtime || untilBedtime <= Self.drowsyLead
         // The sloth wears the scene's light — day, golden hour, or lamp-lit
         // night — so the figure and the city always share one sky.
@@ -186,17 +195,16 @@ private struct HomeSloth: View {
             }
 
             VStack(spacing: SleepSpacing.sm) {
-                Text(isPastBedtime ? "Bedtime" : "Bedtime in").sectionLabel()
-                if isPastBedtime {
-                    Text("Wind down")
-                        .font(SleepFont.title(26))
-                        .foregroundStyle(SleepColor.amber)
-                } else {
-                    Text(SleepFormatting.countdown(toMinuteOfDay: profile.bedtime, from: now))
-                        .font(SleepFont.hero(40))
-                        .foregroundStyle(SleepColor.ink)
-                        .monospacedDigit()
-                }
+                Text(isPastBedtime ? "Past bedtime" : "Bedtime in").sectionLabel()
+                // Same numeral treatment either way — it is one instrument
+                // reading in two directions, not two different displays. Only
+                // the colour shifts: amber once you're over.
+                Text(isPastBedtime
+                     ? SleepFormatting.duration(sinceBedtime)
+                     : SleepFormatting.countdown(toMinuteOfDay: profile.bedtime, from: now))
+                    .font(SleepFont.hero(40))
+                    .foregroundStyle(isPastBedtime ? SleepColor.amber : SleepColor.ink)
+                    .monospacedDigit()
             }
         }
     }
