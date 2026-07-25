@@ -66,11 +66,16 @@ enum SleepFormatting {
     }
 
     /// Time remaining until the next occurrence of a minute-of-day (e.g. a
-    /// bedtime), formatted as "Xh YYm". Always positive — if the target
-    /// already passed today, it rolls to tomorrow.
+    /// bedtime), formatted as "Xh YYm". Never negative — if the target already
+    /// passed today, it rolls to tomorrow.
+    ///
+    /// Landing exactly on the target reads "0h 00m", not a full day. It used
+    /// to special-case `delta == 0` to 1440 on the theory that the target had
+    /// just passed, which meant Home announced "Bedtime in 24h 00m" for the
+    /// one minute when the answer was *now* — and blocking had already begun.
     static func countdown(toMinuteOfDay target: Int, from now: Date) -> String {
         let nowMinutes = minutes(from: now)
         let delta = ((target - nowMinutes) % 1_440 + 1_440) % 1_440
-        return duration(delta == 0 ? 1_440 : delta)
+        return duration(delta)
     }
 }

@@ -130,7 +130,11 @@ private struct HomeSloth: View {
         let nowMinutes = SleepFormatting.minutes(from: now)
         let sinceBedtime = ((nowMinutes - profile.bedtime) % 1_440 + 1_440) % 1_440
         let untilBedtime = ((profile.bedtime - nowMinutes) % 1_440 + 1_440) % 1_440
-        let isPastBedtime = sinceBedtime > 0 && sinceBedtime < Self.windDownWindow
+        // `sinceBedtime` is 0...1439, and the bedtime minute itself counts as
+        // past bedtime — that is the minute blocking starts. Excluding 0 left
+        // it in neither state: Home fell through to the countdown, which
+        // answered "24h 00m".
+        let isPastBedtime = sinceBedtime < Self.windDownWindow
         let isDrowsy = isPastBedtime || untilBedtime <= Self.drowsyLead
         // The sloth wears the scene's light — day, golden hour, or lamp-lit
         // night — so the figure and the city always share one sky.
