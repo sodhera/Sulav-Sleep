@@ -1003,11 +1003,13 @@ the shield extensions render the right copy:
 
 **Pre-sleep phase** (bedtime arrives → user hasn't started a session):
 - Title: "Time for bed"
-- Subtitle: **"You're 18 minutes past your bedtime. This app is blocked until
-  you wake."** The lateness leads, and the number grows every time they come
-  back — a fact does more than scolding copy. Falls back to the old wording
-  ("…Put your phone down and head to bed.") until a lockdown has been
-  scheduled and bedtime is known to the App Group.
+- Subtitle: **"You're 18 minutes past your bedtime."** One line, one fact. The
+  number grows every time they come back, which does more than scolding copy.
+  Nothing else belongs here: the user is looking at a block screen, so saying
+  the app is blocked spends four wrapped lines restating what they can see,
+  and the buttons already state the options. Falls back to "Put your phone
+  down and head to bed." until a lockdown has been scheduled and bedtime is
+  known to the App Group.
 - Primary button: **"Sleep Now"** (amber) — closes the shield and fires a
   local notification with the `sleepblock://sleep` deep link. Tapping the
   notification opens the app on the sleep confirmation panel. (The Shield

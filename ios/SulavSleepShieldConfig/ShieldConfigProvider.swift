@@ -103,14 +103,14 @@ class ShieldConfigProvider: ShieldConfigurationDataSource {
 
     private func makeConfig(noun: String) -> ShieldConfiguration {
         if isPresleep {
-            // Lead with how late it is when we know — the number grows every
-            // time they come back, which does more than any wording can.
-            let subtitle: String
-            if let late = minutesPastBedtime {
-                subtitle = "You're \(Self.pastBedtimePhrase(late)). \(noun) is blocked until you wake."
-            } else {
-                subtitle = "\(noun) is blocked until you wake. Put your phone down and head to bed."
-            }
+            // One short line. The lateness is the only thing here the user
+            // doesn't already know — they are staring at a block screen, so
+            // spelling out that the app is blocked spends four wrapped lines
+            // restating the obvious, and the buttons already say what their
+            // options are. The number grows every time they come back, which
+            // does more work than any amount of wording.
+            let subtitle = minutesPastBedtime.map { "You're \(Self.pastBedtimePhrase($0))." }
+                ?? "Put your phone down and head to bed."
             return ShieldConfiguration(
                 backgroundBlurStyle: .systemUltraThinMaterialDark,
                 backgroundColor: Self.bg,
