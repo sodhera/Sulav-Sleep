@@ -105,6 +105,49 @@ This refreshes an incomplete local checkout and updates the workspace lockfile
 from the package references declared by the project. A successful resolution
 must list both `Supabase` and `RevenueCat` under `Resolved source packages`.
 
+## Shipping a release
+
+Version lives in **`CFBundleShortVersionString` in five `Info.plist` files** —
+the app plus `SulavSleepWidget`, `SulavSleepMonitor`, `SulavSleepShieldAction`,
+`SulavSleepShieldConfig`. Not in `MARKETING_VERSION`, which the pbxproj still
+carries at `1.0` and which nothing reads; don't be misled by it. **All five must
+match** or App Store Connect rejects the upload with a bundle-version mismatch.
+
+```sh
+for p in ios/SulavSleep ios/SulavSleepWidget ios/SulavSleepMonitor \
+         ios/SulavSleepShieldAction ios/SulavSleepShieldConfig; do
+  plutil -replace CFBundleShortVersionString -string "1.2" "$p/Info.plist"
+done
+```
+
+Which number to move:
+
+- **Previous version is live on the App Store** → raise the version string
+  (1.1 → 1.2). `CFBundleVersion` may restart at 1, since build numbers only
+  have to be unique *within* a version string.
+- **Previous version uploaded but not released** (in review, rejected, or in
+  TestFlight) → keep the version string, raise `CFBundleVersion`. Apple rejects
+  a duplicate build number for a version it has already seen.
+
+Before archiving, check the Release configuration actually builds — Debug skips
+the `Guard Release Secrets` phase, which fails the build when `Config.xcconfig`
+is missing (an empty `REVENUECAT_API_KEY` silently disables the paywall and
+grants everyone Pro, so a keyless Release must never ship):
+
+```sh
+xcodebuild -project ios/SulavSleep.xcodeproj -scheme SulavSleep \
+  -configuration Release -destination 'generic/platform=iOS' \
+  CODE_SIGNING_ALLOWED=NO build
+```
+
+Then in Xcode: destination **Any iOS Device (arm64)** → Product → Archive →
+Distribute App → App Store Connect. A Simulator destination greys out Archive.
+
+Screen Time, the shield, and its snooze cannot be exercised before this point —
+they are device-only (see "Sleep lockdown build specifics"), so anything
+touching `SulavSleepShield*` needs a TestFlight or development build on real
+hardware to have been verified at all.
+
 ## Tests
 
 The project currently ships **no test targets** — the `SulavSleepTests`
