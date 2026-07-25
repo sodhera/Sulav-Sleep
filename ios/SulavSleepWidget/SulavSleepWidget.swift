@@ -593,21 +593,10 @@ private struct MediumSleepView: View {
                             .lineLimit(1)
                     }
 
-                    if summary.streak > 0 {
-                        HStack(spacing: 4) {
-                            Image(systemName: "flame.fill")
-                                .font(.system(size: 10))
-                                .foregroundStyle(SleepColor.gold)
-                            Text("\(summary.streak) night\(summary.streak == 1 ? "" : "s") on track")
-                                .font(SleepFont.body(12))
-                                .foregroundStyle(SleepColor.dim)
-                        }
-                    } else if let avg = averageDuration {
-                        Text("avg \(SleepFormatting.duration(avg))")
-                            .font(SleepFont.body(12))
-                            .foregroundStyle(SleepColor.muted)
-                    }
-
+                    // No streak or average line. Medium already carries six
+                    // things; the streak was the least load-bearing of them,
+                    // and dropping it lets the hero and the chart breathe.
+                    // Large still shows it — it has the room.
                     Spacer(minLength: 0)
                 }
                 .frame(maxHeight: .infinity, alignment: .top)
@@ -640,10 +629,6 @@ private struct MediumSleepView: View {
         }
     }
 
-    private var averageDuration: Int? {
-        guard !summary.nights.isEmpty else { return nil }
-        return summary.nights.reduce(0) { $0 + $1.durationMinutes } / summary.nights.count
-    }
 }
 
 /// The medium widget's countdown, centred in the bottom band. Two tight
@@ -729,7 +714,9 @@ private struct LargeSleepView: View {
     let now: Date
 
     var body: some View {
-        VStack(alignment: .leading, spacing: SleepSpacing.md) {
+        VStack(alignment: .leading, spacing: SleepSpacing.sm) {
+            // Kicker and hero belong to each other, so they sit tight; the
+            // chart and the footer get the air instead.
             HStack {
                 HStack(spacing: 5) {
                     Image(systemName: "moon.fill")
@@ -762,26 +749,49 @@ private struct LargeSleepView: View {
                     .font(SleepFont.body(13))
                     .foregroundStyle(SleepColor.muted)
             } else {
-                // No hero numeral: the labeled bars carry the week, hour
-                // figures included — a second duration on top would just
-                // repeat the rightmost bar.
+                // Large used to open straight onto the bars, on the reasoning
+                // that the rightmost full-strength bar *was* last night so a
+                // hero numeral would just repeat it. Anchoring the grid to
+                // today broke that: the last column is empty whenever last
+                // night wasn't logged, and the week no longer announces its
+                // own headline. Large now leads with the same number medium
+                // does — it should be a superset of the smaller tile, not a
+                // differently-shaped peer — and it left the top-left of the
+                // biggest widget carrying nothing but an 11pt kicker.
+                if let mins = summary.latestDurationMinutes {
+                    HStack(alignment: .firstTextBaseline, spacing: 7) {
+                        Text(SleepFormatting.duration(mins))
+                            .font(SleepFont.hero(34))
+                            .foregroundStyle(SleepColor.ink)
+                            .monospacedDigit()
+                            .widgetAccentable()
+                            .minimumScaleFactor(0.7)
+                            .lineLimit(1)
+                        Text("LAST NIGHT")
+                            .font(SleepFont.label(10)).tracking(1.2)
+                            .foregroundStyle(SleepColor.muted)
+                    }
+                }
+
                 SleepBars(
                     nights: summary.nights,
                     target: summary.targetMinutes,
-                    height: 128,
+                    height: 118,
                     anchorDay: SleepDay.key(for: now),
                     showWeekdays: true
                 )
+                .padding(.top, SleepSpacing.xs)
             }
 
-            Spacer(minLength: 0)
+            Spacer(minLength: SleepSpacing.sm)
 
             Rectangle()
                 .fill(SleepColor.hairline)
                 .frame(height: 1)
 
-            // A mini-Home: the sloth as tonight's figure, the tonight line,
-            // and the one action — anchored where a glance lands last.
+            // A mini-Home: the sloth as tonight's figure, the countdown, and
+            // the one action — anchored where a glance lands last, and in the
+            // same figure→instrument→action order the medium tile reads in.
             HStack(spacing: SleepSpacing.md) {
                 WidgetSloth(pose: tonight.slothPose, height: 44)
                 TonightFooter(tonight: tonight, now: now)

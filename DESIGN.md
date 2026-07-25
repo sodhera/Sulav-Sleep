@@ -857,22 +857,30 @@ The surfaces split one job:
   Small is tonight-only: the quiet last-night line of earlier revisions is
   retired — the record lives on medium/large, and the sloth earns the room.
 - **Medium — the morning glance.** Last night's duration as the hero
-  numeral under a moon-glyph "SLEEP" kicker, a streak/average line beneath
-  it, and the 7-night bar rhythm on the right. Along the bottom runs a band
-  reading left→right as **figure, instrument, action**: the sloth anchoring
-  the corner, the bedtime countdown centred where the eye crosses between
-  them, and the Sleep Now capsule closing it. The countdown earns the middle
-  because it is the only live thing on an otherwise retrospective tile.
-  Deliberately no "Last night" label: the hero *is* last night — the same
-  night as the rightmost full-strength bar.
+  numeral under a moon-glyph "SLEEP" kicker, and the 7-night bar rhythm on
+  the right. Along the bottom runs a band reading left→right as **figure,
+  instrument, action**: the sloth anchoring the corner, the bedtime countdown
+  centred where the eye crosses between them, and the Sleep Now capsule
+  closing it. The countdown earns the middle because it is the only live
+  thing on an otherwise retrospective tile.
+  Deliberately no "Last night" label: the hero *is* last night. And
+  deliberately **no streak or average line** — medium was carrying six things
+  at once and the streak was the least load-bearing of them; dropping it lets
+  the hero and the chart breathe. The streak still shows on large.
 - **Large — the record + tonight.** The moon-glyph "SLEEP" header with the
-  streak on its trailing side, tall full-width bars with weekday initials
-  and in-bar hour labels (no hero numeral above them — it would only repeat
-  the rightmost bar), then a hairline and a **mini-Home footer** anchored to
-  the bottom edge: the sloth as tonight's figure, a two-line tonight text
-  (bedtime + countdown, or the past-bedtime nudge — text only, no moon
+  streak on its trailing side, then last night's duration as a hero numeral
+  tagged "LAST NIGHT", tall full-width bars with weekday initials and in-bar
+  hour labels, then a hairline and a **mini-Home footer** anchored to the
+  bottom edge: the sloth as tonight's figure, a two-line tonight text
+  (bedtime + countdown, or the past-bedtime elapsed — text only, no moon
   glyphs; the sloth *is* the glyph), and the Sleep Now capsule on the
-  trailing side.
+  trailing side — the same figure→instrument→action order medium reads in.
+  Large previously opened straight onto the bars, on the reasoning that the
+  rightmost full-strength bar *was* last night so a numeral would repeat it.
+  Anchoring the grid to today broke that — the last column is empty whenever
+  last night wasn't logged — and it left the top-left of the biggest widget
+  carrying nothing but an 11pt kicker. Large should be a superset of medium,
+  not a differently-shaped peer.
 - **Asleep, every family sleeps.** While a session runs, small, medium, and
   large all wear the same *sleep face*: OLED black, the ember night sloth,
   the "ASLEEP" kicker, the system-driven elapsed timer, the "since" time,
