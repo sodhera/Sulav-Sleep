@@ -1021,6 +1021,12 @@ private struct WidgetActionCapsule: View {
                     .font(.system(size: 10))
                 Text(signedIn ? "Sleep Now" : "Sign in")
                     .font(SleepFont.label(12))
+                    .lineLimit(1)
+                    // A button label is one line or it stops reading as a
+                    // button. Without this the capsule is the only flexible
+                    // thing in the footer row, so the tonight block claims the
+                    // width and "Sleep Now" wraps to "Sleep / Now".
+                    .fixedSize(horizontal: true, vertical: false)
             }
             .foregroundStyle(SleepColor.navy)
             .padding(.horizontal, 12)
