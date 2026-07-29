@@ -554,8 +554,11 @@ vertically so the number sits between the arrows and "up raises this" needs
 no label, and **only the arrow you chose takes amber** — an unvoted row is
 entirely quiet, so a long board never reads as a field of orange. Status
 badges appear only for "Planned" and "Shipped"; an ordinary open request
-carries no chrome. Ages are coarse ("now", "4h", "3d") since the board ranks
-by votes, not recency. The empty state is the same warm-glyph pattern as the
+carries no chrome. Under each request sits **who asked and when** — the name
+in `dim` because it's the fact worth reading, the age after it in `faint` and
+coarse ("now", "4h", "3d") since the board ranks by votes, not recency. Names
+are the poster's profile name, snapshotted when they posted; someone with no
+name set shows as "Someone". The empty state is the same warm-glyph pattern as the
 rest of Profile ("Nothing here yet / Be the first to ask for something") —
 never a ghost list of sample requests.
 

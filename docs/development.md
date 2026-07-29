@@ -561,10 +561,13 @@ requests ranked by score, upvotes/downvotes them, and posts their own. Model,
 network layer, screen state, and views all live in that one file, the same way
 `SleepScreenTime.swift` contains FamilyControls.
 
-**Setup — this feature does not work until migration 002 is applied.** Run
-`supabase/migrations/002_feature_requests.sql` (SQL Editor or `supabase db
-push`). Until then the screen loads, renders, and shows "Couldn't load the
-board" — the tables simply aren't there.
+**Setup — this feature needs migrations 002 and 003.** Run
+`supabase/migrations/002_feature_requests.sql` and
+`003_feature_request_author_name.sql` (SQL Editor or `supabase db push`).
+Without 002 the tables don't exist; without 003 the board query fails outright,
+because the select names `author_name` explicitly. That hard dependency is
+deliberate — the resilient alternative, `select *`, would ship every other
+user's `author_id` to every client.
 
 ### Why this is not part of `CloudSyncing`
 
@@ -600,6 +603,29 @@ stricter than they look:
 - **Account deletion cascades.** The delete-account flow promises to remove the
   user's data from our servers, so `author_id` is `ON DELETE CASCADE` — their
   posts (and the votes on them) go too.
+- **Author names are copied, not joined** (migration 003). Joining
+  `profiles.name` would need a SELECT policy letting anyone read other users'
+  profile rows — and that table also holds bedtime, struggles, goals and
+  onboarding answers, so opening it to read one column would expose all of
+  them, for every user, including people who never posted. Instead a
+  `BEFORE INSERT` trigger stamps the poster's current profile name onto the
+  row. Two consequences, both intended: the name is **not client-supplied**
+  (so nobody can post under someone else's name by hitting PostgREST
+  directly), and a later rename does **not** rewrite old posts, so the board
+  and Settings can legitimately disagree.
+
+### Transient network failures
+
+Votes intermittently failed with `NSURLErrorNetworkConnectionLost` while the
+identical tap succeeded a second later — URLSession reusing a keep-alive
+connection the server had already closed. `retryingDroppedConnection` retries
+those once, after a 250 ms beat.
+
+It wraps the board read and both vote writes, which are **idempotent**: the
+vote upsert and delete are keyed by `(request_id, user_id)` and the read is a
+plain select, so running either twice is indistinguishable from once.
+`submit` deliberately does *not* use it — if the connection dropped after the
+server committed the insert, a retry would post the same idea twice.
 
 ### Client behavior
 

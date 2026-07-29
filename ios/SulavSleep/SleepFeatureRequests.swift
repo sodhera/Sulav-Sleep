@@ -50,6 +50,12 @@ enum FeatureRequestStatus: String, Codable, Sendable {
 struct FeatureRequest: Identifiable, Equatable, Sendable {
     let id: String
     let title: String
+    /// Snapshotted onto the row server-side when it was posted (migration
+    /// 003), never sent by the client and never joined from `profiles` —
+    /// which stays private. A user who later renames themselves keeps the old
+    /// name on old posts, which is correct for a board but does mean this can
+    /// differ from the name in Settings.
+    let authorName: String
     var score: Int
     var status: FeatureRequestStatus
     let createdAt: Date
@@ -119,14 +125,25 @@ struct DisabledFeatureRequestBoard: FeatureRequestBoarding {
 private struct FeatureRequestRow: Decodable {
     let id: String
     let title: String
+    let author_name: String?
     let status: String
     let score: Int
     let created_at: String
+
+    /// The column list every board query selects. One constant so a new
+    /// column can't be added to the decode struct and forgotten in a query.
+    static let columns = "id,title,author_name,status,score,created_at"
 
     func asRequest(myVote: Int) -> FeatureRequest {
         FeatureRequest(
             id: id,
             title: title,
+            // Optional only to cover a NULL/empty column, not a missing one:
+            // the select names `author_name` explicitly, so a client running
+            // ahead of migration 003 fails the whole query rather than
+            // degrading. That's deliberate — the alternative, `select *`,
+            // would ship every other user's `author_id` to every client.
+            authorName: (author_name?.isEmpty == false) ? author_name! : "Someone",
             score: score,
             status: FeatureRequestStatus(rawValue: status) ?? .open,
             createdAt: PostgresDate.parse(created_at),
@@ -203,27 +220,79 @@ final class SupabaseFeatureRequestBoard: FeatureRequestBoarding, @unchecked Send
         self.client = client
     }
 
+    // MARK: - Transient failure handling
+
+    /// Runs `work`, and retries it **once** if it failed with a dropped
+    /// connection rather than a real server refusal.
+    ///
+    /// Observed in practice: tapping a vote arrow would intermittently fail
+    /// with `NSURLErrorNetworkConnectionLost` while the identical tap
+    /// succeeded a second later. That's URLSession reusing a keep-alive
+    /// connection the server had already closed — nothing to do with
+    /// permissions, and nothing the user can act on, so surfacing it as
+    /// "Couldn't save your vote" was both alarming and useless.
+    ///
+    /// Only safe for **idempotent** calls, which is why `submit` deliberately
+    /// does not use it: the vote upsert and delete are keyed by
+    /// `(request_id, user_id)` and the board read is a plain select, so
+    /// running either twice is indistinguishable from running it once. An
+    /// insert is not — if the connection dropped *after* the server committed
+    /// it, a retry would post the same idea twice.
+    /// `@discardableResult` because the vote calls care only that the write
+    /// landed, not what PostgREST echoed back.
+    @discardableResult
+    private func retryingDroppedConnection<T>(
+        _ work: () async throws -> T
+    ) async throws -> T {
+        do {
+            return try await work()
+        } catch {
+            guard Self.isDroppedConnection(error) else { throw error }
+            AppLog.app.info("Board: connection dropped, retrying once")
+            // A beat for URLSession to discard the dead connection rather than
+            // immediately handing back the same one.
+            try? await Task.sleep(for: .milliseconds(250))
+            return try await work()
+        }
+    }
+
+    private static func isDroppedConnection(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        guard nsError.domain == NSURLErrorDomain else { return false }
+        return [
+            NSURLErrorNetworkConnectionLost,
+            NSURLErrorTimedOut,
+            NSURLErrorCannotConnectToHost,
+            NSURLErrorCannotFindHost,
+            NSURLErrorDNSLookupFailed,
+        ].contains(nsError.code)
+    }
+
     /// Two reads, merged locally: the public board, and this user's own
     /// ballots. They can't be one join — RLS only ever returns the caller's
     /// own vote rows, which is exactly the privacy property we want, so the
     /// "did I vote on this" flag has to be stitched on client-side.
     func fetchRequests(userId: String) async throws -> [FeatureRequest] {
         do {
-            let rows: [FeatureRequestRow] = try await client
-                .from("feature_requests")
-                .select("id,title,status,score,created_at")
-                .order("score", ascending: false)
-                .order("created_at", ascending: false)
-                .limit(50)
-                .execute()
-                .value
+            let rows: [FeatureRequestRow] = try await retryingDroppedConnection {
+                try await client
+                    .from("feature_requests")
+                    .select(FeatureRequestRow.columns)
+                    .order("score", ascending: false)
+                    .order("created_at", ascending: false)
+                    .limit(50)
+                    .execute()
+                    .value
+            }
 
-            let votes: [MyVoteRow] = try await client
-                .from("feature_request_votes")
-                .select("request_id,value")
-                .eq("user_id", value: userId)
-                .execute()
-                .value
+            let votes: [MyVoteRow] = try await retryingDroppedConnection {
+                try await client
+                    .from("feature_request_votes")
+                    .select("request_id,value")
+                    .eq("user_id", value: userId)
+                    .execute()
+                    .value
+            }
 
             let byRequest = Dictionary(votes.map { ($0.request_id, $0.value) }, uniquingKeysWith: { a, _ in a })
             return rows.map { $0.asRequest(myVote: byRequest[$0.id] ?? 0) }
@@ -238,10 +307,12 @@ final class SupabaseFeatureRequestBoard: FeatureRequestBoarding, @unchecked Send
         guard trimmed.count >= 3 else { throw FeatureRequestError.tooShort }
 
         do {
+            // Deliberately not wrapped in `retryingDroppedConnection` — an
+            // insert is not idempotent. See that method's note.
             let row: FeatureRequestRow = try await client
                 .from("feature_requests")
                 .insert(NewFeatureRequestRow(author_id: userId, title: trimmed))
-                .select("id,title,status,score,created_at")
+                .select(FeatureRequestRow.columns)
                 .single()
                 .execute()
                 .value
@@ -262,21 +333,23 @@ final class SupabaseFeatureRequestBoard: FeatureRequestBoarding, @unchecked Send
 
     func setVote(_ value: Int, requestId: String, userId: String) async throws {
         do {
-            if value == 0 {
-                try await client
-                    .from("feature_request_votes")
-                    .delete()
-                    .eq("request_id", value: requestId)
-                    .eq("user_id", value: userId)
-                    .execute()
-            } else {
-                try await client
-                    .from("feature_request_votes")
-                    .upsert(
-                        VoteRow(request_id: requestId, user_id: userId, value: value),
-                        onConflict: "request_id,user_id"
-                    )
-                    .execute()
+            try await retryingDroppedConnection {
+                if value == 0 {
+                    try await client
+                        .from("feature_request_votes")
+                        .delete()
+                        .eq("request_id", value: requestId)
+                        .eq("user_id", value: userId)
+                        .execute()
+                } else {
+                    try await client
+                        .from("feature_request_votes")
+                        .upsert(
+                            VoteRow(request_id: requestId, user_id: userId, value: value),
+                            onConflict: "request_id,user_id"
+                        )
+                        .execute()
+                }
             }
         } catch {
             AppLog.app.error("Board: vote failed: \(error.localizedDescription, privacy: .public)")
@@ -545,6 +618,9 @@ private struct FeatureRequestCard: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
+                // Who asked, then when. The name is the brighter of the two
+                // because it's the fact worth reading; the age is a faint
+                // afterthought, since the board ranks by votes not recency.
                 HStack(spacing: SleepSpacing.sm) {
                     if let badge = request.status.badge {
                         Text(badge)
@@ -556,6 +632,13 @@ private struct FeatureRequestCard: View {
                                 Capsule().fill(request.status.badgeColor.opacity(0.14))
                             }
                     }
+                    Text(request.authorName)
+                        .font(SleepFont.body(12))
+                        .foregroundStyle(SleepColor.dim)
+                        .lineLimit(1)
+                    Text("·")
+                        .font(SleepFont.body(12))
+                        .foregroundStyle(SleepColor.faint)
                     Text(RelativeAge.string(from: request.createdAt))
                         .font(SleepFont.body(12))
                         .foregroundStyle(SleepColor.faint)
@@ -579,7 +662,7 @@ private struct FeatureRequestCard: View {
             arrow("chevron.down", direction: -1)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(request.score) votes. \(request.title)")
+        .accessibilityLabel("\(request.score) votes. \(request.title). Asked by \(request.authorName)")
         .accessibilityValue(
             request.myVote == 1 ? "Upvoted" : request.myVote == -1 ? "Downvoted" : "Not voted"
         )
