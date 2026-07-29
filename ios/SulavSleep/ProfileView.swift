@@ -876,74 +876,54 @@ private struct StatBlock: View {
     }
 }
 
-/// The whole dashboard read of the record, in **one** band: how long you
-/// slept, when you went to bed, when you got up.
+/// The whole dashboard read of the record: **one hero numeral, two quiet
+/// lines**. Avg sleep is the number, its label carries the scope, and the
+/// average bed/wake times sit underneath as a moon → sun window line with the
+/// streak at its end.
 ///
-/// This was two bands — Avg sleep / Streak / Nights, then a hairline, a
-/// kicker, and To bed / Up. Five numerals in two rows at two different sizes
-/// with two different label treatments, which read as two competing tables
-/// rather than one summary, and was the single biggest source of clutter on
-/// the screen. Collapsed to three numerals that share a scope, a size and a
-/// shape, the block answers "how am I sleeping" in one pass.
+/// This was a row of three labeled numerals (Avg sleep / To bed / Up) over a
+/// scope-and-streak caption — eight pieces of text in three rows spanning the
+/// full width, which is a table, and the reason the top of Profile read as
+/// overwhelming even after earlier declutter passes. One night's read has one
+/// headline: how long you slept. When you went down and got up is the
+/// supporting fact, and the app already has a one-line grammar for exactly
+/// that — the moon → sun window (`SleepWindowLine`) the history rows and
+/// Home's schedule capsule draw — so the clocks state themselves without
+/// spending two labels ("To bed", "Up") to say what a moon and a sun say.
 ///
-/// Streak didn't earn a hero numeral here. It is an all-time counter sitting
-/// under a seven-night heading — a scope mismatch inside one band — and it
-/// already headlines Home and every widget. Demoted to the caption, it keeps
-/// its place in the record without taking a third of the band's width.
-///
-/// **One supporting line, not two.** The band had an uppercase "LAST 7
-/// NIGHTS" kicker above the numbers *and* a streak footnote below them —
-/// four layers of type in a block whose whole job is to be glanced at. The
-/// scope and the streak now share a single sentence-case caption underneath,
-/// which drops a line and, more importantly, drops the loudest element in the
-/// block: one of the five tracked all-caps labels that made this screen shout.
-/// Total nights logged went with it — the "All N nights" link at the foot of
-/// the history already carries that number, and it was the least load-bearing
-/// thing on the screen.
-///
-/// The caption counts the nights actually averaged. A three-night record
-/// captioned "last 7 nights" would quietly claim four that don't exist, and
-/// this app's rule is honest data everywhere.
+/// Streak stays demoted (it already headlines Home and every widget): the
+/// flame at the end of the window line, not a numeral of its own. The label
+/// counts the nights actually averaged — a three-night record must not claim
+/// "last 7 nights"; honest data everywhere.
 private struct SummaryBand: View {
     let averages: SleepAverages
     let streak: Int
 
     var body: some View {
-        VStack(alignment: .leading, spacing: SleepSpacing.md) {
-            HStack(alignment: .top, spacing: SleepSpacing.sm) {
-                // No moon/sun glyphs on the labels. "To bed" and "Up" are
-                // already unambiguous words, so the glyphs were decoration in
-                // the one place on the screen that most needed calm. They stay
-                // where they do real work — the history rows, where two times
-                // share a line and the glyphs say which end is which.
-                StatBlock(label: "Avg sleep", value: SleepFormatting.duration(averages.durationMinutes), size: 23)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                StatBlock(label: "To bed", value: SleepFormatting.clock(averages.bedtimeMinutes), size: 23)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                StatBlock(label: "Up", value: SleepFormatting.clock(averages.wakeMinutes), size: 23)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
+        VStack(alignment: .leading, spacing: 3) {
+            StatBlock(
+                label: averages.nights == 1 ? "Last night" : "Avg sleep · last \(averages.nights) nights",
+                value: SleepFormatting.duration(averages.durationMinutes),
+                size: 30
+            )
 
-            caption
-        }
-    }
-
-    /// Scope and streak in one quiet sentence-case line: what window the
-    /// numbers above describe, and the one all-time counter worth keeping.
-    private var caption: some View {
-        HStack(spacing: SleepSpacing.xs) {
-            Text(averages.nights == 1 ? "Last night" : "Last \(averages.nights) nights")
-            if streak > 0 {
-                Text("·").foregroundStyle(SleepColor.faint)
-                Image(systemName: "flame.fill")
-                    .font(.system(size: 11))
-                    .foregroundStyle(SleepColor.gold)
-                Text(streak == 1 ? "1-night streak" : "\(streak)-night streak")
+            HStack(spacing: SleepSpacing.xs) {
+                SleepWindowLine(bedtimeMinutes: averages.bedtimeMinutes, wakeMinutes: averages.wakeMinutes)
+                if streak > 0 {
+                    HStack(spacing: SleepSpacing.xs) {
+                        Text("·").foregroundStyle(SleepColor.faint)
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(SleepColor.gold)
+                        Text(streak == 1 ? "1-night streak" : "\(streak)-night streak")
+                            .foregroundStyle(SleepColor.dim)
+                    }
+                    .font(SleepFont.body(13))
+                    .shadow(color: SleepColor.background.opacity(0.85), radius: 3, y: 1)
+                }
             }
+            .padding(.top, 3)
         }
-        .font(SleepFont.body(13))
-        .foregroundStyle(SleepColor.dim)
-        .shadow(color: SleepColor.background.opacity(0.85), radius: 3, y: 1)
     }
 }
 
@@ -987,7 +967,10 @@ private struct HistoryRow: View {
 
 /// A night's span as one fact — moon + asleep → sun + awake — the same
 /// grammar Home's schedule capsule states tonight's window in, so "a sleep
-/// window" looks the same wherever the app draws one.
+/// window" looks the same wherever the app draws one. The history rows use it
+/// per night; the summary band uses it for the average window, which is what
+/// lets the band retire the "To bed" / "Up" labels — the glyphs say which end
+/// is which.
 ///
 /// The glyphs stay `dim` rather than Home's amber: the capsule is a hero on an
 /// otherwise empty screen, while these repeat down a list, and seven rows of
@@ -999,31 +982,42 @@ private struct HistoryRow: View {
 /// through to a bright daytime sky, and mid-grey text disappears into the
 /// day phase. The shadow is what makes one color work across all of them.
 private struct SleepWindowLine: View {
-    let start: Date
-    let end: Date
+    /// Pre-formatted clock strings, so the line renders a night's actual
+    /// timestamps and the summary's minute-of-day averages identically.
+    private let startText: String
+    private let endText: String
+
+    /// A logged night's real span.
+    init(start: Date, end: Date) {
+        startText = SleepFormatting.shortTime.string(from: start)
+        endText = SleepFormatting.shortTime.string(from: end)
+    }
+
+    /// An averaged window, given as minute-of-day values (`SleepAverages`).
+    init(bedtimeMinutes: Int, wakeMinutes: Int) {
+        startText = SleepFormatting.clock(bedtimeMinutes)
+        endText = SleepFormatting.clock(wakeMinutes)
+    }
 
     var body: some View {
         HStack(spacing: SleepSpacing.xs) {
-            endpoint(icon: "moon.fill", date: start)
+            endpoint(icon: "moon.fill", text: startText)
             Image(systemName: "arrow.right")
                 .font(.system(size: 9, weight: .semibold))
                 .foregroundStyle(SleepColor.muted)
-            endpoint(icon: "sun.max.fill", date: end)
+            endpoint(icon: "sun.max.fill", text: endText)
         }
         .shadow(color: SleepColor.background.opacity(0.85), radius: 3, y: 1)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-            "Asleep \(SleepFormatting.shortTime.string(from: start)), "
-            + "awake \(SleepFormatting.shortTime.string(from: end))"
-        )
+        .accessibilityLabel("Asleep \(startText), awake \(endText)")
     }
 
-    private func endpoint(icon: String, date: Date) -> some View {
+    private func endpoint(icon: String, text: String) -> some View {
         HStack(spacing: 4) {
             Image(systemName: icon)
                 .font(.system(size: 10))
                 .foregroundStyle(SleepColor.dim)
-            Text(SleepFormatting.shortTime.string(from: date))
+            Text(text)
                 .font(SleepFont.body(13))
                 .foregroundStyle(SleepColor.dim)
                 .monospacedDigit()

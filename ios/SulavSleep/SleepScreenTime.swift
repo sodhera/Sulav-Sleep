@@ -376,14 +376,22 @@ private struct MockPermissionDialog: View {
 
 // MARK: - Blocked apps preview (Profile block)
 
-/// Compact, tappable lockdown summary for the Profile screen: a section label
-/// above an interactive glass row (containers are reserved for tappable
-/// controls, and this is one — the glass is what says "you can press this").
-/// With a selection it previews the chosen app icons (rendered by the system
-/// from opaque `ApplicationToken`s, which we can't inspect); before one it
-/// shows a warm lock glyph and an invitation. The caller wraps it in a
-/// NavigationLink to `BlockedAppsScreen` for the full picker + options. Lives
-/// here so FamilyControls stays out of the general view layer.
+/// Compact, tappable lockdown summary for the Profile screen: an interactive
+/// glass row (containers are reserved for tappable controls, and this is one —
+/// the glass is what says "you can press this"). With a selection it previews
+/// the chosen app icons (rendered by the system from opaque
+/// `ApplicationToken`s, which we can't inspect); before one it shows a warm
+/// lock glyph and an invitation. The caller wraps it in a NavigationLink to
+/// `BlockedAppsScreen` for the full picker + options. Lives here so
+/// FamilyControls stays out of the general view layer.
+///
+/// **No kicker.** This carried a tracked all-caps "BLOCKED WHILE YOU SLEEP"
+/// label — the loudest typographic device in the app, in the middle of the
+/// screen the user reads as their calm dashboard. Per the Profile rule ("a
+/// kicker earns its place only when the thing under it can't say what it is"),
+/// the card now says what it is in every state: each stateline names blocking
+/// itself, and the icon-preview state captions the icons with the same
+/// sentence the kicker used to shout.
 struct BlockedAppsPreview: View {
     var store: SleepStore
 
@@ -396,21 +404,17 @@ struct BlockedAppsPreview: View {
         let catTokens = Array(selection.categoryTokens)
         let hasSelection = !appTokens.isEmpty || !catTokens.isEmpty
 
-        return VStack(alignment: .leading, spacing: SleepSpacing.md) {
-            Text("Blocked while you sleep").sectionLabel()
-
-            HStack(spacing: SleepSpacing.lg) {
-                content(appTokens: appTokens, catTokens: catTokens, hasSelection: hasSelection)
-                Spacer(minLength: SleepSpacing.sm)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(SleepColor.faint)
-            }
-            .padding(SleepSpacing.lg)
-            .contentShape(RoundedRectangle(cornerRadius: SleepRadius.lg, style: .continuous))
-            // The glass draws its own edge; no manual border on top of it.
-            .liquidGlass(cornerRadius: SleepRadius.lg, interactive: true)
+        return HStack(spacing: SleepSpacing.lg) {
+            content(appTokens: appTokens, catTokens: catTokens, hasSelection: hasSelection)
+            Spacer(minLength: SleepSpacing.sm)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(SleepColor.faint)
         }
+        .padding(SleepSpacing.lg)
+        .contentShape(RoundedRectangle(cornerRadius: SleepRadius.lg, style: .continuous))
+        // The glass draws its own edge; no manual border on top of it.
+        .liquidGlass(cornerRadius: SleepRadius.lg, interactive: true)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -420,7 +424,7 @@ struct BlockedAppsPreview: View {
             glyphRow(
                 icon: "iphone.slash",
                 iconColor: SleepColor.muted,
-                title: "Needs a real iPhone"
+                title: "Blocking needs a real iPhone"
             )
         } else if !hasSelection {
             glyphRow(
@@ -432,7 +436,7 @@ struct BlockedAppsPreview: View {
             glyphRow(
                 icon: "lock.open",
                 iconColor: SleepColor.muted,
-                title: "Blocking is off"
+                title: "App blocking is off"
             )
         } else {
             VStack(alignment: .leading, spacing: SleepSpacing.md) {
@@ -454,7 +458,7 @@ struct BlockedAppsPreview: View {
                     }
                 }
 
-                Text("Lock when you sleep")
+                Text("Blocked while you sleep")
                     .font(SleepFont.body(13))
                     .foregroundStyle(SleepColor.muted)
             }

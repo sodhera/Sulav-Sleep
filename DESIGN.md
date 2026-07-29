@@ -315,12 +315,25 @@ Two tabs, each with exactly one job:
   success notification lands when the night begins.
 - **Profile — everything about you.** Identity (name only, display-only — no
   pencil, no email; both are edited/shown in Settings so the body stays
-  read-only), then the **summary band** straight under the name — Avg sleep,
-  To bed, Up as three numerals over tiny labels, with one sentence-case
-  caption beneath carrying the scope and the streak ("Last 7 nights ·
-  🔥 7-night streak"). That band is the whole dashboard read of the record,
-  above the fold, before any chart. Then the tappable
-  **"Blocked while you sleep"** block
+  read-only), then the **summary band** straight under the name: one hero
+  numeral and two quiet lines. "Avg sleep · last 7 nights" as a tiny label
+  (the scope lives in the label, and counts the nights actually averaged),
+  the average duration as the band's single big numeral, and beneath it the
+  average bed/wake times as a moon → sun window line with the streak flame at
+  its end ("🌙 11:28 PM → ☀️ 7:43 AM · 🔥 7-night streak"). That band is the
+  whole dashboard read of the record, above the fold, before any chart.
+
+  The band was previously three labeled numerals (Avg sleep / To bed / Up)
+  over a scope-and-streak caption — eight pieces of text in three rows, which
+  is a table, and even after earlier declutter passes it kept the top of the
+  screen reading as overwhelming. One night's read has one headline: how
+  long you slept. The clocks are the supporting fact, and the app already
+  has a one-line grammar for a sleep window — the moon → sun line the
+  history rows and Home's schedule capsule draw — so the band borrows it and
+  retires the "To bed"/"Up" labels entirely; the glyphs say which end is
+  which. Streak stays demoted (it already headlines Home and every widget).
+
+  Then the tappable **blocked-apps** glass card
   previewing the locked-app icons (opens the Blocked apps screen for
   changes), and the sleep record (weekly chart, recent nights, an "All
   nights" page once history grows). A gear in the top-right opens Settings;
@@ -331,14 +344,15 @@ Two tabs, each with exactly one job:
   five tracked all-caps kickers — PROFILE, LAST 7 NIGHTS, BLOCKED WHILE YOU
   SLEEP, YOUR SLEEP, RECENT NIGHTS — which is the loudest typographic device
   in the app, repeated down a single scroll until the screen read as noise.
-  Two of them named things that named themselves and are gone: "PROFILE" (the
-  tab bar says Profile and the name says whose) and "YOUR SLEEP" (a chart of
-  gold sleep bars under its own date-range caption, on a screen whose first
-  block is three sleep averages). A third, "LAST 7 NIGHTS", became the
-  summary band's quiet sentence-case caption. Two remain, both labelling
-  something genuinely ambiguous without them: the blocked-apps card and the
-  night list. The rule: a kicker earns its place only when the thing under it
-  can't say what it is.
+  Two of them named things that named themselves and went first: "PROFILE"
+  (the tab bar says Profile and the name says whose) and "YOUR SLEEP" (a
+  chart of gold sleep bars under its own date-range caption, on a screen
+  whose first block is the sleep average). "LAST 7 NIGHTS" folded into the
+  summary band's label. "BLOCKED WHILE YOU SLEEP" went when the card learned
+  to say what it is in every state (see the blocked block below). One
+  remains — RECENT NIGHTS — labelling the one thing genuinely ambiguous
+  without it: a list of dates that could be anything. The rule: a kicker
+  earns its place only when the thing under it can't say what it is.
 
   The record chart is the **widgets' 7-night bar rhythm brought home** — one
   chart language on every surface. Exactly 7 fixed-width columns, **today
@@ -477,14 +491,17 @@ Two tabs, each with exactly one job:
   > everything it said. **Duration is the app's only metric.** "On track"
   > (the streak) now means reaching ≥85% of the sleep target, the same bar
   > the score set at "score ≥ 80", so existing streaks carry over.
-  The blocked block is a section label over an **interactive glass row** —
+  The blocked block is an **interactive glass row** with no kicker over it —
   containers are reserved for tappable controls, and the glass is what says
-  "you can press this"; plain floating text read as static copy. Before any
-  apps are chosen it shows a warm lock glyph in a soft circle beside one
-  short line ("Choose apps to block" — no explanatory copy; the row itself
-  is the invitation); with a selection it previews the app icons; with a
-  selection but blocking toggled off it shows a muted open lock and
-  "Blocking is off". Empty
+  "you can press this"; plain floating text read as static copy. Instead of
+  an all-caps label announcing it, the card names itself in every state:
+  before any apps are chosen it shows a warm lock glyph in a soft circle
+  beside one short line ("Choose apps to block" — no explanatory copy; the
+  row itself is the invitation); with a selection it previews the app icons
+  captioned "Blocked while you sleep" (the retired kicker's sentence, now
+  spoken quietly inside the card); with a selection but blocking toggled off
+  it shows a muted open lock and "App blocking is off"; on the simulator,
+  "Blocking needs a real iPhone". Empty
   states across Profile use that same glyph-row pattern (the sleep record
   opens with a moon-and-stars glyph and "No nights yet / Your record starts
   tonight.") — composed and warm, but never ghost charts or sample numbers:
