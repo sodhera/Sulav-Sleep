@@ -33,6 +33,7 @@
 		F100000000000000000000B2 /* SleepHealthKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000000B1 /* SleepHealthKit.swift */; };
 		F100000000000000000000D2 /* SleepModeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000000D1 /* SleepModeView.swift */; };
 		F100000000000000000000E2 /* SleepWidgetShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000000E1 /* SleepWidgetShared.swift */; };
+		F1FEA70000000000000000A2 /* SleepFeatureRequests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1FEA70000000000000000A1 /* SleepFeatureRequests.swift */; };
 		F100000000000000000000F2 /* SleepScreenTime.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000000F1 /* SleepScreenTime.swift */; };
 		F100000000000000000FA2 /* SleepLockdownShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000FA1 /* SleepLockdownShared.swift */; };
 		F100000000000000000FB2 /* SleepActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000FB1 /* SleepActivityAttributes.swift */; };
@@ -133,6 +134,7 @@
 		F100000000000000000000B1 /* SleepHealthKit.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepHealthKit.swift; path = SulavSleep/SleepHealthKit.swift; sourceTree = "<group>"; };
 		F100000000000000000000D1 /* SleepModeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepModeView.swift; path = SulavSleep/SleepModeView.swift; sourceTree = "<group>"; };
 		F100000000000000000000E1 /* SleepWidgetShared.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepWidgetShared.swift; path = SulavSleep/SleepWidgetShared.swift; sourceTree = "<group>"; };
+		F1FEA70000000000000000A1 /* SleepFeatureRequests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepFeatureRequests.swift; path = SulavSleep/SleepFeatureRequests.swift; sourceTree = "<group>"; };
 		F100000000000000000000F1 /* SleepScreenTime.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepScreenTime.swift; path = SulavSleep/SleepScreenTime.swift; sourceTree = "<group>"; };
 		F100000000000000000FA1 /* SleepLockdownShared.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepLockdownShared.swift; path = SulavSleep/SleepLockdownShared.swift; sourceTree = "<group>"; };
 		F100000000000000000FB1 /* SleepActivityAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepActivityAttributes.swift; path = SulavSleep/SleepActivityAttributes.swift; sourceTree = "<group>"; };
@@ -212,6 +214,7 @@
 				9F4311BA03CAD3F576F79BFC /* SleepBackground.swift */,
 				F100000000000000000000D1 /* SleepModeView.swift */,
 				F100000000000000000000E1 /* SleepWidgetShared.swift */,
+				F1FEA70000000000000000A1 /* SleepFeatureRequests.swift */,
 				F100000000000000000000F1 /* SleepScreenTime.swift */,
 				F100000000000000000FA1 /* SleepLockdownShared.swift */,
 				F100000000000000000FB1 /* SleepActivityAttributes.swift */,
@@ -561,6 +564,7 @@
 				77C469E0A58F15200C2E9F6E /* SleepBackground.swift in Sources */,
 				F100000000000000000000D2 /* SleepModeView.swift in Sources */,
 				F100000000000000000000E2 /* SleepWidgetShared.swift in Sources */,
+				F1FEA70000000000000000A2 /* SleepFeatureRequests.swift in Sources */,
 				F100000000000000000000F2 /* SleepScreenTime.swift in Sources */,
 				F100000000000000000FA2 /* SleepLockdownShared.swift in Sources */,
 				F100000000000000000FB2 /* SleepActivityAttributes.swift in Sources */,

@@ -538,8 +538,33 @@ chevron, middle-truncated — both live here, never on the Profile body),
 **Subscription** (the plan status, see below), **Sleep** (Schedule, Blocked
 apps, the Apple Health toggle — no explainer sublines), and **Account** (Sign
 out in dim, alone in its group and confirmed by an alert before anything
-happens). The order reads *who you are → what you're on → your sleep config →
-account exits*. **Delete account** is not a glass row at
+happens), plus **Feedback** (a single "Request a feature" row) sitting between
+Sleep and Account — it is neither a setting nor a way out. The order reads
+*who you are → what you're on → your sleep config → talk to us → account
+exits*.
+
+**Request a feature** is a pushed sub-page with the standard chrome (glass
+back chevron, editorial title, supporting line). It is the app's only social
+surface, and it is kept as quiet as one can be: a composer at the top ("Your
+idea", a glass field, a character count, one primary Post button), then
+"Most wanted" — the board ranked by score. Each request is a glass card with
+the vote control on the *left*, where the eye lands first, because the score
+is the point of the board. The control stacks chevron / score / chevron
+vertically so the number sits between the arrows and "up raises this" needs
+no label, and **only the arrow you chose takes amber** — an unvoted row is
+entirely quiet, so a long board never reads as a field of orange. Status
+badges appear only for "Planned" and "Shipped"; an ordinary open request
+carries no chrome. Ages are coarse ("now", "4h", "3d") since the board ranks
+by votes, not recency. The empty state is the same warm-glyph pattern as the
+rest of Profile ("Nothing here yet / Be the first to ask for something") —
+never a ghost list of sample requests.
+
+> **Open question before this ships publicly.** The board displays no author
+> and has no in-app report or block flow. App Store Guideline 1.2 expects
+> user-generated content to carry a way to report objectionable posts, a way
+> to block abusive users, and a published contact. The database side is ready
+> for it — `status = 'hidden'` already removes a row from every client read —
+> but the UI for reporting doesn't exist yet. **Delete account** is not a glass row at
 all: it sits beneath the Account group as bare faded text — a rare,
 irreversible exit that never competes for attention — and confirming it
 requires typing "delete" into the alert before the destructive button

@@ -303,6 +303,7 @@ struct SettingsModal: View {
                 profileSection
                 subscriptionSection
                 configSection
+                feedbackSection
                 accountSection
 
                 Text("Pixel art by CraftPix.net · OGA-BY 3.0")
@@ -316,6 +317,8 @@ struct SettingsModal: View {
                     ScheduleScreen(store: store, profile: profile)
                 case .blockedApps:
                     BlockedAppsScreen(store: store)
+                case .featureRequests:
+                    FeatureRequestsScreen(store: store)
                 }
             }
             .alert("Your name", isPresented: $isRenaming) {
@@ -493,6 +496,28 @@ struct SettingsModal: View {
         }
     }
 
+    /// Sits between the sleep config and the account exits: it's neither a
+    /// setting nor a way out, and the order still reads *who you are → what
+    /// you're on → your sleep config → talk to us → exits*.
+    private var feedbackSection: some View {
+        VStack(alignment: .leading, spacing: SleepSpacing.md) {
+            Text("Feedback").sectionLabel()
+
+            GlassGroup {
+                NavigationLink(value: SettingsDestination.featureRequests) {
+                    GlassRow(
+                        icon: "lightbulb.fill",
+                        title: "Request a feature",
+                        showsChevron: true
+                    )
+                }
+                .buttonStyle(.plain)
+                .simultaneousGesture(TapGesture().onEnded { Haptics.heavy() })
+            }
+        }
+        .padding(.top, SleepSpacing.xxl)
+    }
+
     private var accountSection: some View {
         VStack(alignment: .leading, spacing: SleepSpacing.md) {
             Text("Account").sectionLabel()
@@ -592,6 +617,7 @@ struct SettingsModal: View {
 enum SettingsDestination: Hashable {
     case schedule
     case blockedApps
+    case featureRequests
 }
 
 // MARK: - Sleep schedule (pushed or sheet)

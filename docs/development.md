@@ -553,6 +553,74 @@ Apple Developer capability, Google Cloud OAuth client).
   of that prompt in test builds only — production users still get the native
   save-password experience.
 
+## Feature request board
+
+Settings → Feedback → **Request a feature** (`FeatureRequestsScreen` in
+`ios/SulavSleep/SleepFeatureRequests.swift`). A signed-in user sees the top 50
+requests ranked by score, upvotes/downvotes them, and posts their own. Model,
+network layer, screen state, and views all live in that one file, the same way
+`SleepScreenTime.swift` contains FamilyControls.
+
+**Setup — this feature does not work until migration 002 is applied.** Run
+`supabase/migrations/002_feature_requests.sql` (SQL Editor or `supabase db
+push`). Until then the screen loads, renders, and shows "Couldn't load the
+board" — the tables simply aren't there.
+
+### Why this is not part of `CloudSyncing`
+
+`CloudSyncing` is best-effort background sync of the user's *own* record: every
+call swallows its error, because the device is the source of truth and a failed
+sync must never interrupt anyone. The board inverts both properties — the
+server is the only source of truth, and a submit that fails silently leaves a
+user believing they were heard when they weren't. So `FeatureRequestBoarding`
+throws, and the screen surfaces failures in an alert.
+
+### Security model (read this before changing the SQL)
+
+This is the app's **first cross-user data**. Every table in migration 001 is
+`auth.uid() = <owner>` and nothing else, so the board's rules are deliberately
+stricter than they look:
+
+- **Request text** is readable by any signed-in user; rows with
+  `status = 'hidden'` are filtered out. That's the moderation lever — hiding
+  abusive content is an `UPDATE`, never a `DELETE`.
+- **Individual votes are private.** The votes table's policy is own-rows-only,
+  so "who downvoted me" is unanswerable by design. The only public signal is
+  the aggregate `score`.
+- **`score` is not user-writable.** There is deliberately *no* UPDATE policy on
+  `feature_requests`; the column is moved solely by the SECURITY DEFINER
+  trigger `sync_feature_request_score()` on the votes table. A naive "users
+  manage own rows" policy would have let anyone set their own request to 9999.
+  If you ever add an UPDATE policy, exclude `score` or you reopen this.
+- **Inserts are pinned** to `auth.uid() = author_id` with `score = 0` and
+  `status = 'open'` enforced in the `WITH CHECK`, so a request can't be born
+  popular or pre-approved.
+- **Spam guard**: `check_feature_request_quota()` caps a user at 5 requests per
+  rolling day and raises a human-readable message the client passes through.
+- **Account deletion cascades.** The delete-account flow promises to remove the
+  user's data from our servers, so `author_id` is `ON DELETE CASCADE` — their
+  posts (and the votes on them) go too.
+
+### Client behavior
+
+- **Votes are optimistic**: the row updates on tap and rolls back if the write
+  fails, because a spinner on a one-tap gesture reads as broken. **Submits are
+  not** — they await the server, since the user needs to know their words
+  landed. A successful post is inserted at the top of the local list regardless
+  of score, so the action visibly did something on a busy board.
+- Tapping the arrow you already chose retracts the vote (writes 0 → deletes the
+  row), so a mis-tap is always recoverable.
+- `PostgresDate.parse` trims fractional seconds to three digits before
+  `ISO8601DateFormatter` sees them. PostgREST returns microsecond precision,
+  which the formatter rejects outright even with `.withFractionalSeconds`.
+
+### Not yet built
+
+Posting is anonymous on screen (no author is displayed), and there is **no
+in-app report/block flow**. If this board ships to the App Store, Guideline 1.2
+(user-generated content) expects a report mechanism, a block-abusive-users
+path, and a published contact — see the note in `DESIGN.md`.
+
 ## Subscription (RevenueCat)
 
 SleepBlock is a subscription app with a **hard paywall + free trial**: after
