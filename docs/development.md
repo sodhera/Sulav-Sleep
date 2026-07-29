@@ -225,13 +225,13 @@ target can inject fakes without new hooks.
   averages, recent nights with source badges and trailing durations, an
   "All nights" pushed page when history exceeds seven). Every night's row
   carries its **window** (`SleepWindowLine`: moon + `session.start` → sun +
-  `session.end`) under the date; `AveragesBand`, hairline-separated directly
-  beneath the stat band, carries the average **To bed** / **Up** clock times.
-  Both read fields
+  `session.end`) under the date; `SummaryBand`, straight under the name, is
+  the screen's one stat block — Avg sleep / To bed / Up over a caption
+  carrying scope and streak. Both read fields
   `SleepSession` has always persisted — they were simply never displayed.
   All averages come from `SleepStats.averages(of:last:)` over
-  `SleepStats.recentWindow` (7) nights, including the stat band's "Avg sleep",
-  so the two bands can't drift onto different windows. Clock averages use
+  `SleepStats.recentWindow` (7) nights, so nothing on the screen can drift
+  onto a different window. Clock averages use
   `SleepStats.meanMinuteOfDay`, a **circular** mean — see its doc comment and
   DESIGN.md; a plain average of bedtimes straddling midnight lands at noon.
   A gear in the
