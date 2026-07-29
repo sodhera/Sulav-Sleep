@@ -13,6 +13,7 @@ struct HomeView: View {
     let profile: Profile
 
     @State private var showingScheduleEditor = false
+    @Environment(\.requestReview) private var requestReview
 
     var body: some View {
         ZStack {
@@ -44,6 +45,7 @@ struct HomeView: View {
             // the main app interface, rather than immediately on cold boot.
             _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
         }
+        .task { await maybeAskForReview() }
         .sheet(isPresented: $showingScheduleEditor) {
             NavigationStack {
                 ScheduleScreen(store: store, profile: profile)
@@ -51,6 +53,25 @@ struct HomeView: View {
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
+    }
+
+    /// Asks for a review on **Home**, never at wake-up.
+    ///
+    /// Waking is the obvious "success" moment and the wrong one: the user is
+    /// half-awake and trying to start their day, and a dialog there is exactly
+    /// the interruption this app exists to avoid. Home on a later launch is
+    /// the same user, awake, with nothing in progress.
+    ///
+    /// The pause lets the screen settle first — the prompt shouldn't race the
+    /// notification permission sheet or land on a half-drawn scene. It also
+    /// re-checks afterwards, since the user may have started a night in the
+    /// meantime.
+    private func maybeAskForReview() async {
+        guard store.shouldRequestReview else { return }
+        guard (try? await Task.sleep(for: .seconds(3))) != nil else { return }
+        guard store.shouldRequestReview, !store.showSleepConfirmation else { return }
+        store.markReviewRequested()
+        requestReview()
     }
 
     private var homeContent: some View {

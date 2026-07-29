@@ -513,6 +513,25 @@ struct SettingsModal: View {
                 }
                 .buttonStyle(.plain)
                 .simultaneousGesture(TapGesture().onEnded { Haptics.heavy() })
+
+                // Hidden until an App Store id is configured — see
+                // `AppStoreLink`. A row that opens the store to a nonexistent
+                // app is worse than no row.
+                if AppStoreLink.isConfigured {
+                    GlassRowDivider()
+
+                    Button {
+                        Haptics.heavy()
+                        store.openAppStoreReview()
+                    } label: {
+                        GlassRow(
+                            icon: "star.fill",
+                            title: "Rate SleepBlock",
+                            showsChevron: true
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
             }
         }
         .padding(.top, SleepSpacing.xxl)

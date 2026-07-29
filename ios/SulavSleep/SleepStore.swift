@@ -700,6 +700,62 @@ final class SleepStore {
         #endif
     }
 
+    // MARK: - App Store review
+
+    /// Whether this is a reasonable moment to show the system review prompt.
+    ///
+    /// **You cannot detect the outcome of a review prompt.** iOS gives no
+    /// callback and no API for "has this user reviewed" — deliberately, so
+    /// developers can't treat reviewers differently. So "ask again if they
+    /// dismissed it" is not literally implementable: all this can do is ask
+    /// again after a cooldown, without knowing what happened. Two things make
+    /// that acceptable rather than nagging: iOS won't re-show the prompt to
+    /// someone who already rated this version, and the system independently
+    /// caps the prompt at three appearances per year whatever we request.
+    /// `maxAsks` matches that cap so we never burn a request the OS would
+    /// have swallowed anyway.
+    var shouldRequestReview: Bool {
+        // Two logged nights is the earliest point the app has actually done
+        // its job. Asking before that is asking a stranger for a favour.
+        guard displaySessions.count >= Self.reviewMinimumNights else { return false }
+        // Never mid-night: the prompt would land over the sleep screen, or in
+        // the groggy seconds after waking.
+        guard activeSession == nil else { return false }
+        guard SleepPersistence.shared.reviewAskCount < Self.maxReviewAsks else { return false }
+        guard let last = SleepPersistence.shared.lastReviewAsk else { return true }
+        return Date().timeIntervalSince(last) >= Self.reviewCooldown
+    }
+
+    func markReviewRequested() {
+        SleepPersistence.shared.recordReviewAsk()
+        AppLog.app.info("Review prompt requested (ask \(SleepPersistence.shared.reviewAskCount))")
+    }
+
+    /// Nights logged before the first ask.
+    private static let reviewMinimumNights = 2
+    /// Lifetime cap, matching iOS's own three-per-year ceiling.
+    private static let maxReviewAsks = 3
+    /// Gap between asks when we don't know how the last one went — which is
+    /// always.
+    private static let reviewCooldown: TimeInterval = 7 * 24 * 60 * 60
+
+    /// Opens the App Store straight to the write-a-review sheet.
+    ///
+    /// This is **not** `requestReview()`. That call is a *request*: the system
+    /// decides whether to show anything, and often shows nothing — which is
+    /// fine for an ambient prompt the user didn't ask for, and unacceptable
+    /// for a button they deliberately tapped. A tap must always do something
+    /// visible, so an explicit "Rate" control uses the URL instead.
+    func openAppStoreReview() {
+        #if canImport(UIKit)
+        guard let url = AppStoreLink.writeReview else {
+            AppLog.app.error("Review link tapped with no App Store ID configured")
+            return
+        }
+        UIApplication.shared.open(url)
+        #endif
+    }
+
     func disableHealthSync() {
         guard var profile else { return }
         profile.healthSyncEnabled = false
@@ -943,6 +999,30 @@ struct SleepSnapshot: Codable {
     var activeSession: ActiveSleepSession?
 }
 
+/// The app's App Store identity.
+///
+/// `appID` is blank until the app exists in App Store Connect, and everything
+/// that links to the store checks `isConfigured` first — the Settings "Rate"
+/// row hides itself entirely while it's unset. That's deliberate: a placeholder
+/// id would ship a row that opens the App Store to a nonexistent app, which is
+/// worse than no row at all.
+///
+/// **To enable: paste the numeric id (digits only, no "id" prefix) from App
+/// Store Connect below.**
+enum AppStoreLink {
+    static let appID = ""
+
+    static var isConfigured: Bool {
+        !appID.isEmpty && appID.allSatisfy(\.isNumber)
+    }
+
+    /// Deep link that opens the store page with the review sheet already up.
+    static var writeReview: URL? {
+        guard isConfigured else { return nil }
+        return URL(string: "https://apps.apple.com/app/id\(appID)?action=write-review")
+    }
+}
+
 struct SleepPersistence {
     static let shared = SleepPersistence()
 
@@ -975,6 +1055,11 @@ struct SleepPersistence {
     // (where the authorization must be re-granted anyway) primes again. Not
     // cleared by `reset()` — the primer is per-install, not per-account.
     private let screenTimePrimerKey = "sulav.screenTimePrimer.v1"
+    // How many times we've shown the App Store review prompt, and when we last
+    // did. Per-install like the primer, and deliberately not cleared by
+    // `reset()`: signing out is not a licence to start asking again.
+    private let reviewAskCountKey = "sulav.reviewAskCount.v1"
+    private let reviewLastAskKey = "sulav.reviewLastAsk.v1"
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -1011,6 +1096,16 @@ struct SleepPersistence {
     var hasLaunchedBefore: Bool { defaults.bool(forKey: launchedKey) }
 
     func markLaunched() { defaults.set(true, forKey: launchedKey) }
+
+    /// How many times this install has shown the review prompt, and when it
+    /// last did (nil if never).
+    var reviewAskCount: Int { defaults.integer(forKey: reviewAskCountKey) }
+    var lastReviewAsk: Date? { defaults.object(forKey: reviewLastAskKey) as? Date }
+
+    func recordReviewAsk(at date: Date = Date()) {
+        defaults.set(reviewAskCount + 1, forKey: reviewAskCountKey)
+        defaults.set(date, forKey: reviewLastAskKey)
+    }
 
     /// Non-secret account info only (id/email/provider) — the real session
     /// token lives in the Keychain via the auth SDK, never here.
