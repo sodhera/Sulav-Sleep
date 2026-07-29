@@ -553,6 +553,58 @@ Apple Developer capability, Google Cloud OAuth client).
   of that prompt in test builds only — production users still get the native
   save-password experience.
 
+## App Store review prompt
+
+Two paths, deliberately using different mechanisms.
+
+**Before shipping:** set `AppStoreLink.appID` in `SleepStore.swift` to the
+numeric id from App Store Connect. It's empty by default and the Settings
+"Rate SleepBlock" row **hides itself** until it's set — a placeholder id opens
+the App Store to a nonexistent app ("App Not Available"), which is worse than
+no row.
+
+### You cannot detect whether someone reviewed
+
+iOS provides no callback from `requestReview()` and no "has this user rated"
+API — deliberately, so developers can't treat reviewers differently. So "don't
+ask again if they reviewed" is **not implementable in our code**. What the gate
+actually does is re-ask after a cooldown without knowing the outcome. Two
+system behaviors keep that from becoming nagging:
+
+- iOS won't re-show the prompt to someone who already rated the current
+  version, so the "they already reviewed" case is handled *by the OS*.
+- iOS caps the prompt at three appearances per 365 days whatever we ask for.
+  `SleepStore.maxReviewAsks` is matched to that number so we never spend a
+  request the system would have swallowed anyway.
+
+### The automatic prompt
+
+`HomeView.maybeAskForReview()` calls `@Environment(\.requestReview)` three
+seconds after Home appears, when `SleepStore.shouldRequestReview` passes:
+≥ `reviewMinimumNights` (2) logged nights, no active session, under the
+lifetime cap, and ≥ `reviewCooldown` (7 days) since the last ask. Counters live
+in `SleepPersistence` (`reviewAskCount`, `lastReviewAsk`) — container-backed
+like the Screen Time primer, and **not** cleared by `reset()`, since signing
+out isn't a licence to start asking again.
+
+It fires on **Home, not at wake-up**. Waking is the obvious success moment and
+the wrong one: the user is half-awake and trying to start their day. The delay
+keeps it from racing the notification permission sheet, and the gate is
+re-checked after the sleep in case a night started meanwhile.
+
+### The Settings row
+
+Opens the App Store write-review URL (`?action=write-review`) rather than
+calling `requestReview()`. A deliberate tap must always do something visible,
+and `requestReview` frequently shows nothing by design — acceptable for an
+ambient prompt, not for a button someone pressed on purpose.
+
+### Don't add a pre-prompt
+
+The "Do you like the app? → Yes → prompt / No → email us" pattern filters
+negative reviewers, violates App Store guidelines, and is the specific thing
+that makes review requests feel manipulative.
+
 ## Feature request board
 
 Settings → Feedback → **Request a feature** (`FeatureRequestsScreen` in

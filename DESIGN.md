@@ -538,7 +538,8 @@ chevron, middle-truncated — both live here, never on the Profile body),
 **Subscription** (the plan status, see below), **Sleep** (Schedule, Blocked
 apps, the Apple Health toggle — no explainer sublines), and **Account** (Sign
 out in dim, alone in its group and confirmed by an alert before anything
-happens), plus **Feedback** (a single "Request a feature" row) sitting between
+happens), plus **Feedback** ("Request a feature", and "Rate SleepBlock" once
+an App Store id is configured) sitting between
 Sleep and Account — it is neither a setting nor a way out. The order reads
 *who you are → what you're on → your sleep config → talk to us → account
 exits*.
@@ -577,6 +578,18 @@ are the poster's profile name, snapshotted when they posted; someone with no
 name set shows as "Someone". The empty state is the same warm-glyph pattern as the
 rest of Profile ("Nothing here yet / Be the first to ask for something") —
 never a ghost list of sample requests.
+
+**Asking for a review** is the one interruption the app permits itself, and it
+is rationed accordingly: the system prompt appears on **Home**, never at
+wake-up (the user is half-awake and starting their day — precisely the moment
+this app exists not to intrude on), and only after two nights have actually
+been logged. Asking sooner is asking a stranger for a favour. It repeats at
+most twice more, a week apart, matching the ceiling iOS enforces anyway. The
+Settings row is the path that always works and never interrupts, which makes
+it the primary one; the prompt is the rare secondary. There is deliberately
+**no "do you like the app?" pre-prompt** — filtering out unhappy users before
+showing the rating sheet is against App Store guidelines and is the exact
+move that makes review requests feel like a trick.
 
 > **Open question before this ships publicly.** The board displays no author
 > and has no in-app report or block flow. App Store Guideline 1.2 expects
