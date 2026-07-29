@@ -1010,7 +1010,7 @@ struct SleepSnapshot: Codable {
 /// **To enable: paste the numeric id (digits only, no "id" prefix) from App
 /// Store Connect below.**
 enum AppStoreLink {
-    static let appID = ""
+    static let appID = "6787030239"
 
     static var isConfigured: Bool {
         !appID.isEmpty && appID.allSatisfy(\.isNumber)
