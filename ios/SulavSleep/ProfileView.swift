@@ -1,7 +1,9 @@
 import SwiftUI
 
-// The Profile tab is the app's single "about you" surface: identity plus the
-// sleep record (weekly chart, averages, night history). Configuration lives in
+// The Profile tab is the app's single "about you" surface: a titled header
+// over the sleep record (weekly chart, averages, night history). It shows no
+// name — Home greets you by name and Settings is where it's edited, so
+// repeating it here was the same fact in a third place. Configuration lives in
 // a separate `SettingsModal`, opened from the gear top-right as a collapsible
 // full-height sheet, so the tab body stays clean. There is deliberately no
 // destructive "reset all data" action; the only account-level exits are Sign
@@ -98,7 +100,7 @@ private struct ProfileRootScreen: View {
 
     var body: some View {
         SceneScreen {
-            identity
+            header
 
             // One dashboard band, not two. See `SummaryBand`.
             if let averages = recentAverages {
@@ -134,32 +136,40 @@ private struct ProfileRootScreen: View {
 
     // MARK: Identity
 
-    private var identity: some View {
-        VStack(alignment: .leading, spacing: SleepSpacing.xs) {
-            // No "PROFILE" kicker: the tab bar already says Profile and the
-            // name says whose. It was one of five tracked all-caps labels
-            // competing down this screen, and the first one a reader's eye
-            // has to skip past to reach the actual content.
-            HStack(spacing: SleepSpacing.md) {
-                Spacer()
-                if store.isImportingHealth {
-                    ProgressView().controlSize(.small).tint(SleepColor.amber)
-                }
-                GlassIconButton(systemImage: "gearshape") {
-                    showsSettings = true
-                }
-                .accessibilityLabel("Settings")
-            }
-            .frame(minHeight: 44)
-            .padding(.bottom, SleepSpacing.md)
-
-            // Name is display-only here; it's edited from Settings, so the
-            // Profile body stays a clean identity + record with nothing to
-            // fiddle with. Email lives in Settings too, not on this screen.
-            Text(profile.name)
-                .font(SleepFont.hero(34))
+    /// Title left, gear right, on one line — the same header shape as the
+    /// Settings sheet this gear opens, and the same left-aligned editorial
+    /// title the pushed sub-pages carry.
+    ///
+    /// The screen used to headline the user's **name**, with the gear floating
+    /// on a row of its own above it. Two problems. Home already greets you by
+    /// name in the same hero face, so tab-switching showed you a second big
+    /// "Sulav" and the two screens opened almost identically; and a name isn't
+    /// a title — it says whose account this is, never which screen you're on.
+    /// Naming the screen says where you are, ends the duplication (the name
+    /// still lives in Settings, where it's actually edited), and folds two
+    /// header rows into one so the record starts higher.
+    ///
+    /// This is a hero title, **not** the retired all-caps "PROFILE" kicker.
+    /// The kicker stays gone: it was tracked small-caps competing with four
+    /// siblings down the scroll, whereas one editorial title at the top of a
+    /// screen is the app's standard chrome everywhere else.
+    private var header: some View {
+        HStack(spacing: SleepSpacing.md) {
+            Text("Profile")
+                .font(SleepFont.hero(28))
                 .foregroundStyle(SleepColor.ink)
+
+            Spacer()
+
+            if store.isImportingHealth {
+                ProgressView().controlSize(.small).tint(SleepColor.amber)
+            }
+            GlassIconButton(systemImage: "gearshape") {
+                showsSettings = true
+            }
+            .accessibilityLabel("Settings")
         }
+        .frame(minHeight: 44)
         .padding(.top, SleepSpacing.lg)
     }
 

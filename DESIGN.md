@@ -313,9 +313,19 @@ Two tabs, each with exactly one job:
   progress, a firmer tap fires the moment it crosses the completion threshold
   ("let go now"), releasing short of it gives a soft acknowledging tap, and a
   success notification lands when the night begins.
-- **Profile — everything about you.** Identity (name only, display-only — no
-  pencil, no email; both are edited/shown in Settings so the body stays
-  read-only), then the **summary band** straight under the name: one hero
+- **Profile — everything about you.** A one-line header — the editorial title
+  "Profile" left, the Settings gear right — and then the record. **No name on
+  this screen.** It used to headline the user's name (gear floating on a row
+  above it), but Home already greets you by name in the same hero face, so the
+  two tabs opened almost identically and a name never says *which screen*
+  you're on. The title says where you are, the name stays in Settings where
+  it's actually edited, and the header folds from two rows to one so the
+  record starts higher. Title + trailing round glass button is the same header
+  shape the Settings sheet and the pushed sub-pages use, so the gear and the
+  sheet it opens read as one affordance. (This is a hero title, not the
+  retired all-caps PROFILE kicker — see the kicker note below.)
+
+  Then the **summary band**: one hero
   numeral and two quiet lines. "Avg sleep · last 7 nights" as a tiny label
   (the scope lives in the label, and counts the nights actually averaged),
   the average duration as the band's single big numeral, and beneath it the
@@ -347,9 +357,15 @@ Two tabs, each with exactly one job:
   SLEEP, YOUR SLEEP, RECENT NIGHTS — which is the loudest typographic device
   in the app, repeated down a single scroll until the screen read as noise.
   Two of them named things that named themselves and went first: "PROFILE"
-  (the tab bar says Profile and the name says whose) and "YOUR SLEEP" (a
+  (at the time, the tab bar said Profile and the name said whose) and "YOUR
+  SLEEP" (a
   chart of gold sleep bars under its own date-range caption, on a screen
-  whose first block is the sleep average). "LAST 7 NIGHTS" folded into the
+  whose first block is the sleep average). The screen is titled "Profile"
+  again now that the name is gone, but as a **hero title, not a kicker** —
+  the objection was never to naming the screen, it was to a fifth piece of
+  tracked small-caps competing down the scroll. One editorial title at the
+  top is the app's standard chrome; a stack of shouting labels is not.
+  "LAST 7 NIGHTS" folded into the
   summary band's label. "BLOCKED WHILE YOU SLEEP" went when the card learned
   to say what it is in every state (see the blocked block below). One
   remains — RECENT NIGHTS — labelling the one thing genuinely ambiguous
