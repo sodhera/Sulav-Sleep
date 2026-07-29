@@ -62,6 +62,10 @@ final class SleepStore {
     /// subscriber resolves offline too) keeps it current. On an unconfigured
     /// build (no API key) it is `.entitled` from init — dev mode, no paywall.
     private(set) var entitlement: EntitlementState = .unknown
+    /// When the server produced the CustomerInfo behind `entitlement`
+    /// (RevenueCat's `requestDate`). Old means we're reading a cache, which
+    /// is what `isWithinOfflineGrace` keys off. Nil until the first resolve.
+    private(set) var entitlementAsOf: Date?
     /// Display-only detail about the active subscription (trial vs paid, the
     /// renewal or end date, whether it's set to cancel) for the Settings
     /// status row — distinct from `entitlement`, which stays the gate's
@@ -249,9 +253,48 @@ final class SleepStore {
     /// the gate acts only on an answer, and RevenueCat's cache answers
     /// offline for real subscribers — and an unconfigured build (dev mode)
     /// resolves `.entitled` at init, so it never gates either.
+    ///
+    /// The offline grace period (below) is the last exemption: a subscriber
+    /// whose cached entitlement lapsed while they were unreachable keeps the
+    /// app for a couple more days rather than being locked out of a
+    /// fully-offline-capable app they paid for.
     var needsPaywall: Bool {
-        isAuthenticated && isOnboarded && entitlement == .notEntitled
+        isAuthenticated && isOnboarded && entitlement == .notEntitled && !isWithinOfflineGrace
     }
+
+    /// Short reprieve for a subscriber the server hasn't been able to confirm.
+    ///
+    /// The app works entirely offline — logging nights, blocking apps, the
+    /// record, widgets — so the *only* thing that can strand a paying user on
+    /// a long flight or a bad-signal week is the paywall: once the cached
+    /// entitlement's expiry passes, RevenueCat's cache itself reports
+    /// not-entitled, and both purchase and restore need a network to clear
+    /// it. That's a locked door with no key on the inside.
+    ///
+    /// **This is not a free trial extension.** It applies only when the
+    /// not-entitled verdict came from *stale* CustomerInfo — i.e. we haven't
+    /// heard from RevenueCat recently. A user who genuinely cancels while
+    /// online gets a fresh, server-dated answer and hits the paywall
+    /// immediately, with no extra days. `lastEntitledAt` is cleared on sign
+    /// out and account deletion, so the grace can never transfer to whoever
+    /// signs in next on a shared device.
+    var isWithinOfflineGrace: Bool {
+        guard entitlement == .notEntitled else { return false }
+        // A recent server answer is authoritative — no grace.
+        if let asOf = entitlementAsOf, Date().timeIntervalSince(asOf) < Self.authoritativeWindow {
+            return false
+        }
+        guard let lastEntitled = SleepPersistence.shared.lastEntitledAt else { return false }
+        return Date().timeIntervalSince(lastEntitled) < Self.offlineGraceWindow
+    }
+
+    /// How long a subscriber keeps the app after their cached entitlement
+    /// lapses without the server being reachable.
+    private static let offlineGraceWindow: TimeInterval = 2 * 24 * 60 * 60
+    /// How fresh a CustomerInfo must be to count as the server's own word.
+    /// RevenueCat refreshes a stale cache on foreground, so anything inside
+    /// this window came from an actual response.
+    private static let authoritativeWindow: TimeInterval = 10 * 60
 
     private func startSubscriptionTracking() {
         guard subscription.isConfigured else {
@@ -271,9 +314,17 @@ final class SleepStore {
 #endif
             return
         }
-        subscription.start { [weak self] state, status in
-            self?.entitlement = state
-            self?.subscriptionStatus = status
+        subscription.start { [weak self] state, status, asOf in
+            guard let self else { return }
+            self.entitlement = state
+            self.subscriptionStatus = status
+            self.entitlementAsOf = asOf
+            // Every confirmed-entitled moment refreshes the grace clock, so
+            // the window is always measured from the last time we knew the
+            // subscription was good.
+            if state == .entitled {
+                SleepPersistence.shared.recordEntitled()
+            }
         }
     }
 
@@ -430,6 +481,10 @@ final class SleepStore {
         authErrorMessage = nil
         authMessageIsNotice = false
         clearPersistedAccount()
+        // The offline grace belongs to the account that earned it, not to the
+        // device — otherwise the next person to sign in here inherits it.
+        persistence.clearEntitlementGrace()
+        entitlementAsOf = nil
         // The widget flips its action capsule to "Sign in".
         updateWidgetSoon()
         AppLog.store.info("Signed out")
@@ -1086,6 +1141,10 @@ struct SleepPersistence {
     // newer release nudges once again). Not cleared by `reset()` — signing
     // out is not a reason to re-nudge.
     private let updateNudgeDismissedKey = "sulav.updateNudgeDismissed.v1"
+    // Last moment RevenueCat confirmed an active entitlement — the anchor for
+    // the offline grace window. Cleared on sign-out and account deletion so a
+    // lapsed grace can never follow the device to a different account.
+    private let lastEntitledAtKey = "sulav.lastEntitledAt.v1"
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -1114,6 +1173,7 @@ struct SleepPersistence {
         defaults.removeObject(forKey: accountKey)
         defaults.removeObject(forKey: lastAccountIDKey)
         defaults.removeObject(forKey: legacyCloudSeedCheckedKey)
+        defaults.removeObject(forKey: lastEntitledAtKey)
     }
 
     /// Whether the app has been launched before on this install. Backed by the
@@ -1137,6 +1197,18 @@ struct SleepPersistence {
 
     func dismissUpdateNudge(version: String) {
         defaults.set(version, forKey: updateNudgeDismissedKey)
+    }
+
+    var lastEntitledAt: Date? { defaults.object(forKey: lastEntitledAtKey) as? Date }
+
+    func recordEntitled(at date: Date = Date()) {
+        defaults.set(date, forKey: lastEntitledAtKey)
+    }
+
+    /// Called on sign-out and account deletion — the grace period belongs to
+    /// an account, not to a device.
+    func clearEntitlementGrace() {
+        defaults.removeObject(forKey: lastEntitledAtKey)
     }
 
     /// Non-secret account info only (id/email/provider) — the real session

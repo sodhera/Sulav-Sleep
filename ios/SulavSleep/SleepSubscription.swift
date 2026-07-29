@@ -73,7 +73,15 @@ protocol SubscriptionProviding {
     /// the first fetch — the `EntitlementState` gates the paywall, the
     /// `SubscriptionStatus?` (nil when there's nothing to describe) feeds the
     /// Settings status row.
-    func start(onChange: @escaping @MainActor (EntitlementState, SubscriptionStatus?) -> Void)
+    ///
+    /// The third argument is the CustomerInfo's **requestDate** — when the
+    /// server actually answered. RevenueCat replays cached info offline, so
+    /// this is what separates "the server just told us you're not subscribed"
+    /// (recent) from "we're reading a stale cache because we can't reach
+    /// anyone" (old). `SleepStore` needs that distinction to decide whether
+    /// the offline grace period applies. `nil` from stubs that never talk to
+    /// a server.
+    func start(onChange: @escaping @MainActor (EntitlementState, SubscriptionStatus?, Date?) -> Void)
     /// Tie the RevenueCat identity to the signed-in account so a
     /// subscription follows the user across devices and reinstalls.
     func logIn(accountID: String) async
@@ -113,8 +121,10 @@ enum SleepSubscription {
 private final class ReviewPaywallSubscriptionService: SubscriptionProviding {
     var isConfigured: Bool { true }
 
-    func start(onChange: @escaping @MainActor (EntitlementState, SubscriptionStatus?) -> Void) {
-        Task { @MainActor in onChange(.notEntitled, nil) }
+    func start(onChange: @escaping @MainActor (EntitlementState, SubscriptionStatus?, Date?) -> Void) {
+        // `Date()` — this stub is authoritative by definition, so it must not
+        // hand the grace period an excuse to keep the paywall down.
+        Task { @MainActor in onChange(.notEntitled, nil, Date()) }
     }
 
     func logIn(accountID: String) async {}
@@ -169,7 +179,7 @@ final class RevenueCatSubscriptionService: SubscriptionProviding {
 
     var isConfigured: Bool { !apiKey.isEmpty }
 
-    func start(onChange: @escaping @MainActor (EntitlementState, SubscriptionStatus?) -> Void) {
+    func start(onChange: @escaping @MainActor (EntitlementState, SubscriptionStatus?, Date?) -> Void) {
         guard isConfigured else {
             AppLog.paywall.notice("REVENUECAT_API_KEY empty — paywall disabled (dev mode)")
             return
@@ -186,7 +196,10 @@ final class RevenueCatSubscriptionService: SubscriptionProviding {
         // renewals, restores, logIn identity switches.
         Task { @MainActor in
             for await info in Purchases.shared.customerInfoStream {
-                onChange(Self.state(of: info), Self.status(of: info))
+                // `requestDate` is when the *server* produced this info. On a
+                // cached replay it stays at the original fetch time, which is
+                // exactly the signal the offline grace period keys off.
+                onChange(Self.state(of: info), Self.status(of: info), info.requestDate)
             }
         }
     }

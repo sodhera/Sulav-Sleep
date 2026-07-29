@@ -553,6 +553,56 @@ Apple Developer capability, Google Cloud OAuth client).
   of that prompt in test builds only — production users still get the native
   save-password experience.
 
+## Offline behavior and the entitlement grace period
+
+The app is offline-first and stays fully usable without a network, for as
+long as you like:
+
+- **Launch and identity** never touch the network — `currentAccount` reads the
+  Keychain session directly and deliberately skips a token refresh (see the
+  comment there), so a cold launch offline lands straight in the app.
+- **Everything that is the product** is local: logging a night, waking, the
+  streak, the record chart and history, the schedule, Screen Time lockdown,
+  widgets, Live Activities, HealthKit.
+- **Cloud sync** (`CloudSyncing`) is best-effort and swallows failures; local
+  is the source of truth and it catches up on the next launch/foreground.
+- **The update gate** fails open (see below).
+- **The feature board** is the one screen that needs a network, and it says so
+  rather than breaking anything else.
+
+### The one thing that could lock a paying user out
+
+Entitlement comes from RevenueCat's cached `CustomerInfo`, and `isActive` is
+computed against the expiry date *inside that cache*. Offline you stay
+entitled until that date passes — but once it does, the cache itself reports
+not-entitled, `needsPaywall` flips true, and **both purchase and restore need
+a network to clear it**. That's a locked door with no key on the inside, in an
+app that otherwise works perfectly offline. It bites a monthly subscriber who
+is offline across their renewal date; an annual subscriber is fine for the
+year.
+
+`SleepStore.isWithinOfflineGrace` is the fix: **2 days**
+(`offlineGraceWindow`) measured from `SleepPersistence.lastEntitledAt`, which
+is rewritten every time RevenueCat confirms an active entitlement.
+
+**It is not a free trial extension.** Grace applies only when the
+not-entitled verdict came from *stale* CustomerInfo. `SubscriptionProviding.
+start`'s third argument is RevenueCat's `requestDate` — when the server
+actually answered — and anything inside `authoritativeWindow` (10 min) counts
+as the server's own word, which skips grace entirely. So a user who genuinely
+cancels while online hits the paywall immediately with no extra days; only
+someone we *cannot reach* gets the reprieve.
+
+`lastEntitledAt` is cleared on sign-out and in `reset()`, so grace belongs to
+the account that earned it and never transfers to whoever signs in next on a
+shared device.
+
+**Also worth enabling, separately:** App Store Connect's own **Billing Grace
+Period** (Subscriptions → the group → Billing Grace Period). That covers a
+different failure — a *payment* that fails at renewal while the user is
+online — and keeps them entitled while Apple retries. The two together cover
+both "we can't reach the server" and "their card bounced".
+
 ## App update gate
 
 Server-driven version handling — the standard production pattern (Spotify,
