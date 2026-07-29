@@ -102,7 +102,7 @@ private struct ProfileRootScreen: View {
 
             // One dashboard band, not two. See `SummaryBand`.
             if let averages = recentAverages {
-                SummaryBand(averages: averages, streak: store.onTrackStreak)
+                SummaryBand(averages: averages)
                     .padding(.top, SleepSpacing.xxl)
             }
 
@@ -878,26 +878,24 @@ private struct StatBlock: View {
 
 /// The whole dashboard read of the record: **one hero numeral, two quiet
 /// lines**. Avg sleep is the number, its label carries the scope, and the
-/// average bed/wake times sit underneath as a moon → sun window line with the
-/// streak at its end.
+/// average bed/wake times sit underneath as a moon → sun window line.
 ///
 /// This was a row of three labeled numerals (Avg sleep / To bed / Up) over a
 /// scope-and-streak caption — eight pieces of text in three rows spanning the
 /// full width, which is a table, and the reason the top of Profile read as
-/// overwhelming even after earlier declutter passes. One night's read has one
+/// overwhelming even after earlier declutter passes. The record's read has one
 /// headline: how long you slept. When you went down and got up is the
 /// supporting fact, and the app already has a one-line grammar for exactly
 /// that — the moon → sun window (`SleepWindowLine`) the history rows and
 /// Home's schedule capsule draw — so the clocks state themselves without
 /// spending two labels ("To bed", "Up") to say what a moon and a sun say.
 ///
-/// Streak stays demoted (it already headlines Home and every widget): the
-/// flame at the end of the window line, not a numeral of its own. The label
+/// No streak here at all: it already headlines Home (and every widget), and
+/// repeating it on the very next tab said the same thing twice. The label
 /// counts the nights actually averaged — a three-night record must not claim
 /// "last 7 nights"; honest data everywhere.
 private struct SummaryBand: View {
     let averages: SleepAverages
-    let streak: Int
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
@@ -907,22 +905,8 @@ private struct SummaryBand: View {
                 size: 30
             )
 
-            HStack(spacing: SleepSpacing.xs) {
-                SleepWindowLine(bedtimeMinutes: averages.bedtimeMinutes, wakeMinutes: averages.wakeMinutes)
-                if streak > 0 {
-                    HStack(spacing: SleepSpacing.xs) {
-                        Text("·").foregroundStyle(SleepColor.faint)
-                        Image(systemName: "flame.fill")
-                            .font(.system(size: 11))
-                            .foregroundStyle(SleepColor.gold)
-                        Text(streak == 1 ? "1-night streak" : "\(streak)-night streak")
-                            .foregroundStyle(SleepColor.dim)
-                    }
-                    .font(SleepFont.body(13))
-                    .shadow(color: SleepColor.background.opacity(0.85), radius: 3, y: 1)
-                }
-            }
-            .padding(.top, 3)
+            SleepWindowLine(bedtimeMinutes: averages.bedtimeMinutes, wakeMinutes: averages.wakeMinutes)
+                .padding(.top, 3)
         }
     }
 }

@@ -319,8 +319,8 @@ Two tabs, each with exactly one job:
   numeral and two quiet lines. "Avg sleep · last 7 nights" as a tiny label
   (the scope lives in the label, and counts the nights actually averaged),
   the average duration as the band's single big numeral, and beneath it the
-  average bed/wake times as a moon → sun window line with the streak flame at
-  its end ("🌙 11:28 PM → ☀️ 7:43 AM · 🔥 7-night streak"). That band is the
+  average bed/wake times as a moon → sun window line
+  ("🌙 11:28 PM → ☀️ 7:43 AM"). That band is the
   whole dashboard read of the record, above the fold, before any chart.
 
   The band was previously three labeled numerals (Avg sleep / To bed / Up)
@@ -331,7 +331,9 @@ Two tabs, each with exactly one job:
   has a one-line grammar for a sleep window — the moon → sun line the
   history rows and Home's schedule capsule draw — so the band borrows it and
   retires the "To bed"/"Up" labels entirely; the glyphs say which end is
-  which. Streak stays demoted (it already headlines Home and every widget).
+  which. The streak doesn't appear on Profile at all: it already headlines
+  Home and every widget, and repeating it on the very next tab said the same
+  thing twice.
 
   Then the tappable **blocked-apps** glass card
   previewing the locked-app icons (opens the Blocked apps screen for
