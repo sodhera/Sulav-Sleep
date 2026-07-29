@@ -611,12 +611,21 @@ it the primary one; the prompt is the rare secondary. There is deliberately
 showing the rating sheet is against App Store guidelines and is the exact
 move that makes review requests feel like a trick.
 
-> **Open question before this ships publicly.** The board displays no author
-> and has no in-app report or block flow. App Store Guideline 1.2 expects
-> user-generated content to carry a way to report objectionable posts, a way
-> to block abusive users, and a published contact. The database side is ready
-> for it — `status = 'hidden'` already removes a row from every client read —
-> but the UI for reporting doesn't exist yet. **Delete account** is not a glass row at
+> **The board is currently switched off, and the screen ships as a
+> submit-only suggestion box** (`FeatureRequestFlags.showsPublicBoard`).
+> Everything above is built and works; none of it is shown. App Store
+> Guideline 1.2 expects an app that *displays* user-generated content to carry
+> a way to report objectionable posts, a way to block abusive users, and a
+> published contact — and the board has none of those while now attaching real
+> names to posts. A form that displays nothing to anyone raises none of it.
+> The database side is ready (`status = 'hidden'` already removes a row from
+> every client read); the reporting UI is what's missing. Build that, then
+> flip the flag.
+>
+> With the board off, a successful post gets an explicit **"Request sent"**
+> confirmation with a quiet "Send another" — the list a new request used to
+> appear in isn't there, and a submit that empties a field and says nothing
+> reads as a failure, not a success. **Delete account** is not a glass row at
 all: it sits beneath the Account group as bare faded text — a rare,
 irreversible exit that never competes for attention — and confirming it
 requires typing "delete" into the alert before the destructive button

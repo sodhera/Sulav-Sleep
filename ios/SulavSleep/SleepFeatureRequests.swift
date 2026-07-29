@@ -23,6 +23,31 @@ import Supabase
 // See `supabase/migrations/002_feature_requests.sql` for the table rules;
 // the important one is that `score` is server-owned and votes are private.
 
+// MARK: - Availability
+
+enum FeatureRequestFlags {
+    /// Whether the **public board** — other people's requests, the vote
+    /// controls, "Most wanted" — is shown. The composer is unaffected: with
+    /// this off, the screen is a private suggestion box that posts to the
+    /// same table, and nobody sees anybody else's words.
+    ///
+    /// **Off deliberately.** App Store Guideline 1.2 requires an app that
+    /// *displays* user-generated content to ship a way to filter objectionable
+    /// material, a mechanism to report it, a way to block abusive users, and
+    /// published contact info. The board has none of those yet, and it now
+    /// attaches real names to posts, so shipping it as-is is a rejection risk.
+    /// A submit-only form displays nothing to anyone and raises none of that.
+    ///
+    /// **To turn it back on**, build the moderation UI first — at minimum a
+    /// per-request "Report" action and a way to block an author. The database
+    /// side is already there: `status = 'hidden'` drops a row from every
+    /// client read (migration 002), so taking content down is one UPDATE.
+    /// Everything else the board needs — fetch, ranking, voting, paging,
+    /// expansion — is written and working; only this flag and the moderation
+    /// affordances stand between here and shipping it.
+    static let showsPublicBoard = false
+}
+
 // MARK: - Limits
 
 enum FeatureRequestLimits {
@@ -173,6 +198,10 @@ private struct FeatureRequestRow: Decodable {
 }
 
 private struct NewFeatureRequestRow: Encodable {
+    /// Client-generated so a submit can be retried safely — see
+    /// `SupabaseFeatureRequestBoard.submit`. The column has a
+    /// `gen_random_uuid()` default, so supplying it is optional server-side.
+    let id: String
     let author_id: String
     let title: String
 }
@@ -322,22 +351,42 @@ final class SupabaseFeatureRequestBoard: FeatureRequestBoarding, @unchecked Send
         }
     }
 
+    /// Posts a request, retrying once on a dropped connection.
+    ///
+    /// A plain insert is not idempotent, which is why this originally didn't
+    /// retry at all: if the connection dies *after* the server committed the
+    /// row, retrying posts the same idea twice. The **client-generated id**
+    /// fixes that — it's an idempotency key. On the retry, one of two things
+    /// is true: the first attempt never landed (the insert succeeds), or it
+    /// did (the insert fails on the primary key, which tells us it worked, so
+    /// we read the row back and report success). Either way the user gets one
+    /// request and one honest answer.
+    ///
+    /// Worth the extra code because this screen's *only* job is posting, and
+    /// `NSURLErrorNetworkConnectionLost` on a first tap is common enough to
+    /// see routinely (the same fault the vote path retries around).
     func submit(title: String, userId: String) async throws -> FeatureRequest {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.count >= 3 else { throw FeatureRequestError.tooShort }
+        guard trimmed.count >= FeatureRequestLimits.minTitle else { throw FeatureRequestError.tooShort }
+        let requestID = UUID().uuidString.lowercased()
 
         do {
-            // Deliberately not wrapped in `retryingDroppedConnection` — an
-            // insert is not idempotent. See that method's note.
-            let row: FeatureRequestRow = try await client
-                .from("feature_requests")
-                .insert(NewFeatureRequestRow(author_id: userId, title: trimmed))
-                .select(FeatureRequestRow.columns)
-                .single()
-                .execute()
-                .value
-            AppLog.app.info("Board: request submitted")
-            return row.asRequest(myVote: 0)
+            do {
+                return try await insert(id: requestID, title: trimmed, userId: userId)
+            } catch let first where Self.isDroppedConnection(first) {
+                AppLog.app.info("Board: submit connection dropped, retrying once")
+                try? await Task.sleep(for: .milliseconds(250))
+                do {
+                    return try await insert(id: requestID, title: trimmed, userId: userId)
+                } catch let second where Self.isDuplicateKey(second) {
+                    // The first attempt did land; the connection died on the
+                    // way back. Read our own row and treat it as the success
+                    // it was.
+                    AppLog.app.info("Board: retry hit the first insert — treating as success")
+                    if let existing = try? await fetchRequest(id: requestID) { return existing }
+                    throw second
+                }
+            }
         } catch {
             AppLog.app.error("Board: submit failed: \(error.localizedDescription, privacy: .public)")
             // The daily quota trigger raises a human-readable message; pass it
@@ -349,6 +398,38 @@ final class SupabaseFeatureRequestBoard: FeatureRequestBoarding, @unchecked Send
             }
             throw FeatureRequestError.server("Couldn't post that. Try again in a moment.")
         }
+    }
+
+    /// One insert attempt, returning the created row.
+    private func insert(id: String, title: String, userId: String) async throws -> FeatureRequest {
+        let row: FeatureRequestRow = try await client
+            .from("feature_requests")
+            .insert(NewFeatureRequestRow(id: id, author_id: userId, title: title))
+            .select(FeatureRequestRow.columns)
+            .single()
+            .execute()
+            .value
+        AppLog.app.info("Board: request submitted")
+        return row.asRequest(myVote: 0)
+    }
+
+    /// Reads back a single request by id — only used to confirm a retry that
+    /// collided with its own first attempt.
+    private func fetchRequest(id: String) async throws -> FeatureRequest? {
+        let rows: [FeatureRequestRow] = try await client
+            .from("feature_requests")
+            .select(FeatureRequestRow.columns)
+            .eq("id", value: id)
+            .limit(1)
+            .execute()
+            .value
+        return rows.first.map { $0.asRequest(myVote: 0) }
+    }
+
+    /// A primary-key collision, i.e. "this exact row already exists".
+    private static func isDuplicateKey(_ error: Error) -> Bool {
+        let text = error.localizedDescription.lowercased()
+        return text.contains("duplicate key") || text.contains("23505")
     }
 
     func setVote(_ value: Int, requestId: String, userId: String) async throws {
@@ -395,6 +476,11 @@ final class FeatureRequestBoardModel {
     private(set) var isSubmitting = false
     var draft = ""
     var errorMessage: String?
+    /// Set after a successful post. With the public board hidden, the list a
+    /// new request used to appear in isn't there, so this drives an explicit
+    /// confirmation — otherwise a submit is a button that empties a field and
+    /// says nothing, which reads as a failure.
+    private(set) var didSubmit = false
 
     private let board: FeatureRequestBoarding
     private let userId: String?
@@ -441,12 +527,17 @@ final class FeatureRequestBoardModel {
             // Your own idea lands at the top regardless of score, so the
             // submit visibly did something even on a busy board.
             requests.insert(created, at: 0)
+            didSubmit = true
             Haptics.success()
         } catch {
             errorMessage = error.localizedDescription
             Haptics.heavy()
         }
     }
+
+    /// Back to the composer after a confirmation, for someone with a second
+    /// idea.
+    func resetAfterSubmit() { didSubmit = false }
 
     /// Tapping the arrow you already chose retracts the vote (sets it to 0) —
     /// the standard toggle, so there's always a way back from a mis-tap.
@@ -491,22 +582,35 @@ struct FeatureRequestsScreen: View {
         SceneScreen {
             SubpageHeader(
                 title: "Request a feature",
-                subtitle: "Ask for what you want, and vote on what everyone else asked for."
+                subtitle: FeatureRequestFlags.showsPublicBoard
+                    ? "Ask for what you want, and vote on what everyone else asked for."
+                    : "Tell us what SleepBlock should do next."
             )
 
             if let model {
-                composer(model)
-                    .padding(.top, SleepSpacing.huge)
+                if model.didSubmit {
+                    thanks(model)
+                        .padding(.top, SleepSpacing.huge)
+                } else {
+                    composer(model)
+                        .padding(.top, SleepSpacing.huge)
+                }
 
-                board(model)
-                    .padding(.top, SleepSpacing.huge)
+                if FeatureRequestFlags.showsPublicBoard {
+                    board(model)
+                        .padding(.top, SleepSpacing.huge)
+                }
             }
         }
         .task {
             if model == nil {
                 model = FeatureRequestBoardModel(userId: store.account?.id)
             }
-            await model?.load()
+            // No board, no reason to fetch — and no reason to risk a
+            // "couldn't load the board" alert on a screen with no board.
+            if FeatureRequestFlags.showsPublicBoard {
+                await model?.load()
+            }
         }
         .alert(
             "Something went wrong",
@@ -574,6 +678,49 @@ struct FeatureRequestsScreen: View {
             }
             .disabled(!model.canSubmit)
             .opacity(model.canSubmit ? 1 : 0.5)
+        }
+    }
+
+    // MARK: Confirmation
+
+    /// What a submit looks like when there's no list for the new request to
+    /// land in — the app's warm glyph-row pattern, plus a way back for a
+    /// second idea. The sent request is deliberately *not* echoed back: it's
+    /// still on screen nowhere else, and quoting it invites editing that the
+    /// board doesn't support.
+    private func thanks(_ model: FeatureRequestBoardModel) -> some View {
+        VStack(alignment: .leading, spacing: SleepSpacing.lg) {
+            HStack(alignment: .top, spacing: SleepSpacing.md) {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(SleepColor.amber)
+                    .frame(width: 40, height: 40)
+                    .background { Circle().fill(SleepColor.glassWarm) }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Request sent")
+                        .font(SleepFont.title(16))
+                        .foregroundStyle(SleepColor.ink)
+                    Text("Thanks — every one gets read.")
+                        .font(SleepFont.body(13))
+                        .foregroundStyle(SleepColor.dim)
+                }
+                .padding(.top, 2)
+
+                Spacer(minLength: 0)
+            }
+
+            Button {
+                Haptics.heavy()
+                model.resetAfterSubmit()
+            } label: {
+                Text("Send another")
+                    .font(SleepFont.label(14))
+                    .foregroundStyle(SleepColor.dim)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
         }
     }
 

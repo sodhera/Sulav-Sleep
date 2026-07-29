@@ -723,10 +723,36 @@ that makes review requests feel manipulative.
 ## Feature request board
 
 Settings → Feedback → **Request a feature** (`FeatureRequestsScreen` in
-`ios/SulavSleep/SleepFeatureRequests.swift`). A signed-in user sees the top 50
-requests ranked by score, upvotes/downvotes them, and posts their own. Model,
-network layer, screen state, and views all live in that one file, the same way
+`ios/SulavSleep/SleepFeatureRequests.swift`). Model, network layer, screen
+state, and views all live in that one file, the same way
 `SleepScreenTime.swift` contains FamilyControls.
+
+### The public board is OFF — `FeatureRequestFlags.showsPublicBoard = false`
+
+The screen currently ships as a **submit-only suggestion box**: the composer
+posts to the same table, and nobody sees anybody else's words. The board —
+other people's requests, the vote controls, "Most wanted" — is written,
+working, and flagged off.
+
+**Why.** App Store Guideline 1.2 requires an app that *displays*
+user-generated content to provide a way to filter objectionable material, a
+mechanism to report it, a way to block abusive users, and published contact
+info. The board has none of those and attaches real names to posts, so
+shipping it is a rejection risk. A form that displays nothing to anyone raises
+none of that.
+
+**To turn it back on**, build the moderation UI first — at minimum a
+per-request "Report" action and a way to block an author — then flip the flag.
+The database side is already done: `status = 'hidden'` drops a row from every
+client read, so taking content down is one UPDATE.
+
+With the flag off the screen also **skips the fetch entirely** (no board, no
+reason to risk a "couldn't load" alert) and shows an explicit "Request sent"
+confirmation, because the list a new request used to land in isn't there — a
+submit that empties a field and says nothing reads as a failure.
+
+When the flag is on, a signed-in user sees the top 50 requests ranked by
+score, upvotes/downvotes them, and posts their own.
 
 **Setup — this feature needs migrations 002 and 003.** Run
 `supabase/migrations/002_feature_requests.sql` and
@@ -801,6 +827,15 @@ server committed the insert, a retry would post the same idea twice.
   not** — they await the server, since the user needs to know their words
   landed. A successful post is inserted at the top of the local list regardless
   of score, so the action visibly did something on a busy board.
+- **Submit is idempotent, and therefore retried.** It originally wasn't
+  retried at all, because a plain insert isn't safe to repeat — if the
+  connection dies *after* the server commits, a retry posts the idea twice.
+  The client now generates the row's `id` as an idempotency key, so the retry
+  is safe: either the first attempt never landed (the insert succeeds) or it
+  did (the insert fails on the primary key, which *proves* it worked, so the
+  row is read back and reported as success). This matters because
+  `NSURLErrorNetworkConnectionLost` on a first tap is common enough to hit
+  routinely, and with the board hidden, posting is the screen's only job.
 - **Limits live in `FeatureRequestLimits`** — `maxTitle` (140) mirrors
   migration 002's `feature_requests_title_length` check; change one and you
   must change the other or the server starts rejecting text the client
