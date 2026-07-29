@@ -579,6 +579,26 @@ name set shows as "Someone". The empty state is the same warm-glyph pattern as t
 rest of Profile ("Nothing here yet / Be the first to ask for something") —
 never a ghost list of sample requests.
 
+**The update gate** is the app's only blocking screen that isn't a gate you
+can pass by acting (unlike the paywall or the Screen Time primer). It wears
+the same root-gate chrome as those — night city, scrim, the brand sloth, an
+editorial title, one primary button — because it *is* one of them, and a
+screen that says "this app is broken" should still look like the app. There
+is no dismiss, no "later", no fine print: by the time it shows, this build
+genuinely doesn't work, and the only honest affordance is the fix. The reason
+line comes from the server so it can name what broke without a release.
+
+It sits **beneath sleep mode** in the root stack — an active night always
+keeps wake/cancel and the lockdown teardown reachable, the same precedence
+the paywall observes. Waking someone into a wall they can't dismiss, with
+their apps still blocked, would be the worst thing this app could do.
+
+The **soft nudge** ("update available") is the opposite register: the same
+warm dismissible card as the Health invite, in the same Profile slot, once
+per version. A newer build existing is not news worth interrupting anyone
+for. There are deliberately no update badges anywhere else — not on the tab
+bar, not on the gear, not on Settings rows.
+
 **Asking for a review** is the one interruption the app permits itself, and it
 is rationed accordingly: the system prompt appears on **Home**, never at
 wake-up (the user is half-awake and starting their day — precisely the moment

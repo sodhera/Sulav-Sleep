@@ -86,12 +86,18 @@ struct SulavSleepApp: App {
                     AppLog.app.info("App launched")
                     await store.refreshHealthIfEnabled()
                 }
+                .task {
+                    // Separate task so a slow config fetch never delays the
+                    // Health refresh (or vice versa). Fails open on any error.
+                    await store.checkAppUpdateGate()
+                }
                 .onChange(of: scenePhase) { _, phase in
                     guard phase == .active else { return }
                     AppLog.app.info("Scene active")
                     Haptics.prepare()
                     store.reload()
                     Task { await store.refreshHealthIfEnabled() }
+                    Task { await store.checkAppUpdateGate() }
                 }
                 .onOpenURL { url in
                     // sleepblock://sleep arrives from the widget capsule and

@@ -20,6 +20,22 @@ final class SleepStore {
     /// slide gesture is the only way a night begins.
     var showSleepConfirmation = false
     var isImportingHealth = false
+    // MARK: App update gate state (all logic in SleepUpdateGate.swift —
+    // extensions can't add storage, so only the stored slots live here).
+    /// Whether the installed version is below the server's minimum — RootView
+    /// mounts the blocking `UpdateRequiredView` when true. Starts false and
+    /// only a successfully *fetched* config can raise it: fail open.
+    var updateRequired = false
+    /// Server-set copy for the gate screen (`app_config.update_message`).
+    var updateGateMessage: String?
+    /// The newer version the soft nudge advertises, nil when current.
+    var availableUpdateVersion: String?
+    /// Which version's nudge the user has waved off (mirrors persistence so
+    /// dismissal is observable).
+    var dismissedUpdateNudgeVersion: String?
+    /// In-memory throttle for config fetches — deliberately not persisted, so
+    /// a cold launch always checks.
+    var lastUpdateGateCheck: Date?
     /// The signed-in account, or `nil` before sign-in / after sign-out.
     var account: AppAccount?
     /// False until the initial session-restore check completes, so the UI can
@@ -1021,6 +1037,12 @@ enum AppStoreLink {
         guard isConfigured else { return nil }
         return URL(string: "https://apps.apple.com/app/id\(appID)?action=write-review")
     }
+
+    /// The plain product page — where the update gate and nudge send people.
+    static var productPage: URL? {
+        guard isConfigured else { return nil }
+        return URL(string: "https://apps.apple.com/app/id\(appID)")
+    }
 }
 
 struct SleepPersistence {
@@ -1060,6 +1082,10 @@ struct SleepPersistence {
     // `reset()`: signing out is not a licence to start asking again.
     private let reviewAskCountKey = "sulav.reviewAskCount.v1"
     private let reviewLastAskKey = "sulav.reviewLastAsk.v1"
+    // Which version's update nudge was waved off (the version *string*, so a
+    // newer release nudges once again). Not cleared by `reset()` — signing
+    // out is not a reason to re-nudge.
+    private let updateNudgeDismissedKey = "sulav.updateNudgeDismissed.v1"
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -1105,6 +1131,12 @@ struct SleepPersistence {
     func recordReviewAsk(at date: Date = Date()) {
         defaults.set(reviewAskCount + 1, forKey: reviewAskCountKey)
         defaults.set(date, forKey: reviewLastAskKey)
+    }
+
+    var dismissedUpdateNudgeVersion: String? { defaults.string(forKey: updateNudgeDismissedKey) }
+
+    func dismissUpdateNudge(version: String) {
+        defaults.set(version, forKey: updateNudgeDismissedKey)
     }
 
     /// Non-secret account info only (id/email/provider) — the real session

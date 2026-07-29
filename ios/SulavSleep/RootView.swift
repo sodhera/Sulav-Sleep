@@ -35,6 +35,16 @@ struct RootView: View {
 #endif
     }
 
+    /// DEBUG-only preview of the forced update gate, which otherwise needs a
+    /// server-side `min_supported_version` bump to appear.
+    private var showsUpdateGatePreview: Bool {
+#if DEBUG
+        ProcessInfo.processInfo.arguments.contains("-review-update-gate")
+#else
+        false
+#endif
+    }
+
     /// The in-app splash (`LaunchSplashView`) is held up for a beat past auth
     /// readiness so the brand mark's rising z's are actually *seen* animating
     /// — the Keychain restore usually resolves in well under a second, which
@@ -96,6 +106,20 @@ struct RootView: View {
                 SleepModeView(store: store, activeSession: active)
                     .transition(.opacity)
                     .zIndex(2)
+            } else if showsUpdateGatePreview || store.updateRequired {
+                // The forced update gate: this install is below the server's
+                // minimum supported version, i.e. actually broken. Placed
+                // *after* the sleep-mode branch on purpose — an active night
+                // always keeps wake/cancel and the lockdown teardown
+                // reachable (the paywall's rule) — and before every other
+                // screen, because none of them work on a build old enough to
+                // trip this. Only a successfully fetched config can raise
+                // `updateRequired`, so network failure never lands here.
+                SleepBackground(showsMoon: false)
+                SceneReadabilityScrim()
+                UpdateRequiredView(message: store.updateGateMessage) {
+                    store.openAppStoreProductPage()
+                }
             } else if screen == .main, let profile = store.profile {
                 // The scene lives inside each tab so it shows behind the
                 // native (opaque-by-default) TabView content. Entering Main

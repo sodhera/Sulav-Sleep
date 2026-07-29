@@ -116,6 +116,18 @@ private struct ProfileRootScreen: View {
                 .padding(.top, SleepSpacing.xxl)
             }
 
+            // The soft update nudge, in the same dismissible-card slot and
+            // grammar as the Health invite — Profile already taught what
+            // this shape means. Once per version; see SleepUpdateGate.swift.
+            if store.shouldShowUpdateNudge, let version = store.availableUpdateVersion {
+                UpdateNudgeCard(
+                    version: version,
+                    onUpdate: { store.openAppStoreProductPage() },
+                    onDismiss: { store.dismissUpdateNudge() }
+                )
+                .padding(.top, SleepSpacing.xxl)
+            }
+
             NavigationLink(value: ProfileDestination.blockedApps) {
                 BlockedAppsPreview(store: store)
             }

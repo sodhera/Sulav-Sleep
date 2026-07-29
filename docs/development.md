@@ -553,6 +553,71 @@ Apple Developer capability, Google Cloud OAuth client).
   of that prompt in test builds only — production users still get the native
   save-password experience.
 
+## App update gate
+
+Server-driven version handling — the standard production pattern (Spotify,
+banking apps): one remote-config row per platform (`app_config`, migration
+004) that the client compares its own `CFBundleShortVersionString` against on
+launch and every foreground. All of it lives in
+`ios/SulavSleep/SleepUpdateGate.swift`.
+
+**Why this exists.** Shipping an update doesn't reach anyone by itself: iOS
+auto-updates most users silently, users who disabled that may never update,
+and Apple provides **no API** telling a running app that a newer version
+exists. That was harmless while the app was local-first. It isn't now — the
+feature board couples the client to the Supabase schema, and we already saw
+the failure mode (a client selecting `author_name` before migration 003
+existed hard-failed the board). Without a gate, a stranded old client just
+shows broken screens with no way to tell the user why.
+
+### The two tiers
+
+| Condition | Effect |
+|---|---|
+| installed < `min_supported_version` | **Forced gate** — full-screen, non-dismissible `UpdateRequiredView`, mounted by RootView. For releases where old clients are genuinely broken. |
+| installed < `latest_version` | **Soft nudge** — dismissible `UpdateNudgeCard` on Profile, once per version. The old build still works. |
+
+### Rules that are load-bearing
+
+- **Fail open.** A failed fetch, missing row, or unparseable version never
+  blocks anyone — only a *successfully fetched* config can set
+  `updateRequired`. A network hiccup is not an outdated app. Verified: with
+  the table absent the fetch errors and the app goes straight to Home.
+- **The gate never outranks sleep mode.** Its RootView branch sits *after*
+  the `activeSession` branch, so an active night keeps wake/cancel and the
+  lockdown teardown reachable — the same rule the paywall follows.
+- **The gate needs `AppStoreLink.isConfigured`.** A blocking screen whose
+  Update button can't open the store is worse than no gate.
+- **Version compare** is component-wise integer on dotted strings
+  (`AppVersion.isOlder`). Non-numeric components read as 0, so a malformed
+  server value blocks nobody.
+- Fetches are throttled to once an hour in memory (so a cold launch always
+  checks) — *except* while the gate is up, when every foreground re-checks so
+  a mistaken bump reverted in the SQL editor lifts the gate without a
+  reinstall. Failed fetches don't start the throttle, so they retry.
+
+### Release checklist — order matters
+
+1. Ship the new build and **wait until it is actually live** on the App Store.
+   Confirm: `curl -s 'https://itunes.apple.com/lookup?id=6787030239' | grep -o '"version":"[^"]*"'`.
+2. Only then set `latest_version` to the new version (turns on the nudge).
+3. Bump `min_supported_version` **only** if old clients are actually broken
+   (e.g. you shipped a migration they can't read), and **never** before step 1
+   — a gate whose Update button has nothing to install is a trap with no exit.
+4. Optionally set `update_message` to state the reason; the gate falls back to
+   generic copy when it's null.
+
+```sql
+update public.app_config
+   set latest_version = '1.1', min_supported_version = '1.1',
+       update_message = 'This version can''t read your sleep record anymore.'
+ where platform = 'ios';
+```
+
+To preview the gate without touching the server, launch with
+`-review-update-gate` (DEBUG only, alongside `-review-paywall` and
+`-review-screentime-primer`).
+
 ## App Store review prompt
 
 Two paths, deliberately using different mechanisms.
