@@ -874,13 +874,19 @@ The surfaces split one job:
   spelled-out phrasing survives as the VoiceOver label), then last night's
   duration as a hero numeral tagged "LAST NIGHT", tall full-width bars with
   weekday initials and in-bar hour labels, then a hairline and a **mini-Home
-  footer** anchored to the bottom edge: the sloth as tonight's figure, a
-  one-line tonight block, and the Sleep Now capsule on the trailing side —
-  the same figure→instrument→action order medium reads in. The block is
-  **"Bedtime in 22m"**, the interval carrying semibold weight inside the
-  otherwise-regular line, or **"2h 16m past bedtime"** in amber once you're
-  over (number first, matching the shield). Text only, no moon glyphs; the
-  sloth *is* the glyph.
+  footer** anchored to the bottom edge: the sloth as tonight's figure, the
+  tonight block, and the Sleep Now capsule on the trailing side — the same
+  figure→instrument→action order medium reads in. The block is **label over
+  numerals**, matching medium's countdown so the two tiles read alike: a
+  quiet "Bedtime in" (or "Past bedtime") with the interval on its own line
+  beneath, ink before bedtime and amber after. As one running line the label
+  and the value fought for a width the footer doesn't have — the sloth and
+  the capsule take theirs first — and the figure truncated mid-glyph; split,
+  the interval owns a line and can be larger than it was when it had to
+  share. Text only, no moon glyphs; the sloth *is* the glyph. Past bedtime
+  now leads with the label rather than the shield's number-first phrasing:
+  one shape per slot beats one phrasing per app when the two states swap in
+  place.
   Large previously opened straight onto the bars, on the reasoning that the
   rightmost full-strength bar *was* last night so a numeral would repeat it.
   Anchoring the grid to today broke that — the last column is empty whenever

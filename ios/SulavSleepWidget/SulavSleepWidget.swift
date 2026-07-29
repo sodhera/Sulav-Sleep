@@ -816,31 +816,29 @@ private struct TonightFooter: View {
     var body: some View {
         Group {
             switch tonight {
-            // One line, the interval carrying the weight inside it. The clock
-            // time used to sit beneath as a supporting line; it's gone —
-            // the bedtime is a setting the user chose, so repeating it under
-            // the countdown added a second numeral that never moves next to
-            // the one that does. Same everywhere: small, large, accessories.
+            // Label over numerals, two lines — the same shape medium's
+            // countdown block uses, so the two tiles read alike. As one
+            // running line the label and the value competed for a width the
+            // footer doesn't have (the sloth and the capsule take theirs
+            // first), and "Bedtime in 9h 12m" truncated mid-figure. Split, the
+            // label wraps nothing and the interval owns a line of its own, so
+            // it can be bigger than it was when it had to share.
+            //
+            // The bedtime clock time is not here: it's a setting the user
+            // chose, so beside an interval that actually changes it read as a
+            // second numeral doing no work.
             case .beforeBed(let bedtime, _):
-                (Text("Bedtime in ")
-                    .font(SleepFont.body(13))
-                    .foregroundStyle(SleepColor.dim)
-                 + Text(SleepWidgetClock.compactInterval(between: now, and: bedtime))
-                    .font(SleepFont.hero(15))
-                    .foregroundStyle(SleepColor.ink))
-                    .monospacedDigit()
-                    .lineLimit(1)
+                block(
+                    label: "Bedtime in",
+                    interval: SleepWidgetClock.compactInterval(between: now, and: bedtime),
+                    tint: SleepColor.ink
+                )
             case .pastBedtime(let bedtime):
-                // Number first, matching the shield's "18 minutes past
-                // bedtime" — one phrasing across every surface.
-                (Text(SleepWidgetClock.compactInterval(between: now, and: bedtime))
-                    .font(SleepFont.hero(15))
-                    .foregroundStyle(SleepColor.amber)
-                 + Text(" past bedtime")
-                    .font(SleepFont.body(13))
-                    .foregroundStyle(SleepColor.dim))
-                    .monospacedDigit()
-                    .lineLimit(1)
+                block(
+                    label: "Past bedtime",
+                    interval: SleepWidgetClock.compactInterval(between: now, and: bedtime),
+                    tint: SleepColor.amber
+                )
             case .noSchedule:
                 Text("Set a schedule for a bedtime reminder")
                     .font(SleepFont.body(13))
@@ -850,6 +848,26 @@ private struct TonightFooter: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// The two-line tonight block: quiet label, then the interval in the
+    /// state's tint. Merged into one accessibility element so VoiceOver says
+    /// "Bedtime in 9h 12m" rather than reading the halves as separate labels.
+    private func block(label: String, interval: String, tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(label)
+                .font(SleepFont.body(12))
+                .foregroundStyle(SleepColor.dim)
+                .lineLimit(1)
+            Text(interval)
+                .font(SleepFont.hero(19))
+                .foregroundStyle(tint)
+                .monospacedDigit()
+                .minimumScaleFactor(0.6)
+                .lineLimit(1)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(label) \(interval)")
     }
 }
 
