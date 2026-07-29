@@ -847,13 +847,13 @@ The surfaces split one job:
 
 - **Small (home screen) — tonight.** A bedtime instrument, not a stats tile:
   text block top-leading (moon glyph + a "BEDTIME IN" / "PAST BEDTIME" caps
-  kicker, then the **countdown as the hero numerals** with the clock time as
-  the supporting line beneath), the sloth lounging bottom-trailing with its
-  eyes matching the hour. The countdown holds the hero slot because the
-  bedtime is a setting the user already knows, while "how long have I got" is
-  what a glance is actually asking. Past bedtime it counts *up* in amber and
-  the sloth goes drowsy — the same turn-around Home makes, rather than the
-  wordless "Wind down" of earlier revisions.
+  kicker, then the **countdown as the hero numerals**, and nothing else), the
+  sloth lounging bottom-trailing with its eyes matching the hour. The
+  countdown is the whole instrument because the bedtime is a setting the user
+  already knows, while "how long have I got" is what a glance is actually
+  asking. Past bedtime it counts *up* in amber and the sloth goes drowsy —
+  the same turn-around Home makes, rather than the wordless "Wind down" of
+  earlier revisions.
   Small is tonight-only: the quiet last-night line of earlier revisions is
   retired — the record lives on medium/large, and the sloth earns the room.
 - **Medium — the morning glance.** Last night's duration as the hero
@@ -868,19 +868,19 @@ The surfaces split one job:
   at once and the streak was the least load-bearing of them; dropping it lets
   the hero and the chart breathe. The streak still shows on large.
 - **Large — the record + tonight.** The moon-glyph "SLEEP" header with the
-  streak on its trailing side, then last night's duration as a hero numeral
-  tagged "LAST NIGHT", tall full-width bars with weekday initials and in-bar
-  hour labels, then a hairline and a **mini-Home footer** anchored to the
-  bottom edge: the sloth as tonight's figure, a two-line tonight block, and
-  the Sleep Now capsule on the trailing side — the same
-  figure→instrument→action order medium reads in. The block leads with the
-  interval and drops the clock time beneath it — **"Bedtime in 22m"** over
-  "10:45 PM", with the interval carrying semibold weight inside the
+  streak on its trailing side (**flame glyph + the bare count**, no "on
+  track" — a flame beside a number already reads as a streak, and the words
+  were the longest string in the header for the least information; the
+  spelled-out phrasing survives as the VoiceOver label), then last night's
+  duration as a hero numeral tagged "LAST NIGHT", tall full-width bars with
+  weekday initials and in-bar hour labels, then a hairline and a **mini-Home
+  footer** anchored to the bottom edge: the sloth as tonight's figure, a
+  one-line tonight block, and the Sleep Now capsule on the trailing side —
+  the same figure→instrument→action order medium reads in. The block is
+  **"Bedtime in 22m"**, the interval carrying semibold weight inside the
   otherwise-regular line, or **"2h 16m past bedtime"** in amber once you're
   over (number first, matching the shield). Text only, no moon glyphs; the
-  sloth *is* the glyph. The bedtime is a setting the user already knows —
-  the interval is the part that changes, so it gets the weight, same as
-  small and medium.
+  sloth *is* the glyph.
   Large previously opened straight onto the bars, on the reasoning that the
   rightmost full-strength bar *was* last night so a numeral would repeat it.
   Anchoring the grid to today broke that — the last column is empty whenever
@@ -907,7 +907,7 @@ The surfaces split one job:
   and SF symbols — no app palette, no sloth (at 20pt the figure would blur
   into mush). Circular is a duration-vs-target gauge with last night's hours
   in the middle (or a moon when asleep / no data); rectangular and inline
-  lead with tonight's state.
+  lead with tonight's state — "Bedtime" over "in 1h 44m", "Bed in 1h 44m".
 - The **Live Activity** lock-screen banner leads with the ember night sloth
   beside the elapsed timer, so the lock screen is recognizably SleepBlock
   before a single word is read; the Dynamic Island stays SF-symbol-led at
@@ -932,11 +932,19 @@ Rules:
 - Duration is the only metric on every surface — the retired 0–100 score
   (see the Profile section's history note) never appears on a widget.
 - Countdowns read **"35m" / "1h 44m" / "8h"**, rendered statically from the
-  timeline entry's date. `Text(_, style: .relative)` looks like the obvious
-  choice and self-updates, but under an hour it spells out seconds — "35 min,
-  32 sec" — which is too long for a hero numeral and visibly churns. The
-  provider emits one entry a minute instead, which also lands every state flip
-  (drowsy, bedtime, midnight's column shift, wake) within a minute for free.
+  timeline entry's date, on *every* family including the lock-screen
+  accessories. `Text(_, style: .relative)` looks like the obvious choice and
+  self-updates, but under an hour it spells out seconds — "35 min, 32 sec" —
+  which is too long for a hero numeral and visibly churns. The provider emits
+  one entry a minute instead, which also lands every state flip (drowsy,
+  bedtime, midnight's column shift, wake) within a minute for free.
+- **The bedtime clock time appears on no widget.** Small, large, and the
+  accessories all used to print it under (or beside) the countdown. It is a
+  setting the user chose and it does not move; carrying it next to the one
+  figure that *does* move meant every tonight block was two numerals deep
+  where one would do. Only the interval survives. The clock time still shows
+  where it's editable — Home and Schedule — and asleep surfaces keep their
+  "since" and "wake" times, which are facts about the night, not the setting.
 - Bars: **the same chart as Profile's, at widget size** — one grammar, one
   implementation shape, so the two can't drift. Gold→amber capsules against a
   faint target hairline tagged with the goal on a navy chip; the newest

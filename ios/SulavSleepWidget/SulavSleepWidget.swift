@@ -11,8 +11,10 @@ import SwiftUI
 // state the whole time.
 //
 // Two jobs, split by surface:
-//  - Small is *tonight-focused*: the sloth as hero with the bedtime clock,
-//    countdown, wind-down nudge, or set-a-schedule invitation.
+//  - Small is *tonight-focused*: the sloth as hero with the bedtime
+//    countdown, wind-down nudge, or set-a-schedule invitation. No surface
+//    prints the bedtime clock time — it is a setting the user chose, so the
+//    interval to it is the only figure that earns space.
 //  - Medium is the *morning stats glance*: last night's sleep, streak, and
 //    the 7-night bars, with the sloth lounging under the numbers as the
 //    brand-and-state figure. Duration is the app's only metric — the 0–100
@@ -295,11 +297,11 @@ private struct SleepWidgetView: View {
     var body: some View {
         switch family {
         case .accessoryCircular:
-            CircularAccessoryView(summary: entry.summary, tonight: tonight)
+            CircularAccessoryView(summary: entry.summary, tonight: tonight, now: entry.date)
         case .accessoryRectangular:
-            RectangularAccessoryView(summary: entry.summary, tonight: tonight)
+            RectangularAccessoryView(summary: entry.summary, tonight: tonight, now: entry.date)
         case .accessoryInline:
-            InlineAccessoryView(summary: entry.summary, tonight: tonight)
+            InlineAccessoryView(summary: entry.summary, tonight: tonight, now: entry.date)
         default:
             // While asleep every system family wears the same sleep face;
             // awake, each family does its own job.
@@ -486,11 +488,12 @@ private struct TonightView: View {
     }
 
     private func bedtimeBody(bedtime: Date, past: Bool) -> some View {
-        // The countdown is the instrument, so it takes the hero numerals and
-        // the clock time steps down to the supporting line — the bedtime is a
-        // setting the user already knows, while "how long have I got" is the
-        // thing a glance is actually asking. Mirrors Home, which counts up in
-        // amber once you're over.
+        // The countdown is the whole instrument. The clock time it counts to
+        // used to sit underneath it, but a bedtime is a setting the user
+        // chose — restating it on every surface is a second number that never
+        // changes, competing with the one that does. Kicker + interval, and
+        // nothing else. Mirrors Home, which counts up in amber once you're
+        // over.
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 5) {
                 Image(systemName: past ? "moon.zzz.fill" : "moon.fill")
@@ -510,11 +513,6 @@ private struct TonightView: View {
                 .monospacedDigit()
                 .widgetAccentable()
                 .minimumScaleFactor(0.6)
-                .lineLimit(1)
-
-            Text(bedtime, format: .dateTime.hour().minute())
-                .font(SleepFont.body(12))
-                .foregroundStyle(SleepColor.dim)
                 .lineLimit(1)
 
             Spacer(minLength: 6)
@@ -729,14 +727,21 @@ private struct LargeSleepView: View {
                 }
                 Spacer()
                 if summary.streak > 0 {
+                    // Flame + the count, nothing else. "on track" was the
+                    // longest string in the header for the least information —
+                    // a flame beside a number already reads as a streak, and
+                    // the words only crowded the kicker's opposite corner.
                     HStack(spacing: 4) {
                         Image(systemName: "flame.fill")
                             .font(.system(size: 10))
                             .foregroundStyle(SleepColor.gold)
-                        Text("\(summary.streak) on track")
+                        Text("\(summary.streak)")
                             .font(SleepFont.body(12))
                             .foregroundStyle(SleepColor.dim)
+                            .monospacedDigit()
                     }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("\(summary.streak) nights on track")
                 }
             }
 
@@ -811,36 +816,31 @@ private struct TonightFooter: View {
     var body: some View {
         Group {
             switch tonight {
-            // The countdown leads and carries the weight; the clock time drops
-            // to the supporting line beneath it, same order as small and
-            // medium. The bedtime is a setting the user already knows — the
-            // interval is the part that changes.
+            // One line, the interval carrying the weight inside it. The clock
+            // time used to sit beneath as a supporting line; it's gone —
+            // the bedtime is a setting the user chose, so repeating it under
+            // the countdown added a second numeral that never moves next to
+            // the one that does. Same everywhere: small, large, accessories.
             case .beforeBed(let bedtime, _):
-                VStack(alignment: .leading, spacing: 1) {
-                    (Text("Bedtime in ")
-                        .font(SleepFont.body(13))
-                        .foregroundStyle(SleepColor.dim)
-                     + Text(SleepWidgetClock.compactInterval(between: now, and: bedtime))
-                        .font(SleepFont.hero(15))
-                        .foregroundStyle(SleepColor.ink))
-                        .monospacedDigit()
-                        .lineLimit(1)
-                    clock(bedtime)
-                }
+                (Text("Bedtime in ")
+                    .font(SleepFont.body(13))
+                    .foregroundStyle(SleepColor.dim)
+                 + Text(SleepWidgetClock.compactInterval(between: now, and: bedtime))
+                    .font(SleepFont.hero(15))
+                    .foregroundStyle(SleepColor.ink))
+                    .monospacedDigit()
+                    .lineLimit(1)
             case .pastBedtime(let bedtime):
-                VStack(alignment: .leading, spacing: 1) {
-                    // Number first, matching the shield's "18 minutes past
-                    // bedtime" — one phrasing across every surface.
-                    (Text(SleepWidgetClock.compactInterval(between: now, and: bedtime))
-                        .font(SleepFont.hero(15))
-                        .foregroundStyle(SleepColor.amber)
-                     + Text(" past bedtime")
-                        .font(SleepFont.body(13))
-                        .foregroundStyle(SleepColor.dim))
-                        .monospacedDigit()
-                        .lineLimit(1)
-                    clock(bedtime)
-                }
+                // Number first, matching the shield's "18 minutes past
+                // bedtime" — one phrasing across every surface.
+                (Text(SleepWidgetClock.compactInterval(between: now, and: bedtime))
+                    .font(SleepFont.hero(15))
+                    .foregroundStyle(SleepColor.amber)
+                 + Text(" past bedtime")
+                    .font(SleepFont.body(13))
+                    .foregroundStyle(SleepColor.dim))
+                    .monospacedDigit()
+                    .lineLimit(1)
             case .noSchedule:
                 Text("Set a schedule for a bedtime reminder")
                     .font(SleepFont.body(13))
@@ -850,14 +850,6 @@ private struct TonightFooter: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    /// The bedtime itself, quiet, under the interval.
-    private func clock(_ bedtime: Date) -> some View {
-        Text(bedtime, format: .dateTime.hour().minute())
-            .font(SleepFont.body(12))
-            .foregroundStyle(SleepColor.muted)
-            .lineLimit(1)
     }
 }
 
@@ -870,6 +862,7 @@ private struct TonightFooter: View {
 private struct CircularAccessoryView: View {
     let summary: SleepWidgetSummary
     let tonight: TonightState
+    let now: Date
 
     var body: some View {
         switch tonight {
@@ -894,14 +887,18 @@ private struct CircularAccessoryView: View {
                 .gaugeStyle(.accessoryCircular)
                 .widgetAccentable()
             } else if case .beforeBed(let bedtime, _) = tonight {
+                // The interval, not the clock time — same rule as every other
+                // family. At this size it's the only figure that fits anyway.
                 ZStack {
                     AccessoryWidgetBackground()
                     VStack(spacing: 0) {
                         Image(systemName: "moon.fill")
                             .font(.system(size: 12, weight: .medium))
-                        Text(bedtime, format: .dateTime.hour().minute())
+                        Text(SleepWidgetClock.compactInterval(between: now, and: bedtime))
                             .font(.system(size: 12, weight: .semibold))
+                            .monospacedDigit()
                             .minimumScaleFactor(0.6)
+                            .lineLimit(1)
                     }
                     .widgetAccentable()
                 }
@@ -920,6 +917,7 @@ private struct CircularAccessoryView: View {
 private struct RectangularAccessoryView: View {
     let summary: SleepWidgetSummary
     let tonight: TonightState
+    let now: Date
 
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
@@ -934,15 +932,21 @@ private struct RectangularAccessoryView: View {
                     .font(.system(size: 15, weight: .medium))
                     .monospacedDigit()
             case .beforeBed(let bedtime, _):
+                // Header names the thing, the line under it carries the
+                // interval. The clock time is gone (as everywhere else), and
+                // with it `Text(_, style: .relative)`, which spelled out
+                // seconds under the hour — "35 min, 32 sec" churning on the
+                // lock screen. The provider's minute entries keep the static
+                // figure live.
                 HStack(spacing: 4) {
                     Image(systemName: "moon.fill").font(.system(size: 11))
-                    Text("Bedtime \(bedtime, format: .dateTime.hour().minute())")
-                        .font(.system(size: 13, weight: .semibold))
+                    Text("Bedtime").font(.system(size: 13, weight: .semibold))
                 }
                 .widgetAccentable()
-                (Text("in ") + Text(bedtime, style: .relative))
+                Text("in \(SleepWidgetClock.compactInterval(between: now, and: bedtime))")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
+                    .monospacedDigit()
                     .lineLimit(1)
                 lastNightLine
             case .pastBedtime:
@@ -982,13 +986,15 @@ private struct RectangularAccessoryView: View {
 private struct InlineAccessoryView: View {
     let summary: SleepWidgetSummary
     let tonight: TonightState
+    let now: Date
 
     var body: some View {
         switch tonight {
         case .asleep(let since):
             (Text(Image(systemName: "moon.stars.fill")) + Text(" Asleep ") + Text(since, style: .timer))
         case .beforeBed(let bedtime, _):
-            (Text(Image(systemName: "moon.fill")) + Text(" Bed \(SleepFormatting.shortTime.string(from: bedtime))"))
+            (Text(Image(systemName: "moon.fill"))
+             + Text(" Bed in \(SleepWidgetClock.compactInterval(between: now, and: bedtime))"))
         case .pastBedtime:
             (Text(Image(systemName: "moon.zzz.fill")) + Text(" Past bedtime"))
         case .noSchedule:
