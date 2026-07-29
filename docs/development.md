@@ -223,7 +223,17 @@ target can inject fakes without new hooks.
   plus the sleep record (the `RecordBars` weekly chart — the widgets' 7-slot
   bar rhythm with a target hairline and hairline stubs for unlogged nights —
   averages, recent nights with source badges and trailing durations, an
-  "All nights" pushed page when history exceeds seven). A gear in the
+  "All nights" pushed page when history exceeds seven). Every night's row
+  carries its **window** (`SleepWindowLine`: moon + `session.start` → sun +
+  `session.end`) under the date; `AveragesBand`, directly below the chart,
+  carries the average **To bed** / **Up** clock times. Both read fields
+  `SleepSession` has always persisted — they were simply never displayed.
+  All averages come from `SleepStats.averages(of:last:)` over
+  `SleepStats.recentWindow` (7) nights, including the stat band's "Avg sleep",
+  so the two bands can't drift onto different windows. Clock averages use
+  `SleepStats.meanMinuteOfDay`, a **circular** mean — see its doc comment and
+  DESIGN.md; a plain average of bedtimes straddling midnight lands at noon.
+  A gear in the
   top-right opens `SettingsModal` via `.fullScreenCover`; the body carries no
   configuration itself. `SettingsModal` is a full-screen cover with its own
   `NavigationStack`: Sleep schedule (`ScheduleScreen`), Blocked apps

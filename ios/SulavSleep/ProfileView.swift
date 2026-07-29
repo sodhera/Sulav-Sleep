@@ -163,17 +163,24 @@ private struct ProfileRootScreen: View {
 
     // MARK: Sleep record
 
-    private var lastSeven: [SleepSession] { Array(sessions.suffix(7)) }
+    private var lastSeven: [SleepSession] { Array(sessions.suffix(SleepStats.recentWindow)) }
 
-    private var averageDuration: Int {
-        guard !sessions.isEmpty else { return 0 }
-        return sessions.reduce(0) { $0 + $1.durationMinutes } / sessions.count
-    }
+    /// Every average on this screen comes from here, so the stat band and the
+    /// averages band can't describe two different windows.
+    private var recentAverages: SleepAverages? { SleepStats.averages(of: sessions) }
 
     private var statBand: some View {
         HStack(alignment: .top, spacing: 0) {
-            StatBlock(label: "Avg sleep", value: SleepFormatting.duration(averageDuration))
-                .frame(maxWidth: .infinity, alignment: .leading)
+            // Scoped to the last 7 nights, not all time. An all-time average
+            // stops moving once the record has any length to it — a good week
+            // couldn't shift it and a bad one couldn't either, so it stopped
+            // being a thing you'd check. The recent week is the number that
+            // answers "how am I sleeping".
+            StatBlock(
+                label: "Avg sleep",
+                value: recentAverages.map { SleepFormatting.duration($0.durationMinutes) } ?? "—"
+            )
+            .frame(maxWidth: .infinity, alignment: .leading)
             StatBlock(label: "Streak", value: "\(store.onTrackStreak)")
                 .frame(maxWidth: .infinity, alignment: .leading)
             StatBlock(label: "Nights", value: "\(sessions.count)")
@@ -210,6 +217,11 @@ private struct ProfileRootScreen: View {
                 .padding(.top, SleepSpacing.xs)
             } else {
                 RecordChart(sessions: sessions, target: store.targetMinutes)
+
+                if let averages = recentAverages {
+                    AveragesBand(averages: averages)
+                        .padding(.top, SleepSpacing.xl)
+                }
 
                 historyList
                     .padding(.top, SleepSpacing.xxxl)
@@ -877,31 +889,142 @@ private struct StatBlock: View {
     }
 }
 
+/// The two clock averages, sitting directly under the chart they summarise:
+/// when the user typically falls asleep and when they typically get up.
+///
+/// Duration's average lives in the stat band at the top of the screen rather
+/// than here, so no number on Profile appears twice — but it is taken over the
+/// same `SleepStats.recentWindow`, so "avg sleep" up there and these two down
+/// here always describe one week.
+///
+/// The header counts the nights it actually averaged. A three-night record
+/// captioned "last 7 nights" would be quietly claiming four nights that don't
+/// exist, and this app's rule is honest data everywhere.
+private struct AveragesBand: View {
+    let averages: SleepAverages
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: SleepSpacing.md) {
+            Text(averages.nights == 1 ? "Last night" : "Last \(averages.nights) nights")
+                .sectionLabel()
+
+            HStack(alignment: .top, spacing: 0) {
+                stat(icon: "moon.fill", label: "To bed", minutes: averages.bedtimeMinutes)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                stat(icon: "sun.max.fill", label: "Up", minutes: averages.wakeMinutes)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .padding(.top, SleepSpacing.lg)
+        .overlay(alignment: .top) {
+            Rectangle().fill(SleepColor.hairline).frame(height: 1)
+        }
+    }
+
+    /// Smaller than `StatBlock`'s 26pt numerals on purpose: these support the
+    /// chart, they don't headline the screen, and a clock time is a wider
+    /// string than "8h 12m" — at hero size two of them crowd the row.
+    private func stat(icon: String, label: String, minutes: Int) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: SleepSpacing.xs) {
+                Image(systemName: icon)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(SleepColor.amber)
+                Text(label)
+                    .font(SleepFont.body(13))
+                    .foregroundStyle(SleepColor.dim)
+                    .shadow(color: SleepColor.background.opacity(0.85), radius: 3, y: 1)
+            }
+            Text(SleepFormatting.clock(minutes))
+                .font(SleepFont.title(21))
+                .foregroundStyle(SleepColor.ink)
+                .monospacedDigit()
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
 private struct HistoryRow: View {
     let session: SleepSession
 
     var body: some View {
         HStack(spacing: SleepSpacing.lg) {
-            HStack(spacing: SleepSpacing.xs) {
-                Text(SleepFormatting.historyDate.string(from: session.end))
-                    .font(SleepFont.label(15))
-                    .foregroundStyle(SleepColor.ink)
-                Image(systemName: session.source == .healthKit ? "heart.fill" : "moon.fill")
-                    .font(.system(size: 9))
-                    .foregroundStyle(SleepColor.faint)
-                    .accessibilityLabel(session.source == .healthKit ? "From Apple Health" : "Logged in app")
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: SleepSpacing.xs) {
+                    Text(SleepFormatting.historyDate.string(from: session.end))
+                        .font(SleepFont.label(15))
+                        .foregroundStyle(SleepColor.ink)
+                    Image(systemName: session.source == .healthKit ? "heart.fill" : "moon.fill")
+                        .font(.system(size: 9))
+                        .foregroundStyle(SleepColor.faint)
+                        .accessibilityLabel(session.source == .healthKit ? "From Apple Health" : "Logged in app")
+                }
+
+                // When the night actually ran. The session has carried these
+                // two timestamps since the first version — the row just never
+                // showed them, so the record could tell you *how much* you
+                // slept but never *when*, which is the half a schedule app is
+                // actually about.
+                SleepWindowLine(start: session.start, end: session.end)
             }
 
             Spacer()
 
-            // Duration is the record's only reading — one number per row,
-            // in a fixed trailing spot.
+            // Duration stays the record's headline reading — one number per
+            // row, in a fixed trailing spot. The window below the date is the
+            // supporting fact, not a competing metric.
             Text(SleepFormatting.duration(session.durationMinutes))
                 .font(SleepFont.title(19))
                 .foregroundStyle(SleepColor.ink)
                 .monospacedDigit()
         }
         .padding(.vertical, SleepSpacing.lg)
+    }
+}
+
+/// A night's span as one fact — moon + asleep → sun + awake — the same
+/// grammar Home's schedule capsule states tonight's window in, so "a sleep
+/// window" looks the same wherever the app draws one.
+///
+/// The glyphs stay `dim` rather than Home's amber: the capsule is a hero on an
+/// otherwise empty screen, while these repeat down a list, and seven rows of
+/// paired amber glyphs read as speckle. Quiet, they still do the one job words
+/// would otherwise need — saying which end is which.
+///
+/// `dim` over a soft navy shadow, not `muted`, for the reason `StatBlock`'s
+/// label gives: the record scrolls over a living scene that runs from night
+/// through to a bright daytime sky, and mid-grey text disappears into the
+/// day phase. The shadow is what makes one color work across all of them.
+private struct SleepWindowLine: View {
+    let start: Date
+    let end: Date
+
+    var body: some View {
+        HStack(spacing: SleepSpacing.xs) {
+            endpoint(icon: "moon.fill", date: start)
+            Image(systemName: "arrow.right")
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(SleepColor.muted)
+            endpoint(icon: "sun.max.fill", date: end)
+        }
+        .shadow(color: SleepColor.background.opacity(0.85), radius: 3, y: 1)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            "Asleep \(SleepFormatting.shortTime.string(from: start)), "
+            + "awake \(SleepFormatting.shortTime.string(from: end))"
+        )
+    }
+
+    private func endpoint(icon: String, date: Date) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 10))
+                .foregroundStyle(SleepColor.dim)
+            Text(SleepFormatting.shortTime.string(from: date))
+                .font(SleepFont.body(13))
+                .foregroundStyle(SleepColor.dim)
+                .monospacedDigit()
+        }
     }
 }
 

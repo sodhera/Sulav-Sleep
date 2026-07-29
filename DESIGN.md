@@ -385,10 +385,54 @@ Two tabs, each with exactly one job:
   > became a flat full-width laser line. The bar rhythm shows sparse
   > records truthfully and matches the widgets.
 
+  Directly under the chart sits the **averages band**: a "Last N nights"
+  kicker over two quiet stats — **To bed** and **Up**, the clock times the
+  user typically falls asleep and gets up, in the moon/sun grammar. Duration's
+  average is *not* repeated here; it lives in the stat band at the top, taken
+  over the same window, so no number appears twice on the screen. The kicker
+  counts the nights actually averaged ("Last 3 nights" on a three-night
+  record) — captioning three nights as seven would claim four that don't
+  exist. The stats are 21pt rather than the stat band's 26pt: they support the
+  chart rather than headline the screen, and a clock time is a wider string
+  than "8h 12m" — two of them at hero size crowd the row.
+
+  **All averages are scoped to the last 7 logged nights**, one shared window
+  (`SleepStats.recentWindow`) so the band at the top and the band under the
+  chart can never describe two different weeks. This is why the stat band's
+  Avg sleep is no longer all-time: an all-time mean stops moving once the
+  record has any length, so a good week can't shift it and a bad one can't
+  either — it stops being a number worth checking. Deliberately the last N
+  *nights*, not the last N calendar days: for an unbroken record the two are
+  identical, and where they differ (a sparse record) averaging the nights that
+  exist beats averaging a window that is mostly empty.
+
+  Clock averages are **circular means** — angles on a 24-hour dial, not plain
+  minute counts. This is the whole ballgame for a bedtime: 11:50 PM and
+  12:10 AM average to midnight, but `(1430 + 10) / 2` is 12:00 *noon*. A
+  sleep app whose "average bedtime" reads 8 PM because the user sometimes
+  crosses midnight is worse than useless. Durations stay a plain mean — they
+  are magnitudes, not positions on a dial.
+
   **Recent nights** is a small-caps kicker (the same section-label grammar
   as everything else) over hairline-divided rows: date + source glyph on the
-  left, the night's duration as the one trailing value in ink. No meters, no
-  grades — duration is the record.
+  left, **the night's window on a second line beneath it** (moon + asleep →
+  sun + awake, the same grammar as Home's schedule capsule and the averages
+  band), and the night's duration as the one trailing value in ink. No meters,
+  no grades — duration is still the record's headline reading, and the window
+  is a supporting fact, not a competing metric.
+
+  The window line is `dim` over a soft navy shadow rather than `muted`, for
+  the reason `StatBlock`'s label already is: the record scrolls over a living
+  scene that runs from night through to a bright daytime sky, and mid-grey
+  text vanishes into the day phase. Its glyphs stay `dim`, not Home's amber —
+  the capsule is a hero on an otherwise empty screen, while these repeat down
+  a list, and seven rows of paired amber glyphs read as speckle.
+
+  > Note on history: rows showed date + duration only for the app's first
+  > year, while `SleepSession` had carried `start` and `end` since the first
+  > version. The record could tell you *how much* you slept but never *when* —
+  > the half a schedule app is actually about. The times were always there;
+  > only the row was missing.
 
   > Note on history: nights previously carried a 0–100 **sleep score** (a
   > duration-vs-target curve) colored gold/ink/danger, with a per-row score

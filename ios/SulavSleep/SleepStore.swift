@@ -1067,3 +1067,67 @@ enum SleepMath {
         return diff
     }
 }
+
+/// What the app averages over a run of nights: how long you slept, and the two
+/// clock times that bracket it.
+struct SleepAverages: Equatable {
+    /// How many nights actually went into the numbers. Surfaced so the UI can
+    /// say "last 7 nights" honestly when the record only holds three.
+    var nights: Int
+    var durationMinutes: Int
+    /// Average minute-of-day the user fell asleep, and woke up.
+    var bedtimeMinutes: Int
+    var wakeMinutes: Int
+}
+
+enum SleepStats {
+    /// The window every "recent average" in the app is taken over. One
+    /// constant so Profile's stat band and its averages band can never drift
+    /// into describing two different weeks.
+    static let recentWindow = 7
+
+    /// Averages over the `count` most recent nights, or nil when there is
+    /// nothing to average — callers render nothing rather than a zeroed stat,
+    /// the same honest-data rule the charts follow.
+    ///
+    /// Deliberately the last N *logged nights*, not the last N calendar days.
+    /// `displaySessions` holds at most one entry per sleep day, so for an
+    /// unbroken record the two are identical; where they differ — a sparse
+    /// record — averaging the nights that exist beats averaging over a window
+    /// that is mostly empty, and "last 7 nights" is a label that stays true.
+    static func averages(of sessions: [SleepSession], last count: Int = recentWindow) -> SleepAverages? {
+        let window = Array(sessions.suffix(count))
+        guard !window.isEmpty else { return nil }
+        return SleepAverages(
+            nights: window.count,
+            durationMinutes: window.reduce(0) { $0 + $1.durationMinutes } / window.count,
+            bedtimeMinutes: meanMinuteOfDay(window.map { SleepFormatting.minutes(from: $0.start) }),
+            wakeMinutes: meanMinuteOfDay(window.map { SleepFormatting.minutes(from: $0.end) })
+        )
+    }
+
+    /// Mean of minute-of-day values treated as angles on a 24-hour dial.
+    ///
+    /// Bedtimes straddle midnight, so a plain arithmetic mean is wrong in the
+    /// exact case this app cares about most: 11:50 PM and 12:10 AM average to
+    /// **midnight**, but `(1430 + 10) / 2` is 720 — 12:00 *noon*, a bedtime
+    /// nobody has. Averaging the unit vectors instead wraps correctly.
+    static func meanMinuteOfDay(_ minutes: [Int]) -> Int {
+        guard let first = minutes.first else { return 0 }
+        let radiansPerMinute = 2 * Double.pi / 1_440
+        var x = 0.0
+        var y = 0.0
+        for minute in minutes {
+            let angle = Double(minute) * radiansPerMinute
+            x += cos(angle)
+            y += sin(angle)
+        }
+        // Perfectly opposed inputs (6 AM and 6 PM, say) cancel to the origin,
+        // where the mean angle is genuinely undefined. atan2(0, 0) would hand
+        // back midnight, which reads as a real answer; the first night is at
+        // least an honest one.
+        guard x.magnitude > 1e-9 || y.magnitude > 1e-9 else { return first }
+        let mean = atan2(y, x) / radiansPerMinute
+        return (Int(mean.rounded()) % 1_440 + 1_440) % 1_440
+    }
+}
