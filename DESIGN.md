@@ -316,8 +316,10 @@ Two tabs, each with exactly one job:
 - **Profile — everything about you.** Identity (name only, display-only — no
   pencil, no email; both are edited/shown in Settings so the body stays
   read-only), then a **stat band** straight under the name — Avg sleep,
-  Streak, Nights as three big numerals over tiny labels, the dashboard read
-  of the record — then the tappable **"Blocked while you sleep"** block
+  Streak, Nights as three big numerals over tiny labels — and hairline-
+  separated beneath it the **averages band**, To bed and Up. The two together
+  are the dashboard read of the record, above the fold, before any chart.
+  Then the tappable **"Blocked while you sleep"** block
   previewing the locked-app icons (opens the Blocked apps screen for
   changes), and the sleep record (weekly chart, recent nights, an "All
   nights" page once history grows). A gear in the top-right opens Settings;
@@ -385,16 +387,23 @@ Two tabs, each with exactly one job:
   > became a flat full-width laser line. The bar rhythm shows sparse
   > records truthfully and matches the widgets.
 
-  Directly under the chart sits the **averages band**: a "Last N nights"
-  kicker over two quiet stats — **To bed** and **Up**, the clock times the
-  user typically falls asleep and gets up, in the moon/sun grammar. Duration's
-  average is *not* repeated here; it lives in the stat band at the top, taken
+  The **averages band** completes the dashboard: a "Last N nights" kicker over
+  two quiet stats — **To bed** and **Up**, the clock times the user typically
+  falls asleep and gets up, in the moon/sun grammar. Duration's average is
+  *not* repeated here; it is the stat band's numeral directly above, taken
   over the same window, so no number appears twice on the screen. The kicker
-  counts the nights actually averaged ("Last 3 nights" on a three-night
-  record) — captioning three nights as seven would claim four that don't
-  exist. The stats are 21pt rather than the stat band's 26pt: they support the
-  chart rather than headline the screen, and a clock time is a wider string
-  than "8h 12m" — two of them at hero size crowd the row.
+  sits *between* the two bands rather than above both, because Streak and
+  Nights are all-time — only what follows the kicker is the last seven nights.
+  It counts the nights actually averaged ("Last 3 nights" on a three-night
+  record); captioning three nights as seven would claim four that don't exist.
+  The stats are 21pt against the stat band's 26pt — they complete that band
+  rather than compete with it, and a clock time is a wider string than
+  "8h 12m", so two at hero size crowd the row.
+
+  The band first sat under the chart, beside the week it summarises. It reads
+  better up here: "how am I sleeping" is then one block above the fold —
+  duration, streak, nights, and the two times that shape them — and the chart
+  is left to be a chart rather than a thing with statistics stapled beneath.
 
   **All averages are scoped to the last 7 logged nights**, one shared window
   (`SleepStats.recentWindow`) so the band at the top and the band under the

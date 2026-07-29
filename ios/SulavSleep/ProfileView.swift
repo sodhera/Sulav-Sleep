@@ -101,10 +101,20 @@ private struct ProfileRootScreen: View {
             identity
 
             // Dashboard band: the three numbers that describe your sleep at a
-            // glance, big numerals over tiny labels, straight under the name.
+            // glance, big numerals over tiny labels, straight under the name —
+            // then, hairline-separated beneath them, the two clock averages.
+            // The averages sat under the chart at first, next to the week they
+            // summarise; up here they finish the dashboard instead, so the
+            // whole "how am I sleeping" read is one block above the fold and
+            // the chart is left to be a chart.
             if !sessions.isEmpty {
                 statBand
                     .padding(.top, SleepSpacing.xxl)
+
+                if let averages = recentAverages {
+                    AveragesBand(averages: averages)
+                        .padding(.top, SleepSpacing.xl)
+                }
             }
 
             if store.shouldPromptHealthConnect {
@@ -217,11 +227,6 @@ private struct ProfileRootScreen: View {
                 .padding(.top, SleepSpacing.xs)
             } else {
                 RecordChart(sessions: sessions, target: store.targetMinutes)
-
-                if let averages = recentAverages {
-                    AveragesBand(averages: averages)
-                        .padding(.top, SleepSpacing.xl)
-                }
 
                 historyList
                     .padding(.top, SleepSpacing.xxxl)
@@ -889,13 +894,16 @@ private struct StatBlock: View {
     }
 }
 
-/// The two clock averages, sitting directly under the chart they summarise:
-/// when the user typically falls asleep and when they typically get up.
+/// The two clock averages — when the user typically falls asleep and when they
+/// typically get up — hairline-separated directly beneath the stat band, as
+/// the second half of the dashboard read.
 ///
-/// Duration's average lives in the stat band at the top of the screen rather
-/// than here, so no number on Profile appears twice — but it is taken over the
-/// same `SleepStats.recentWindow`, so "avg sleep" up there and these two down
-/// here always describe one week.
+/// Duration's average is the stat band's, not repeated here, so no number on
+/// Profile appears twice; both come from the same `SleepStats.recentWindow`,
+/// so the numerals above the hairline and the ones below it always describe
+/// one week. The kicker sits *between* the two bands rather than above both,
+/// because Streak and Nights are all-time — only what follows the kicker is
+/// the last seven nights.
 ///
 /// The header counts the nights it actually averaged. A three-night record
 /// captioned "last 7 nights" would be quietly claiming four nights that don't
