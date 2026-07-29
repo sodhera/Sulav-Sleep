@@ -546,8 +546,24 @@ exits*.
 **Request a feature** is a pushed sub-page with the standard chrome (glass
 back chevron, editorial title, supporting line). It is the app's only social
 surface, and it is kept as quiet as one can be: a composer at the top ("Your
-idea", a glass field, a character count, one primary Post button), then
-"Most wanted" — the board ranked by score. Each request is a glass card with
+idea", a glass field, a character count, one primary **"Post request"**
+button with **no glyph** — the words already say what it does, and a paper
+plane was decoration on the one control that needed none), then
+"Most wanted" — the board ranked by score. The field **stops accepting text**
+at 140 characters rather than letting you overrun and disabling the button:
+a field that quietly stops teaches the limit at the moment you meet it, where
+a dead button leaves you deleting text to work out why. The counter turns
+amber only once you're actually at the ceiling.
+
+The board shows **five requests, then a "Show N more" button** — a button
+rather than infinite scroll, because this is a thing you skim and leave, and
+a list that grows under your thumb is the opposite of what the app is for.
+Cards have a **standard height**: the request clamps to two lines with the
+space for both always reserved, so a board of one-liners and paragraphs still
+reads as an even stack. Anything longer earns a **"See more"** that expands
+it in place (and "See less" to collapse). Whether the text is truly clipped
+is measured, not guessed — a short request never grows a pointless
+"See more". Each request is a glass card with
 the vote control on the *left*, where the eye lands first, because the score
 is the point of the board. The control stacks chevron / score / chevron
 vertically so the number sits between the arrows and "up raises this" needs

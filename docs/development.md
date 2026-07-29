@@ -634,6 +634,27 @@ server committed the insert, a retry would post the same idea twice.
   not** — they await the server, since the user needs to know their words
   landed. A successful post is inserted at the top of the local list regardless
   of score, so the action visibly did something on a busy board.
+- **Limits live in `FeatureRequestLimits`** — `maxTitle` (140) mirrors
+  migration 002's `feature_requests_title_length` check; change one and you
+  must change the other or the server starts rejecting text the client
+  accepted. The composer clamps typing at `maxTitle` on the way *in* (a
+  `Binding` that `prefix`es the value), so the draft can never violate the
+  constraint and `canSubmit` needs no upper bound.
+- **Paging**: the board shows `pageSize` (5) requests, then a "Show N more"
+  button that reveals another page. Server ordering (`score desc,
+  created_at desc`) means the first page is genuinely the most wanted. A
+  button rather than infinite scroll is deliberate — the board is something
+  you skim and leave.
+- **Card expansion**: collapsed cards clamp the title to `collapsedLines` (2)
+  with `reservesSpace: true`, which is what gives every card the same standing
+  height regardless of title length. Truncation is *measured*, not guessed
+  from character count: an invisible unclamped copy of the text renders behind
+  the visible one and the two heights are compared via `ClampedTitleHeight` /
+  `NaturalTitleHeight` preference keys. That's the only reliable way to ask
+  SwiftUI whether it actually clipped, and it's why a short request never
+  grows a pointless "See more". `refreshExpandability()` bails while expanded,
+  since the heights match by definition then and recomputing would delete the
+  "See less" button mid-use.
 - Tapping the arrow you already chose retracts the vote (writes 0 → deletes the
   row), so a mis-tap is always recoverable.
 - `PostgresDate.parse` trims fractional seconds to three digits before

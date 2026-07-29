@@ -23,6 +23,26 @@ import Supabase
 // See `supabase/migrations/002_feature_requests.sql` for the table rules;
 // the important one is that `score` is server-owned and votes are private.
 
+// MARK: - Limits
+
+enum FeatureRequestLimits {
+    /// Mirrors the `feature_requests_title_length` check in migration 002 —
+    /// if you change either, change both, or the server starts rejecting text
+    /// the client happily accepted.
+    static let maxTitle = 140
+    static let minTitle = 3
+
+    /// How many requests are visible before "Show more". A board is a thing
+    /// you skim, not a feed you fall into: five is enough to see what the
+    /// popular asks are without the screen turning into an endless scroll.
+    static let pageSize = 5
+
+    /// Lines a collapsed card shows. Space for both is always reserved (see
+    /// `FeatureRequestCard`), so every collapsed card is the same height
+    /// whether its request is three words or three lines.
+    static let collapsedLines = 2
+}
+
 // MARK: - Model
 
 enum FeatureRequestStatus: String, Codable, Sendable {
@@ -375,7 +395,6 @@ final class FeatureRequestBoardModel {
     private(set) var isSubmitting = false
     var draft = ""
     var errorMessage: String?
-    private(set) var justSubmitted = false
 
     private let board: FeatureRequestBoarding
     private let userId: String?
@@ -385,8 +404,11 @@ final class FeatureRequestBoardModel {
         self.userId = userId
     }
 
+    /// No upper bound needed: the composer clamps typing at `maxTitle`, so the
+    /// draft can't exceed it.
     var canSubmit: Bool {
-        !isSubmitting && draft.trimmingCharacters(in: .whitespacesAndNewlines).count >= 3
+        !isSubmitting
+            && draft.trimmingCharacters(in: .whitespacesAndNewlines).count >= FeatureRequestLimits.minTitle
     }
 
     func load() async {
@@ -409,7 +431,7 @@ final class FeatureRequestBoardModel {
             return
         }
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard text.count >= 3 else { return }
+        guard text.count >= FeatureRequestLimits.minTitle else { return }
 
         isSubmitting = true
         defer { isSubmitting = false }
@@ -419,7 +441,6 @@ final class FeatureRequestBoardModel {
             // Your own idea lands at the top regardless of score, so the
             // submit visibly did something even on a busy board.
             requests.insert(created, at: 0)
-            justSubmitted = true
             Haptics.success()
         } catch {
             errorMessage = error.localizedDescription
@@ -453,7 +474,6 @@ final class FeatureRequestBoardModel {
         }
     }
 
-    func clearSubmittedFlag() { justSubmitted = false }
 }
 
 // MARK: - Screen
@@ -464,6 +484,7 @@ struct FeatureRequestsScreen: View {
     var store: SleepStore
 
     @State private var model: FeatureRequestBoardModel?
+    @State private var visibleCount = FeatureRequestLimits.pageSize
     @FocusState private var composerFocused: Bool
 
     var body: some View {
@@ -507,14 +528,21 @@ struct FeatureRequestsScreen: View {
     /// deliberate act rather than an inline text box you might trip over.
     @ViewBuilder
     private func composer(_ model: FeatureRequestBoardModel) -> some View {
-        @Bindable var model = model
-
         VStack(alignment: .leading, spacing: SleepSpacing.md) {
             Text("Your idea").sectionLabel()
 
             TextField(
                 "",
-                text: $model.draft,
+                // The cap is enforced on the way *in* rather than by
+                // disabling the button at 141: a field that quietly stops
+                // accepting characters teaches the limit immediately, where a
+                // dead button leaves you deleting text to work out why. It
+                // also means the draft can never violate migration 002's
+                // length check, so the server can't reject what we accepted.
+                text: Binding(
+                    get: { model.draft },
+                    set: { model.draft = String($0.prefix(FeatureRequestLimits.maxTitle)) }
+                ),
                 prompt: Text("A shortcut for naps…").foregroundStyle(SleepColor.muted),
                 axis: .vertical
             )
@@ -527,22 +555,25 @@ struct FeatureRequestsScreen: View {
             .padding(SleepSpacing.lg)
             .liquidGlass(cornerRadius: SleepRadius.lg)
 
-            HStack {
-                Text("\(model.draft.count)/140")
-                    .font(SleepFont.body(12))
-                    .foregroundStyle(model.draft.count > 140 ? SleepColor.danger : SleepColor.faint)
-                Spacer()
-            }
+            // Amber only once you've actually hit the ceiling — the count is
+            // a quiet fact until it becomes a constraint.
+            Text("\(model.draft.count)/\(FeatureRequestLimits.maxTitle)")
+                .font(SleepFont.body(12))
+                .foregroundStyle(
+                    model.draft.count >= FeatureRequestLimits.maxTitle
+                        ? SleepColor.amber : SleepColor.faint
+                )
+                .monospacedDigit()
 
-            LiquidPrimaryButton(
-                title: model.isSubmitting ? "Posting…" : "Post request",
-                systemImage: "paperplane.fill"
-            ) {
+            // No glyph: "Post request" already says what the button does, and
+            // the paper plane was decoration on the one control that needed
+            // none.
+            LiquidPrimaryButton(title: "Post request", isLoading: model.isSubmitting) {
                 composerFocused = false
                 Task { await model.submit() }
             }
-            .disabled(!model.canSubmit || model.draft.count > 140)
-            .opacity(model.canSubmit && model.draft.count <= 140 ? 1 : 0.5)
+            .disabled(!model.canSubmit)
+            .opacity(model.canSubmit ? 1 : 0.5)
         }
     }
 
@@ -582,14 +613,46 @@ struct FeatureRequestsScreen: View {
                 .padding(.top, SleepSpacing.xs)
             } else {
                 VStack(spacing: SleepSpacing.md) {
-                    ForEach(model.requests) { request in
+                    // Already ranked by the server (score desc, newest as the
+                    // tiebreak), so "most wanted" is literal — this just takes
+                    // the top slice.
+                    ForEach(model.requests.prefix(visibleCount)) { request in
                         FeatureRequestCard(request: request) { direction in
                             Task { await model.vote(direction, on: request) }
                         }
                     }
+
+                    if model.requests.count > visibleCount {
+                        showMoreButton(remaining: model.requests.count - visibleCount)
+                    }
                 }
             }
         }
+    }
+
+    /// Reveals the next page. A button rather than infinite scroll on purpose:
+    /// the board is something you skim and leave, and a list that keeps
+    /// growing under your thumb is the opposite of what this app is for.
+    private func showMoreButton(remaining: Int) -> some View {
+        Button {
+            Haptics.heavy()
+            withAnimation(.easeInOut(duration: 0.25)) {
+                visibleCount += FeatureRequestLimits.pageSize
+            }
+        } label: {
+            HStack(spacing: SleepSpacing.xs) {
+                Text("Show \(min(FeatureRequestLimits.pageSize, remaining)) more")
+                    .font(SleepFont.label(14))
+                    .foregroundStyle(SleepColor.dim)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(SleepColor.faint)
+            }
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.top, SleepSpacing.xs)
     }
 }
 
@@ -607,16 +670,35 @@ private struct FeatureRequestCard: View {
     let request: FeatureRequest
     let onVote: (Int) -> Void
 
+    @State private var isExpanded = false
+    /// Whether the collapsed title is actually being clipped. Measured rather
+    /// than guessed from character count, which would mis-fire on narrow
+    /// glyphs, wide ones, and every Dynamic Type size.
+    @State private var canExpand = false
+    @State private var clampedHeight: CGFloat = 0
+    @State private var naturalHeight: CGFloat = 0
+
+    private static let titleFont = SleepFont.body(15)
+
     var body: some View {
         HStack(alignment: .top, spacing: SleepSpacing.lg) {
             voteControl
 
             VStack(alignment: .leading, spacing: SleepSpacing.sm) {
-                Text(request.title)
-                    .font(SleepFont.body(15))
-                    .foregroundStyle(SleepColor.ink)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                title
+
+                if canExpand {
+                    Button {
+                        Haptics.heavy()
+                        withAnimation(.easeInOut(duration: 0.22)) { isExpanded.toggle() }
+                    } label: {
+                        Text(isExpanded ? "See less" : "See more")
+                            .font(SleepFont.label(12))
+                            .foregroundStyle(SleepColor.amber)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
 
                 // Who asked, then when. The name is the brighter of the two
                 // because it's the fact worth reading; the age is a faint
@@ -647,6 +729,64 @@ private struct FeatureRequestCard: View {
         }
         .padding(SleepSpacing.lg)
         .liquidGlass(cornerRadius: SleepRadius.lg)
+    }
+
+    /// The request text. Collapsed, it shows `collapsedLines` and **reserves
+    /// space for all of them** — that's what gives every card the same
+    /// standing height, so a board of one-liners and paragraphs still reads
+    /// as an even stack rather than a ragged one.
+    ///
+    /// Truncation is detected by rendering an invisible, unclamped copy
+    /// behind the visible text and comparing heights. It's the only reliable
+    /// way to ask SwiftUI "did you actually clip this?", and it's why a short
+    /// request never grows a pointless "See more".
+    private var title: some View {
+        Group {
+            if isExpanded {
+                Text(request.title)
+                    .font(Self.titleFont)
+            } else {
+                Text(request.title)
+                    .font(Self.titleFont)
+                    .lineLimit(FeatureRequestLimits.collapsedLines, reservesSpace: true)
+            }
+        }
+        .foregroundStyle(SleepColor.ink)
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            GeometryReader { proxy in
+                Color.clear.preference(key: ClampedTitleHeight.self, value: proxy.size.height)
+            }
+        }
+        .background(alignment: .topLeading) {
+            Text(request.title)
+                .font(Self.titleFont)
+                .fixedSize(horizontal: false, vertical: true)
+                .background {
+                    GeometryReader { proxy in
+                        Color.clear.preference(key: NaturalTitleHeight.self, value: proxy.size.height)
+                    }
+                }
+                .hidden()
+                .accessibilityHidden(true)
+        }
+        .onPreferenceChange(ClampedTitleHeight.self) { height in
+            clampedHeight = height
+            refreshExpandability()
+        }
+        .onPreferenceChange(NaturalTitleHeight.self) { height in
+            naturalHeight = height
+            refreshExpandability()
+        }
+    }
+
+    /// Only meaningful while collapsed — expanded, the two heights match by
+    /// definition, and recomputing then would delete the "See less" button
+    /// the user just used.
+    private func refreshExpandability() {
+        guard !isExpanded, clampedHeight > 0, naturalHeight > 0 else { return }
+        canExpand = naturalHeight > clampedHeight + 1
     }
 
     private var voteControl: some View {
@@ -687,6 +827,23 @@ private struct FeatureRequestCard: View {
         }
         .buttonStyle(.plain)
         .accessibilityHidden(true)
+    }
+}
+
+/// Height of the title as drawn (clamped when collapsed) and as it would be
+/// with no line limit. Two separate keys because one shared key would reduce
+/// the pair to a single max and the comparison would always be equal.
+private struct ClampedTitleHeight: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
+private struct NaturalTitleHeight: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
     }
 }
 
