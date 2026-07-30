@@ -28,14 +28,21 @@ final class SulavSleepMonitor: DeviceActivityMonitor {
         } else if activity == sleepSnoozeActivityName {
             // A "5 more minutes" grant just ran out — put the shield back.
             reapplyAfterSnooze()
+        } else if activity == sleepCapActivityName {
+            // "Unlock anyway after Nh" — the session has run long enough that
+            // the shield stops being a help. Lift it, whether or not the app was
+            // ever reopened to tap wake.
+            clearShield()
         }
     }
 
     override func intervalDidEnd(for activity: DeviceActivityName) {
         super.intervalDidEnd(for: activity)
-        // Only the bedtime→wake window ends the lockdown. The snooze activity's
-        // end is deliberately a no-op: it exists only for its *start*, and
-        // treating it as "wake time" would unshield the rest of the night.
+        // Only the bedtime→wake window ends the lockdown. The snooze and cap
+        // activities' ends are deliberately no-ops: they exist only for their
+        // *start*, and treating either as "wake time" would be wrong — for the
+        // snooze it would unshield the rest of the night, and the cap has
+        // already done its clearing at the start.
         guard activity == sleepActivityName else { return }
         clearShield()
     }
@@ -43,6 +50,9 @@ final class SulavSleepMonitor: DeviceActivityMonitor {
     override func eventDidReachThreshold(_ event: DeviceActivityEvent.Name, activity: DeviceActivityName) {
         super.eventDidReachThreshold(event, activity: activity)
         if event == sleepEventName {
+            // Legacy max-hours threshold, no longer registered. Installs that
+            // armed it before the cap became wall-clock still carry it, and
+            // clearing is the same thing the cap would do — so honour it.
             clearShield()
         } else if sleepSnoozeEventNames.contains(event) {
             // A snooze's worth of usage has been spent in the blocked apps —
@@ -96,5 +106,9 @@ final class SulavSleepMonitor: DeviceActivityMonitor {
         store.shield.applicationCategories = nil
         SleepLockdownSelection.clearPhase()
         SleepLockdownSelection.resetSnoozes()
+        // The night is over however we got here, so neither timed activity has
+        // anything left to do. Retiring the cap matters most: left armed, it
+        // would fire partway through a later night and drop that shield.
+        DeviceActivityCenter().stopMonitoring([sleepSnoozeActivityName, sleepCapActivityName])
     }
 }

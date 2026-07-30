@@ -22,14 +22,18 @@ protocol ScreenTimeControlling {
     var isSupported: Bool { get }
     func authorizationState() -> ScreenTimeState
     func requestAuthorization() async -> Bool
-    func startLockdown()
+    /// Shields the chosen apps for a session the user just started, and arms the
+    /// "Unlock anyway after `maxHours`" valve so the shield can't outlive the
+    /// night if `wakeUp()` is never called.
+    func startLockdown(maxHours: Int)
     func endLockdown()
     /// Schedules a DeviceActivityMonitor interval around the bedtime→wake
     /// window. At interval start (bedtime), the monitor extension applies the
-    /// shield in the pre-sleep phase. At interval end (wake time) or when the
-    /// max-hours cap is reached, the monitor clears both the shield and the
-    /// phase — even if the app isn't foregrounded.
-    func scheduleLockdown(bedtimeMinutes: Int, wakeMinutes: Int, maxHours: Int)
+    /// shield in the pre-sleep phase. At interval end (wake time) the monitor
+    /// clears both the shield and the phase — even if the app isn't
+    /// foregrounded. The max-hours cap is *not* part of this window; it is
+    /// anchored to the session, so `startLockdown(maxHours:)` arms it.
+    func scheduleLockdown(bedtimeMinutes: Int, wakeMinutes: Int)
     func cancelScheduledLockdown()
     /// Puts the shield back if a "5 more minutes" snooze has run out. The
     /// timed re-arm lives in a DeviceActivity callback that a sandboxed
@@ -89,7 +93,7 @@ final class ScreenTimeService: ScreenTimeControlling {
         }
     }
 
-    func startLockdown() {
+    func startLockdown(maxHours: Int) {
         guard isSupported else { return }
         let selection = SleepScreenTime.decodeSelection(selectionData())
         store.shield.applications = selection.applicationTokens.isEmpty ? nil : selection.applicationTokens
@@ -99,6 +103,7 @@ final class ScreenTimeService: ScreenTimeControlling {
         SleepLockdownSelection.setPhase(.active)
         SleepLockdownSelection.clearSnoozeWindow()
         cancelSnoozeEndNotification()
+        scheduleCap(hours: maxHours)
         AppLog.app.info("Sleep lockdown applied as active (\(selection.applicationTokens.count) apps)")
     }
 
@@ -108,7 +113,36 @@ final class ScreenTimeService: ScreenTimeControlling {
         store.shield.applicationCategories = nil
         SleepLockdownSelection.clearPhase()
         cancelSnoozeEndNotification()
+        // Waking (or cancelling) retires the valve. Left running, a stale cap
+        // would fire mid-way through some later night and drop that shield.
+        deviceActivityCenter.stopMonitoring([sleepCapActivityName])
         AppLog.app.info("Sleep lockdown cleared")
+    }
+
+    /// Arms the "Unlock anyway after Nh" valve, `hours` from now.
+    ///
+    /// Only the interval's *start* matters — the monitor clears the shield there
+    /// and treats this activity's end as a no-op. DeviceActivity refuses
+    /// intervals under 15 minutes, hence the 20-minute tail. Full date
+    /// components (`year…second`): a `repeats: false` schedule has no recurrence
+    /// to pin a bare time-of-day to, and one built that way never fires.
+    private func scheduleCap(hours: Int) {
+        let fire = Date().addingTimeInterval(Double(hours) * 3600)
+        let calendar = Calendar.current
+        let fields: Set<Calendar.Component> = [.year, .month, .day, .hour, .minute, .second]
+        let schedule = DeviceActivitySchedule(
+            intervalStart: calendar.dateComponents(fields, from: fire),
+            intervalEnd: calendar.dateComponents(fields, from: fire.addingTimeInterval(20 * 60)),
+            repeats: false
+        )
+        do {
+            try deviceActivityCenter.startMonitoring(sleepCapActivityName, during: schedule)
+            AppLog.app.info("Unlock-anyway cap armed for \(hours)h")
+        } catch {
+            // Non-fatal: the scheduled window's own interval end still clears
+            // the shield at wake time, so the valve is late, not absent.
+            AppLog.app.error("Failed to arm unlock-anyway cap: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     func reapplyShieldIfSnoozeExpired() {
@@ -136,7 +170,7 @@ final class ScreenTimeService: ScreenTimeControlling {
             .removePendingNotificationRequests(withIdentifiers: ["sulav.sleep.snooze-over"])
     }
 
-    func scheduleLockdown(bedtimeMinutes: Int, wakeMinutes: Int, maxHours: Int) {
+    func scheduleLockdown(bedtimeMinutes: Int, wakeMinutes: Int) {
         guard isSupported else { return }
         // Mirrored into the App Group so the shield extension can say how far
         // past bedtime the user is without reaching into the app's profile.
@@ -147,15 +181,15 @@ final class ScreenTimeService: ScreenTimeControlling {
             intervalEnd: dateComponents(fromMinutes: wakeMinutes),
             repeats: true
         )
-        let event = DeviceActivityEvent(
-            applications: selection.applicationTokens,
-            categories: selection.categoryTokens,
-            threshold: DateComponents(hour: maxHours)
-        )
-        // The snooze re-arms. Registered here, at schedule time, because the
-        // shield-action extension that grants a snooze cannot reliably register
-        // anything before iOS tears it down — see `sleepSnoozeEventNames`.
-        var events: [DeviceActivityEvent.Name: DeviceActivityEvent] = [sleepEventName: event]
+        // Only the snooze re-arms. The max-hours cap used to live here as a
+        // `threshold: DateComponents(hour: maxHours)` event, which could never
+        // fire — shielded apps accrue no screen time to meter. It is now a
+        // wall-clock activity armed at Sleep Now; see `sleepCapActivityName`.
+        //
+        // These are registered here, at schedule time, because the shield-action
+        // extension that grants a snooze cannot reliably register anything
+        // before iOS tears it down — see `sleepSnoozeEventNames`.
+        var events: [DeviceActivityEvent.Name: DeviceActivityEvent] = [:]
         for (index, name) in sleepSnoozeEventNames.enumerated() {
             events[name] = DeviceActivityEvent(
                 applications: selection.applicationTokens,
@@ -169,7 +203,7 @@ final class ScreenTimeService: ScreenTimeControlling {
                 during: schedule,
                 events: events
             )
-            AppLog.app.info("Scheduled sleep lockdown \(bedtimeMinutes)->\(wakeMinutes), cap \(maxHours)h")
+            AppLog.app.info("Scheduled sleep lockdown \(bedtimeMinutes)->\(wakeMinutes)")
         } catch {
             AppLog.app.error("Failed to schedule sleep lockdown: \(error.localizedDescription, privacy: .public)")
         }

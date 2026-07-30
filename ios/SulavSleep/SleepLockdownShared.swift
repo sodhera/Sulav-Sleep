@@ -6,7 +6,27 @@ import FamilyControls
 // extension. Kept free of SwiftUI/ManagedSettings-UI so both targets compile.
 
 let sleepActivityName = DeviceActivityName("sulav.sleep.schedule")
+
+/// Legacy usage-threshold event for the max-hours cap. No longer registered —
+/// see `sleepCapActivityName` for the wall-clock replacement — but the monitor
+/// still answers it, because installs that registered it before the fix keep it
+/// until something naturally reschedules `sleepActivityName`.
 let sleepEventName = DeviceActivityEvent.Name("sulav.sleep.maxDuration")
+
+/// The "Unlock anyway after Nh" safety valve: a one-shot activity whose
+/// *start*, N hours after the user taps Sleep Now, clears the shield.
+///
+/// Wall clock, not a usage threshold. The cap exists for the morning where the
+/// app is never reopened to call `wakeUp()`, and it has to hold for a session
+/// started outside the bedtime→wake window (an afternoon nap), where no
+/// `intervalDidEnd` is coming for hours. A `DeviceActivityEvent` cannot express
+/// that: it meters *screen time in the blocked apps*, and shielded apps accrue
+/// none, so the old threshold-based cap could sit at zero all night and never
+/// fire.
+///
+/// Registered by the app from `startLockdown`, which runs with the app in the
+/// foreground — the one moment we can rely on scheduling actually sticking.
+let sleepCapActivityName = DeviceActivityName("sulav.sleep.cap")
 
 /// A second, short-lived activity used purely to re-arm the shield after a
 /// "5 more minutes" snooze. Separate from `sleepActivityName` so its interval

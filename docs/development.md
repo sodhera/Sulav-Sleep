@@ -1193,12 +1193,41 @@ nights on first launch after upgrading.
   touches `snoozeCount` — resetting the spent count there would hand out an
   unlimited supply.
 
-  **Known gap, not yet fixed:** the `lockdownMaxHours` safety valve
-  (`sleepEventName`) is also a usage threshold — `DateComponents(hour:
-  maxHours)` — so by the same "shielded apps accrue no usage" logic it will
-  almost never fire. "Unlock anyway after 6h" today rests on `intervalDidEnd`
-  at wake time, not on the cap. Fixing it means a wall-clock mechanism
-  (a second scheduled activity, or shortening the interval), not an event.
+- **"Unlock anyway after Nh"** (`Profile.lockdownMaxHours`, default 6) — the
+  safety valve for the morning where the app is never reopened to tap wake. It
+  is `sleepCapActivityName`: a one-shot DeviceActivity whose *interval start*,
+  N hours after the user taps Sleep Now, runs the monitor's `clearShield()`. Its
+  interval end is a no-op (the `intervalDidEnd` guard admits only
+  `sleepActivityName`); the 20-minute tail is just DeviceActivity's 15-minute
+  interval floor, and the components carry the full date for the same
+  `repeats: false` reason as the snooze re-arm.
+
+  Anchored to the **session**, not to bedtime, and armed by
+  `startLockdown(maxHours:)` — from the app, in the foreground, the one moment
+  scheduling reliably sticks. Session-anchored because the shield can be applied
+  outside the bedtime→wake window (an afternoon nap), and there no
+  `intervalDidEnd` is coming for hours; that is exactly the runaway the cap
+  exists to stop. Retired by `endLockdown()` and by the monitor's
+  `clearShield()`, so a stale cap can't fire partway through a later night.
+
+  It was previously a `DeviceActivityEvent` on `sleepActivityName` with
+  `threshold: DateComponents(hour: maxHours)` — and it could never fire, for the
+  same reason the snooze threshold *does*: shielded apps accrue no screen time,
+  so the meter sat near zero all night. `sleepEventName` is no longer registered;
+  the monitor still answers it so installs that armed it before the fix behave
+  sanely until something naturally reschedules the window.
+
+  Consequence worth knowing: the cap now genuinely bites. With the default 6h
+  and a longer bedtime→wake window, the shield lifts 6h after Sleep Now rather
+  than at wake time. That is what the stepper has always promised ("lifts it
+  early if the cap is reached"), but it is new *behaviour* — before the fix the
+  shield always ran to wake time.
+
+  `setLockdownMaxHours` deliberately does **not** reschedule the bedtime window
+  any more: the window no longer depends on the cap, and re-registering
+  `sleepActivityName` mid-night would re-fire `intervalDidStart` →
+  `applyShield()` → `resetSnoozes()`, quietly handing out a fresh snooze
+  allowance. A changed cap applies to the next session.
 - The Shield Action API cannot open the host app, so the pre-sleep "Sleep Now"
   button posts a local notification with the deep link — tapping the
   notification opens the app on the sleep confirmation panel

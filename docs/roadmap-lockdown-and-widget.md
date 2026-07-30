@@ -28,14 +28,18 @@ capability.
 
 - **Scheduled/background enforcement** — `SulavSleepMonitor` (DeviceActivityMonitor
   extension) is a clear-only safety net: it never applies the shield (only
-  `startSleep()` -> `ScreenTimeService.startLockdown()` does, when the user taps
-  Sleep Now), but it clears it at the scheduled wake time and lifts it early if
-  the user-set max-hours cap (`Profile.lockdownMaxHours`, default 6) is reached,
-  both independent of the app being open — a safety net for mornings where the
-  app never gets reopened to call `wakeUp()`. Reads the App-Group-stored app
-  selection via `SleepLockdownShared.swift`. Scheduled via
-  `ScreenTimeService.scheduleLockdown` whenever lockdown is enabled or the
-  schedule/selection changes.
+  `startSleep()` -> `ScreenTimeService.startLockdown(maxHours:)` does, when the
+  user taps Sleep Now), but it clears it at the scheduled wake time and lifts it
+  early if the user-set max-hours cap (`Profile.lockdownMaxHours`, default 6) is
+  reached, both independent of the app being open — a safety net for mornings
+  where the app never gets reopened to call `wakeUp()`. Reads the
+  App-Group-stored app selection via `SleepLockdownShared.swift`. The
+  bedtime→wake window is scheduled via `ScreenTimeService.scheduleLockdown`
+  whenever lockdown is enabled or the schedule/selection changes; the cap is a
+  separate one-shot activity (`sleepCapActivityName`) armed per session, since it
+  counts wall-clock hours from Sleep Now and must also hold for a nap started
+  outside the window. See `docs/development.md` for why it is not a usage-
+  threshold event.
 - **Live Activity** — `SleepActivityAttributes` + `SleepLiveActivity` (app side,
   starts/ends the activity) and `SulavSleepLiveActivity` (widget-side Lock
   Screen + Dynamic Island view) show the live elapsed-sleep timer without
