@@ -329,8 +329,8 @@ Two tabs, each with exactly one job:
   numeral and two quiet lines. "Avg sleep · last 7 nights" as a tiny label
   (the scope lives in the label, and counts the nights actually averaged),
   the average duration as the band's single big numeral, and beneath it the
-  average bed/wake times as a moon → sun window line
-  ("🌙 11:28 PM → ☀️ 7:43 AM"). That band is the
+  average bed/wake times as an arrowed window line
+  ("11:28 PM → 7:43 AM"). That band is the
   whole dashboard read of the record, above the fold, before any chart.
 
   The band was previously three labeled numerals (Avg sleep / To bed / Up)
@@ -338,10 +338,10 @@ Two tabs, each with exactly one job:
   is a table, and even after earlier declutter passes it kept the top of the
   screen reading as overwhelming. One night's read has one headline: how
   long you slept. The clocks are the supporting fact, and the app already
-  has a one-line grammar for a sleep window — the moon → sun line the
-  history rows and Home's schedule capsule draw — so the band borrows it and
-  retires the "To bed"/"Up" labels entirely; the glyphs say which end is
-  which. The streak doesn't appear on Profile at all: it already headlines
+  has a one-line grammar for a sleep window — the arrowed line the history
+  rows draw — so the band borrows it and retires the "To bed"/"Up" labels
+  entirely; the arrow says which end is which. The streak doesn't appear on
+  Profile at all: it already headlines
   Home and every widget, and repeating it on the very next tab said the same
   thing twice.
 
@@ -454,8 +454,8 @@ Two tabs, each with exactly one job:
   markedly wider string than a duration and three of them have to share the
   row. Labels carry no moon/sun glyphs: "To bed" and "Up" are unambiguous
   words, so the glyphs were decoration in the one block that most needed calm.
-  They stay where they do real work — the history rows, where two times share
-  a line and the glyphs say which end is which.
+  (They have since been dropped from the history rows too — see the Recent
+  nights note below. The arrow does the work.)
 
   The band first sat under the chart, beside the week it summarises, then
   moved above it. Up here "how am I sleeping" is one block above the fold, and
@@ -482,18 +482,31 @@ Two tabs, each with exactly one job:
 
   **Recent nights** is a small-caps kicker (the same section-label grammar
   as everything else) over hairline-divided rows: date + source glyph on the
-  left, **the night's window on a second line beneath it** (moon + asleep →
-  sun + awake, the same grammar as Home's schedule capsule), and the night's
-  duration as the one trailing value in ink. No meters,
-  no grades — duration is still the record's headline reading, and the window
-  is a supporting fact, not a competing metric.
+  left, **the night's window on a second line beneath it** ("11:31 PM →
+  8:26 AM"), and the night's duration as the one trailing value in ink. No
+  meters, no grades — duration is still the record's headline reading, and the
+  window is a supporting fact, not a competing metric.
+
+  **The window line carries no moon or sun.** It used to lead each clock with a
+  glyph, on the reasoning that the glyphs were what said which end is which.
+  The arrow already says it — a span reads left→right, and the earlier of two
+  times either side of a "→" is obviously the bedtime — so the pair was two
+  icons per line, four per row, restating the punctuation. Down a seven-row
+  list that is the screen's densest chrome, in the line that has a duration to
+  share its width with. The glyphs are gone from both places the line is drawn
+  (history rows and the summary band's average window); Home's schedule capsule
+  keeps its amber pair, where it is a single hero on an otherwise empty screen
+  rather than a repeating list item.
+
+  The row's trailing **source glyph** stays: it is `heart.fill` for a night
+  imported from Apple Health and `moon.fill` for one logged in the app, so it
+  reports where the data came from. That is information, not decoration — the
+  distinction the moon/sun pair was failing to earn.
 
   The window line is `dim` over a soft navy shadow rather than `muted`, for
   the reason `StatBlock`'s label already is: the record scrolls over a living
   scene that runs from night through to a bright daytime sky, and mid-grey
-  text vanishes into the day phase. Its glyphs stay `dim`, not Home's amber —
-  the capsule is a hero on an otherwise empty screen, while these repeat down
-  a list, and seven rows of paired amber glyphs read as speckle.
+  text vanishes into the day phase.
 
   > Note on history: rows showed date + duration only for the app's first
   > year, while `SleepSession` had carried `start` and `end` since the first
@@ -1108,6 +1121,15 @@ The surfaces split one job:
   swelling and dimming like the app's), then starts over; iOS cross-fades
   each flip. Every glance can catch a different frame, so the widget reads
   as breathing without ever animating.
+  Large's elapsed timer is explicitly **centre-aligned**
+  (`multilineTextAlignment`), not merely placed in a centred stack. A
+  `Text(_, style: .timer)` reserves the width of the widest value it will ever
+  show and lays its digits out leading inside that reservation, so on the one
+  family whose whole face is centred on the sloth the time visibly hung to the
+  left of the kicker above it and the since/wake line below. A centred frame
+  can't fix that — the reservation *is* the Text's width. Small and medium set
+  the instrument beside the figure and stay leading, where the reservation
+  never shows.
 - **Lock-screen accessories** (circular / rectangular / inline) render in the
   system's vibrant material at tiny sizes, so they use default foregrounds
   and SF symbols — no app palette, no sloth (at 20pt the figure would blur
@@ -1135,6 +1157,31 @@ Rules:
   `widgetAccentable` for tinted mode; the sloth renders desaturated on iOS
   18+ (`widgetAccentedRenderingMode(.desaturated)`) so it reads as a quiet
   figure instead of fighting the user's tint.
+- **Tinted and Clear home screens are a second colour system, not a filter.**
+  In `.accented` rendering iOS discards our colours entirely and paints two
+  flat groups: whatever is marked `widgetAccentable()` in the tint's bright
+  colour, everything else dimmed. Two consequences the app got wrong and now
+  handles by branching on `\.widgetRenderingMode`:
+  - **Never mark a filled shape and its own label accentable together.** They
+    collapse to one flat colour and the label disappears. The Sleep Now capsule
+    did exactly this — `widgetAccentable()` sat on the whole `Link`, so on a
+    tinted home screen the button rendered as a blank pill. Now only the label
+    joins the accent group, and the fill becomes a low-alpha wash plus a
+    hairline border: **alpha survives accenting**, so the shape still reads as
+    pressable while the bright label sits legibly on it. Full colour keeps the
+    amber→gold gradient with deep-navy ink.
+  - **A label that straddles an accentable fill loses its inside half.** The
+    bar hour figures split navy-inside / gold-above at the bar's edge
+    (`BarHoursLabel`), which needs the bar to be amber; flattened to one tint
+    the inside half stops reading at 9pt. In accented mode the whole figure
+    lifts clear of the bar instead — one colour, on the background, left out of
+    the accent group so it renders in the dimmer plane while the bar keeps the
+    tint.
+
+  The general rule: **in accented mode, contrast can only come from group
+  membership and alpha.** Any legibility that depends on one of our hues
+  against another of our hues is gone, so design the accented branch as
+  bright-on-dim, never dark-on-light.
 - Duration is the only metric on every surface — the retired 0–100 score
   (see the Profile section's history note) never appears on a widget.
 - Countdowns read **"35m" / "1h 44m" / "8h"**, rendered statically from the

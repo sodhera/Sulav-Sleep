@@ -945,7 +945,7 @@ private struct StatBlock: View {
 
 /// The whole dashboard read of the record: **one hero numeral, two quiet
 /// lines**. Avg sleep is the number, its label carries the scope, and the
-/// average bed/wake times sit underneath as a moon → sun window line.
+/// average bed/wake times sit underneath as a clock → clock window line.
 ///
 /// This was a row of three labeled numerals (Avg sleep / To bed / Up) over a
 /// scope-and-streak caption — eight pieces of text in three rows spanning the
@@ -953,9 +953,9 @@ private struct StatBlock: View {
 /// overwhelming even after earlier declutter passes. The record's read has one
 /// headline: how long you slept. When you went down and got up is the
 /// supporting fact, and the app already has a one-line grammar for exactly
-/// that — the moon → sun window (`SleepWindowLine`) the history rows and
-/// Home's schedule capsule draw — so the clocks state themselves without
-/// spending two labels ("To bed", "Up") to say what a moon and a sun say.
+/// that — the arrowed window line (`SleepWindowLine`) the history rows draw —
+/// so the clocks state themselves without spending two labels ("To bed", "Up")
+/// to say what the arrow between them already says.
 ///
 /// No streak here at all: it already headlines Home (and every widget), and
 /// repeating it on the very next tab said the same thing twice. The label
@@ -1016,17 +1016,18 @@ private struct HistoryRow: View {
     }
 }
 
-/// A night's span as one fact — moon + asleep → sun + awake — the same
-/// grammar Home's schedule capsule states tonight's window in, so "a sleep
-/// window" looks the same wherever the app draws one. The history rows use it
-/// per night; the summary band uses it for the average window, which is what
-/// lets the band retire the "To bed" / "Up" labels — the glyphs say which end
-/// is which.
+/// A night's span as one fact — asleep → awake. The history rows use it per
+/// night; the summary band uses it for the average window, which is what lets
+/// the band retire the "To bed" / "Up" labels.
 ///
-/// The glyphs stay `dim` rather than Home's amber: the capsule is a hero on an
-/// otherwise empty screen, while these repeat down a list, and seven rows of
-/// paired amber glyphs read as speckle. Quiet, they still do the one job words
-/// would otherwise need — saying which end is which.
+/// **Two times and an arrow, no glyphs.** This carried a moon before the first
+/// clock and a sun before the second, on the reasoning that the glyphs were
+/// what said which end is which. The arrow already says it: a span reads
+/// left→right, and the earlier of two clock times either side of a "→" is
+/// obviously the one you went to bed at. Seven rows of paired glyphs down a
+/// list were four icons of chrome per row saying what the punctuation says for
+/// free — and the widest thing in a line that has a duration to share space
+/// with.
 ///
 /// `dim` over a soft navy shadow, not `muted`, for the reason `StatBlock`'s
 /// label gives: the record scrolls over a living scene that runs from night
@@ -1052,27 +1053,22 @@ private struct SleepWindowLine: View {
 
     var body: some View {
         HStack(spacing: SleepSpacing.xs) {
-            endpoint(icon: "moon.fill", text: startText)
+            clock(startText)
             Image(systemName: "arrow.right")
                 .font(.system(size: 9, weight: .semibold))
                 .foregroundStyle(SleepColor.muted)
-            endpoint(icon: "sun.max.fill", text: endText)
+            clock(endText)
         }
         .shadow(color: SleepColor.background.opacity(0.85), radius: 3, y: 1)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Asleep \(startText), awake \(endText)")
     }
 
-    private func endpoint(icon: String, text: String) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.system(size: 10))
-                .foregroundStyle(SleepColor.dim)
-            Text(text)
-                .font(SleepFont.body(13))
-                .foregroundStyle(SleepColor.dim)
-                .monospacedDigit()
-        }
+    private func clock(_ text: String) -> some View {
+        Text(text)
+            .font(SleepFont.body(13))
+            .foregroundStyle(SleepColor.dim)
+            .monospacedDigit()
     }
 }
 

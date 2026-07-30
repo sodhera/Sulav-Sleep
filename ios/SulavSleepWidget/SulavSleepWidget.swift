@@ -397,7 +397,7 @@ private struct AsleepFaceView: View {
                 Spacer(minLength: 0)
                 sloth(height: 132)
                 kicker
-                timer(size: 44)
+                timer(size: 44, alignment: .center)
                 HStack(spacing: SleepSpacing.md) {
                     sinceLine(size: 13)
                     wakeLine(size: 13)
@@ -433,7 +433,18 @@ private struct AsleepFaceView: View {
         }
     }
 
-    private func timer(size: CGFloat) -> some View {
+    /// `alignment` exists because a `.timer` Text does **not** size to the
+    /// glyphs it is currently showing: WidgetKit reserves a width wide enough
+    /// for the widest value the timer will ever reach, and lays the digits out
+    /// leading inside that reservation. So on large — where the whole face is
+    /// centred on the sloth — the elapsed time visibly hung to the left of
+    /// everything above and below it. Wrapping the Text in a centred frame
+    /// can't fix that (the reservation *is* the Text's width);
+    /// `multilineTextAlignment` is what positions the line inside it.
+    ///
+    /// Small and medium set the instrument beside the figure and stay leading,
+    /// where the reservation is invisible.
+    private func timer(size: CGFloat, alignment: TextAlignment = .leading) -> some View {
         Text(since, style: .timer)
             .font(SleepFont.hero(size))
             .foregroundStyle(SleepColor.ember)
@@ -441,6 +452,7 @@ private struct AsleepFaceView: View {
             .widgetAccentable()
             .minimumScaleFactor(0.6)
             .lineLimit(1)
+            .multilineTextAlignment(alignment)
     }
 
     private func sinceLine(size: CGFloat) -> some View {
@@ -1035,8 +1047,20 @@ private struct InlineAccessoryView: View {
 /// rides `sleepblock://signin`, which just opens the app on the welcome
 /// screen. Only this capsule carries a URL — tapping anywhere else on the
 /// widget simply opens the app.
+///
+/// **Tinted / clear home screens invert the construction.** In `.accented`
+/// rendering iOS throws our colors away and paints two flat groups: whatever is
+/// marked `widgetAccentable()` in the tint's bright color, everything else
+/// dimmed. Marking the *whole* capsule accentable — fill and label together —
+/// therefore painted the label the same flat color as the capsule under it, and
+/// "Sleep Now" vanished into a blank pill. So only the label joins the accent
+/// group, and the fill becomes a low-alpha wash plus a hairline: alpha survives
+/// accenting, so the pill still reads as a pressable shape while the bright
+/// label sits legibly on top. Full color keeps the app's amber→gold gradient
+/// with deep-navy ink.
 private struct WidgetActionCapsule: View {
     let signedIn: Bool
+    @Environment(\.widgetRenderingMode) private var renderingMode
 
     var body: some View {
         Link(destination: URL(string: signedIn ? "sleepblock://sleep" : "sleepblock://signin")!) {
@@ -1052,19 +1076,30 @@ private struct WidgetActionCapsule: View {
                     // width and "Sleep Now" wraps to "Sleep / Now".
                     .fixedSize(horizontal: true, vertical: false)
             }
-            .foregroundStyle(SleepColor.navy)
+            // Navy reads as ink on the amber gradient; in accented mode the
+            // system replaces it with the bright tint.
+            .foregroundStyle(renderingMode == .fullColor ? SleepColor.navy : SleepColor.ink)
+            .widgetAccentable()
             .padding(.horizontal, 12)
             .padding(.vertical, 7)
-            .background(
-                Capsule().fill(
-                    LinearGradient(
-                        colors: [SleepColor.amber, SleepColor.gold],
-                        startPoint: .leading, endPoint: .trailing
-                    )
+            .background(background)
+        }
+    }
+
+    @ViewBuilder
+    private var background: some View {
+        if renderingMode == .fullColor {
+            Capsule().fill(
+                LinearGradient(
+                    colors: [SleepColor.amber, SleepColor.gold],
+                    startPoint: .leading, endPoint: .trailing
                 )
             )
+        } else {
+            Capsule()
+                .fill(SleepColor.ink.opacity(0.22))
+                .overlay(Capsule().strokeBorder(SleepColor.ink.opacity(0.45), lineWidth: 1))
         }
-        .widgetAccentable()
     }
 }
 
@@ -1074,11 +1109,18 @@ private struct WidgetActionCapsule: View {
 /// hours on one shared plane via `BarHoursLabel` (navy inside the bar, gold
 /// above it, split at the bar's edge), so short nights keep their number.
 ///
+/// **Tinted / clear rendering can't use that split.** The bar is accentable, so
+/// `.accented` mode flattens it to one solid tint — and the half of the label
+/// that lives *inside* the bar loses the contrast the navy/gold split was
+/// providing, leaving the figure half-legible at 9pt. There, the whole label
+/// lifts clear of the bar instead: one color, on the background, above the fill.
+///
 /// The chart always lays out exactly 7 fixed-width columns. Nights the user
 /// hasn't logged yet render as the quiet hairline stubs from the empty state,
 /// so one logged night is one narrow bar in its slot — not a lone capsule
 /// stretched across the full chart width.
 private struct SleepBars: View {
+    @Environment(\.widgetRenderingMode) private var renderingMode
     let nights: [WidgetNight]
     let target: Int
     let height: CGFloat
@@ -1156,12 +1198,23 @@ private struct SleepBars: View {
                                 .frame(maxWidth: .infinity)
                                 .widgetAccentable()
                             if showValues {
-                                BarHoursLabel(
-                                    text: hoursLabel(night.durationMinutes),
-                                    fontSize: 9,
-                                    plane: 5,
-                                    barHeight: barHeight
-                                )
+                                if renderingMode == .fullColor {
+                                    BarHoursLabel(
+                                        text: hoursLabel(night.durationMinutes),
+                                        fontSize: 9,
+                                        plane: 5,
+                                        barHeight: barHeight
+                                    )
+                                } else {
+                                    // Above the bar, not split across its edge —
+                                    // see the type's note. Left out of the accent
+                                    // group on purpose, so the figure renders in
+                                    // the dimmer plane and the bar keeps the tint.
+                                    Text(hoursLabel(night.durationMinutes))
+                                        .font(SleepFont.label(9))
+                                        .foregroundStyle(SleepColor.ink)
+                                        .padding(.bottom, barHeight + 2)
+                                }
                             }
                         }
                         .opacity(index == newestLogged ? 1 : 0.62)
