@@ -96,9 +96,11 @@ class ShieldActionHandler: ShieldActionDelegate {
     ///
     /// `ShieldActionResponse` has no "allow for N minutes", so the only way to
     /// let the user back in is to drop the shield off the store ourselves.
-    /// Nothing here can run a timer, so the return trip has three chances:
-    /// a short DeviceActivity schedule (below), the monitor extension, and the
-    /// app's own foreground check in `reapplyShieldIfSnoozeExpired()`.
+    /// Nothing here can run a timer, so the return trip is layered — see the
+    /// four chances listed in `docs/development.md`. This process is torn down
+    /// the instant `completionHandler` runs, so the two links that matter most
+    /// (the usage-threshold event, the app's foreground check) live elsewhere;
+    /// what happens here is best-effort on top of them.
     private func grantSnooze() {
         let defaults = Self.groupDefaults
         let spent = defaults?.integer(forKey: Self.snoozeCountKey) ?? 0
@@ -111,21 +113,27 @@ class ShieldActionHandler: ShieldActionDelegate {
         store.shield.applicationCategories = nil
 
         scheduleReArm(at: until)
+        postSnoozeEndNotification(at: until)
     }
 
-    /// Best-effort timed re-arm.
+    /// Best-effort wall-clock re-arm, for the snooze that gets put down rather
+    /// than spent: with the phone idle no usage accrues, so the threshold event
+    /// never fires and this interval is what brings the shield back.
     ///
     /// DeviceActivity refuses intervals shorter than 15 minutes, so this window
     /// runs from the snooze expiry to 20 minutes later — only its *start*
     /// matters, and `SulavSleepMonitor` treats this activity's end as a no-op
     /// precisely so the long tail can't unshield the rest of the night.
+    ///
+    /// The components carry the full date, not just hour/minute. A
+    /// `repeats: false` schedule has no recurrence to hang a bare time-of-day
+    /// on, and one built that way never fired — the original reason a snooze
+    /// could run out with the shield still down.
     private func scheduleReArm(at date: Date) {
         let calendar = Calendar.current
-        let start = calendar.dateComponents([.hour, .minute], from: date)
-        let end = calendar.dateComponents(
-            [.hour, .minute],
-            from: date.addingTimeInterval(20 * 60)
-        )
+        let fields: Set<Calendar.Component> = [.year, .month, .day, .hour, .minute, .second]
+        let start = calendar.dateComponents(fields, from: date)
+        let end = calendar.dateComponents(fields, from: date.addingTimeInterval(20 * 60))
         let schedule = DeviceActivitySchedule(
             intervalStart: start,
             intervalEnd: end,
@@ -134,10 +142,33 @@ class ShieldActionHandler: ShieldActionDelegate {
         do {
             try DeviceActivityCenter().startMonitoring(Self.snoozeActivity, during: schedule)
         } catch {
-            // Non-fatal: the app's foreground check still restores the shield,
-            // so a failure here delays the block rather than dropping it.
+            // Non-fatal: the threshold event and the app's foreground check
+            // still restore the shield, so a failure here delays the block
+            // rather than dropping it.
             NSLog("SleepBlock: snooze re-arm scheduling failed — \(error.localizedDescription)")
         }
+    }
+
+    /// Tells the user the five minutes are up, and gives them a tap that opens
+    /// SleepBlock — which runs `reapplyShieldIfSnoozeExpired()` on foreground.
+    ///
+    /// The one link that reaches someone who is still scrolling: local
+    /// notifications are scheduled by the system, so this survives the
+    /// extension being killed a moment from now.
+    private func postSnoozeEndNotification(at date: Date) {
+        let content = UNMutableNotificationContent()
+        content.title = "Five minutes are up"
+        content.body = "Time to put it down. Tap to start your sleep session."
+        content.sound = .default
+        content.userInfo = ["url": "sleepblock://sleep"]
+
+        let delay = max(1, date.timeIntervalSinceNow)
+        let request = UNNotificationRequest(
+            identifier: "sulav.sleep.snooze-over",
+            content: content,
+            trigger: UNTimeIntervalNotificationTrigger(timeInterval: delay, repeats: false)
+        )
+        UNUserNotificationCenter.current().add(request)
     }
 
     // MARK: - Local notification

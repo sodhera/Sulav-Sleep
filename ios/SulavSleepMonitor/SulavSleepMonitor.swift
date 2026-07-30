@@ -42,8 +42,14 @@ final class SulavSleepMonitor: DeviceActivityMonitor {
 
     override func eventDidReachThreshold(_ event: DeviceActivityEvent.Name, activity: DeviceActivityName) {
         super.eventDidReachThreshold(event, activity: activity)
-        guard event == sleepEventName else { return }
-        clearShield()
+        if event == sleepEventName {
+            clearShield()
+        } else if sleepSnoozeEventNames.contains(event) {
+            // A snooze's worth of usage has been spent in the blocked apps —
+            // the most dependable signal we get, and the only one that arrives
+            // while the user is still holding the app open.
+            reapplyAfterSnooze()
+        }
     }
 
     /// Applies the shield at bedtime in the pre-sleep phase. The user hasn't
@@ -57,13 +63,22 @@ final class SulavSleepMonitor: DeviceActivityMonitor {
         SleepLockdownSelection.resetSnoozes()
     }
 
-    /// Re-arms the shield when a snooze expires. Deliberately leaves the phase
-    /// and the spent-snooze count alone: the user is still in the same window,
-    /// and resetting the count here would hand out an unlimited supply.
+    /// Re-arms the shield when a snooze runs out, from either trigger: the
+    /// wall-clock `sleepSnoozeActivityName` interval or a usage threshold.
+    /// Deliberately leaves the phase and the spent-snooze count alone: the user
+    /// is still in the same window, and resetting the count here would hand out
+    /// an unlimited supply.
+    ///
+    /// The phase guard is the whole safety check — outside a lockdown window
+    /// there is nothing to re-arm. Inside one, re-shielding is always the safe
+    /// direction, so a threshold that fires without a snooze outstanding (usage
+    /// banked before the shield landed, say) is allowed to put the shield back.
     private func reapplyAfterSnooze() {
         guard SleepLockdownSelection.currentPhase() != nil else { return }
         shieldSelectedApps()
         SleepLockdownSelection.clearSnoozeWindow()
+        // Whichever trigger lost the race, its schedule has nothing left to do.
+        DeviceActivityCenter().stopMonitoring([sleepSnoozeActivityName])
     }
 
     private func shieldSelectedApps() {

@@ -2,6 +2,7 @@ import SwiftUI
 import FamilyControls
 import ManagedSettings
 import DeviceActivity
+import UserNotifications
 
 // Sleep lockdown via Apple's Screen Time (Family Controls) API.
 //
@@ -96,6 +97,8 @@ final class ScreenTimeService: ScreenTimeControlling {
             ? nil
             : .specific(selection.categoryTokens)
         SleepLockdownSelection.setPhase(.active)
+        SleepLockdownSelection.clearSnoozeWindow()
+        cancelSnoozeEndNotification()
         AppLog.app.info("Sleep lockdown applied as active (\(selection.applicationTokens.count) apps)")
     }
 
@@ -104,6 +107,7 @@ final class ScreenTimeService: ScreenTimeControlling {
         store.shield.applications = nil
         store.shield.applicationCategories = nil
         SleepLockdownSelection.clearPhase()
+        cancelSnoozeEndNotification()
         AppLog.app.info("Sleep lockdown cleared")
     }
 
@@ -119,7 +123,17 @@ final class ScreenTimeService: ScreenTimeControlling {
             : .specific(selection.categoryTokens)
         SleepLockdownSelection.clearSnoozeWindow()
         deviceActivityCenter.stopMonitoring([sleepSnoozeActivityName])
+        cancelSnoozeEndNotification()
         AppLog.app.info("Snooze expired — shield re-applied")
+    }
+
+    /// The shield-action extension schedules a "five minutes are up" nudge when
+    /// it grants a snooze. Once that snooze is over — however it ended — the
+    /// nudge is stale, and firing it after the user is already back under the
+    /// shield (or already asleep) is just noise.
+    private func cancelSnoozeEndNotification() {
+        UNUserNotificationCenter.current()
+            .removePendingNotificationRequests(withIdentifiers: ["sulav.sleep.snooze-over"])
     }
 
     func scheduleLockdown(bedtimeMinutes: Int, wakeMinutes: Int, maxHours: Int) {
@@ -138,11 +152,22 @@ final class ScreenTimeService: ScreenTimeControlling {
             categories: selection.categoryTokens,
             threshold: DateComponents(hour: maxHours)
         )
+        // The snooze re-arms. Registered here, at schedule time, because the
+        // shield-action extension that grants a snooze cannot reliably register
+        // anything before iOS tears it down — see `sleepSnoozeEventNames`.
+        var events: [DeviceActivityEvent.Name: DeviceActivityEvent] = [sleepEventName: event]
+        for (index, name) in sleepSnoozeEventNames.enumerated() {
+            events[name] = DeviceActivityEvent(
+                applications: selection.applicationTokens,
+                categories: selection.categoryTokens,
+                threshold: sleepSnoozeThreshold(forSnooze: index + 1)
+            )
+        }
         do {
             try deviceActivityCenter.startMonitoring(
                 sleepActivityName,
                 during: schedule,
-                events: [sleepEventName: event]
+                events: events
             )
             AppLog.app.info("Scheduled sleep lockdown \(bedtimeMinutes)->\(wakeMinutes), cap \(maxHours)h")
         } catch {

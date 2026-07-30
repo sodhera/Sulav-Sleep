@@ -1146,21 +1146,59 @@ nights on first launch after upgrading.
 
   `ShieldActionResponse` has no "allow for N minutes", so the action extension
   drops the shield off `ManagedSettingsStore` itself. Nothing in an extension
-  can run a timer, so the block's return trip has **three** chances, in order
+  can run a timer, so the block's return trip has **four** chances, in order
   of reliability:
-  1. `SulavSleepMonitor` receives `intervalDidStart` for `sleepSnoozeActivityName`
+  1. **Usage threshold** — `eventDidReachThreshold` for one of
+     `sleepSnoozeEventNames`. These are `DeviceActivityEvent`s registered on
+     `sleepActivityName` up front by `scheduleLockdown`, at cumulative
+     thresholds of `snoozeMinutes × 1…snoozeLimit` (5 and 10 minutes) over the
+     same tokens the shield covers. It works because *shielded apps accrue no
+     screen time*: inside a lockdown window the only way to spend minutes in a
+     blocked app is during a snooze, so 5 minutes of usage lands exactly at the
+     end of the first snooze and 10 at the end of the second. This is the only
+     link that fires **while the user is still inside the app**, and it needs
+     nothing from the doomed shield-action process.
+  2. `SulavSleepMonitor` receives `intervalDidStart` for `sleepSnoozeActivityName`
      and re-applies. That activity's `intervalDidEnd` is a deliberate no-op —
-     treating it as wake time would unshield the rest of the night.
-  2. `ScreenTimeService.reapplyShieldIfSnoozeExpired()`, called from
+     treating it as wake time would unshield the rest of the night. This is the
+     wall-clock path, and it covers the snooze that gets *put down* rather than
+     spent: an idle phone accrues no usage, so (1) never fires.
+  3. A `sulav.sleep.snooze-over` local notification scheduled at the expiry
+     ("Five minutes are up", carrying `sleepblock://sleep`). It doesn't
+     re-shield by itself, but it reaches someone who is still scrolling and its
+     tap drives (4). Cancelled by `startLockdown`, `endLockdown`, and
+     `reapplyShieldIfSnoozeExpired` so a stale nudge can't fire.
+  4. `ScreenTimeService.reapplyShieldIfSnoozeExpired()`, called from
      `SleepStore.reload()` on every foreground.
-  3. The next scheduled `intervalDidStart` (following bedtime).
 
-  DeviceActivity rejects intervals under 15 minutes, so the re-arm schedule
-  runs from the snooze expiry to +20 min; only its *start* is meaningful.
-  Scheduling from inside an extension is the flakiest link — hence (2). The
-  shield-action target needs `com.apple.developer.family-controls` for
-  `DeviceActivityCenter`; it is present in `-device.entitlements` only, so
-  this path exists on device builds and is inert on the Simulator.
+  (Plus the backstop of the next scheduled `intervalDidStart` at the following
+  bedtime.)
+
+  DeviceActivity rejects intervals under 15 minutes, so the (2) re-arm schedule
+  runs from the snooze expiry to +20 min; only its *start* is meaningful. Its
+  components carry the **full date** (`year…second`), not a bare
+  `hour`/`minute`: a `repeats: false` schedule has no recurrence to pin a
+  time-of-day to, and one built from hour/minute alone never fired — that was
+  the original bug where a snooze ran out and the shield stayed down for the
+  rest of the night. Scheduling from inside an extension is still the flakiest
+  link, which is why (1) no longer depends on it. The shield-action target needs
+  `com.apple.developer.family-controls` for `DeviceActivityCenter`; it is
+  present in `-device.entitlements` only, so this path exists on device builds
+  and is inert on the Simulator.
+
+  `reapplyAfterSnooze()` guards only on "inside a lockdown window"
+  (`currentPhase() != nil`). Inside one, re-shielding is always the safe
+  direction, so a threshold that arrives with no snooze outstanding is allowed
+  to put the shield back; outside one there is nothing to re-arm. It never
+  touches `snoozeCount` — resetting the spent count there would hand out an
+  unlimited supply.
+
+  **Known gap, not yet fixed:** the `lockdownMaxHours` safety valve
+  (`sleepEventName`) is also a usage threshold — `DateComponents(hour:
+  maxHours)` — so by the same "shielded apps accrue no usage" logic it will
+  almost never fire. "Unlock anyway after 6h" today rests on `intervalDidEnd`
+  at wake time, not on the cap. Fixing it means a wall-clock mechanism
+  (a second scheduled activity, or shortening the interval), not an event.
 - The Shield Action API cannot open the host app, so the pre-sleep "Sleep Now"
   button posts a local notification with the deep link — tapping the
   notification opens the app on the sleep confirmation panel

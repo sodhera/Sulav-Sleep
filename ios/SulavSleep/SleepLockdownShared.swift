@@ -15,6 +15,29 @@ let sleepEventName = DeviceActivityEvent.Name("sulav.sleep.maxDuration")
 /// no-op rather than "wake up, clear everything".
 let sleepSnoozeActivityName = DeviceActivityName("sulav.sleep.snooze")
 
+/// Usage-threshold events that re-arm the shield after a snooze, registered on
+/// `sleepActivityName` up front by `scheduleLockdown`.
+///
+/// This is the *primary* re-arm, and the only link in the chain that fires
+/// while the user is still inside the blocked app. It works because shielded
+/// apps accrue no screen time: within a lockdown window the only way to spend
+/// minutes in a blocked app is during a snooze, so cumulative usage of
+/// `snoozeMinutes`, `2 × snoozeMinutes`, … lands exactly at the end of the
+/// first, second, … snooze. Pre-registering them from the app also avoids
+/// asking a shield-action extension — which is torn down the moment it answers
+/// the button tap — to register anything at all.
+///
+/// One event per snooze the window allows, thresholds cumulative because
+/// DeviceActivity meters usage from the interval start, not from the last
+/// event.
+let sleepSnoozeEventNames: [DeviceActivityEvent.Name] = (1...SleepLockdownSelection.snoozeLimit)
+    .map { DeviceActivityEvent.Name("sulav.sleep.snoozeUsed.\($0)") }
+
+/// Cumulative usage threshold for the nth snooze (1-based).
+func sleepSnoozeThreshold(forSnooze n: Int) -> DateComponents {
+    DateComponents(minute: SleepLockdownSelection.snoozeMinutes * n)
+}
+
 /// Which blocking phase is active, communicated via App Group UserDefaults so
 /// the shield configuration and shield action extensions (which run in separate
 /// sandboxed processes) can tailor their UI.
