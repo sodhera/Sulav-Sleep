@@ -801,10 +801,12 @@ the app knows the identity was registered, the session exists and the user is
 signed in. The screen is therefore a statement, not a choice — there is no
 "sign in instead" button, because that is what already happened, and no
 "create a separate account", because the grant cannot. What it owes the user
-is candour on the two things they will wonder: that their existing plan and
-nights are intact, and that the nine answers they just gave were **not** saved
-over them. When the account has no profile to restore, the second sentence
-says so and promises setup instead — never reassurance the next screen will
+is the one reassurance they actually want — their plan and nights are intact —
+in **one line**. An earlier draft also named the provider and spelled out that
+the answers they just gave weren't saved over anything; at five lines of
+subtext it read as an apology, and the title plus "instead" already carries
+the fate of those answers. When the account has no profile to restore, that
+line promises setup instead — never reassurance the next screen will
 contradict. The email path keeps its inline red message ("That email already
 has an account…") since it can still fail before any session exists.
 

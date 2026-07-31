@@ -78,10 +78,9 @@ stage. A DEBUG-only launch argument renders it directly:
 xcrun simctl launch booted com.sulav.sleepblock -review-existing-account
 ```
 
-It reads the live store, so which of the two copy variants you get follows
-this install's state: the reassuring one when `isOnboarded`, the "we'll set
-your schedule up next" one when not, and the provider noun from
-`account?.provider` (defaulting to Apple when signed out).
+It reads the live store, so which of the two one-line copy variants you get
+follows this install's state: the reassuring one when `isOnboarded`, the
+"let's set your schedule up next" one when not.
 
 ## Build without launching
 

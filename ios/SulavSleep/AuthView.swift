@@ -399,26 +399,18 @@ private struct AuthFieldChrome: ViewModifier {
 struct ExistingAccountWelcomeView: View {
     let store: SleepStore
 
-    /// What the user actually tapped, named the way they'd name it.
-    private var providerNoun: String {
-        switch store.account?.provider {
-        case .google: "that Google account"
-        case .email: "that email"
-        case .apple, .none: "that Apple ID"
-        }
-    }
-
-    /// Two honest endings. When the profile came back, the reassurance is
-    /// true and worth stating plainly — the nights are the thing they'd worry
-    /// about. When it didn't (an account that never finished onboarding, or a
-    /// cloud read that failed), promising their plan is waiting would be a lie
-    /// they'd catch three seconds later on the setup questions.
+    /// Two honest endings, one line each. When the profile came back, the
+    /// reassurance is the only thing worth saying — the nights are what
+    /// they'd worry about. When it didn't (an account that never finished
+    /// onboarding, or a cloud read that failed), promising their plan is
+    /// waiting would be a lie they'd catch three seconds later on the setup
+    /// questions. What the app did with the answers they just gave is left
+    /// unsaid: the title plus "instead" carries it, and spelling it out was
+    /// a fourth idea in a paragraph that only had room for one.
     private var message: String {
-        if store.isOnboarded {
-            "Signing up with \(providerNoun) found the account you already had, so we signed you in instead. Your plan and your nights are exactly where you left them — the answers you just gave weren't saved over them."
-        } else {
-            "Signing up with \(providerNoun) found the account you already had, so we signed you in instead. There's no saved plan on it, so we'll set your schedule up next."
-        }
+        store.isOnboarded
+            ? "We signed you in instead. Your plan and nights are just as you left them."
+            : "We signed you in instead. Let's set your schedule up next."
     }
 
     var body: some View {
