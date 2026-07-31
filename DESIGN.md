@@ -498,10 +498,13 @@ Two tabs, each with exactly one job:
   keeps its amber pair, where it is a single hero on an otherwise empty screen
   rather than a repeating list item.
 
-  The row's trailing **source glyph** stays: it is `heart.fill` for a night
-  imported from Apple Health and `moon.fill` for one logged in the app, so it
-  reports where the data came from. That is information, not decoration — the
-  distinction the moon/sun pair was failing to earn.
+  The **source glyph** beside the date marks *only* the exception: a
+  `heart.fill` when the night came from Apple Health, and nothing at all when
+  it was logged in the app. It used to be a moon in that second case, which
+  meant a glyph on essentially every row of the list — a mark that never
+  varies reports nothing, and seven of them down a column is the same
+  repeating chrome the window line's moon/sun pair was cut for. Reserved for
+  the minority case it is information: this night came from somewhere else.
 
   The window line is `dim` over a soft navy shadow rather than `muted`, for
   the reason `StatBlock`'s label already is: the record scrolls over a living

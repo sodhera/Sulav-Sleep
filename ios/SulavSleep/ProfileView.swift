@@ -988,10 +988,19 @@ private struct HistoryRow: View {
                     Text(SleepFormatting.historyDate.string(from: session.end))
                         .font(SleepFont.label(15))
                         .foregroundStyle(SleepColor.ink)
-                    Image(systemName: session.source == .healthKit ? "heart.fill" : "moon.fill")
-                        .font(.system(size: 9))
-                        .foregroundStyle(SleepColor.faint)
-                        .accessibilityLabel(session.source == .healthKit ? "From Apple Health" : "Logged in app")
+                    // Only the Health import is marked. The pair used to be a
+                    // moon or a heart, but the moon sat on every locally
+                    // logged night — which is nearly all of them — so it
+                    // marked nothing and just put a glyph beside seven dates
+                    // in a row. The heart earns its place by being the
+                    // exception: this night came from somewhere else. Same
+                    // reasoning that stripped the glyphs off `SleepWindowLine`.
+                    if session.source == .healthKit {
+                        Image(systemName: "heart.fill")
+                            .font(.system(size: 9))
+                            .foregroundStyle(SleepColor.faint)
+                            .accessibilityLabel("From Apple Health")
+                    }
                 }
 
                 // When the night actually ran. The session has carried these
