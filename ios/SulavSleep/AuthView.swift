@@ -213,7 +213,7 @@ struct AuthMethodsView: View {
                 store.authErrorMessage = nil
                 loadingProvider = .google
                 Task {
-                    await store.signInWithGoogle()
+                    await store.signInWithGoogle(intent: intent)
                     loadingProvider = nil
                 }
             }
@@ -326,7 +326,7 @@ struct AuthMethodsView: View {
                 return
             }
             store.authErrorMessage = nil
-            Task { await store.signInWithApple(idToken: idToken, nonce: nonce) }
+            Task { await store.signInWithApple(idToken: idToken, nonce: nonce, intent: intent) }
         case .failure(let error):
             let nsError = error as NSError
             // User cancelling the sheet isn't an error worth surfacing.
@@ -376,6 +376,79 @@ private struct AuthFieldChrome: ViewModifier {
                 }
             }
             .animation(.easeInOut(duration: 0.18), value: isFocused)
+    }
+}
+
+// MARK: - Existing account welcome
+
+/// The answer to "Get started" when the Apple ID or Google account behind it
+/// already had an account here.
+///
+/// Apple's and Google's Supabase grants are *find-or-create*: there is no way
+/// to ask whether an identity is registered before signing the user in, so the
+/// app cannot do what the email path does and refuse up front. By the time it
+/// knows, the session exists and the user's real profile and nights have been
+/// restored. What it can do — and what this screen is — is refuse to pretend
+/// nothing happened: name what the app did, say what became of the answers
+/// they just spent nine steps giving, and make them tap to continue.
+///
+/// Shape borrowed from `UpdateRequiredView`: hero mark, title, one paragraph,
+/// one primary button, on the onboarding scene. A gate, not a question — there
+/// is no second choice to offer, because signing out and back in would land in
+/// exactly the same place.
+struct ExistingAccountWelcomeView: View {
+    let store: SleepStore
+
+    /// What the user actually tapped, named the way they'd name it.
+    private var providerNoun: String {
+        switch store.account?.provider {
+        case .google: "that Google account"
+        case .email: "that email"
+        case .apple, .none: "that Apple ID"
+        }
+    }
+
+    /// Two honest endings. When the profile came back, the reassurance is
+    /// true and worth stating plainly — the nights are the thing they'd worry
+    /// about. When it didn't (an account that never finished onboarding, or a
+    /// cloud read that failed), promising their plan is waiting would be a lie
+    /// they'd catch three seconds later on the setup questions.
+    private var message: String {
+        if store.isOnboarded {
+            "Signing up with \(providerNoun) found the account you already had, so we signed you in instead. Your plan and your nights are exactly where you left them — the answers you just gave weren't saved over them."
+        } else {
+            "Signing up with \(providerNoun) found the account you already had, so we signed you in instead. There's no saved plan on it, so we'll set your schedule up next."
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Spacer()
+
+            SlothBrandMark(width: SlothBrandMark.heroWidth, zScale: SlothBrandMark.heroZScale)
+
+            Text("You already have an account")
+                .font(SleepFont.hero(28))
+                .foregroundStyle(SleepColor.ink)
+                .multilineTextAlignment(.center)
+                .padding(.top, SleepSpacing.xxl)
+
+            Text(message)
+                .font(SleepFont.body(15))
+                .foregroundStyle(SleepColor.dim)
+                .multilineTextAlignment(.center)
+                .lineSpacing(3)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, SleepSpacing.md)
+
+            Spacer()
+
+            LiquidPrimaryButton(title: store.isOnboarded ? "Continue to my account" : "Continue") {
+                store.acknowledgeExistingAccount()
+            }
+            .padding(.bottom, SleepSpacing.huge)
+        }
+        .padding(.horizontal, SleepSpacing.xxl)
     }
 }
 

@@ -791,6 +791,23 @@ bar (now full) and back chevron as every other question, framed as saving the
 plan they just made. The profile is only committed once that step's auth
 succeeds, so "back" from it returns to the plan reveal like any other.
 
+**Signing up with an account you already have** gets its own full screen
+(`ExistingAccountWelcomeView`) — hero mark, "You already have an account", one
+paragraph, one primary button — on the same scene, outranking every other gate
+so neither Main nor the setup questions can answer the question for the user.
+It exists because the app *cannot* refuse up front the way the email path
+does: Apple's and Google's Supabase grants are find-or-create, so by the time
+the app knows the identity was registered, the session exists and the user is
+signed in. The screen is therefore a statement, not a choice — there is no
+"sign in instead" button, because that is what already happened, and no
+"create a separate account", because the grant cannot. What it owes the user
+is candour on the two things they will wonder: that their existing plan and
+nights are intact, and that the nine answers they just gave were **not** saved
+over them. When the account has no profile to restore, the second sentence
+says so and promises setup instead — never reassurance the next screen will
+contradict. The email path keeps its inline red message ("That email already
+has an account…") since it can still fail before any session exists.
+
 The questionnaire is an **investment arc**, not a form: who you are → what
 you want → what's in the way → how bad it's gotten → your schedule → the plan
 built from all of it. Ten steps: name, goal, sleep struggles, time-sink apps,

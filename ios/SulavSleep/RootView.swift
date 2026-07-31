@@ -8,6 +8,7 @@ import SwiftUI
 private enum RootScreen: Equatable {
     case authLoading
     case onboarding
+    case existingAccount
     case paywall
     case screenTimePrimer
     case main
@@ -45,6 +46,19 @@ struct RootView: View {
 #endif
     }
 
+    /// DEBUG-only route to the "you already have an account" gate, which
+    /// otherwise needs a *second* sign-up run against a real Apple/Google
+    /// identity that is already registered — not something the simulator can
+    /// stage. Renders against the live store, so the copy variant you see is
+    /// whichever one this install's state earns (see the view's `message`).
+    private var showsExistingAccountPreview: Bool {
+#if DEBUG
+        ProcessInfo.processInfo.arguments.contains("-review-existing-account")
+#else
+        false
+#endif
+    }
+
     /// The in-app splash (`LaunchSplashView`) is held up for a beat past auth
     /// readiness so the brand mark's rising z's are actually *seen* animating
     /// — the Keychain restore usually resolves in well under a second, which
@@ -73,6 +87,12 @@ struct RootView: View {
     private var screen: RootScreen {
         guard store.isAuthReady, splashHoldDone else { return .authLoading }
         guard store.isAuthenticated else { return .onboarding }
+        // "Get started" that turned out to be a sign-in. Outranks every gate
+        // below because all of them would silently answer the user's question
+        // for them: Main implies the sign-up worked, and quick setup implies
+        // they're new. Neither is what happened. See
+        // `SleepStore.showsExistingAccountWelcome`.
+        if store.showsExistingAccountWelcome { return .existingAccount }
         guard store.isOnboarded else { return .onboarding }
         // The hard paywall: signed in and onboarded, but resolved as not
         // subscribed. While the entitlement is still unknown, hold the splash
@@ -101,6 +121,10 @@ struct RootView: View {
                 SleepBackground(showsMoon: false)
                 SceneReadabilityScrim()
                 ScreenTimePrimerView(store: store)
+            } else if showsExistingAccountPreview {
+                SleepBackground(showsMoon: false)
+                SceneReadabilityScrim()
+                ExistingAccountWelcomeView(store: store)
             } else if store.isOnboarded, let active = store.activeSession {
                 // Immersive, pitch-black sleep mode takes over the whole screen.
                 SleepModeView(store: store, activeSession: active)
@@ -155,6 +179,12 @@ struct RootView: View {
                         SleepBackground(showsMoon: false)
                         SceneReadabilityScrim()
                         OnboardingGateView(store: store)
+                    case .existingAccount:
+                        // Same scene as the flow it interrupts — this is the
+                        // account step's answer, not a new place.
+                        SleepBackground(showsMoon: false)
+                        SceneReadabilityScrim()
+                        ExistingAccountWelcomeView(store: store)
                     case .paywall:
                         // The subscription gate, on the same scene as
                         // onboarding — it *is* the questionnaire's closing

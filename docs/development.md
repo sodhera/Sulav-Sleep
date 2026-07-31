@@ -68,6 +68,21 @@ root. On a real device the gate shows once per install (marker
 `sulav.screenTimePrimer.v1`, container-backed so a reinstall re-primes; see
 `SleepStore.needsScreenTimePrimer`).
 
+### Preview the "you already have an account" gate
+
+`ExistingAccountWelcomeView` needs a second sign-up run against an Apple or
+Google identity that is *already* registered — which the simulator can't
+stage. A DEBUG-only launch argument renders it directly:
+
+```sh
+xcrun simctl launch booted com.sulav.sleepblock -review-existing-account
+```
+
+It reads the live store, so which of the two copy variants you get follows
+this install's state: the reassuring one when `isOnboarded`, the "we'll set
+your schedule up next" one when not, and the provider noun from
+`account?.provider` (defaulting to Apple when signed out).
+
 ## Build without launching
 
 ```sh
@@ -443,19 +458,26 @@ Apple Developer capability, Google Cloud OAuth client).
   reusing an existing Apple/Google account on "Get started" silently signs the
   user into their *existing* account instead of erroring. `SupabaseAuthClient`
   detects this (`AuthResult.isNewAccount`, comparing the Supabase user's
-  `createdAt`/`lastSignInAt` — GoTrue has no explicit flag for this grant type)
-  and `OnboardingQuestionsView` discards the just-answered questionnaire in
-  that case rather than overwriting the original profile with it
-  (`onExistingAccountNeedsSetup`, `SleepStore.lastSignInWasNewAccount`). If the
-  device has no local profile at all (fresh device/reinstall) *and* the account
-  has no cloud profile to restore (see "Cloud profile sync"), it falls back to
-  the same no-account-step quick setup used on the sign-in path, by remounting
-  `OnboardingQuestionsView` (`OnboardingGateView`'s `questionsInstanceID`).
-  Manual email/password can't do this silently — a duplicate `signUp` either
+  `createdAt`/`lastSignInAt` — GoTrue has no explicit flag for this grant type).
+  There is no way to refuse up front: the check is only possible *after* the
+  grant has already issued a session. So the app does the next honest thing —
+  `SleepStore.showsExistingAccountWelcome` (set in `performAuth`, which now
+  takes the calling screen's `AuthIntent`) makes `RootView` hold on
+  `ExistingAccountWelcomeView` until the user acknowledges it, and
+  `OnboardingQuestionsView` never calls `finish()`, so the just-answered
+  questionnaire is discarded rather than written over the profile that account
+  already has. Acknowledging resumes normal routing: Main when the profile
+  restored, or a freshly-mounted quick setup (`includesAccount == false`, since
+  `store` is authenticated by then) when the account genuinely has no profile.
+  The flag is raised *before* `adoptSignedInAccount` assigns `account` —
+  assigning it is what flips `isAuthenticated` — or Main flashes up first.
+  Manual email/password can't reach any of this: a duplicate `signUp` either
   gets Supabase's no-session anti-enumeration response or an explicit
-  `user_already_exists` error, never a session, so the answers are already
-  discarded there with no extra handling needed; the user has to sign in with
-  their real password instead.
+  `user_already_exists` error, never a session, so it fails inline on the
+  account step with "That email already has an account…" and the user signs in
+  with their real password instead.
+  `-review-existing-account` renders the screen against the live store (the
+  copy variant follows `isOnboarded` and the account's provider).
 - **Apple** — native `ASAuthorizationAppleIDProvider` (presented programmatically,
   not via `SignInWithAppleButton`, so the button can be app-styled) →
   Supabase's `signInWithIdToken`. No Supabase-side Apple config needed. The
@@ -711,8 +733,8 @@ update public.app_config
 ```
 
 To preview the gate without touching the server, launch with
-`-review-update-gate` (DEBUG only, alongside `-review-paywall` and
-`-review-screentime-primer`).
+`-review-update-gate` (DEBUG only, alongside `-review-paywall`,
+`-review-screentime-primer` and `-review-existing-account`).
 
 ## App Store review prompt
 

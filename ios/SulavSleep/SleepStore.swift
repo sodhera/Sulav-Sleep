@@ -53,6 +53,16 @@ final class SleepStore {
     /// the onboarding flow to decide whether to keep or discard the
     /// questionnaire answers just collected. See `OnboardingQuestionsView`.
     var lastSignInWasNewAccount = false
+    /// A **sign-up** attempt that resolved into an account that already
+    /// existed. Apple's and Google's grants are find-or-create, so the app
+    /// cannot check whether an identity is registered *before* signing the
+    /// user in — by the time it knows, GoTrue has already issued the session.
+    /// The user asked to create an account and got signed into an old one
+    /// instead, so `RootView` holds on `ExistingAccountWelcomeView` until they
+    /// acknowledge it rather than silently dropping them into somebody's (in
+    /// practice their own) existing data. Only ever true for `.signUp`; on the
+    /// sign-in path an existing account is the whole point.
+    private(set) var showsExistingAccountWelcome = false
     /// Revision counter bumped every time the lockdown app selection changes.
     /// Views that read `appSelectionData()` also read this, which creates an
     /// `@Observable` tracking dependency so SwiftUI re-renders on changes.
@@ -471,24 +481,38 @@ final class SleepStore {
         isAuthReady = true
     }
 
+    // Each entry point carries the `intent` of the screen that called it, which
+    // is the only place that distinction exists — the Supabase grants for Apple
+    // and Google are identical either way. It decides one thing: whether an
+    // existing account is a surprise worth stopping for. See
+    // `showsExistingAccountWelcome`.
+
     @MainActor
-    func signInWithApple(idToken: String, nonce: String) async {
-        await performAuth { try await self.auth.signInWithApple(idToken: idToken, nonce: nonce) }
+    func signInWithApple(idToken: String, nonce: String, intent: AuthIntent) async {
+        await performAuth(intent: intent) { try await self.auth.signInWithApple(idToken: idToken, nonce: nonce) }
     }
 
     @MainActor
-    func signInWithGoogle() async {
-        await performAuth { try await self.auth.signInWithGoogle() }
+    func signInWithGoogle(intent: AuthIntent) async {
+        await performAuth(intent: intent) { try await self.auth.signInWithGoogle() }
     }
 
     @MainActor
     func signUpEmail(email: String, password: String) async {
-        await performAuth { try await self.auth.signUp(email: email, password: password) }
+        await performAuth(intent: .signUp) { try await self.auth.signUp(email: email, password: password) }
     }
 
     @MainActor
     func signInEmail(email: String, password: String) async {
-        await performAuth { try await self.auth.signIn(email: email, password: password) }
+        await performAuth(intent: .signIn) { try await self.auth.signIn(email: email, password: password) }
+    }
+
+    /// Dismisses the "you already have an account" gate and lets `RootView`
+    /// route normally — into the restored account, or into quick setup when
+    /// the account had no profile to restore.
+    @MainActor
+    func acknowledgeExistingAccount() {
+        showsExistingAccountWelcome = false
     }
 
     @MainActor
@@ -498,6 +522,7 @@ final class SleepStore {
         account = nil
         authErrorMessage = nil
         authMessageIsNotice = false
+        showsExistingAccountWelcome = false
         clearPersistedAccount()
         // The offline grace belongs to the account that earned it, not to the
         // device — otherwise the next person to sign in here inherits it.
@@ -552,14 +577,23 @@ final class SleepStore {
     }
 
     @MainActor
-    private func performAuth(_ work: @escaping () async throws -> AuthResult) async {
+    private func performAuth(
+        intent: AuthIntent,
+        _ work: @escaping () async throws -> AuthResult
+    ) async {
         isAuthenticating = true
         authErrorMessage = nil
         authMessageIsNotice = false
+        showsExistingAccountWelcome = false
         defer { isAuthenticating = false }
         do {
             let result = try await work()
             lastSignInWasNewAccount = result.isNewAccount
+            // Raised *before* `adoptSignedInAccount` assigns `account`: that
+            // assignment is what flips `isAuthenticated` and re-routes
+            // `RootView`, so the flag has to already be true in the same state
+            // change or Main flashes up before the notice replaces it.
+            showsExistingAccountWelcome = (intent == .signUp && !result.isNewAccount)
             await adoptSignedInAccount(result.account, remoteProfile: result.remoteProfile)
             AppLog.store.info("Signed in (provider=\(result.account.provider.rawValue), new=\(result.isNewAccount))")
         } catch let error as AuthError {
