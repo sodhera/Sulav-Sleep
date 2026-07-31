@@ -61,6 +61,47 @@ enum SleepScreenTime {
     static func encodeSelection(_ selection: FamilyActivitySelection) -> Data? {
         SleepLockdownSelection.encode(selection)
     }
+
+    // MARK: - Naming a selection
+    //
+    // Both surfaces that describe the lockdown selection — Profile's preview
+    // card and the Blocked apps detail row — count **apps and categories
+    // separately**, because they are not the same unit. A category is a whole
+    // shelf of apps the user never has to enumerate, and folding it into one
+    // total made "an entire category" read as "1 chosen", i.e. indistinguishable
+    // from picking a single app. Kept together here so the two surfaces can't
+    // drift apart on the wording.
+
+    /// Plural-aware "N categories".
+    private static func categoryPhrase(_ count: Int) -> String {
+        count == 1 ? "1 category" : "\(count) categories"
+    }
+
+    /// Plural-aware "N apps".
+    private static func appPhrase(_ count: Int) -> String {
+        count == 1 ? "1 app" : "\(count) apps"
+    }
+
+    /// The Profile card's caption under the icon row. Names the selection
+    /// only when a category is in it — with apps alone the icons already say
+    /// what locks, and a count would just restate them.
+    static func selectionCaption(apps: Int, categories: Int) -> String {
+        guard categories > 0 else { return "Blocked while you sleep" }
+        let subject = apps > 0
+            ? "\(appPhrase(apps)) and \(categoryPhrase(categories))"
+            : categoryPhrase(categories)
+        return "\(subject) blocked while you sleep"
+    }
+
+    /// The Blocked apps detail row's trailing value.
+    static func selectionSummary(apps: Int, categories: Int) -> String {
+        switch (apps, categories) {
+        case (0, 0): "None"
+        case (let a, 0): appPhrase(a)
+        case (0, let c): categoryPhrase(c)
+        case (let a, let c): "\(appPhrase(a)), \(categoryPhrase(c))"
+        }
+    }
 }
 
 final class ScreenTimeService: ScreenTimeControlling {
@@ -498,31 +539,50 @@ struct BlockedAppsPreview: View {
                 title: "App blocking is off"
             )
         } else {
+            // Apps first, then categories, sharing one row budget. Categories
+            // used to be left out of the icons entirely and represented by a
+            // bare "+more" — so a category-only selection (a completely normal
+            // choice; it's the first thing the system picker offers) rendered
+            // as the word "+more" beside nothing at all, with no hint that
+            // anything was actually blocked. Categories carry system icons
+            // just like apps do — `BlockedAppsScreen`'s grid below has always
+            // drawn them — so they belong in the preview on the same terms.
+            let shownApps = appTokens.prefix(Self.previewLimit)
+            let shownCats = catTokens.prefix(Self.previewLimit - shownApps.count)
+            let overflow = (appTokens.count + catTokens.count) - shownApps.count - shownCats.count
+
             VStack(alignment: .leading, spacing: SleepSpacing.md) {
                 HStack(spacing: SleepSpacing.md) {
-                    ForEach(appTokens.prefix(6), id: \.self) { token in
+                    ForEach(shownApps, id: \.self) { token in
                         Label(token)
                             .labelStyle(.iconOnly)
                             .font(.system(size: 30))
                             .frame(width: 34, height: 34)
                     }
-                    // Categories contain many apps whose icons Apple
-                    // doesn't expose, so we show "+more" whenever
-                    // categories are selected, plus any overflow apps.
-                    let overflow = max(0, appTokens.count - 6)
-                    if catTokens.count > 0 || overflow > 0 {
-                        Text("+more")
+                    ForEach(shownCats, id: \.self) { token in
+                        Label(token)
+                            .labelStyle(.iconOnly)
+                            .font(.system(size: 30))
+                            .frame(width: 34, height: 34)
+                    }
+                    // Now a real count of what didn't fit, not a stand-in for
+                    // what couldn't be drawn.
+                    if overflow > 0 {
+                        Text("+\(overflow)")
                             .font(SleepFont.body(15))
                             .foregroundStyle(SleepColor.muted)
                     }
                 }
 
-                Text("Blocked while you sleep")
+                Text(SleepScreenTime.selectionCaption(apps: appTokens.count, categories: catTokens.count))
                     .font(SleepFont.body(13))
                     .foregroundStyle(SleepColor.muted)
             }
         }
     }
+
+    /// How many icons the row shows before it starts counting instead.
+    private static let previewLimit = 6
 
     /// Shared no-selection layout: a warm glyph in a soft circle beside one
     /// short line — no explanatory copy; the row itself is the invitation.
@@ -673,8 +733,9 @@ struct BlockedAppsScreen: View {
     }
 
     private var selectionSummary: String {
-        let count = selection.applicationTokens.count + selection.categoryTokens.count
-        if count == 0 { return "None" }
-        return "\(count) chosen"
+        SleepScreenTime.selectionSummary(
+            apps: selection.applicationTokens.count,
+            categories: selection.categoryTokens.count
+        )
     }
 }

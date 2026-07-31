@@ -531,7 +531,8 @@ Two tabs, each with exactly one job:
   an all-caps label announcing it, the card names itself in every state:
   before any apps are chosen it shows a warm lock glyph in a soft circle
   beside one short line ("Choose apps to block" — no explanatory copy; the
-  row itself is the invitation); with a selection it previews the app icons
+  row itself is the invitation); with a selection it previews the icons —
+  **apps and categories both**, since categories carry system icons too —
   captioned "Blocked while you sleep" (the retired kicker's sentence, now
   spoken quietly inside the card); with a selection but blocking toggled off
   it shows a muted open lock and "App blocking is off"; on the simulator,
@@ -540,6 +541,20 @@ Two tabs, each with exactly one job:
   opens with a moon-and-stars glyph and "No nights yet / Your record starts
   tonight.") — composed and warm, but never ghost charts or sample numbers:
   honest data only.
+
+  **Count apps and categories separately, everywhere** (`SleepScreenTime`'s
+  `selectionCaption`/`selectionSummary`, shared so the two surfaces can't
+  drift): a category is a whole shelf of apps the user never has to
+  enumerate, so folding it into one total made "block all of Social" read as
+  "1 chosen" — the same words as picking one app. The preview card previously
+  went further and left categories out of the icon row entirely, standing in
+  a bare **"+more"** for them; a category-only selection — the first thing
+  the system picker offers — therefore rendered as the word "+more" beside
+  nothing at all. Categories are drawn now, so "+more" is gone: overflow past
+  six icons is a real count (`+3`), and the caption names a category
+  selection outright ("1 category blocked while you sleep"). With apps alone
+  the caption stays the plain sentence — the icons already say which apps,
+  and a count would only restate them.
 
 Settings live in a **collapsible full-height sheet** opened from the Profile
 gear — presented at the `.large` detent with a drag indicator, so it rises as a
@@ -680,11 +695,11 @@ three-state entitlement answer.
 The **Blocked apps** page follows the same grammar: a one-line supporting
 sentence under the title ("Locked from Sleep Now until you wake. Calls always
 work."), then a single `GlassGroup` — a **"Block while you sleep" toggle (on
-by default)**, an Apps row (value "None"/"N chosen" → `FamilyActivityPicker`),
-and the "Unlock anyway after" safety stepper with its amber hour value. The
-chosen apps render below the group as a system-drawn **icon grid** (tokens are
-opaque, Apple draws them) — the user sees exactly what locks, without a text
-list.
+by default)**, an Apps row (value "None" / "3 apps" / "1 category" / "3 apps,
+1 category" → `FamilyActivityPicker`), and the "Unlock anyway after" safety
+stepper with its amber hour value. The selection renders below the group as a
+system-drawn **icon grid** (tokens are opaque, Apple draws them) — the user
+sees exactly what locks, without a text list.
 
 Choosing apps is still the commitment — a fresh selection blocks tonight with
 no extra step, because the toggle defaults to on. The toggle exists as the
