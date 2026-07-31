@@ -259,9 +259,24 @@ class SleepStore(application: Application) : AndroidViewModel(application) {
 
     // MARK: - Onboarding
 
+    /**
+     * Commits the questionnaire answers as the local profile.
+     *
+     * **Never touches [sessions].** These questions are not only reached by
+     * fresh sign-ups — a returning user whose cloud profile has not landed yet
+     * is routed through the same screens as "quick setup", and clearing the
+     * history there destroyed nights the user already owned (the iOS twin of
+     * this bug is documented in `SleepStore.completeOnboarding`). A genuinely
+     * new account has nothing to clear, and the cases that really must start
+     * clean — a different user signing in, account deletion — do their own
+     * wipe. Copying the existing profile likewise keeps the device-bound
+     * settings the questions never asked about.
+     */
     fun completeOnboarding(answers: OnboardingAnswers) {
         val trimmed = answers.name.trim()
-        profile = Profile(
+        profile = (profile ?: Profile(
+            name = "", bedtime = answers.bedtime, wakeTime = answers.wakeTime, onboarded = false,
+        )).copy(
             name = trimmed.ifEmpty { "Friend" },
             bedtime = answers.bedtime,
             wakeTime = answers.wakeTime,
@@ -272,9 +287,6 @@ class SleepStore(application: Application) : AndroidViewModel(application) {
             lateNightPhone = answers.lateNightPhone,
             wakeFeeling = answers.wakeFeeling,
         )
-        // No seeding: history stays empty until the user logs a real night.
-        sessions = emptyList()
-        activeSession = null
         persist()
         Log.i(TAG, "Onboarding complete")
         syncRemoteProfile()

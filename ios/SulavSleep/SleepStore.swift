@@ -358,28 +358,45 @@ final class SleepStore {
 
     // MARK: - Onboarding
 
+    /// Commits the questionnaire answers as the local profile.
+    ///
+    /// **Never touches `sessions`.** This used to clear the history (and the
+    /// Health import, and any active night) on the reasoning that a fresh
+    /// sign-up starts empty — which is true, but this is not only reached by
+    /// fresh sign-ups. A *returning* user whose cloud profile hadn't landed
+    /// yet gets routed into the same questions as "quick setup" (see
+    /// `adoptSignedInAccount` and `OnboardingGateView`), and finishing them
+    /// wiped every night they had just restored from the cloud. A genuinely
+    /// new account has nothing to clear here anyway, and the two cases that
+    /// really must start clean — a different user signing in on this device,
+    /// and account deletion — do their own wipe in `adoptSignedInAccount` and
+    /// `finalizeAccountDeletion`.
     func completeOnboarding(_ answers: OnboardingAnswers) {
         let trimmed = answers.name.trimmingCharacters(in: .whitespacesAndNewlines)
-        profile = Profile(
-            name: trimmed.isEmpty ? "Friend" : trimmed,
-            bedtime: answers.bedtime,
-            wakeTime: answers.wakeTime,
-            onboarded: true,
-            healthSyncEnabled: false,
-            sleepStruggles: answers.struggles,
-            timeSinkApps: answers.timeSinks,
-            primaryGoal: answers.goal,
-            lateNightPhone: answers.lateNightPhone,
-            wakeFeeling: answers.wakeFeeling
+        // Answers overwrite only the fields the questions actually asked
+        // about. Editing a copy of the existing profile (rather than building
+        // a fresh one) keeps every device-bound setting — Health opt-in,
+        // lockdown preferences, dismissed prompts — for the same reason the
+        // history is kept, and keeps any field added later safe by default.
+        var updated = profile ?? Profile(
+            name: "", bedtime: answers.bedtime, wakeTime: answers.wakeTime, onboarded: false
         )
-        // No seeding: the history is empty until the user logs a real night or
-        // connects Apple Health.
-        sessions = []
-        importedHealthSessions = []
-        activeSession = nil
+        updated.name = trimmed.isEmpty ? "Friend" : trimmed
+        updated.bedtime = answers.bedtime
+        updated.wakeTime = answers.wakeTime
+        updated.onboarded = true
+        updated.sleepStruggles = answers.struggles
+        updated.timeSinkApps = answers.timeSinks
+        updated.primaryGoal = answers.goal
+        updated.lateNightPhone = answers.lateNightPhone
+        updated.wakeFeeling = answers.wakeFeeling
+        profile = updated
         persist()
         AppLog.store.info("Onboarding complete")
         syncCloudProfile()
+        // A quick-setup run happens right after sign-in, where the cloud
+        // history may still be in flight or may have failed its first try.
+        Task { [weak self] in await self?.syncCloudSessions() }
     }
 
     // MARK: - Auth
@@ -430,23 +447,24 @@ final class SleepStore {
                     }
                 }
             } else if !persistence.cloudMigrated(accountID: account.id) {
-                // First launch after the cloud sync update: seed the table
-                // from local data so the user's history is backed up.
+                // First launch after the cloud sync update: seed the *profile*
+                // row from local data. One-shot on purpose — re-pushing the
+                // local profile on every launch would clobber an edit made on
+                // another device. The history has no such hazard and is
+                // reconciled unconditionally below.
                 let localProfile = CloudProfile(profile: profile)
-                let localSessions = sessions.filter { $0.source == .local }
                 Task { [cloud, persistence] in
-                    if let cp = localProfile {
-                        await cloud.upsertProfile(cp, userId: account.id)
-                    }
-                    if !localSessions.isEmpty {
-                        await cloud.upsertSessions(localSessions, userId: account.id)
-                    }
+                    guard let cp = localProfile else { return }
+                    // Marked only on success: the upsert swallows its errors,
+                    // and the old unconditional mark meant one offline launch
+                    // retired the seed forever.
+                    guard await cloud.upsertProfile(cp, userId: account.id) else { return }
                     persistence.markCloudMigrated(accountID: account.id)
-                    AppLog.store.info("Seeded cloud tables from local data")
+                    AppLog.store.info("Seeded cloud profile from local data")
                 }
             }
-            // Restore cloud sessions and merge with local
-            Task { [weak self] in await self?.restoreCloudSessions() }
+            // Pull the account's nights down, push anything missing up.
+            Task { [weak self] in await self?.syncCloudSessions() }
         } else {
             clearPersistedAccount()
         }
@@ -542,7 +560,7 @@ final class SleepStore {
         do {
             let result = try await work()
             lastSignInWasNewAccount = result.isNewAccount
-            adoptSignedInAccount(result.account, remoteProfile: result.remoteProfile)
+            await adoptSignedInAccount(result.account, remoteProfile: result.remoteProfile)
             AppLog.store.info("Signed in (provider=\(result.account.provider.rawValue), new=\(result.isNewAccount))")
         } catch let error as AuthError {
             // Cancellation is a deliberate user action — show nothing.
@@ -563,7 +581,7 @@ final class SleepStore {
     ///   before `account` so `RootView` computes the destination screen from a
     ///   consistent pair and never routes through onboarding on the way in.
     @MainActor
-    private func adoptSignedInAccount(_ newAccount: AppAccount, remoteProfile: RemoteProfile?) {
+    private func adoptSignedInAccount(_ newAccount: AppAccount, remoteProfile: RemoteProfile?) async {
         // Case-insensitive: installs from before the account id was lowercased
         // (see `SupabaseAuthClient.account(from:)`) hold an uppercase
         // `lastAccountID`, and a bare `!=` would read the same user as a
@@ -582,15 +600,24 @@ final class SleepStore {
             profile = remoteProfile.asLocalProfile
             AppLog.store.info("Restored profile from cloud")
         } else if profile == nil {
-            // Try cloud table (profile may exist in the table but not metadata)
-            Task { [cloud] in
-                if let cloudProfile = await cloud.fetchProfile(userId: newAccount.id) {
-                    await MainActor.run {
-                        self.profile = cloudProfile.asLocalProfile
-                        self.persist(refreshWidget: true)
-                    }
-                    AppLog.store.info("Restored profile from cloud table (sign-in)")
-                }
+            // Try the cloud table (the profile exists there but not in auth
+            // metadata for every account created since the table migration).
+            //
+            // Awaited, not backgrounded, and deliberately *before* `account`
+            // is assigned: setting `account` is what flips `isAuthenticated`,
+            // and the onboarding gate reads `profile` in that same state
+            // change to decide whether this user still needs the setup
+            // questions. Resolving the profile in a detached Task always lost
+            // that race, so a returning user with a table-backed profile was
+            // shown "quick setup" as if they were new — and finishing it
+            // overwrote the profile and (before `completeOnboarding` stopped
+            // clearing it) every night they owned. Bounded like the launch
+            // path so a dead network can't hang the sign-in button.
+            if let cloudProfile = await Self.withTimeout(seconds: 5, { [cloud] in
+                await cloud.fetchProfile(userId: newAccount.id)
+            }) {
+                profile = cloudProfile.asLocalProfile
+                AppLog.store.info("Restored profile from cloud table (sign-in)")
             }
         }
         // Sync local profile to cloud table
@@ -603,8 +630,9 @@ final class SleepStore {
         persist(refreshWidget: true)
         // Link the subscription to this account (see restoreSession).
         Task { [subscription] in await subscription.logIn(accountID: newAccount.id) }
-        // Restore cloud sessions and merge
-        Task { [weak self] in await self?.restoreCloudSessions() }
+        // Pull the account's nights down and push anything this device holds
+        // that never made it up.
+        Task { [weak self] in await self?.syncCloudSessions() }
     }
 
     /// Push the local profile to the cloud table, best-effort. Called
@@ -615,21 +643,43 @@ final class SleepStore {
         Task { [cloud] in await cloud.upsertProfile(cp, userId: userId) }
     }
 
-    /// Fetch sleep sessions from the cloud table and merge with local.
-    /// Called at launch and after sign-in, backgrounded.
+    /// Reconcile the night history with the `sleep_sessions` table, in both
+    /// directions. Called at launch, after sign-in, and after quick setup;
+    /// backgrounded and best-effort throughout.
+    ///
+    /// The push half is the important one. `wakeUp()` upserts each night as it
+    /// is logged, but that call is fire-and-forget with no retry — a night
+    /// logged on a plane, or during any transient failure, used to exist only
+    /// on the device, and the "seed the table from local data" pass ran once
+    /// per install and marked itself done even when its upsert failed. Either
+    /// way the night was absent from the only copy that survives a reinstall,
+    /// and the user's history came back empty through no fault of the restore.
+    /// Reconciling on every launch means one failed upload costs nothing.
     @MainActor
-    private func restoreCloudSessions() async {
+    private func syncCloudSessions() async {
         guard let userId = account?.id else { return }
         let cloudSessions = await cloud.fetchSessions(userId: userId)
-        guard !cloudSessions.isEmpty else { return }
-        // Merge cloud sessions into local using the same night-dedup logic
-        // as Health merge. Local wins on conflict.
-        let merged = SleepMerge.merge(local: self.sessions, health: cloudSessions)
-        let added = merged.count - self.sessions.count
-        if added > 0 {
-            self.sessions = merged
-            persist(refreshWidget: true)
-            AppLog.store.info("Restored \(added) session(s) from cloud")
+
+        // Pull: merge whatever the cloud holds that this device doesn't, using
+        // the same night-dedup logic as the Health merge. Local wins on ties.
+        if !cloudSessions.isEmpty {
+            let merged = SleepMerge.merge(local: sessions, health: cloudSessions)
+            let added = merged.count - sessions.count
+            if added > 0 {
+                sessions = merged
+                persist(refreshWidget: true)
+                AppLog.store.info("Restored \(added) session(s) from cloud")
+            }
+        }
+
+        // Push: every locally-logged night the table is missing. Health-sourced
+        // records stay out — they already live in Health, which is its own
+        // cross-device store, and re-importing them is `refreshHealth`'s job.
+        let cloudIDs = Set(cloudSessions.map(\.id))
+        let missing = sessions.filter { $0.source == .local && !cloudIDs.contains($0.id) }
+        if !missing.isEmpty {
+            await cloud.upsertSessions(missing, userId: userId)
+            AppLog.store.info("Backfilled \(missing.count) session(s) to cloud")
         }
     }
 

@@ -160,6 +160,14 @@ Shipped in the July 2026 polish pass:
 
 Still deferred (phase 3):
 
+- **Session cloud sync.** Android syncs the *profile* only (through the
+  `sleep_profile` user-metadata key); it never reads or writes the
+  `sleep_sessions` table iOS uses. Logged nights therefore live on the
+  device alone and do not survive a reinstall, and the same account shows
+  different history on the two platforms. The parity-map note above about
+  the streak rule ("sessions sync through Supabase") describes the intent,
+  not today's behaviour. Port `SleepCloudService.swift`'s two-way
+  `syncCloudSessions` reconcile when this lands.
 - Health Connect import, richer widget family (medium/large with the
   7-night bars), day/dusk scene tilt parallax (drift only for now),
   Play Store listing (terms/privacy URLs).

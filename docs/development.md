@@ -491,14 +491,33 @@ Apple Developer capability, Google Cloud OAuth client).
     table after every profile-shaping change (onboarding, name, schedule).
     On restore (fresh device/reinstall), `restoreSession` fetches from the
     table first; if empty, falls back to legacy `sleep_profile` auth metadata
-    for pre-migration accounts and migrates the data to the table.
+    for pre-migration accounts and migrates the data to the table. The
+    **sign-in** path (`adoptSignedInAccount`) does the same fetch and
+    deliberately `await`s it — bounded to 5s — *before* assigning `account`.
+    See "Never route a returning user through onboarding" below.
   - *Session sync*: `wakeUp()` fire-and-forget upserts the new session to
-    `sleep_sessions`. On restore, cloud sessions are merged with local using
-    `SleepMerge` (same night-dedup as Health merge; local wins on conflict).
-  - *Migration*: on the first launch after the cloud sync update, existing
-    local profiles and sessions are bulk-seeded to the tables (tracked by
-    `sulav.cloudMigrated.v1`). Legacy auth metadata is still readable but no
-    longer written; new data goes straight to the tables.
+    `sleep_sessions`, and `syncCloudSessions()` reconciles in **both**
+    directions at launch, after sign-in, and after quick setup: it merges down
+    whatever the table holds that this device lacks (`SleepMerge`, same
+    night-dedup as the Health merge, local wins on conflict) and pushes up
+    every locally-sourced night whose id the table is missing. The push half
+    is what makes the backup honest — `wakeUp`'s upsert has no retry, so a
+    night logged offline reached the table only if that one call happened to
+    succeed.
+  - *Migration*: on the first launch after the cloud sync update, an existing
+    local profile is seeded to the `profiles` table (tracked by
+    `sulav.cloudMigrated.v1`, **marked only when the upsert succeeds** — it
+    used to be marked unconditionally, so a single offline launch retired the
+    seed permanently). Sessions are not part of this one-shot: the two-way
+    reconcile above covers them on every launch. Legacy auth metadata is still
+    readable but no longer written; new data goes straight to the tables.
+  - *Timestamps*: `sleep_sessions.started_at`/`ended_at` are written as ISO
+    8601 with fractional seconds, but Postgres trims trailing zeros and omits
+    the fraction entirely on a whole second, and `ISO8601DateFormatter` returns
+    `nil` when `.withFractionalSeconds` and the string disagree in either
+    direction. `SessionRow.date(from:)` therefore tries both formatters — a
+    row that decodes but fails to parse is a night silently vanishing from the
+    user's history, so `fetchSessions` also logs any it had to drop.
   - *Offline-first*: all cloud calls are best-effort fire-and-forget. The local
     device is always the source of truth. Cloud is a durable backup that
     enables cross-device profile restore and survives device loss.
@@ -508,6 +527,31 @@ Apple Developer capability, Google Cloud OAuth client).
   - SQL migration: `supabase/migrations/001_create_tables.sql` — must be
     run in the Supabase SQL Editor or via `supabase db push` before the
     feature goes live.
+- **Never route a returning user through onboarding** (the "my nights are
+  gone" bug, fixed after a real report). Three separate mistakes lined up:
+  1. `adoptSignedInAccount` assigned `account` — which flips
+     `isAuthenticated` — while the cloud-profile fetch was still running in a
+     detached `Task`. Every gate that keys off the sign-in (`RootView`,
+     `OnboardingGateView.onChange`, `OnboardingQuestionsView.onChange`) read
+     `profile == nil` in that same state change, so *every* account whose
+     profile lives in the `profiles` table rather than legacy auth metadata
+     was treated as a stranger and shown quick setup. The fetch is now
+     awaited, bounded, before `account` is set.
+  2. `completeOnboarding` cleared `sessions`, `importedHealthSessions` and
+     `activeSession` on the reasoning that a fresh sign-up starts empty. True
+     — but quick setup runs the same function for a *returning* user, so
+     finishing it destroyed the nights the cloud restore had just merged in.
+     It now writes only the fields the questions asked about, onto a copy of
+     the existing profile. The two cases that must genuinely start clean have
+     always done their own wipe: `adoptSignedInAccount` (different account on
+     a shared device) and `finalizeAccountDeletion`.
+  3. Nothing re-pushed a night whose original upsert failed, so the cloud copy
+     could legitimately be missing history the device still had — see *Session
+     sync* above.
+  The blast radius was worst on reinstall, where local data is gone and the
+  cloud copy is the only one left. Android carried mistake 2 as well
+  (`data/SleepStore.kt`) and is fixed the same way; it has no session table
+  yet, so 1 and 3 don't apply there.
 - **Shared-device account switch**: `sulav.lastAccountID.v1` records who signed
   in last and — unlike the cached `AppAccount` — survives sign-out, so
   `adoptSignedInAccount` can tell a returning user (local data kept) from a
@@ -523,9 +567,11 @@ Apple Developer capability, Google Cloud OAuth client).
   is fine — identity doesn't change when a token expires; the SDK refreshes it
   on the next authenticated call — and airplane-mode launches keep working.
   The trade-off — a server-side-revoked session stays "signed in" until an
-  authenticated call fails — is the standard one. Net effect: a normal launch
-  makes **zero** network requests (the only exceptions are the one-time
-  restore/seed paths under "Cloud profile sync").
+  authenticated call fails — is the standard one. Net effect: nothing on the
+  launch *path* blocks on the network. The cloud work it kicks off — the
+  session reconcile, and the one-shot profile seed/restore — is all
+  backgrounded and best-effort, so an offline launch is indistinguishable
+  from an online one until the data lands.
 - **Error surfacing**: `SupabaseAuthClient.mapError` translates GoTrue's
   structured `ErrorCode`s (invalid credentials, email exists, unconfirmed
   email, weak password, rate limit) into user-facing `AuthError` cases instead

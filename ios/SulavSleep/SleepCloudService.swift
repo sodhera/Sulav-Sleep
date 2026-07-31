@@ -13,12 +13,17 @@ import Supabase
 protocol CloudSyncing: Sendable {
     /// Fetch the user's profile from the `profiles` table.
     func fetchProfile(userId: String) async -> CloudProfile?
-    /// Upsert the user's profile into the `profiles` table.
-    func upsertProfile(_ profile: CloudProfile, userId: String) async
+    /// Upsert the user's profile into the `profiles` table. Returns whether
+    /// the write actually landed, so one-shot callers can retry next launch
+    /// instead of retiring themselves on a failure they never saw.
+    @discardableResult
+    func upsertProfile(_ profile: CloudProfile, userId: String) async -> Bool
     /// Fetch all sleep sessions for the user from the `sleep_sessions` table.
     func fetchSessions(userId: String) async -> [SleepSession]
-    /// Upsert one or more sessions into the `sleep_sessions` table.
-    func upsertSessions(_ sessions: [SleepSession], userId: String) async
+    /// Upsert one or more sessions into the `sleep_sessions` table. Returns
+    /// whether the write landed (see `upsertProfile`).
+    @discardableResult
+    func upsertSessions(_ sessions: [SleepSession], userId: String) async -> Bool
 }
 
 // MARK: - Factory
@@ -162,15 +167,15 @@ private struct SessionRow: Codable {
     init(userId: String, session: SleepSession) {
         self.id = session.id
         self.user_id = userId
-        self.started_at = Self.iso.string(from: session.start)
-        self.ended_at = Self.iso.string(from: session.end)
+        self.started_at = Self.isoFractional.string(from: session.start)
+        self.ended_at = Self.isoFractional.string(from: session.end)
         self.duration_minutes = session.durationMinutes
         self.source = session.source.rawValue
     }
 
     var asSleepSession: SleepSession? {
-        guard let start = Self.iso.date(from: started_at),
-              let end = Self.iso.date(from: ended_at) else { return nil }
+        guard let start = Self.date(from: started_at),
+              let end = Self.date(from: ended_at) else { return nil }
         return SleepSession(
             id: id,
             start: start,
@@ -180,9 +185,26 @@ private struct SessionRow: Codable {
         )
     }
 
-    private static let iso: ISO8601DateFormatter = {
+    /// Parses a `timestamptz` as PostgREST renders it. Two formatters, not
+    /// one, because Postgres trims trailing zeros from the fractional part and
+    /// omits it entirely on a whole second — and `ISO8601DateFormatter` with
+    /// `.withFractionalSeconds` returns nil for a string with no fraction,
+    /// while the same formatter *without* the option returns nil for one that
+    /// has it. A single formatter therefore drops a real subset of rows, and a
+    /// dropped row reads to the user as a night that was never saved.
+    static func date(from raw: String) -> Date? {
+        isoFractional.date(from: raw) ?? isoWhole.date(from: raw)
+    }
+
+    private static let isoFractional: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
+    private static let isoWhole: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
         return f
     }()
 }
@@ -192,9 +214,9 @@ private struct SessionRow: Codable {
 /// No-op client used when Supabase credentials aren't configured.
 struct DisabledCloudService: CloudSyncing {
     func fetchProfile(userId: String) async -> CloudProfile? { nil }
-    func upsertProfile(_ profile: CloudProfile, userId: String) async {}
+    func upsertProfile(_ profile: CloudProfile, userId: String) async -> Bool { false }
     func fetchSessions(userId: String) async -> [SleepSession] { [] }
-    func upsertSessions(_ sessions: [SleepSession], userId: String) async {}
+    func upsertSessions(_ sessions: [SleepSession], userId: String) async -> Bool { false }
 }
 
 // MARK: - Real Supabase implementation
@@ -226,7 +248,8 @@ final class SupabaseCloudService: CloudSyncing, @unchecked Sendable {
         }
     }
 
-    func upsertProfile(_ profile: CloudProfile, userId: String) async {
+    @discardableResult
+    func upsertProfile(_ profile: CloudProfile, userId: String) async -> Bool {
         let row = ProfileRow(userId: userId, profile: profile)
         do {
             try await client
@@ -234,8 +257,10 @@ final class SupabaseCloudService: CloudSyncing, @unchecked Sendable {
                 .upsert(row, onConflict: "id")
                 .execute()
             AppLog.app.info("Cloud: profile upserted")
+            return true
         } catch {
             AppLog.app.error("Cloud: upsert profile failed: \(error.localizedDescription, privacy: .public)")
+            return false
         }
     }
 
@@ -250,15 +275,22 @@ final class SupabaseCloudService: CloudSyncing, @unchecked Sendable {
                 .order("ended_at", ascending: false)
                 .execute()
                 .value
-            return rows.compactMap(\.asSleepSession)
+            let sessions = rows.compactMap(\.asSleepSession)
+            // A row that survives JSON decoding but not date parsing is
+            // history silently vanishing, so it is worth a line in the log.
+            if sessions.count != rows.count {
+                AppLog.app.error("Cloud: dropped \(rows.count - sessions.count) unparseable session row(s)")
+            }
+            return sessions
         } catch {
             AppLog.app.error("Cloud: fetch sessions failed: \(error.localizedDescription, privacy: .public)")
             return []
         }
     }
 
-    func upsertSessions(_ sessions: [SleepSession], userId: String) async {
-        guard !sessions.isEmpty else { return }
+    @discardableResult
+    func upsertSessions(_ sessions: [SleepSession], userId: String) async -> Bool {
+        guard !sessions.isEmpty else { return true }
         let rows = sessions.map { SessionRow(userId: userId, session: $0) }
         do {
             try await client
@@ -266,8 +298,10 @@ final class SupabaseCloudService: CloudSyncing, @unchecked Sendable {
                 .upsert(rows, onConflict: "user_id,id")
                 .execute()
             AppLog.app.info("Cloud: upserted \(sessions.count) session(s)")
+            return true
         } catch {
             AppLog.app.error("Cloud: upsert sessions failed: \(error.localizedDescription, privacy: .public)")
+            return false
         }
     }
 }
