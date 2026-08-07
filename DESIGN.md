@@ -1541,6 +1541,38 @@ accepted while calm is one they remember accepting.
   exact moment someone is most willing to use it later. The real off switch
   stays in Blocked apps, where it's a deliberate trip rather than a reflex.
 
+### The wind-down
+
+Two minutes of breathing — 4s in, 2s hold, 6s out, the long exhale taking half
+the cycle because that's the part that settles someone. Concentric amber rings
+swell and shrink with the breath; the instruction ("Breathe in" / "Hold" /
+"Breathe out") and the scale are both derived from elapsed time, so the ring
+and its label can't drift apart. Reduce Motion holds the rings still.
+
+**Not Liquid Glass.** Glass is reserved for things the user can press, and this
+is the one element in the app that is purely something to look at.
+
+The gap it fills: blocking creates an empty moment, and an empty moment at 1am
+is when people go hunting for a way around the lock. Every other surface asks
+someone to *stop* doing something; this is the only one that offers something
+to do instead.
+
+- **The right-sized ask.** Someone reaching for Instagram is not ready to
+  commit to a whole night — that's why they're reaching — so the
+  slide-to-sleep is the wrong request. Two minutes is an easy yes, and it ends
+  one tap from the real thing ("I'm ready" hands straight to the confirmation).
+- **Two minutes, not ten.** A craving fades in about that long, and a wind-down
+  long enough to feel like a chore is one people decline.
+- **A quiet countdown, never a progress bar.** A filling bar turns settling
+  down into a task with a finish line, which is the opposite of the point.
+- Reachable from the sleep confirmation ("Not ready? Wind down for two
+  minutes", amber — it's a destination, not a dismissal, so Cancel stays the
+  quiet last resort beneath it), from `sleepblock://winddown`, and from the
+  notification fired when a snooze runs out. That last one matters most: a
+  person whose five minutes just expired is by definition not ready to sleep,
+  and the old copy ("Tap to start your sleep session") was an easy refusal that
+  sent them straight back to the app they were in.
+
 ### Hard mode
 
 An opt-in toggle in Blocked apps: no snooze, and the slow door takes three

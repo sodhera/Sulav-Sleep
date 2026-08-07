@@ -20,7 +20,27 @@ struct HomeView: View {
         ZStack {
             // The flag lives on the store so the widget/shield deep link can
             // open this panel too (see AppDelegate.onOpenURL).
-            if store.showTonightCheckIn {
+            if store.showWindDown {
+                WindDownView(
+                    store: store,
+                    onDone: {
+                        withAnimation(.easeInOut(duration: 0.32)) { store.showWindDown = false }
+                    },
+                    onReady: {
+                        // Straight through to the commitment while the intent
+                        // is hot — the wind-down's whole job is getting someone
+                        // to the point where this is an easy yes.
+                        withAnimation(.easeInOut(duration: 0.32)) {
+                            store.showWindDown = false
+                            store.showSleepConfirmation = true
+                        }
+                    }
+                )
+                .transition(.asymmetric(
+                    insertion: .opacity.combined(with: .move(edge: .bottom)),
+                    removal: .opacity.combined(with: .move(edge: .bottom))
+                ))
+            } else if store.showTonightCheckIn {
                 TonightCheckInView(store: store, profile: profile) {
                     withAnimation(.easeInOut(duration: 0.32)) { store.showTonightCheckIn = false }
                 }

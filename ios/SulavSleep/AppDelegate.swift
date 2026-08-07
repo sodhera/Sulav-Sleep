@@ -46,12 +46,17 @@ class SleepAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCente
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
+        // A notification tap does **not** go through `onOpenURL` — it arrives
+        // here — so every deep link the app posts to itself has to be routed
+        // twice. The host travels as the notification's object and the scene
+        // does the routing, so the two paths stay one switch.
         let userInfo = response.notification.request.content.userInfo
         if let urlString = userInfo["url"] as? String,
            let url = URL(string: urlString),
-           url.scheme == "sleepblock", url.host == "sleep" {
-            AppLog.app.info("Notification tapped with sleepblock://sleep")
-            NotificationCenter.default.post(name: .sleepConfirmationRequested, object: nil)
+           url.scheme == "sleepblock",
+           let host = url.host {
+            AppLog.app.info("Notification tapped with sleepblock://\(host, privacy: .public)")
+            NotificationCenter.default.post(name: .sleepDeepLinkRequested, object: host)
         }
         completionHandler()
     }
@@ -106,17 +111,14 @@ struct SulavSleepApp: App {
                     // (sleepblock://signin, from the widget's signed-out
                     // capsule, needs no handling: opening the app is enough —
                     // RootView lands on welcome.)
-                    guard url.scheme == "sleepblock" else { return }
-                    switch url.host {
-                    case "sleep":
-                        AppLog.app.info("Opened via sleepblock://sleep URL")
-                        openSleepConfirmation()
-                    case "tonight":
-                        AppLog.app.info("Opened via sleepblock://tonight URL")
-                        openTonight()
-                    default:
-                        break
-                    }
+                    guard url.scheme == "sleepblock", let host = url.host else { return }
+                    AppLog.app.info("Opened via sleepblock://\(host, privacy: .public) URL")
+                    route(host)
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .sleepDeepLinkRequested)) { note in
+                    // The notification-tap half of the same links.
+                    guard let host = note.object as? String else { return }
+                    route(host)
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .sleepConfirmationRequested)) { _ in
                     // Siri / Shortcuts ("Sleep Now" intent), after the system
@@ -124,6 +126,19 @@ struct SulavSleepApp: App {
                     AppLog.app.info("Sleep confirmation requested via App Intent")
                     openSleepConfirmation()
                 }
+        }
+    }
+
+    /// The one place a `sleepblock://` host becomes a screen, shared by the
+    /// URL-open and notification-tap paths.
+    private func route(_ host: String) {
+        switch host {
+        case "sleep": openSleepConfirmation()
+        case "tonight": openTonight()
+        case "winddown": openWindDown()
+        // "signin" needs no handling: opening the app is enough, RootView
+        // lands on welcome.
+        default: break
         }
     }
 
@@ -153,5 +168,17 @@ struct SulavSleepApp: App {
         Haptics.soft()
         store.selectedTab = .home
         store.showTonightCheckIn = true
+    }
+
+    /// The wind-down, from `sleepblock://winddown` — chiefly the notification
+    /// that fires when a snooze runs out, which reaches someone at the moment
+    /// they are most adrift and least ready to be told to sleep.
+    private func openWindDown() {
+        guard store.activeSession == nil, store.isAuthenticated, store.isOnboarded, !store.needsPaywall else { return }
+        Haptics.soft()
+        store.selectedTab = .home
+        withAnimation(.easeInOut(duration: 0.3)) {
+            store.showWindDown = true
+        }
     }
 }

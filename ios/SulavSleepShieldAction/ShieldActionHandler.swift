@@ -164,9 +164,15 @@ class ShieldActionHandler: ShieldActionDelegate {
     private func postSnoozeEndNotification(at date: Date, title: String) {
         let content = UNMutableNotificationContent()
         content.title = title
-        content.body = "Time to put it down. Tap to start your sleep session."
+        // Lands on the wind-down, not the slide-to-sleep commitment. Someone
+        // whose snooze just ran out is, by definition, not ready to sleep —
+        // that is why they spent the snooze — so asking them to commit to a
+        // whole night is the wrong-sized ask, and the easy refusal sends them
+        // straight back to the app they were in. Two minutes of breathing is a
+        // much easier yes, and it ends one tap from the real thing.
+        content.body = "Two minutes to wind down?"
         content.sound = .default
-        content.userInfo = ["url": "sleepblock://sleep"]
+        content.userInfo = ["url": "sleepblock://winddown"]
 
         let delay = max(1, date.timeIntervalSinceNow)
         let request = UNNotificationRequest(

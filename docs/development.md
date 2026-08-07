@@ -1377,6 +1377,15 @@ nights on first launch after upgrading.
   `CloudProfile` — see the note in `SleepStore`. Syncing any of them needs a
   `supabase/` migration, so it should be a decision, not drift.
 
+- **Deep links are routed twice.** A notification tap arrives at
+  `userNotificationCenter(_:didReceive:)` and does **not** fire `onOpenURL`, so
+  every `sleepblock://` link the app posts to itself needs both paths. The
+  delegate forwards the URL's host as the object of
+  `.sleepDeepLinkRequested`; the scene handles that and `onOpenURL` through one
+  `route(_:)` switch. Getting this wrong is silent — the app opens, the screen
+  never appears — which is exactly what happened when `tonight` and `winddown`
+  were first added alongside a handler hardcoded to `sleep`.
+
 - **Evening check-in.** A repeating `UNCalendarNotificationTrigger` an hour
   before bedtime (`scheduleEveningCheckIn`, re-registered idempotently on every
   `reload()` and on `saveSchedule`), carrying `sleepblock://tonight`. Soundless

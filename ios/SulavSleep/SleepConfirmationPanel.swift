@@ -51,6 +51,26 @@ struct SleepConfirmationPanel: View {
                 store.startSleep()
             }
 
+            // The softer yes, directly under the harder one. Someone who opened
+            // this panel and isn't ready to slide has exactly two options
+            // otherwise — cancel, or go find a way around the block — and this
+            // is the third. Amber because it's a real destination, not a
+            // dismissal; Cancel stays the quiet last resort below it.
+            Button {
+                Haptics.heavy()
+                withAnimation(.easeInOut(duration: 0.32)) {
+                    store.showSleepConfirmation = false
+                    store.showWindDown = true
+                }
+            } label: {
+                Text("Not ready? Wind down for two minutes")
+                    .font(SleepFont.body(14))
+                    .foregroundStyle(SleepColor.amber)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.plain)
+            .padding(.top, SleepSpacing.sm)
+
             Button {
                 Haptics.heavy()
                 onCancel()
@@ -61,7 +81,6 @@ struct SleepConfirmationPanel: View {
                     .frame(maxWidth: .infinity, minHeight: 44)
             }
             .buttonStyle(.plain)
-            .padding(.top, SleepSpacing.sm)
 
             Spacer().frame(height: SleepSpacing.xl)
         }

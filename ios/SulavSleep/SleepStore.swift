@@ -26,6 +26,10 @@ final class SleepStore {
     /// this lives on the store so the `sleepblock://tonight` notification can
     /// raise it.
     var showTonightCheckIn = false
+    /// Whether Home shows the two-minute wind-down. On the store for the same
+    /// reason as the others — the `sleepblock://winddown` deep link and the
+    /// snooze-over notification both raise it.
+    var showWindDown = false
     var isImportingHealth = false
     // MARK: App update gate state (all logic in SleepUpdateGate.swift —
     // extensions can't add storage, so only the stored slots live here).

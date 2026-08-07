@@ -8,6 +8,10 @@ extension Notification.Name {
     /// link). The intent runs in the app's own process with
     /// `openAppWhenRun`, so the view hierarchy is mounted before this fires.
     static let sleepConfirmationRequested = Notification.Name("sleepConfirmationRequested")
+    /// A `sleepblock://` deep link that arrived via a **notification tap**
+    /// rather than `onOpenURL` (which notification taps don't fire). The
+    /// object carries the URL's host.
+    static let sleepDeepLinkRequested = Notification.Name("sleepDeepLinkRequested")
 }
 
 /// Opens the app on the slide-to-sleep confirmation. Deliberately does NOT

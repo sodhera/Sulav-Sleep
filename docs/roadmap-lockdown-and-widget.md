@@ -50,14 +50,6 @@ capability.
 - Request the Family Controls capability from Apple for the dev account (needed
   for real enforcement on device; everything else is code-complete).
 
-- **Wind-down destination.** The pre-sleep shield's "Sleep Now" lands on the
-  slide-to-sleep confirmation, which is the wrong-sized ask at 1am: someone
-  reaching for Instagram is not ready to commit to a whole night, which is
-  precisely why they're reaching. A two-minute wind-down (dimming, breathing,
-  one line of journalling) is a much easier yes, and the deep-link plumbing
-  (`sleepblock://`) already exists. The evening check-in shipped; this half
-  did not.
-
 - **Staged edits ("only tightens")** — the remaining half of the mid-window
   escape fix. `rescheduleLockdown` now holds schedule changes until the window
   closes (see `docs/development.md`), but two doors are still open: the "Block
