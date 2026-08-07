@@ -70,12 +70,29 @@ struct Profile: Codable, Equatable {
     /// Captured for future personalization; the question itself is the
     /// emotional anchor of the sign-up flow. Empty when unanswered.
     var wakeFeeling: String
+    /// The user's own reasons for wanting this, in their own words — what the
+    /// shield shows someone reaching for a blocked app at 1am.
+    ///
+    /// Deliberately *not* collected during sign-up. Asked cold, this question
+    /// produces a slogan ("I want better sleep"), and a slogan on the shield is
+    /// indistinguishable from the app's own copy. The honest version arrives
+    /// after a rough morning or right after a night they caved, which is when
+    /// `shouldPromptForReason` asks. Empty until then; the shield falls back to
+    /// its written copy. See `SleepLockdownSelection.reasonsKey`.
+    var lockReasons: [String]
+    /// Opt-in strictness: no snooze, and a longer wait on the slow door.
+    ///
+    /// Off by default and never turned on by the app. A restriction someone
+    /// chose is respected; the same restriction imposed is resented, and
+    /// resentment is what uninstalls the app.
+    var hardMode: Bool
 
     init(
         name: String, bedtime: Int, wakeTime: Int, onboarded: Bool,
         healthSyncEnabled: Bool = false, blockDuringSleep: Bool = true, lockdownMaxHours: Int = 6,
         sleepStruggles: [String] = [], timeSinkApps: [String] = [], healthPromptDismissed: Bool = false,
-        primaryGoal: String = "", lateNightPhone: String = "", wakeFeeling: String = ""
+        primaryGoal: String = "", lateNightPhone: String = "", wakeFeeling: String = "",
+        lockReasons: [String] = [], hardMode: Bool = false
     ) {
         self.name = name
         self.bedtime = bedtime
@@ -90,6 +107,8 @@ struct Profile: Codable, Equatable {
         self.primaryGoal = primaryGoal
         self.lateNightPhone = lateNightPhone
         self.wakeFeeling = wakeFeeling
+        self.lockReasons = lockReasons
+        self.hardMode = hardMode
     }
 
     // Decode-safe: records written before these fields existed default sensibly.
@@ -108,7 +127,26 @@ struct Profile: Codable, Equatable {
         primaryGoal = try c.decodeIfPresent(String.self, forKey: .primaryGoal) ?? ""
         lateNightPhone = try c.decodeIfPresent(String.self, forKey: .lateNightPhone) ?? ""
         wakeFeeling = try c.decodeIfPresent(String.self, forKey: .wakeFeeling) ?? ""
+        lockReasons = try c.decodeIfPresent([String].self, forKey: .lockReasons) ?? []
+        hardMode = try c.decodeIfPresent(Bool.self, forKey: .hardMode) ?? false
     }
+}
+
+/// One night's reach attempts, kept so the morning mirror can show a week
+/// rather than only last night.
+///
+/// Recorded as raw timestamps rather than a count, because the *shape* is the
+/// insight — "six times, all between 12:40 and 1:10" tells someone something
+/// about themselves that "six times" does not.
+struct ReachNight: Identifiable, Codable, Equatable {
+    /// Start of the sleep day this belongs to, matching `SleepMerge.key`.
+    var day: Date
+    var attempts: [Date]
+
+    var id: Date { day }
+    var count: Int { attempts.count }
+    var first: Date? { attempts.min() }
+    var last: Date? { attempts.max() }
 }
 
 /// Everything the sign-up questionnaire collects, handed to

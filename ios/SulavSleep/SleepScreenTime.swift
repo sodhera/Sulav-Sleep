@@ -187,19 +187,22 @@ final class ScreenTimeService: ScreenTimeControlling {
     }
 
     func reapplyShieldIfSnoozeExpired() {
-        guard isSupported,
-              SleepLockdownSelection.currentPhase() != nil,
-              SleepLockdownSelection.snoozeHasExpired()
-        else { return }
+        guard isSupported, SleepLockdownSelection.currentPhase() != nil else { return }
+        // The slow door is the same shape of grant as a snooze — the shield
+        // lifted for a fixed span — so it lapses through the same layers.
+        let snoozeLapsed = SleepLockdownSelection.snoozeHasExpired()
+        let doorLapsed = SleepLockdownSelection.doorHasExpired()
+        guard snoozeLapsed || doorLapsed else { return }
         let selection = SleepScreenTime.decodeSelection(selectionData())
         store.shield.applications = selection.applicationTokens.isEmpty ? nil : selection.applicationTokens
         store.shield.applicationCategories = selection.categoryTokens.isEmpty
             ? nil
             : .specific(selection.categoryTokens)
         SleepLockdownSelection.clearSnoozeWindow()
+        SleepLockdownSelection.clearDoor()
         deviceActivityCenter.stopMonitoring([sleepSnoozeActivityName])
         cancelSnoozeEndNotification()
-        AppLog.app.info("Snooze expired — shield re-applied")
+        AppLog.app.info("\(snoozeLapsed ? "Snooze" : "Door") expired — shield re-applied")
     }
 
     /// The shield-action extension schedules a "five minutes are up" nudge when
@@ -213,9 +216,10 @@ final class ScreenTimeService: ScreenTimeControlling {
 
     func scheduleLockdown(bedtimeMinutes: Int, wakeMinutes: Int) {
         guard isSupported else { return }
-        // Mirrored into the App Group so the shield extension can say how far
-        // past bedtime the user is without reaching into the app's profile.
+        // Mirrored into the App Group so the shield extension can count the
+        // hours left until the alarm without reaching into the app's profile.
         SleepLockdownSelection.setBedtimeMinutes(bedtimeMinutes)
+        SleepLockdownSelection.setWakeMinutes(wakeMinutes)
         let selection = SleepScreenTime.decodeSelection(selectionData())
         let schedule = DeviceActivitySchedule(
             intervalStart: dateComponents(fromMinutes: bedtimeMinutes),

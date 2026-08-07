@@ -13,6 +13,9 @@ final class SleepStore {
     var importedHealthSessions: [SleepSession] = []
     var profile: Profile?
     var activeSession: ActiveSleepSession?
+    /// Reach attempts per night, harvested out of the App Group log. See
+    /// `harvestReachLog()`.
+    var reachNights: [ReachNight] = []
     var selectedTab: AppTab = .home
     /// Whether Home shows the slide-to-sleep confirmation panel. Lives on the
     /// store (not Home-local state) so the widget/shield `sleepblock://sleep`
@@ -211,7 +214,15 @@ final class SleepStore {
         profile = snapshot.profile
         sessions = snapshot.sessions
         activeSession = snapshot.activeSession
+        reachNights = snapshot.reachNights
         account = persistence.loadAccount()
+        // The shield extensions read these out of the App Group; the app is the
+        // only writer, so every foreground is the cheapest place to keep the
+        // mirror honest (a reinstall or a cloud-restored profile lands here).
+        mirrorLockdownPreferences()
+        // File any finished night's reach attempts into local history before
+        // anything reads them.
+        harvestReachLog()
         // Safety net for the shield snooze: if a "5 more minutes" grant lapsed
         // while the timed re-arm didn't fire, restore the block now. Cheap and
         // a no-op unless a snooze is actually outstanding.
@@ -1057,6 +1068,151 @@ final class SleepStore {
         )
     }
 
+    /// Pushes the profile fields the sandboxed shield extensions need into the
+    /// App Group. They can't reach the app's storage, so anything the lock
+    /// screen shows has to be mirrored here first.
+    private func mirrorLockdownPreferences() {
+        guard let profile else { return }
+        SleepLockdownSelection.setReasons(profile.lockReasons)
+        SleepLockdownSelection.setHardMode(profile.hardMode)
+        SleepLockdownSelection.setWakeMinutes(profile.wakeTime)
+    }
+
+    // MARK: - Reach attempts (the morning mirror)
+
+    /// Moves finished nights out of the App Group log and into local history.
+    ///
+    /// The shield extension can only append — it has no idea when a night is
+    /// over — so the app does the filing. Anything belonging to a sleep day
+    /// that isn't today's window is closed and gets archived; today's stays in
+    /// the log so the count keeps climbing if the user is still up.
+    ///
+    /// Runs on every foreground. Cheap: the usual answer is "nothing to file".
+    private func harvestReachLog() {
+        let attempts = SleepLockdownSelection.reachLog()
+        guard !attempts.isEmpty else { return }
+        let calendar = Calendar.current
+        // The window that is still running, if any — its attempts stay live.
+        let openWindow: Date? = {
+            guard let profile, isInsideLockdownWindow else { return nil }
+            return SleepLockdownSelection.windowStart(bedtimeMinutes: profile.bedtime)
+        }()
+
+        var grouped: [Date: [Date]] = [:]
+        var stillOpen: [Date] = []
+        for attempt in attempts {
+            if let openWindow, attempt >= openWindow {
+                stillOpen.append(attempt)
+            } else {
+                grouped[SleepMerge.key(for: attempt, calendar: calendar), default: []].append(attempt)
+            }
+        }
+        guard !grouped.isEmpty else { return }
+
+        var nights = reachNights
+        for (day, dayAttempts) in grouped {
+            if let index = nights.firstIndex(where: { $0.day == day }) {
+                // Merge rather than replace: a night can be harvested in two
+                // passes if the user opens the app mid-window and again later.
+                let merged = Set(nights[index].attempts).union(dayAttempts)
+                nights[index].attempts = merged.sorted()
+            } else {
+                nights.append(ReachNight(day: day, attempts: dayAttempts.sorted()))
+            }
+        }
+        nights.sort { $0.day < $1.day }
+        // A rolling window is plenty — this is a mirror, not an archive, and an
+        // unbounded personal log of someone's worst moments is not a thing to
+        // keep forever.
+        if nights.count > Self.reachHistoryNights {
+            nights.removeFirst(nights.count - Self.reachHistoryNights)
+        }
+        reachNights = nights
+
+        if stillOpen.isEmpty {
+            SleepLockdownSelection.clearReachLog()
+        } else {
+            SleepLockdownSelection.replaceReachLog(with: stillOpen)
+        }
+        persist(refreshWidget: false)
+        AppLog.store.info("Harvested reach log into \(grouped.count) night(s)")
+    }
+
+    private static let reachHistoryNights = 30
+
+    /// Last night's reaches, for Home's morning mirror. Nil when there were
+    /// none — silence is the right output for a night someone didn't struggle,
+    /// and a triumphant "0 attempts!" card would cheapen the ones that matter.
+    var lastNightReaches: ReachNight? {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        guard let latest = reachNights.last, latest.count > 0 else { return nil }
+        let daysAgo = calendar.dateComponents([.day], from: latest.day, to: today).day ?? .max
+        guard daysAgo <= 1 else { return nil }
+        return latest
+    }
+
+    /// Reaches over the last seven nights, for the Profile summary.
+    var reachesThisWeek: Int {
+        let calendar = Calendar.current
+        guard let cutoff = calendar.date(byAdding: .day, value: -7, to: Date()) else { return 0 }
+        return reachNights.filter { $0.day >= cutoff }.reduce(0) { $0 + $1.count }
+    }
+
+    // MARK: - The user's own words
+
+    var lockReasons: [String] { profile?.lockReasons ?? [] }
+
+    /// Replaces the user's reasons and mirrors them to the App Group where the
+    /// shield can read them. Trimmed, length-capped, blanks dropped.
+    func saveLockReasons(_ reasons: [String]) {
+        guard var profile else { return }
+        let cleaned = reasons
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .map { String($0.prefix(SleepLockdownSelection.reasonMaxLength)) }
+            .prefix(SleepLockdownSelection.reasonLimit)
+        let next = Array(cleaned)
+        guard profile.lockReasons != next else { return }
+        profile.lockReasons = next
+        self.profile = profile
+        persist(refreshWidget: false)
+        SleepLockdownSelection.setReasons(next)
+        AppLog.store.info("Saved \(next.count) lock reason(s)")
+    }
+
+    /// Whether to ask the user for their reason right now.
+    ///
+    /// The timing is the whole feature. Asked during sign-up this question
+    /// returns a slogan; asked the morning after a night they reached for a
+    /// blocked app, it returns the true answer, because the feeling is still
+    /// available. So: they have no reasons yet, and last night they struggled.
+    var shouldPromptForReason: Bool {
+        lockReasons.isEmpty && (lastNightReaches?.count ?? 0) >= 2
+    }
+
+    /// The opt-in strictness switch. Mirrored for the shield extensions, which
+    /// use it to drop the snooze button and lengthen the slow door's wait.
+    func setHardMode(_ on: Bool) {
+        guard var profile, profile.hardMode != on else { return }
+        profile.hardMode = on
+        self.profile = profile
+        persist(refreshWidget: false)
+        SleepLockdownSelection.setHardMode(on)
+        AppLog.store.info("Hard mode \(on ? "on" : "off")")
+    }
+
+    // Neither `lockReasons` nor `hardMode` is pushed to `CloudProfile`, and
+    // that is deliberate rather than an omission. The reasons are the most
+    // personal sentences in the app — someone's real answer to why they can't
+    // put the phone down — and they exist to be read by a lock screen on *this*
+    // device; shipping them to a table earns nothing and costs a promise.
+    // `reachNights` stays local for the same reason. Hard mode is device-bound
+    // in the same way authorization is: it means nothing on a phone that isn't
+    // doing the blocking. Syncing any of it would need a schema migration
+    // (`supabase/`), so this is a decision to revisit deliberately, not drift
+    // into.
+
     /// Whether the clock is inside the user's bedtime→wake window right now.
     private var isInsideLockdownWindow: Bool {
         guard let profile else { return false }
@@ -1192,6 +1348,25 @@ struct SleepSnapshot: Codable {
     var profile: Profile?
     var sessions: [SleepSession]
     var activeSession: ActiveSleepSession?
+    /// Harvested from the App Group reach log, one entry per night. Decode-safe
+    /// for snapshots written before it existed.
+    var reachNights: [ReachNight] = []
+
+    init(profile: Profile?, sessions: [SleepSession], activeSession: ActiveSleepSession?,
+         reachNights: [ReachNight] = []) {
+        self.profile = profile
+        self.sessions = sessions
+        self.activeSession = activeSession
+        self.reachNights = reachNights
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        profile = try c.decodeIfPresent(Profile.self, forKey: .profile)
+        sessions = try c.decodeIfPresent([SleepSession].self, forKey: .sessions) ?? []
+        activeSession = try c.decodeIfPresent(ActiveSleepSession.self, forKey: .activeSession)
+        reachNights = try c.decodeIfPresent([ReachNight].self, forKey: .reachNights) ?? []
+    }
 }
 
 /// The app's App Store identity.
@@ -1235,6 +1410,10 @@ struct SleepPersistence {
     private let sessionsKey = "sulav.sessions.v1"
     private let activeKey = "sulav.active.v1"
     private let accountKey = "sulav.account.v1"
+    // Nightly reach-attempt history, harvested out of the App Group log. Local
+    // only and cleared by `reset()`: this is the most personal thing the app
+    // records, and it has no business following an account onto another device.
+    private let reachNightsKey = "sulav.reachNights.v1"
     // Lives in the app container (wiped on delete), so its absence marks a
     // fresh install. Deliberately not cleared by `reset()` — a sign-out within
     // the same install is not a reinstall.
@@ -1280,7 +1459,8 @@ struct SleepPersistence {
         SleepSnapshot(
             profile: decode(Profile.self, forKey: profileKey),
             sessions: decode([SleepSession].self, forKey: sessionsKey) ?? [],
-            activeSession: decode(ActiveSleepSession.self, forKey: activeKey)
+            activeSession: decode(ActiveSleepSession.self, forKey: activeKey),
+            reachNights: decode([ReachNight].self, forKey: reachNightsKey) ?? []
         )
     }
 
@@ -1288,12 +1468,14 @@ struct SleepPersistence {
         encode(snapshot.profile, forKey: profileKey)
         encode(snapshot.sessions, forKey: sessionsKey)
         encode(snapshot.activeSession, forKey: activeKey)
+        encode(snapshot.reachNights, forKey: reachNightsKey)
     }
 
     func reset() {
         defaults.removeObject(forKey: profileKey)
         defaults.removeObject(forKey: sessionsKey)
         defaults.removeObject(forKey: activeKey)
+        defaults.removeObject(forKey: reachNightsKey)
         defaults.removeObject(forKey: accountKey)
         defaults.removeObject(forKey: lastAccountIDKey)
         defaults.removeObject(forKey: legacyCloudSeedCheckedKey)

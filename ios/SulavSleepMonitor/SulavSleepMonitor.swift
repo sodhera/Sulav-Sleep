@@ -67,12 +67,12 @@ final class SulavSleepMonitor: DeviceActivityMonitor {
     private func applyShield() {
         shieldSelectedApps()
         SleepLockdownSelection.setPhase(.presleep)
-        // A new night, a fresh allowance — but only if this really is a new
-        // night. `intervalDidStart` is not once-per-window: re-registering the
-        // activity while its interval is running fires it again, and resetting
-        // unconditionally here turned that into an unlimited snooze supply.
-        // See `resetSnoozesForNewWindow`.
-        SleepLockdownSelection.resetSnoozesForNewWindow()
+        // A new night: fresh snooze allowance, empty reach log, shut door — but
+        // only if this really is a new night. `intervalDidStart` is not
+        // once-per-window: re-registering the activity while its interval is
+        // running fires it again, and resetting unconditionally here turned
+        // that into an unlimited snooze supply. See `beginWindowIfNew`.
+        SleepLockdownSelection.beginWindowIfNew()
     }
 
     /// Re-arms the shield when a snooze runs out, from either trigger: the
@@ -89,6 +89,10 @@ final class SulavSleepMonitor: DeviceActivityMonitor {
         guard SleepLockdownSelection.currentPhase() != nil else { return }
         shieldSelectedApps()
         SleepLockdownSelection.clearSnoozeWindow()
+        // The slow door shares this re-arm: it is the same shape of grant (the
+        // shield lifted for a fixed span) and re-shielding is the same action,
+        // so there is no second activity to register or lose.
+        SleepLockdownSelection.clearDoor()
         // Whichever trigger lost the race, its schedule has nothing left to do.
         DeviceActivityCenter().stopMonitoring([sleepSnoozeActivityName])
     }
@@ -108,6 +112,10 @@ final class SulavSleepMonitor: DeviceActivityMonitor {
         store.shield.applicationCategories = nil
         SleepLockdownSelection.clearPhase()
         SleepLockdownSelection.resetSnoozes()
+        SleepLockdownSelection.clearDoor()
+        // The reach log deliberately survives the night — the morning mirror
+        // reads it after the shield is long gone, and the app clears it when it
+        // has been harvested into history.
         // The night is over however we got here, so neither timed activity has
         // anything left to do. Retiring the cap matters most: left armed, it
         // would fire partway through a later night and drop that shield.
