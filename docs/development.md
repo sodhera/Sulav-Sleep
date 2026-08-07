@@ -1295,6 +1295,44 @@ nights on first launch after upgrading.
   `sleepActivityName` mid-night would re-fire `intervalDidStart` →
   `applyShield()` → `resetSnoozes()`, quietly handing out a fresh snooze
   allowance. A changed cap applies to the next session.
+
+- **Mid-window edits are held, not applied** (`rescheduleLockdown`). The lock's
+  own settings used to be live-editable while the lock was in force, which made
+  the shield escapable from the UI. The exploit window is the **pre-sleep**
+  phase: the shield is up but there is no `activeSession`, so `RootView` hands
+  the user the full app, Profile included. Two ways out, both through sanctioned
+  code paths:
+
+  1. `saveSchedule` rescheduled immediately, so moving wake time to a few
+     minutes out made the monitor's `intervalDidEnd` fire and `clearShield()`
+     for the rest of the night.
+  2. *Any* save re-registered `sleepActivityName` mid-window, re-firing
+     `intervalDidStart` → `resetSnoozes()`. Nudge bedtime by a minute, save,
+     collect two more "5 more minutes", repeat — an unlimited supply, the exact
+     hazard `setLockdownMaxHours` was already written to avoid.
+
+  `rescheduleLockdown` now refuses to register while the window is running and
+  `reload()` (every foreground) retries, so a held change lands once the window
+  closes. The retry is unconditional and idempotent — it self-defers — so there
+  is no flag to persist and nothing is lost if the app is killed in between.
+
+  Deferral keys off **both** `currentPhase() != nil` and `isInsideLockdownWindow`.
+  The phase alone misses a real gap: after the cap fires, the phase is cleared
+  while the clock is still inside the window, and re-registering there would
+  re-fire `intervalDidStart` and put the shield straight back — silently undoing
+  the one sanctioned way out.
+
+  Second lock on the same door: the monitor calls
+  `resetSnoozesForNewWindow()` instead of `resetSnoozes()`. The allowance is
+  keyed to the window's start date (`snoozeWindowKey`) rather than to the fact of
+  `intervalDidStart` firing, which is *not* once-per-night. `windowStart` looks
+  back a day when today's bedtime hasn't passed yet, so one midnight-crossing
+  night yields one anchor from either side of 00:00. With no mirrored bedtime to
+  identify a window it falls back to resetting — the forgiving direction.
+
+  Not yet closed, and deliberately out of scope here: `setBlockingEnabled(false)`
+  and clearing the app selection still call `endLockdown()` outright. Closing
+  those is the staged-edit ("only tightens") work — see the roadmap.
 - The Shield Action API cannot open the host app, so the pre-sleep "Sleep Now"
   button posts a local notification with the deep link — tapping the
   notification opens the app on the sleep confirmation panel

@@ -120,6 +120,9 @@ enum SleepLockdownSelection {
     static let snoozeUntilKey = "sulav.lock.snoozeUntil"
     /// Snoozes already spent in this lockdown window.
     static let snoozeCountKey = "sulav.lock.snoozeCount"
+    /// Which lockdown window the spent-snooze count belongs to, stored as that
+    /// window's start (`timeIntervalSince1970`). See `resetSnoozesForNewWindow`.
+    static let snoozeWindowKey = "sulav.lock.snoozeWindowStart"
 
     /// Minutes granted per snooze, and how many a single lockdown window
     /// allows. Capped because an uncapped snooze is an off switch with extra
@@ -169,9 +172,76 @@ enum SleepLockdownSelection {
         groupDefaults()?.removeObject(forKey: snoozeUntilKey)
     }
 
-    /// Fresh allowance — called when a lockdown window opens at bedtime.
+    /// Fresh allowance, unconditionally. Correct at the *end* of a window,
+    /// where the next one should start clean. To open a window, prefer
+    /// `resetSnoozesForNewWindow()`, which won't hand out a second allowance
+    /// for a night that already had one.
     static func resetSnoozes() {
         groupDefaults()?.removeObject(forKey: snoozeCountKey)
+        groupDefaults()?.removeObject(forKey: snoozeWindowKey)
         clearSnoozeWindow()
+    }
+
+    /// Start of the lockdown window containing `now`: today's bedtime if it has
+    /// already passed, otherwise yesterday's. The look-back is what keeps the
+    /// answer stable across midnight — at 01:00 under a 23:00 bedtime, the
+    /// window in force started at 23:00 *yesterday*, and calling it "today's"
+    /// would make one night look like two.
+    static func windowStart(now: Date = Date(),
+                            bedtimeMinutes: Int,
+                            calendar: Calendar = .current) -> Date? {
+        var components = calendar.dateComponents([.year, .month, .day], from: now)
+        components.hour = (bedtimeMinutes / 60) % 24
+        components.minute = bedtimeMinutes % 60
+        components.second = 0
+        guard let todays = calendar.date(from: components) else { return nil }
+        return todays <= now ? todays : calendar.date(byAdding: .day, value: -1, to: todays)
+    }
+
+    /// Whether `now` falls inside a bedtime→wake window, handling the usual
+    /// case where it crosses midnight.
+    static func isWithinWindow(now: Date = Date(),
+                               bedtimeMinutes: Int,
+                               wakeMinutes: Int,
+                               calendar: Calendar = .current) -> Bool {
+        // A zero-length window blocks nothing; treating it as "always inside"
+        // would wedge the schedule permanently.
+        guard bedtimeMinutes != wakeMinutes else { return false }
+        let components = calendar.dateComponents([.hour, .minute], from: now)
+        let minutes = (components.hour ?? 0) * 60 + (components.minute ?? 0)
+        return bedtimeMinutes < wakeMinutes
+            ? (minutes >= bedtimeMinutes && minutes < wakeMinutes)
+            : (minutes >= bedtimeMinutes || minutes < wakeMinutes)
+    }
+
+    /// Fresh allowance for a genuinely new night — the reset the monitor runs
+    /// when a lockdown window opens.
+    ///
+    /// Guarded by the window's start date rather than by the fact of
+    /// `intervalDidStart` firing, because that callback is not once-per-night:
+    /// re-registering `sleepActivityName` while its interval is already running
+    /// fires it again. That made an unlimited snooze supply reachable from the
+    /// UI — edit the schedule by a minute, save, collect two more "5 more
+    /// minutes", repeat. `SleepStore.rescheduleLockdown` now refuses to
+    /// re-register mid-window, and this is the second lock on the same door:
+    /// however the callback arrives, a night gets one allowance.
+    ///
+    /// Without a mirrored bedtime there is no window to identify, so this falls
+    /// back to resetting — the same behaviour as before, and the forgiving
+    /// direction to fail in.
+    static func resetSnoozesForNewWindow(now: Date = Date()) {
+        guard let bedtime = bedtimeMinutes(),
+              let start = windowStart(now: now, bedtimeMinutes: bedtime)
+        else {
+            resetSnoozes()
+            return
+        }
+        let stamp = start.timeIntervalSince1970
+        if let previous = groupDefaults()?.object(forKey: snoozeWindowKey) as? Double,
+           abs(previous - stamp) < 1 {
+            return  // same night, allowance already issued
+        }
+        resetSnoozes()
+        groupDefaults()?.set(stamp, forKey: snoozeWindowKey)
     }
 }

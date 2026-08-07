@@ -216,6 +216,13 @@ final class SleepStore {
         // while the timed re-arm didn't fire, restore the block now. Cheap and
         // a no-op unless a snooze is actually outstanding.
         screenTime.reapplyShieldIfSnoozeExpired()
+        // Lands any schedule change that was made while the shield was up:
+        // `rescheduleLockdown` holds those rather than re-registering
+        // mid-window, and this is where the held change gets registered once
+        // the window has closed. Deliberately unconditional and idempotent —
+        // it self-defers while a window is running, so there is no flag to keep
+        // in sync and nothing to lose if the app is killed in between.
+        rescheduleLockdown()
         if refreshWidget {
             updateWidgetSoon()
         }
@@ -1022,9 +1029,38 @@ final class SleepStore {
 
     /// Re-registers the scheduled bedtime->wake DeviceActivityMonitor window so
     /// the shield applies/clears even if the app isn't open.
+    ///
+    /// **Never re-registers while tonight's window is still running.** Doing so
+    /// was the way out of a lockdown: `saveSchedule` rescheduled immediately, so
+    /// moving wake time to a few minutes away made the monitor's
+    /// `intervalDidEnd` fire and clear the shield for the rest of the night —
+    /// and any save at all re-fired `intervalDidStart`, which handed out a fresh
+    /// snooze allowance. The settings that govern the lock were editable while
+    /// the lock was in force. Now a change made mid-window is simply held, and
+    /// `reload()` registers it once the window has closed.
+    ///
+    /// Deferral keys off *both* signals. A live phase means the shield is up.
+    /// But `isInsideLockdownWindow` has to be checked as well, for the gap the
+    /// phase alone misses: after "Unlock anyway after Nh" fires, the phase is
+    /// cleared while the clock is still inside the window, and re-registering
+    /// there would re-fire `intervalDidStart` and put the shield straight back —
+    /// silently undoing the one sanctioned way out.
     private func rescheduleLockdown() {
         guard let profile, willLockDuringSleep else { return }
+        guard SleepLockdownSelection.currentPhase() == nil, !isInsideLockdownWindow else {
+            AppLog.store.info("Lockdown reschedule deferred — window still running")
+            return
+        }
         screenTime.scheduleLockdown(
+            bedtimeMinutes: profile.bedtime,
+            wakeMinutes: profile.wakeTime
+        )
+    }
+
+    /// Whether the clock is inside the user's bedtime→wake window right now.
+    private var isInsideLockdownWindow: Bool {
+        guard let profile else { return false }
+        return SleepLockdownSelection.isWithinWindow(
             bedtimeMinutes: profile.bedtime,
             wakeMinutes: profile.wakeTime
         )

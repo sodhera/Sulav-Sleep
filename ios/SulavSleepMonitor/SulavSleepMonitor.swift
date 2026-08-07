@@ -67,10 +67,12 @@ final class SulavSleepMonitor: DeviceActivityMonitor {
     private func applyShield() {
         shieldSelectedApps()
         SleepLockdownSelection.setPhase(.presleep)
-        // A new night, a fresh allowance. Tying the reset to the interval
-        // start rather than a calendar date means it lines up exactly with the
-        // lockdown window, including one that crosses midnight.
-        SleepLockdownSelection.resetSnoozes()
+        // A new night, a fresh allowance — but only if this really is a new
+        // night. `intervalDidStart` is not once-per-window: re-registering the
+        // activity while its interval is running fires it again, and resetting
+        // unconditionally here turned that into an unlimited snooze supply.
+        // See `resetSnoozesForNewWindow`.
+        SleepLockdownSelection.resetSnoozesForNewWindow()
     }
 
     /// Re-arms the shield when a snooze runs out, from either trigger: the

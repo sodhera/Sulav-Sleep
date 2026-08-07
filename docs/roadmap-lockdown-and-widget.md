@@ -50,6 +50,33 @@ capability.
 - Request the Family Controls capability from Apple for the dev account (needed
   for real enforcement on device; everything else is code-complete).
 
+- **Staged edits ("only tightens")** — the remaining half of the mid-window
+  escape fix. `rescheduleLockdown` now holds schedule changes until the window
+  closes (see `docs/development.md`), but two doors are still open: the "Block
+  while you sleep" toggle and clearing the app selection both call
+  `endLockdown()` on the spot. One toggle and the night's shield is gone.
+
+  Intended rule, while a window is live: an edit that **tightens** applies
+  immediately (earlier bedtime, later wake, more apps, blocking on, lower cap);
+  an edit that **loosens** is staged and takes effect when the window next
+  closes, with the UI saying so ("Saved — takes effect tomorrow night").
+
+  Shape: a `pendingLockdownEdit` blob on `Profile`, applied on foreground when
+  no window is running — the same self-deferring hook `rescheduleLockdown`
+  already uses. Two constraints worth writing down: the "Unlock anyway after Nh"
+  cap stays the single sanctioned exit and no staged edit may interfere with an
+  armed one; and when anything is ambiguous, fail toward *unlocking* — a change
+  that silently evaporates costs more trust than the hack it prevents.
+
+  Known next exploit, tracked separately: moving the **device clock** past wake
+  time ends the window. Mitigation is a monotonic reference (boot uptime) taken
+  at window start, cross-checked against Supabase server time on next sync.
+
+  Worth stating plainly: none of this is airtight. Deleting the app or revoking
+  Screen Time in Settings drops the shield, and that is Apple's design. The goal
+  is making the escape cost more than the scroll is worth for the wavering
+  majority, not defeating a determined user.
+
 ---
 
 _Original plan follows._
