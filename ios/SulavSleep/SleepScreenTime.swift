@@ -614,6 +614,7 @@ struct BlockedAppsScreen: View {
     @State private var showPicker = false
     @State private var blockOn = true
     @State private var maxHours = 6
+    @State private var hardMode = false
 
     var body: some View {
         SceneScreen {
@@ -670,6 +671,52 @@ struct BlockedAppsScreen: View {
                         )
                     }
                     .buttonStyle(.plain)
+
+                    GlassRowDivider()
+
+                    GlassRowDivider()
+
+                    // The reasons live here rather than in general settings:
+                    // this is the lockdown's own screen, and the sentences are
+                    // part of the lock, not a preference.
+                    NavigationLink {
+                        ReasonsScreen(store: store)
+                    } label: {
+                        GlassRow(
+                            icon: "quote.opening",
+                            title: "Why you're doing this",
+                            value: reasonsSummary,
+                            showsChevron: true
+                        )
+                    }
+                    .buttonStyle(.plain)
+
+                    GlassRowDivider()
+
+                    // Strictness the user chooses, never one the app imposes.
+                    // A self-chosen constraint gets respected; the same
+                    // constraint applied to someone is resented, and resentment
+                    // is what uninstalls the app.
+                    VStack(alignment: .leading, spacing: SleepSpacing.xs) {
+                        HStack(spacing: SleepSpacing.md) {
+                            GlassRowIcon(icon: "lock.shield.fill")
+                            Toggle(isOn: $hardMode) {
+                                Text("Hard mode")
+                                    .font(SleepFont.body(16))
+                                    .foregroundStyle(SleepColor.ink)
+                            }
+                            .tint(SleepColor.amber)
+                        }
+                        Text("No snooze, and the 10-minute unlock takes 3 minutes to open.")
+                            .font(SleepFont.body(13))
+                            .foregroundStyle(SleepColor.muted)
+                            .padding(.leading, 52)
+                    }
+                    .padding(.vertical, SleepSpacing.md)
+                    .onChange(of: hardMode) { _, on in
+                        Haptics.heavy()
+                        store.setHardMode(on)
+                    }
 
                     GlassRowDivider()
 
@@ -733,6 +780,7 @@ struct BlockedAppsScreen: View {
             selection = SleepScreenTime.decodeSelection(store.appSelectionData())
             blockOn = store.blockingEnabled
             maxHours = store.lockdownMaxHours
+            hardMode = store.profile?.hardMode ?? false
         }
     }
 
@@ -741,5 +789,13 @@ struct BlockedAppsScreen: View {
             apps: selection.applicationTokens.count,
             categories: selection.categoryTokens.count
         )
+    }
+
+    /// "None" reads as a setting left alone; "Not written" says there is
+    /// something here the user hasn't done yet.
+    private var reasonsSummary: String {
+        let count = store.lockReasons.count
+        guard count > 0 else { return "Not written" }
+        return count == 1 ? "1 reason" : "\(count) reasons"
     }
 }

@@ -1342,35 +1342,61 @@ at interval start and writes a `LockdownPhase` to the App Group defaults, so
 the shield extensions render the right copy:
 
 **Pre-sleep phase** (bedtime arrives → user hasn't started a session):
-- Title: "Time for bed"
-- Title: **"18 minutes past bedtime"** — the lateness takes the bold slot, and
+- Title: **"5h 48m until your alarm"** — the countdown takes the bold slot, and
   "Time for bed" steps down to the subtitle. `ShieldConfiguration.Label`
   carries a string and a colour and nothing else, so a phrase *inside* the
   subtitle cannot be emphasised; putting the number in the title is the only
   way to give it weight. It earns that weight — it is the one thing on the
   screen the user doesn't already know, and the only part that changes as the
   night runs on.
-- Subtitle: **"Time for bed."** One short line. Nothing else belongs here: the
-  user is looking at a block screen, so saying the app is blocked spends
-  wrapped lines restating what they can see, and the buttons already state the
-  options.
-- In the first minute, and before any lockdown has been scheduled (bedtime
-  isn't in the App Group yet), the shield keeps its original pairing — title
-  "Time for bed", subtitle "Put your phone down and head to bed." A bold
-  "0 minutes past bedtime" is a worse sentence than the one it replaces.
+- This replaced **"18 minutes past bedtime"**, and the swap is the point. Time
+  past bedtime is a scolding about a decision already made; time until the
+  alarm is a fact about the pain arriving in the morning. Someone standing at
+  a block screen at 1am has fully priced in that they are up late — what they
+  have not done is the subtraction.
+- Subtitle: **the user's own sentence**, when they have written one (see
+  *Their own words* below). Otherwise "Time for bed." One short line either
+  way. Nothing else belongs here: the user is looking at a block screen, so
+  saying the app is blocked spends wrapped lines restating what they can see,
+  and the buttons already state the options.
+- Before any lockdown has been scheduled (wake time isn't in the App Group
+  yet), the shield keeps its original pairing — title "Time for bed", subtitle
+  "Put your phone down and head to bed."
 - Primary button: **"Sleep Now"** (amber) — closes the shield and fires a
   local notification with the `sleepblock://sleep` deep link. Tapping the
   notification opens the app on the sleep confirmation panel. (The Shield
   Action API cannot directly launch the host app; the notification is the
   bridge.)
-- Secondary button: **"5 more minutes"** (dim) — lifts the block for five
-  minutes. Twice a night, then the button disappears.
+- Secondary button: **"5 more minutes"** (dim) while the night's snooze
+  allowance lasts, then the slow door (below).
 
 **Active sleep phase** (user tapped Sleep Now, session running):
-- Title: "Time to sleep"
-- Subtitle: "This app is asleep until you wake. Head back to bed."
+- Title: the same alarm countdown, falling back to "Time to sleep".
+- Subtitle: the user's own sentence, falling back to "This app is asleep until
+  you wake."
 - Primary button: **"Good night"** (amber) — dismisses the shield.
-- No secondary button.
+- Secondary button: the slow door only. Never a snooze.
+
+### Their own words
+
+The subtitle carries a sentence **the user wrote** about why they want this,
+rotating to the next one on each reach of the night.
+
+The app's own copy is the weakest possible voice for the 1am argument — it
+reads as one more piece of software telling someone what to do, and there is
+an obvious thing to be annoyed at. Their own sentence has nobody in it.
+
+- **Three at most, 60 characters each.** The shield subtitle is one short line,
+  so anything longer wraps badly or truncates — and the ceiling is doing
+  double duty, because a tight limit produces the true sentence instead of a
+  slogan.
+- **Rotating, not fixed.** One line stops being visible after about a week, the
+  same way a desktop wallpaper does. Rotation keeps it read rather than seen.
+- **Never collected at sign-up.** Asked cold the answer is always a slogan
+  ("I want better sleep"), and a slogan on the shield is indistinguishable
+  from our copy. The app asks the morning after a night the user actually
+  reached — the feeling is still available then. Until they write one, the
+  shield falls back to its own copy; nothing is ever written for them.
 
 ### The snooze
 
@@ -1382,17 +1408,51 @@ UI. It stays in the quiet slot deliberately: a shield whose loudest button is
 out is plain text underneath.
 
 It exists **only in the pre-sleep phase**. Snoozing out of a session the user
-deliberately started would make lockdown mean nothing, and `lockdownMaxHours`
-is already the sanctioned exit from one. That boundary is what makes offering
-a snooze before sleep safe rather than corrosive.
+deliberately started would make lockdown mean nothing. That boundary is what
+makes offering a snooze before sleep safe rather than corrosive.
 
-**Two per night, then gone.** Uncapped, "5 more minutes" is an off switch with
-extra steps; the point is that it runs out. The allowance resets at the
-lockdown window's interval start, which lines up exactly with the night —
-including one crossing midnight — with no date arithmetic. Once spent, the
-secondary label is dropped entirely rather than degrading to a dead "OK": the
-active-phase shield already ships one button, so a single button is
-established grammar here.
+**Two per night, then gone** — and none at all in hard mode. Uncapped, "5 more
+minutes" is an off switch with extra steps; the point is that it runs out. The
+allowance resets when a genuinely new window opens, keyed to the window's start
+date so a mid-night re-registration can't reissue it.
+
+### The slow door
+
+When the snooze is gone — or in the active phase, where there never was one —
+the secondary slot offers **"I need 10 minutes"**. Tapping it does not unlock
+anything. It starts a 60-second wait (180 in hard mode), and the shield the
+user meets on their *next* attempt reads "Unlock 10 minutes" and opens.
+
+This is the one place the design deliberately gives ground, and the reasoning
+is retention, not leniency: **deleting SleepBlock is itself an escape hatch,
+and the only one that can't be taken away.** A lockdown whose remaining exits
+are "wait six hours" or "delete the app" pushes people toward the permanent
+one. The door exists to be taken.
+
+- **The wait is the mechanism.** A craving fades in about a minute. Most people
+  put the phone down during it and never come back for the second tap; the
+  ones who do come back get their ten minutes and keep the app.
+- **Never rationed.** Unlike the snooze it doesn't run out — an exit that can
+  be exhausted is a dead end with extra steps. It costs the wait every time,
+  which is what keeps it from being a plain off switch.
+- **Two taps, by necessity as much as design.** A shield action extension is
+  torn down the instant it answers a tap and cannot run a timer. The shield is
+  re-rendered on every attempt, so the user's own second attempt is the clock.
+- The waiting label ("Unlocks in 43s") is `faint`, not `dim` — it is the one
+  state where the control is informational and tapping does nothing.
+
+### Reach attempts
+
+Every render of the shield is one reach, logged to the App Group (debounced 5s,
+since the system can ask for a configuration more than once per launch). It
+costs nothing — the extension runs exactly when someone reaches — and it is the
+only honest measure of whether any of this works.
+
+Read back in the morning as a **mirror, never a judge**: "You reached for
+Instagram 6 times last night — all between 12:40 and 1:10." No red, no
+"failed", no streak-breaking. Most people genuinely don't know they do this,
+and seeing it plainly moves behaviour further than any wall. The moment it
+reads as a scolding, the app gets deleted.
 
 When `startSleep()` calls `startLockdown()`, the phase flips from `presleep`
 to `active`. The next time the shield renders, it picks up the new phase and
@@ -1403,9 +1463,22 @@ clears both the shield and the phase.
 
 The phase is communicated via App Group UserDefaults (`sulav.lock.phase`),
 readable by all four targets (main app, monitor, shield config, shield
-action). The shield extensions hardcode the App Group name and key because
-they don't include `SleepLockdownShared.swift` in their target — keeping the
-jetsam-constrained shield process lean.
+action) — along with the schedule mirror, the user's reasons, the reach log,
+and the door's state.
+
+All of it lives in **`SleepLockdownKeys.swift`**, which imports Foundation and
+nothing else so every target can compile it, including the jetsam-constrained
+shield process that must not link FamilyControls. The extensions used to
+hardcode their own copies of each key; that was survivable at five constants
+and a liability at twenty, because a typo'd key string is a silent no-op rather
+than a build error. Anything genuinely framework-dependent (the
+`DeviceActivityName`s, the `FamilyActivitySelection` coding) stays in
+`SleepLockdownShared.swift`, which only the app and the monitor compile.
+
+What the secondary button *means* is resolved once, in
+`SleepLockdownSelection.currentEscape()`, and read by both the extension that
+draws the label and the one that answers the tap — so the words the user read
+and the thing that happens can't drift apart.
 
 The extension can't see the app's asset catalog, so it bundles its own
 downsized copy of the night sloth (`ShieldSloth.png`, 480px, from
@@ -1415,6 +1488,80 @@ back to Apple's generic shield — the exact thing this exists to replace. The
 mark always wears night light (never day/dusk): the shield only appears
 during the blocking window.
 
+## Commitment surfaces
+
+Four in-app screens that exist to make people *want* to keep the plan, rather
+than adding another lock. The governing belief: **deleting the app is the one
+escape hatch that can't be taken away**, so past a certain point extra
+restriction stops buying compliance and starts buying uninstalls. These are the
+cheaper lever.
+
+### The morning mirror
+
+One quiet line under Home's last-night strip — same slot, same restraint, the
+part the duration can't say: *"Reached 6 times · 12:40 – 1:10"*.
+
+The window is the insight, not the count. "Six times" says how often; "between
+12:40 and 1:10" is where people recognise themselves. Most genuinely don't know
+they do it.
+
+- **Mirror, never judge.** `muted` text, no red, no card, no "failed", no
+  exclamation mark. It sits at the same visual weight as the sleep duration
+  beside it because it is the same kind of fact.
+- **Silent on a clean night.** No hairline, no empty state — matching the strip
+  above it. A triumphant "0 attempts!" would cheapen the nights that mattered.
+- Tapping it opens the reason editor.
+
+### The reason editor
+
+Where the user writes what the shield says back to them (see *Their own words*).
+The screen is built to produce a true sentence rather than a slogan: a stem in
+the placeholder ("I'll know this worked when…") instead of a blank box, a hard
+60-character ceiling whose counter only appears in the last 15, and three slots
+because the shield rotates. The app never writes or suggests one.
+
+The invitation appears **the morning after a night they actually reached**, not
+at sign-up — the mirror line grows an amber "Write why you're doing this" when
+they have no reasons and last night had two or more reaches. Cold, the answer
+is always a slogan; with the feeling still available, it isn't.
+
+### The evening check-in
+
+A soundless notification an hour before bedtime opens a full-screen review:
+tonight's window, what locks, and their own reason read back.
+
+Everything else in the lockdown argues with the 1am self, who didn't choose any
+of this. This screen talks to the person who did — calm, hours from the
+craving, agreeing to something still hypothetical. A constraint someone
+accepted while calm is one they remember accepting.
+
+- **No controls that weaken tonight.** It is a review, not a settings screen.
+- **"Not tonight" changes nothing** — it's an acknowledgement, not an opt-out. A
+  one-tap skip here would be the cleanest bypass in the app, handed over at the
+  exact moment someone is most willing to use it later. The real off switch
+  stays in Blocked apps, where it's a deliberate trip rather than a reflex.
+
+### Hard mode
+
+An opt-in toggle in Blocked apps: no snooze, and the slow door takes three
+minutes instead of one. Off by default and never turned on by the app.
+
+A restriction someone chose is respected; the same restriction imposed is
+resented, and resentment is what uninstalls the app. Offering a real hard mode
+is also how you serve the people who want more without punishing everyone else.
+
+### Streak forgiveness
+
+One bad night doesn't reset the flame. A miss inside a live run is skipped —
+it doesn't add to the count, but the run survives — and the allowance grows
+with the run (`1 + streak / 7`), so longer streaks absorb more.
+
+A forty-day streak that shatters is a well-known way to lose a user outright:
+the loss reads as final, and starting from zero is less appealing than deleting
+the app. Longer runs have more to lose, which is exactly when the cliff does
+the most damage. Two misses in a row still end a short run, and a run that
+hasn't started gets no forgiveness — there is nothing to protect yet.
+
 ## What to avoid
 
 - Purple, neon, cyberpunk or blue-heavy identity.
@@ -1422,3 +1569,7 @@ during the blocking window.
 - Pixel icons inside the UI (pixel art is for the environment only).
 - Decorative motion that doesn't support the sleep state.
 - Long educational copy or tiny tap targets in the nighttime flow.
+- Shaming the user for reaching. The reach data is a mirror; the moment it
+  reads as a scolding it stops being something they want to look at.
+- Dead ends. Every blocking surface keeps one exit, even if it costs a wait —
+  the alternative someone reaches for when no exit exists is the uninstall.

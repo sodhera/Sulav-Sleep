@@ -101,12 +101,22 @@ struct SulavSleepApp: App {
                 }
                 .onOpenURL { url in
                     // sleepblock://sleep arrives from the widget capsule and
-                    // the shield action extension. (sleepblock://signin, from
-                    // the widget's signed-out capsule, needs no handling:
-                    // opening the app is enough — RootView lands on welcome.)
-                    guard url.scheme == "sleepblock", url.host == "sleep" else { return }
-                    AppLog.app.info("Opened via sleepblock://sleep URL")
-                    openSleepConfirmation()
+                    // the shield action extension. sleepblock://tonight comes
+                    // from the evening check-in notification.
+                    // (sleepblock://signin, from the widget's signed-out
+                    // capsule, needs no handling: opening the app is enough —
+                    // RootView lands on welcome.)
+                    guard url.scheme == "sleepblock" else { return }
+                    switch url.host {
+                    case "sleep":
+                        AppLog.app.info("Opened via sleepblock://sleep URL")
+                        openSleepConfirmation()
+                    case "tonight":
+                        AppLog.app.info("Opened via sleepblock://tonight URL")
+                        openTonight()
+                    default:
+                        break
+                    }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .sleepConfirmationRequested)) { _ in
                     // Siri / Shortcuts ("Sleep Now" intent), after the system
@@ -133,5 +143,15 @@ struct SulavSleepApp: App {
         withAnimation(.easeInOut(duration: 0.3)) {
             store.showSleepConfirmation = true
         }
+    }
+
+    /// The evening check-in, an hour before bedtime. Gated the same way as the
+    /// sleep confirmation — and additionally stood down once a session is
+    /// running, since there is nothing left to commit to.
+    private func openTonight() {
+        guard store.activeSession == nil, store.isAuthenticated, store.isOnboarded, !store.needsPaywall else { return }
+        Haptics.soft()
+        store.selectedTab = .home
+        store.showTonightCheckIn = true
     }
 }

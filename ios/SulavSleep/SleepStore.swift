@@ -22,6 +22,10 @@ final class SleepStore {
     /// deep link can open it — a tap anywhere never *starts* a session; the
     /// slide gesture is the only way a night begins.
     var showSleepConfirmation = false
+    /// Whether Home shows the evening check-in. Like `showSleepConfirmation`
+    /// this lives on the store so the `sleepblock://tonight` notification can
+    /// raise it.
+    var showTonightCheckIn = false
     var isImportingHealth = false
     // MARK: App update gate state (all logic in SleepUpdateGate.swift —
     // extensions can't add storage, so only the stored slots live here).
@@ -159,26 +163,56 @@ final class SleepStore {
     /// The run must reach today or yesterday to still be live. Yesterday counts
     /// because tonight's sleep hasn't happened yet — a streak shouldn't visibly
     /// lapse all day and come back at breakfast.
+    ///
+    /// **One bad night doesn't shatter it.** A streak that resets to zero after
+    /// forty days is a well-known way to lose a user outright: the loss is felt
+    /// as final, and starting from nothing is less appealing than deleting the
+    /// app. So a miss inside a live run is *skipped* rather than fatal — it
+    /// doesn't add to the count, but the run survives it.
+    ///
+    /// The allowance grows with the run (`1 + streak / 7`), evaluated against
+    /// the nights already counted, so a week-old streak gets one pass and a
+    /// two-month streak gets more. Longer runs have more to lose, which is
+    /// exactly when the cliff does the most damage. Two misses back to back
+    /// still end a short streak, and a run that hasn't started yet gets no
+    /// forgiveness at all — there is nothing to protect.
     var onTrackStreak: Int {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
+        // `displaySessions` is already one entry per sleep day.
+        let byDay = Dictionary(
+            displaySessions.map { (SleepMerge.key(for: $0.end, calendar: calendar), $0) },
+            uniquingKeysWith: { _, latest in latest }
+        )
+        guard let mostRecent = byDay.keys.max() else { return 0 }
+        let daysAgo = calendar.dateComponents([.day], from: mostRecent, to: today).day ?? .max
+        guard daysAgo <= 1 else { return 0 }
+
         var streak = 0
-        var expectedDay: Date?
-        // `displaySessions` is one entry per sleep day, oldest first.
-        for session in displaySessions.reversed() {
-            let day = SleepMerge.key(for: session.end, calendar: calendar)
-            if let expectedDay {
-                guard day == expectedDay else { break }
+        var forgiven = 0
+        var day = mostRecent
+        // Walking days rather than sessions means a night with no record at all
+        // is forgivable on the same terms as a short one — usually the same
+        // thing anyway (someone forgot to log), and treating them differently
+        // would punish the more honest case.
+        for _ in 0..<Self.streakScanLimit {
+            let onTrack = byDay[day].map { $0.durationMinutes * 100 >= targetMinutes * 85 } ?? false
+            if onTrack {
+                streak += 1
+            } else if streak > 0, forgiven < 1 + streak / 7 {
+                forgiven += 1
             } else {
-                let daysAgo = calendar.dateComponents([.day], from: day, to: today).day ?? .max
-                guard daysAgo <= 1 else { break }
+                break
             }
-            guard session.durationMinutes * 100 >= targetMinutes * 85 else { break }
-            streak += 1
-            expectedDay = calendar.date(byAdding: .day, value: -1, to: day)
+            guard let previous = calendar.date(byAdding: .day, value: -1, to: day) else { break }
+            day = previous
         }
         return streak
     }
+
+    /// Hard stop on the streak walk. Long enough that no real run hits it,
+    /// short enough that a corrupt date can't spin the loop.
+    private static let streakScanLimit = 400
 
     var healthSyncState: HealthSyncState {
         guard health.isAvailable else { return .unavailable }
@@ -223,6 +257,8 @@ final class SleepStore {
         // File any finished night's reach attempts into local history before
         // anything reads them.
         harvestReachLog()
+        // Idempotent — re-registering the same daily trigger replaces it.
+        scheduleEveningCheckIn()
         // Safety net for the shield snooze: if a "5 more minutes" grant lapsed
         // while the timed re-arm didn't fire, restore the block now. Cheap and
         // a no-op unless a snooze is actually outstanding.
@@ -1068,6 +1104,51 @@ final class SleepStore {
         )
     }
 
+    // MARK: - Evening check-in
+
+    /// How long before bedtime the check-in fires.
+    ///
+    /// The whole point is to catch the user while they are still the person who
+    /// *wants* this. At 1am the argument is already lost — that self did not
+    /// choose the schedule and does not feel bound by it. An hour before bed
+    /// they are rational, unhurried, and asking them to commit costs nothing,
+    /// because the thing they're committing to is still hypothetical.
+    private static let eveningCheckInLead = 60
+
+    /// Schedules (or reschedules) the nightly check-in. Repeating and
+    /// calendar-based, so it survives the app being closed for weeks.
+    ///
+    /// Fire-and-forget: a user who denied notifications simply never sees it,
+    /// which is the correct outcome — this is a nudge, not a mechanism, and
+    /// nothing else depends on it arriving.
+    private func scheduleEveningCheckIn() {
+        guard let profile, profile.onboarded else { return }
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: [Self.eveningCheckInID])
+
+        var minutes = profile.bedtime - Self.eveningCheckInLead
+        if minutes < 0 { minutes += 1_440 }
+
+        let content = UNMutableNotificationContent()
+        content.title = "Tonight's plan"
+        content.body = "Bed at \(SleepFormatting.clock(profile.bedtime)). Tap to look it over."
+        content.sound = nil   // an hour before bed is not a moment for a chime
+        content.userInfo = ["url": "sleepblock://tonight"]
+
+        var components = DateComponents()
+        components.hour = minutes / 60
+        components.minute = minutes % 60
+        let request = UNNotificationRequest(
+            identifier: Self.eveningCheckInID,
+            content: content,
+            trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
+        )
+        center.add(request)
+        AppLog.store.info("Evening check-in scheduled for \(components.hour ?? 0):\(components.minute ?? 0)")
+    }
+
+    private static let eveningCheckInID = "sulav.sleep.evening-checkin"
+
     /// Pushes the profile fields the sandboxed shield extensions need into the
     /// App Group. They can't reach the app's storage, so anything the lock
     /// screen shows has to be mirrored here first.
@@ -1242,6 +1323,7 @@ final class SleepStore {
         self.profile = profile
         persist()
         rescheduleLockdown()
+        scheduleEveningCheckIn()
         syncCloudProfile()
     }
 

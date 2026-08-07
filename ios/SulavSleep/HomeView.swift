@@ -13,13 +13,22 @@ struct HomeView: View {
     let profile: Profile
 
     @State private var showingScheduleEditor = false
+    @State private var showingReasons = false
     @Environment(\.requestReview) private var requestReview
 
     var body: some View {
         ZStack {
             // The flag lives on the store so the widget/shield deep link can
             // open this panel too (see AppDelegate.onOpenURL).
-            if store.showSleepConfirmation {
+            if store.showTonightCheckIn {
+                TonightCheckInView(store: store, profile: profile) {
+                    withAnimation(.easeInOut(duration: 0.32)) { store.showTonightCheckIn = false }
+                }
+                .transition(.asymmetric(
+                    insertion: .opacity.combined(with: .move(edge: .bottom)),
+                    removal: .opacity.combined(with: .move(edge: .bottom))
+                ))
+            } else if store.showSleepConfirmation {
                 // Scrolls up into view when Sleep Now is tapped, and — on
                 // Cancel — scrolls back down the same way it arrived, rather
                 // than fading in place.
@@ -49,6 +58,13 @@ struct HomeView: View {
         .sheet(isPresented: $showingScheduleEditor) {
             NavigationStack {
                 ScheduleScreen(store: store, profile: profile)
+            }
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showingReasons) {
+            NavigationStack {
+                ReasonsScreen(store: store)
             }
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
@@ -111,6 +127,16 @@ struct HomeView: View {
 
             LastNightStrip(lastSession: store.lastNightSession, streak: store.onTrackStreak)
                 .padding(.top, SleepSpacing.xl)
+
+            // The morning mirror, directly under the strip that already answers
+            // "how was last night" — same question, the part the duration can't
+            // say. Absent entirely on a night with no reaches.
+            if let night = store.lastNightReaches {
+                ReachMirrorLine(night: night, invitesReason: store.shouldPromptForReason) {
+                    showingReasons = true
+                }
+                .padding(.top, SleepSpacing.sm)
+            }
 
             Spacer().frame(height: SleepSpacing.xl)
         }

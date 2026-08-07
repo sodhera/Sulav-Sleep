@@ -1333,6 +1333,55 @@ nights on first launch after upgrading.
   Not yet closed, and deliberately out of scope here: `setBlockingEnabled(false)`
   and clearing the app selection still call `endLockdown()` outright. Closing
   those is the staged-edit ("only tightens") work — see the roadmap.
+
+- **The slow door** (`SleepLockdownSelection.doorRequestedKey`). An
+  always-available exit that costs 60 seconds (180 in hard mode) rather than
+  being refused. First tap writes a timestamp and unlocks nothing; the shield
+  rendered on the user's *next* attempt offers the real unlock, good for 10
+  minutes.
+
+  Two steps by necessity as much as design: a shield action extension is torn
+  down the instant it answers a tap and cannot run a timer, but
+  `ShieldConfigProvider` is asked for a fresh configuration on every attempt —
+  so the user's own second attempt is the clock. No new activity to register.
+
+  It lapses through the same layers as a snooze: `reapplyAfterSnooze` in the
+  monitor (which now clears the door too) and
+  `reapplyShieldIfSnoozeExpired` on app foreground, both keyed off
+  `doorHasExpired()`. It re-uses `sleepSnoozeActivityName` for the wall-clock
+  re-arm — same shape of grant, same corrective action, one fewer thing to lose.
+
+  Unlike the snooze it is **not rationed**: an exit that can be exhausted is a
+  dead end with extra steps, and the exit someone takes from a dead end is
+  deleting the app — which takes the blocking with it, permanently. The wait is
+  what keeps it from being a plain off switch.
+
+  `currentEscape()` is the single resolver for what the secondary button means,
+  read by both the extension that draws the label and the one that answers the
+  tap, so the two can't disagree.
+
+- **Reach attempts.** `ShieldConfigProvider.makeConfig` calls `recordReach()`,
+  appending a timestamp to the App Group log (debounced 5s — the system can ask
+  for a configuration more than once per launch, and an inflated count would
+  make the morning mirror a lie; capped at 500 entries so a jetsam-constrained
+  extension can't grow it without bound).
+
+  The extension can only append — it has no idea when a night ends — so
+  `SleepStore.harvestReachLog()` does the filing on every foreground, moving
+  closed nights into `reachNights` (local only, 30-night rolling window) and
+  leaving the still-running window's tail in place. The log is cleared when a
+  window *opens*, never when it closes, because the morning mirror reads it
+  long after the shield is gone.
+
+  `lockReasons`, `hardMode` and `reachNights` are deliberately **not** synced to
+  `CloudProfile` — see the note in `SleepStore`. Syncing any of them needs a
+  `supabase/` migration, so it should be a decision, not drift.
+
+- **Evening check-in.** A repeating `UNCalendarNotificationTrigger` an hour
+  before bedtime (`scheduleEveningCheckIn`, re-registered idempotently on every
+  `reload()` and on `saveSchedule`), carrying `sleepblock://tonight`. Soundless
+  on purpose. Fire-and-forget: a user who denied notifications never sees it,
+  and nothing depends on it arriving.
 - The Shield Action API cannot open the host app, so the pre-sleep "Sleep Now"
   button posts a local notification with the deep link — tapping the
   notification opens the app on the sleep confirmation panel
