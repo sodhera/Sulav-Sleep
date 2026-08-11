@@ -82,7 +82,7 @@ struct SleepPartnerCard: View {
                     Text("Sleep better together")
                         .font(SleepFont.title(16))
                         .foregroundStyle(SleepColor.ink)
-                    Text("See each other's streak and schedule. Your invite gives them 30 nights free — and a month free for you when they subscribe.")
+                    Text("See each other's streak and schedule. You'll both start with 30 nights free.")
                         .font(SleepFont.body(13))
                         .foregroundStyle(SleepColor.dim)
                         .fixedSize(horizontal: false, vertical: true)
@@ -316,21 +316,14 @@ struct InviteFriendScreen: View {
         SceneScreen {
             SubpageHeader(
                 title: "Invite a friend",
-                subtitle: "Turn an invite into a sleep partner — you'll see each other's streak, schedule, and average sleep once they join."
+                subtitle: "You'll see each other's streak and schedule — and you'll both get 30 nights free."
             )
 
-            VStack(alignment: .leading, spacing: SleepSpacing.md) {
-                benefitRow(
-                    icon: "moon.stars.fill",
-                    title: "They get 30 nights free",
-                    detail: "Instead of the usual 7 — enough to actually feel the difference."
-                )
-                benefitRow(
-                    icon: "gift.fill",
-                    title: "You get a month free",
-                    detail: "The moment they subscribe. Applied to your account automatically — nothing to redeem."
-                )
-            }
+            benefitRow(
+                icon: "moon.stars.fill",
+                title: "30 nights free, for both of you",
+                detail: "Theirs starts tonight. Yours lands the moment they subscribe."
+            )
             .padding(.top, SleepSpacing.huge)
 
             VStack(alignment: .leading, spacing: SleepSpacing.md) {
@@ -351,11 +344,13 @@ struct InviteFriendScreen: View {
                     .multilineTextAlignment(.center)
             }
 
-            Text("Nothing about your sleep is shared until they send a partner request and you confirm it.")
+            // `.dim`, not `.faint` — this is a trust statement someone should
+            // actually read, not a footnote, and `.faint` reads as near-
+            // invisible against the scene's lighter daytime sky.
+            Text("Nothing is shared until they confirm.")
                 .font(SleepFont.body(12))
-                .foregroundStyle(SleepColor.faint)
+                .foregroundStyle(SleepColor.dim)
                 .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity)
                 .padding(.top, SleepSpacing.xxl)
         }

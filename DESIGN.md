@@ -1075,10 +1075,15 @@ preview and the record, under the standard section kicker, and walks the
 whole lifecycle in one place — it is never two screens:
 
 - **Empty** — the pitch ("Sleep better together") with the Health card's
-  grammar: icon chip, title, two-line copy naming both rewards, then an
-  amber **Invite** capsule (a system `ShareLink` carrying the code and the
-  App Store link) beside a quiet "I have a code" (hidden once this
-  account has redeemed — one code each).
+  grammar: icon chip, title, one line naming the relationship first and
+  the reward second — "See each other's streak and schedule. You'll both
+  start with 30 nights free." — then an amber **Invite** capsule (a
+  system `ShareLink` carrying the code and the App Store link) beside a
+  quiet "I have a code" (hidden once this account has redeemed — one code
+  each). The copy is deliberately symmetric ("both") rather than a two-
+  line "they get X, you get Y" ledger — this is an invitation, not a
+  referral pitch, and the mechanics live one tap away on the explainer
+  screen for whoever wants them.
 - **Consent** — "*Name* wants to be your sleep partner", with the line
   that carries the whole privacy model: **"Nothing is shared until you
   confirm."** Confirm is the amber capsule; Decline is quiet text. The
@@ -1112,16 +1117,21 @@ row jumping straight into the system share sheet left the reward
 unexplained at the one moment someone was about to hand it to a friend.
 Same `SubpageHeader` + `SceneScreen` scaffold as every other pushed
 settings page (back chevron, editorial title, transparent scroll over the
-living scene). Under the header: two benefit rows in the app's standard
-icon-chip-plus-copy shape (moon glyph — "They get 30 nights free"; gift
-glyph — "You get a month free"), the code itself in a large tracked glass
-field under a **Your code** kicker, then one full-width amber **Share
-invite** button — a `ShareLink` styled to match `LiquidPrimaryButton`
-rather than wrapped in it, since `ShareLink` has to own the tap that
-presents the system sheet. Below it, the joined/subscribed count appears
-once nonzero (never a zeroed "0 joined"), and the same consent line the
-partner card's confirm state uses closes the screen: "Nothing about your
-sleep is shared until they send a partner request and you confirm it."
+living scene). Under the header: one benefit row, single moon-glyph icon
+chip, "**30 nights free, for both of you**" — the mutual framing from the
+card, carried through rather than broken back apart into a two-line
+ledger — with the one clause of real nuance in its detail line: "Theirs
+starts tonight. Yours lands the moment they subscribe." Then the code
+itself in a large tracked glass field under a **Your code** kicker, and
+one full-width amber **Share invite** button — a `ShareLink` styled to
+match `LiquidPrimaryButton` rather than wrapped in it, since `ShareLink`
+has to own the tap that presents the system sheet. Below it, the
+joined/subscribed count appears once nonzero (never a zeroed "0
+joined"), and a short consent line closes the screen: "Nothing is shared
+until they confirm." — in `.dim`, not `.faint`: this is a trust
+statement worth actually reading, and `.faint` (30%-opacity white) reads
+as near-invisible against the scene's lighter daytime sky, where the
+background isn't dark enough to carry the app's lowest-contrast tier.
 
 Deliberately absent (v1): partner push notifications, multiple partners,
 any free-text between partners. The card is quiet accountability — knowing
