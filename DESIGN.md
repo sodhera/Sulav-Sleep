@@ -698,9 +698,10 @@ The **Blocked apps** page follows the same grammar: a one-line supporting
 sentence under the title ("Locked from Sleep Now until you wake. Calls always
 work."), then a single `GlassGroup` — a **"Block while you sleep" toggle (on
 by default)**, an Apps row (value "None" / "3 apps" / "1 category" / "3 apps,
-1 category" → `FamilyActivityPicker`), and the "Unlock anyway after" safety
-stepper with its amber hour value. The selection renders below the group as a
-system-drawn **icon grid** (tokens are opaque, Apple draws them) — the user
+1 category" → `FamilyActivityPicker`), and the Hard mode toggle. There is
+deliberately **no "unlock anyway after N hours" stepper** — see
+[The block ends with the session](#the-block-ends-with-the-session). The
+selection renders below the group as a system-drawn **icon grid** (tokens are opaque, Apple draws them) — the user
 sees exactly what locks, without a text list.
 
 Choosing apps is still the commitment — a fresh selection blocks tonight with
@@ -1460,8 +1461,41 @@ reads as a scolding, the app gets deleted.
 
 When `startSleep()` calls `startLockdown()`, the phase flips from `presleep`
 to `active`. The next time the shield renders, it picks up the new phase and
-shows the firm lockdown copy. At wake time (or max-hours cap), the monitor
-clears both the shield and the phase.
+shows the firm lockdown copy. The phase clears when the session ends — see
+below.
+
+### The block ends with the session
+
+**Nothing on a clock takes the shield down.** Once a session is running, the
+apps stay blocked until the user holds the wake button (or cancels). Wake time
+passing doesn't do it; no configurable cap does it, because there isn't one any
+more.
+
+There used to be an "Unlock anyway after Nh" stepper, defaulting to six hours.
+It was framed as a safety valve, and it was really a snooze button with a long
+fuse: the hour it fired was 3am, the hour the block was the entire point. A
+block you know will expire is a block you can wait out, and waiting it out in
+bed with the phone in your hand is the exact behaviour the app exists to
+interrupt.
+
+The escape that stays is the **slow door** on the shield — a wait the user
+chooses, deliberately, every single time. That is a different thing from a
+timer: it costs something at the moment of wanting, and most people never come
+back for the second tap. An exit has to exist (the alternative someone reaches
+for when there is none is deleting the app), but it should never arrive on its
+own while they sleep.
+
+**One exception, and it is not really one.** A window that shielded at bedtime
+and was never slept through still clears at wake time. There is no session to
+end there, so nothing else would ever lift it — that user simply didn't use the
+app that night, and locking them out of their phone indefinitely for it would
+be indefensible.
+
+Because the shield can now outlive the alarm, the shield's countdown stops at
+wake time rather than rolling over to tomorrow's: a ten-minute lie-in read as
+"23h 50m until your alarm", which is true and lands as a threat. Past the
+alarm it falls back to the written copy, which already says the honest thing —
+asleep until you wake.
 
 ### Shared state
 

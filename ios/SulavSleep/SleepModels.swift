@@ -39,8 +39,10 @@ struct Profile: Codable, Equatable {
     /// `lockdownEnabled` doubled as an authorization snapshot and went stale),
     /// so every existing profile decodes to "on".
     var blockDuringSleep: Bool
-    /// Max hours the lockdown stays active even if "Wake up" isn't tapped.
-    var lockdownMaxHours: Int
+    // A `lockdownMaxHours` lived here — the "Unlock anyway after Nh" valve.
+    // Removed with the valve itself: the lockdown is anchored to the sleep
+    // session now, so there is no hour to configure. Old profiles carrying the
+    // key still decode; the extra key is simply ignored.
     /// What the user said gets between them and good sleep, captured during
     /// sign-up onboarding (raw values of `SleepStruggle`). Kept for future
     /// personalization; empty when the user skipped the question.
@@ -89,7 +91,7 @@ struct Profile: Codable, Equatable {
 
     init(
         name: String, bedtime: Int, wakeTime: Int, onboarded: Bool,
-        healthSyncEnabled: Bool = false, blockDuringSleep: Bool = true, lockdownMaxHours: Int = 6,
+        healthSyncEnabled: Bool = false, blockDuringSleep: Bool = true,
         sleepStruggles: [String] = [], timeSinkApps: [String] = [], healthPromptDismissed: Bool = false,
         primaryGoal: String = "", lateNightPhone: String = "", wakeFeeling: String = "",
         lockReasons: [String] = [], hardMode: Bool = false
@@ -100,7 +102,6 @@ struct Profile: Codable, Equatable {
         self.onboarded = onboarded
         self.healthSyncEnabled = healthSyncEnabled
         self.blockDuringSleep = blockDuringSleep
-        self.lockdownMaxHours = lockdownMaxHours
         self.sleepStruggles = sleepStruggles
         self.timeSinkApps = timeSinkApps
         self.healthPromptDismissed = healthPromptDismissed
@@ -120,7 +121,6 @@ struct Profile: Codable, Equatable {
         onboarded = try c.decode(Bool.self, forKey: .onboarded)
         healthSyncEnabled = try c.decodeIfPresent(Bool.self, forKey: .healthSyncEnabled) ?? false
         blockDuringSleep = try c.decodeIfPresent(Bool.self, forKey: .blockDuringSleep) ?? true
-        lockdownMaxHours = try c.decodeIfPresent(Int.self, forKey: .lockdownMaxHours) ?? 6
         sleepStruggles = try c.decodeIfPresent([String].self, forKey: .sleepStruggles) ?? []
         timeSinkApps = try c.decodeIfPresent([String].self, forKey: .timeSinkApps) ?? []
         healthPromptDismissed = try c.decodeIfPresent(Bool.self, forKey: .healthPromptDismissed) ?? false

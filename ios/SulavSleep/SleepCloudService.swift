@@ -44,8 +44,8 @@ enum SleepCloud {
 
 /// The table-backed profile model. Maps directly to/from the `profiles`
 /// table columns. Device-bound fields (healthSyncEnabled, blockDuringSleep,
-/// lockdownMaxHours, healthPromptDismissed) deliberately stay local — they
-/// hinge on per-device permission grants.
+/// healthPromptDismissed) deliberately stay local — they hinge on per-device
+/// permission grants.
 struct CloudProfile: Codable, Equatable, Sendable {
     var name: String
     var bedtime: Int

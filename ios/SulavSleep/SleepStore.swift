@@ -199,7 +199,6 @@ final class SleepStore {
     /// The user's "Block while you sleep" switch (Blocked apps screen). On by
     /// default — this is a preference, never an authorization snapshot.
     var blockingEnabled: Bool { profile?.blockDuringSleep ?? true }
-    var lockdownMaxHours: Int { profile?.lockdownMaxHours ?? 6 }
 
     /// Whether tapping Sleep Now will actually shield anything tonight:
     /// blocking switched on, Screen Time authorized (checked live, so a stale
@@ -781,10 +780,9 @@ final class SleepStore {
         // Refresh the widget so it flips into the asleep state immediately.
         persist()
         let shouldStartLockdown = willLockDuringSleep
-        let capHours = lockdownMaxHours
         performAfterStateChange { [weak self] in
             guard let self else { return }
-            if shouldStartLockdown { self.screenTime.startLockdown(maxHours: capHours) }
+            if shouldStartLockdown { self.screenTime.startLockdown() }
             Task { SleepLiveActivity.start(startDate: start) }
         }
         AppLog.store.info("Sleep session started")
@@ -1011,19 +1009,6 @@ final class SleepStore {
         AppLog.store.info("Sleep blocking switched \(on ? "on" : "off")")
     }
 
-    /// The "Unlock anyway after" stepper. Deliberately does *not* reschedule the
-    /// bedtime window: the cap is armed per-session by `startLockdown`, so the
-    /// window no longer depends on it — and re-registering mid-night would
-    /// re-fire the monitor's `intervalDidStart`, which resets the night's snooze
-    /// allowance. The new value applies to the next session.
-    func setLockdownMaxHours(_ hours: Int) {
-        guard var profile else { return }
-        guard profile.lockdownMaxHours != hours else { return }
-        profile.lockdownMaxHours = hours
-        self.profile = profile
-        persist(refreshWidget: false)
-    }
-
     /// Opaque encoded app selection for the lockdown picker UI.
     /// Reads `appSelectionRevision` to create an observation dependency so
     /// SwiftUI views re-render when the selection changes.
@@ -1059,10 +1044,10 @@ final class SleepStore {
     ///
     /// Deferral keys off *both* signals. A live phase means the shield is up.
     /// But `isInsideLockdownWindow` has to be checked as well, for the gap the
-    /// phase alone misses: after "Unlock anyway after Nh" fires, the phase is
-    /// cleared while the clock is still inside the window, and re-registering
-    /// there would re-fire `intervalDidStart` and put the shield straight back —
-    /// silently undoing the one sanctioned way out.
+    /// phase alone misses: waking before wake time clears the phase while the
+    /// clock is still inside the window, and re-registering there would re-fire
+    /// `intervalDidStart` and put the shield straight back — silently undoing
+    /// the wake the user just performed.
     private func rescheduleLockdown() {
         guard let profile, willLockDuringSleep else { return }
         guard SleepLockdownSelection.currentPhase() == nil, !isInsideLockdownWindow else {

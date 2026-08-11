@@ -18,19 +18,21 @@ let sleepActivityName = DeviceActivityName("sulav.sleep.schedule")
 /// until something naturally reschedules `sleepActivityName`.
 let sleepEventName = DeviceActivityEvent.Name("sulav.sleep.maxDuration")
 
-/// The "Unlock anyway after Nh" safety valve: a one-shot activity whose
-/// *start*, N hours after the user taps Sleep Now, clears the shield.
+/// **Retired.** Was the "Unlock anyway after Nh" valve: a one-shot activity
+/// whose start, N hours after Sleep Now, dropped the shield whether or not the
+/// user had woken.
 ///
-/// Wall clock, not a usage threshold. The cap exists for the morning where the
-/// app is never reopened to call `wakeUp()`, and it has to hold for a session
-/// started outside the bedtime→wake window (an afternoon nap), where no
-/// `intervalDidEnd` is coming for hours. A `DeviceActivityEvent` cannot express
-/// that: it meters *screen time in the blocked apps*, and shielded apps accrue
-/// none, so the old threshold-based cap could sit at zero all night and never
-/// fire.
+/// Nothing arms it any more. A block that expires on a timer is not a block —
+/// someone who tapped Sleep Now at 11pm and reached for the phone at 3am found
+/// the apps open again, which is the exact moment the promise was supposed to
+/// hold. The lockdown now ends when the *session* ends: hold-to-wake, or
+/// cancel. The escape that remains is the slow door on the shield itself,
+/// which costs a deliberate wait every time rather than arriving on its own.
 ///
-/// Registered by the app from `startLockdown`, which runs with the app in the
-/// foreground — the one moment we can rely on scheduling actually sticking.
+/// The name survives for two jobs, both migration: `endLockdown` and the
+/// monitor stop monitoring it, retiring caps armed by builds that predate this
+/// change, and the monitor still answers one that fires first — under the
+/// current rule, so it cannot cut a running session short.
 let sleepCapActivityName = DeviceActivityName("sulav.sleep.cap")
 
 /// A second, short-lived activity used purely to re-arm the shield after a

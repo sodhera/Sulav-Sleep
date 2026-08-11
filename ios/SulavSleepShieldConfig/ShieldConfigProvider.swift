@@ -66,10 +66,13 @@ class ShieldConfigProvider: ShieldConfigurationDataSource {
     /// It lives in the title slot because that is the only way to make it bold:
     /// `ShieldConfiguration.Label` carries a string and a colour and nothing
     /// else, so there is no way to emphasise part of the subtitle. Nil when
-    /// wake time isn't mirrored yet (no lockdown scheduled on this install);
-    /// the shield then keeps its written title.
+    /// wake time isn't mirrored yet (no lockdown scheduled on this install), or
+    /// once the alarm has already gone — a session that outslept its wake time
+    /// keeps the shield up, and counting down to *tomorrow's* alarm there would
+    /// turn a 10-minute lie-in into "23h 50m". The shield then keeps its
+    /// written title, whose subtitle already says asleep until you wake.
     private var alarmTitle: String? {
-        guard let minutes = SleepLockdownSelection.minutesUntilWake(), minutes >= 1 else { return nil }
+        guard let minutes = SleepLockdownSelection.minutesUntilWakeTonight(), minutes >= 1 else { return nil }
         return "\(Self.duration(minutes)) until your alarm"
     }
 

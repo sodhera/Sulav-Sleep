@@ -11,8 +11,13 @@ import Foundation
 // and taps Sleep Now, the main app's `startLockdown()` overwrites the phase to
 // `.active` and the next shield render shows the firm "Time to sleep" copy.
 //
-// **Interval end** (wake time) / **event threshold** (max-hours cap): clears
-// the shield and the phase, whether or not the user ever started a session.
+// **Interval end** (wake time): clears the shield and the phase — but *only if
+// no sleep session is running*. A session in progress outranks the clock: the
+// block is a promise made to someone who tapped Sleep Now, and it lifts when
+// they hold the wake button, not when a timer says the night should be over.
+// The wake-time clear survives for the case it is actually needed — a window
+// that shielded at bedtime and was never slept through — where there is no
+// session to end and nothing else would ever lift it.
 //
 // This extension runs in its own sandboxed process. It shares state with the
 // main app and the shield extensions via the App Group defaults
@@ -29,10 +34,12 @@ final class SulavSleepMonitor: DeviceActivityMonitor {
             // A "5 more minutes" grant just ran out — put the shield back.
             reapplyAfterSnooze()
         } else if activity == sleepCapActivityName {
-            // "Unlock anyway after Nh" — the session has run long enough that
-            // the shield stops being a help. Lift it, whether or not the app was
-            // ever reopened to tap wake.
-            clearShield()
+            // Retired: the app no longer arms this. Installs that armed one
+            // before the change still carry it until it fires, so answer it —
+            // but under the current rule, which means it can no longer cut a
+            // running session short. See `sleepCapActivityName`.
+            endWindowUnlessSleeping()
+            DeviceActivityCenter().stopMonitoring([sleepCapActivityName])
         }
     }
 
@@ -41,9 +48,30 @@ final class SulavSleepMonitor: DeviceActivityMonitor {
         // Only the bedtime→wake window ends the lockdown. The snooze and cap
         // activities' ends are deliberately no-ops: they exist only for their
         // *start*, and treating either as "wake time" would be wrong — for the
-        // snooze it would unshield the rest of the night, and the cap has
-        // already done its clearing at the start.
+        // snooze it would unshield the rest of the night.
         guard activity == sleepActivityName else { return }
+        endWindowUnlessSleeping()
+    }
+
+    /// Wake time arrived. Clear the shield unless the user is still in a sleep
+    /// session — the session outranks the clock, and only `wakeUp()` (or
+    /// `cancelSleep()`) ends it.
+    ///
+    /// The phase is the whole test. `.active` is written by the app's
+    /// `startLockdown()` at Sleep Now and cleared by `endLockdown()`, so it is
+    /// exactly "a session is running" as seen from this sandboxed process,
+    /// which has no access to the app's own session record.
+    ///
+    /// `.presleep` — shielded at bedtime, never slept — clears as it always
+    /// did. That case has no session to finish, so without this it would leave
+    /// the apps blocked with nothing on any schedule to lift them.
+    private func endWindowUnlessSleeping() {
+        guard SleepLockdownSelection.currentPhase() != .active else {
+            // The window is over as far as the schedule is concerned, so its
+            // timed helpers have nothing left to do — but the shield stays.
+            DeviceActivityCenter().stopMonitoring([sleepSnoozeActivityName, sleepCapActivityName])
+            return
+        }
         clearShield()
     }
 
@@ -51,9 +79,11 @@ final class SulavSleepMonitor: DeviceActivityMonitor {
         super.eventDidReachThreshold(event, activity: activity)
         if event == sleepEventName {
             // Legacy max-hours threshold, no longer registered. Installs that
-            // armed it before the cap became wall-clock still carry it, and
-            // clearing is the same thing the cap would do — so honour it.
-            clearShield()
+            // armed it before the cap became wall-clock still carry it, so it
+            // is still answered — but through the same guard as every other
+            // timed path, since a stale event from two rules ago must not be
+            // the one thing that can still unblock a sleeping user.
+            endWindowUnlessSleeping()
         } else if sleepSnoozeEventNames.contains(event) {
             // A snooze's worth of usage has been spent in the blocked apps —
             // the most dependable signal we get, and the only one that arrives

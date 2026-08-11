@@ -97,6 +97,23 @@ enum SleepLockdownSelection {
         return delta
     }
 
+    /// Minutes until the alarm, but only while the alarm is still ahead of the
+    /// user tonight — nil once wake time has passed.
+    ///
+    /// `minutesUntilWake` wraps to *tomorrow's* alarm the moment this morning's
+    /// goes by, which is right for scheduling and wrong for the shield. Since
+    /// the lockdown stopped ending at wake time, an overslept session reaches
+    /// exactly that state, and the shield greeted it with "23h 50m until your
+    /// alarm" — a number that is technically true and reads as a threat. Nil
+    /// lets the shield fall back to its written copy, which already says the
+    /// honest thing: asleep until you wake.
+    static func minutesUntilWakeTonight(now: Date = Date(), calendar: Calendar = .current) -> Int? {
+        guard let bedtime = bedtimeMinutes(), let wake = wakeMinutes() else { return nil }
+        guard isWithinWindow(now: now, bedtimeMinutes: bedtime, wakeMinutes: wake, calendar: calendar)
+        else { return nil }
+        return minutesUntilWake(now: now, calendar: calendar)
+    }
+
     // MARK: - Snooze ("5 more minutes")
 
     /// When the current snooze expires (`timeIntervalSince1970`). Absent when

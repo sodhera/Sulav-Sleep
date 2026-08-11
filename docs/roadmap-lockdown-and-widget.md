@@ -28,18 +28,18 @@ capability.
 
 - **Scheduled/background enforcement** — `SulavSleepMonitor` (DeviceActivityMonitor
   extension) is a clear-only safety net: it never applies the shield (only
-  `startSleep()` -> `ScreenTimeService.startLockdown(maxHours:)` does, when the
-  user taps Sleep Now), but it clears it at the scheduled wake time and lifts it
-  early if the user-set max-hours cap (`Profile.lockdownMaxHours`, default 6) is
-  reached, both independent of the app being open — a safety net for mornings
-  where the app never gets reopened to call `wakeUp()`. Reads the
+  `startSleep()` -> `ScreenTimeService.startLockdown()` does, when the
+  user taps Sleep Now), and it clears at the scheduled wake time **only when no
+  session is running** — a session's shield ends with the session, never on a
+  clock. The user-set max-hours cap is retired. It is the safety net for the
+  window that shielded at bedtime and was never slept through — with no session
+  to end, nothing else would lift it. Reads the
   App-Group-stored app selection via `SleepLockdownShared.swift`. The
   bedtime→wake window is scheduled via `ScreenTimeService.scheduleLockdown`
-  whenever lockdown is enabled or the schedule/selection changes; the cap is a
-  separate one-shot activity (`sleepCapActivityName`) armed per session, since it
-  counts wall-clock hours from Sleep Now and must also hold for a nap started
-  outside the window. See `docs/development.md` for why it is not a usage-
-  threshold event.
+  whenever lockdown is enabled or the schedule/selection changes. (Historical:
+  a cap was a separate one-shot activity (`sleepCapActivityName`) armed per
+  session, counting wall-clock hours from Sleep Now. It is retired — the shield
+  now ends with the session, never on a clock. See `docs/development.md`.)
 - **Live Activity** — `SleepActivityAttributes` + `SleepLiveActivity` (app side,
   starts/ends the activity) and `SulavSleepLiveActivity` (widget-side Lock
   Screen + Dynamic Island view) show the live elapsed-sleep timer without
@@ -57,15 +57,15 @@ capability.
   `endLockdown()` on the spot. One toggle and the night's shield is gone.
 
   Intended rule, while a window is live: an edit that **tightens** applies
-  immediately (earlier bedtime, later wake, more apps, blocking on, lower cap);
+  immediately (earlier bedtime, later wake, more apps, blocking on);
   an edit that **loosens** is staged and takes effect when the window next
   closes, with the UI saying so ("Saved — takes effect tomorrow night").
 
   Shape: a `pendingLockdownEdit` blob on `Profile`, applied on foreground when
   no window is running — the same self-deferring hook `rescheduleLockdown`
-  already uses. Two constraints worth writing down: the "Unlock anyway after Nh"
-  cap stays the single sanctioned exit and no staged edit may interfere with an
-  armed one; and when anything is ambiguous, fail toward *unlocking* — a change
+  already uses. Two constraints worth writing down: the slow door stays the
+  single sanctioned exit and no staged edit may interfere with a running
+  session; and when anything is ambiguous, fail toward *unlocking* — a change
   that silently evaporates costs more trust than the hack it prevents.
 
   Known next exploit, tracked separately: moving the **device clock** past wake
@@ -129,8 +129,8 @@ Components to add:
    - `endLockdown()` → clear the shield
    - a `FamilyActivitySelection` chosen by the user and stored in the App Group.
 3. **DeviceActivityMonitor app extension** (new target): clear-only safety net —
-   clears the shield at `intervalDidEnd` (wake time) and enforces the "N hours"
-   cap, so the shield still lifts even if the app isn't foregrounded. Does
+   clears the shield at `intervalDidEnd` (wake time) when no session is
+   running, so an unslept window still lifts if the app isn't foregrounded. Does
    *not* apply the shield at `intervalDidStart`; only `startLockdown()` does.
 4. **Wire into the sleep loop**: `startSleep()` → `startLockdown`; `wakeUp()` and
    the scheduled window end → `endLockdown`. `cancelSleep()` must also clear it.
