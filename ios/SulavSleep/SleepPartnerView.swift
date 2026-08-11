@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // The Sleep Partners screen, the referral invite explainer, and the
 // referral-code sheet. Referral and partnership are two separate features now
@@ -19,8 +20,8 @@ struct SleepPartnersScreen: View {
     var store: SleepStore
 
     @Environment(\.dismiss) private var dismiss
-    @State private var inviteURL: URL?
     @State private var isMintingInvite = false
+    @State private var justCopied = false
     @State private var errorMessage: String?
     @State private var unlinkTarget: PartnerLink?
 
@@ -123,60 +124,60 @@ struct SleepPartnersScreen: View {
         }
     }
 
-    /// One control that mints an invite link and hands it straight to the
-    /// system share sheet. `ShareLink` needs a value, so we mint first (into
-    /// `inviteURL`) and present the ShareLink once it exists; the button shows
-    /// a spinner in between.
-    @ViewBuilder private var addButton: some View {
-        if let inviteURL {
-            ShareLink(item: inviteURL, subject: Text("Be my sleep partner on SleepBlock"),
-                      message: Text("Tap to be my sleep partner on SleepBlock — we'll keep each other accountable.")) {
-                addLabel(title: store.partners.isEmpty ? "Add a partner" : "Add another partner")
-            }
-            .buttonStyle(.plain)
-            .simultaneousGesture(TapGesture().onEnded { Haptics.heavy() })
-        } else {
-            Button {
-                Haptics.heavy()
-                Task { await mintInvite() }
-            } label: {
+    /// Mints an invite link and copies it to the clipboard, then flips its own
+    /// label to "Link copied" for a beat. Copy (not a share sheet) because the
+    /// user pastes it wherever they're already talking to their friend; the
+    /// label change is the confirmation that the copy happened.
+    private var addButton: some View {
+        Button {
+            Haptics.heavy()
+            Task { await copyInvite() }
+        } label: {
+            HStack(spacing: SleepSpacing.sm) {
                 if isMintingInvite {
                     ProgressView().tint(SleepColor.background)
-                        .frame(maxWidth: .infinity, minHeight: 58)
-                        .background { Capsule(style: .continuous).fill(SleepColor.amber) }
                 } else {
-                    addLabel(title: store.partners.isEmpty ? "Add a partner" : "Add another partner")
+                    Image(systemName: justCopied ? "checkmark" : "link")
+                    Text(buttonTitle).font(SleepFont.label(16)).tracking(0.2)
                 }
             }
-            .buttonStyle(.plain)
-            .disabled(isMintingInvite)
+            .foregroundStyle(SleepColor.background)
+            .frame(maxWidth: .infinity, minHeight: 58)
+            .background {
+                Capsule(style: .continuous).fill(LinearGradient(
+                    colors: [SleepColor.gold, SleepColor.amber],
+                    startPoint: .topLeading, endPoint: .bottomTrailing))
+            }
+            .animation(.easeInOut(duration: 0.18), value: justCopied)
         }
+        .buttonStyle(.plain)
+        .disabled(isMintingInvite)
     }
 
-    private func addLabel(title: String) -> some View {
-        Label { Text(title).font(SleepFont.label(16)).tracking(0.2) }
-        icon: { Image(systemName: "person.badge.plus") }
-        .foregroundStyle(SleepColor.background)
-        .frame(maxWidth: .infinity, minHeight: 58)
-        .background {
-            Capsule(style: .continuous).fill(LinearGradient(
-                colors: [SleepColor.gold, SleepColor.amber],
-                startPoint: .topLeading, endPoint: .bottomTrailing))
-        }
+    private var buttonTitle: String {
+        if justCopied { return "Link copied" }
+        return store.partners.isEmpty ? "Copy invite link" : "Copy a new invite link"
     }
 
     private var unlinkBinding: Binding<Bool> {
         Binding(get: { unlinkTarget != nil }, set: { if !$0 { unlinkTarget = nil } })
     }
 
-    private func mintInvite() async {
+    private func copyInvite() async {
         guard !isMintingInvite else { return }
         isMintingInvite = true
         errorMessage = nil
-        defer { isMintingInvite = false }
         do {
-            inviteURL = try await store.createPartnerInviteURL()
+            let url = try await store.createPartnerInviteURL()
+            UIPasteboard.general.string = url.absoluteString
+            isMintingInvite = false
+            Haptics.success()
+            withAnimation { justCopied = true }
+            // Revert the label after a beat; a fresh tap mints a fresh link.
+            try? await Task.sleep(for: .seconds(2))
+            withAnimation { justCopied = false }
         } catch {
+            isMintingInvite = false
             errorMessage = error.localizedDescription
         }
     }
