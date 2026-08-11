@@ -55,7 +55,7 @@ RevenueCat key the status is live, so the arg is ignored (dev mode only).
 ### Preview the Screen Time primer
 
 The permission primer (`ScreenTimePrimerView` — the mock-dialog gate between
-the paywall and Main) never fires on the simulator, where Family Controls
+the paywall and Main, shown to subscribers only) never fires on the simulator, where Family Controls
 reports `.unavailable`. A DEBUG-only launch argument renders it
 deterministically:
 
@@ -387,10 +387,11 @@ target can inject fakes without new hooks.
   that keeps Apple Health out of onboarding). The answer personalizes the
   paywall's lock line; the real lockdown selection is still made on the
   Blocked apps screen.
-- **SleepBlock is a subscription app.** After onboarding, a hard paywall (see
-  "Subscription (RevenueCat)") stands between the questionnaire and Main.
+- **SleepBlock is a subscription app.** After onboarding, the paywall (see
+  "Subscription (RevenueCat)") closes the questionnaire. Its ✕ leads into the
+  app; starting a night is what stays locked.
 - **The Screen Time primer** (`ScreenTimePrimerView`, SleepScreenTime.swift)
-  is the last gate before Main once the entitlement resolves: a mock of the
+  is the last gate before Main for a *subscribed* user: a mock of the
   iOS permission dialog with an amber "Tap Allow" arrow, whose CTA fires the
   real `AuthorizationCenter` request and, when granted, chains straight into
   the `FamilyActivityPicker`. One-shot **per install** — the seen-marker
@@ -978,11 +979,40 @@ path, and a published contact — see the note in `DESIGN.md`.
 
 ## Subscription (RevenueCat)
 
-SleepBlock is a subscription app with a **hard paywall + free trial**: after
-the sign-up questionnaire commits (or a returning unsubscribed user signs in),
-`RootView` shows `PaywallView` instead of Main — no ✕, no skip. The primary
-action starts the App Store free-trial intro offer on the annual plan;
-starting the trial or subscribing is the only way in.
+SleepBlock is a subscription app with a **soft paywall around one action**.
+After the sign-up questionnaire commits (or a returning unsubscribed user
+signs in), `RootView` shows `PaywallView` instead of Main — but it carries a
+✕. Closing it drops the user into the full app; what stays locked is
+**starting a night**. Everything the app *shows* is free, everything it
+*does* is the subscription.
+
+Two states, easy to confuse — keep them straight:
+
+| | meaning | drives |
+|---|---|---|
+| `SleepStore.isLocked` | signed in + onboarded + *resolved* not-entitled, no offline grace | the lock on `startSleep` and every path to it; hides the Screen Time primer |
+| `SleepStore.needsPaywall` | `isLocked` **and** this install has never closed the paywall | the first-run full-screen route in `RootView` |
+| `SleepStore.showPaywall` | someone reached for the lock | the dismissible `fullScreenCover` over Main |
+
+The lock's enforcement points, all funnelling through
+`presentPaywallIfLocked()` so the paywall always explains itself rather than
+a control going dead:
+
+- `HomeView` — Sleep Now raises the paywall instead of the confirmation panel.
+- `AppDelegate` — the `sleepblock://sleep`, `://tonight` and `://winddown`
+  deep links (widget capsule, shield action, Siri `StartSleepIntent`,
+  bedtime notifications). These previously *stood down* silently under the
+  hard paywall; now they sell. Miss one of these and the Siri intent becomes
+  a way around the subscription.
+- `SleepStore.startSleep()` — a final guard, so a future caller that forgets
+  to ask still can't start a night.
+
+Dismissing the first-run paywall is remembered per install
+(`sulav.paywallDismissed.v1`, alongside the Screen Time primer marker — not
+cleared by `reset()`, since signing out is no reason to re-wall someone).
+After that the plans are reachable from Sleep Now and from the "Unlock
+SleepBlock" row that replaces the Subscription group in Settings while
+locked.
 
 Code map (all behind the app's usual protocol seam):
 
@@ -997,12 +1027,17 @@ Code map (all behind the app's usual protocol seam):
   App Store management sheet (`manageSubscriptions` → `showManageSubscriptions`),
   and links the RevenueCat identity to the Supabase account id on sign-in/out
   (`logIn`/`logOut`) so a subscription follows the user across devices.
-- `SleepStore` — `entitlement`, `subscriptionStatus`, `needsPaywall` (signed
-  in + onboarded + *resolved* not-entitled), and `fetchPlans`/`purchase`/
-  `restorePurchases`/`manageSubscriptions` intents.
-- `PaywallView.swift` — the screen (see DESIGN.md "Paywall").
+- `SleepStore` — `entitlement`, `subscriptionStatus`, the three gate values
+  in the table above, `dismissPaywall()`/`presentPaywallIfLocked()`, and the
+  `fetchPlans`/`purchase`/`restorePurchases`/`manageSubscriptions` intents.
+- `PaywallView.swift` — the screen (see DESIGN.md "Paywall"). Takes an
+  `onClose` closure, because the two presentations close differently: the
+  first-run route records the dismissal, the cover over Main just lowers
+  itself. A successful purchase or restore calls it too — otherwise the
+  cover stays parked over the app the user just paid for.
 - `ProfileView.swift` — the **Subscription** group in `SettingsModal`
-  (`SubscriptionStatusRow` + Manage subscription), hidden when
+  (`SubscriptionStatusRow` + Manage subscription), replaced by an "Unlock
+  SleepBlock" row while `isLocked`, and hidden entirely when
   `subscriptionStatus` is nil (dev mode / unresolved). See DESIGN.md
   "Navigation & structure".
 - `scripts/generate-subscription-icon.py` — generates the status row's
@@ -1016,7 +1051,9 @@ Code map (all behind the app's usual protocol seam):
   Main; locking a paying user out over a network hiccup is worse than one
   free session. The sleep-mode overlay outranks the paywall, so an active
   night's wake/cancel (and the Screen Time shield teardown) stay reachable
-  regardless of subscription state.
+  regardless of subscription state. `.unknown` also means **not** locked, so
+  an offline subscriber whose entitlement hasn't resolved can still start a
+  night — the same fail-open bias as the route.
 
 Configuration — the same plumbing as the Supabase keys:
 
@@ -1064,7 +1101,7 @@ lowercases it explicitly. RevenueCat treats the App User ID as an opaque,
 case-sensitive string: without that call the SDK identifies as
 `AADE23E7-…` while the dashboard customer is `aade23e7-…`, silently forking
 every account into two customer records. The symptom is a granted entitlement
-that never reaches the device — the user sits on the hard paywall while the
+that never reaches the device — the user is held out of Sleep Now while the
 dashboard insists they are `Active`.
 
 To check what a Simulator build is actually identifying as, read the SDK's

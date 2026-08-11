@@ -392,9 +392,34 @@ struct SettingsModal: View {
     /// to manage billing. It hides entirely when there's no status to show
     /// (dev mode, or before the first entitlement fetch resolves), matching the
     /// paywall's "never shows in dev mode" rule rather than faking a plan.
+    ///
+    /// A locked user gets a different group: the way *in*. Once the first-run
+    /// paywall is dismissed, Sleep Now is the only other place the plans are
+    /// reachable, and someone who closed the pitch and then went looking for
+    /// the price should find it in Settings, where prices live.
     @ViewBuilder
     private var subscriptionSection: some View {
-        if let status = store.subscriptionStatus {
+        if store.isLocked {
+            VStack(alignment: .leading, spacing: SleepSpacing.md) {
+                Text("Subscription").sectionLabel()
+
+                GlassGroup {
+                    Button {
+                        Haptics.heavy()
+                        _ = store.presentPaywallIfLocked()
+                    } label: {
+                        GlassRow(
+                            icon: "moon.stars.fill",
+                            iconColor: SleepColor.amber,
+                            title: "Unlock SleepBlock",
+                            showsChevron: true
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.top, SleepSpacing.xxl)
+        } else if let status = store.subscriptionStatus {
             VStack(alignment: .leading, spacing: SleepSpacing.md) {
                 Text("Subscription").sectionLabel()
 

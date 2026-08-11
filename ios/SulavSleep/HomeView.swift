@@ -141,7 +141,15 @@ struct HomeView: View {
 
             Spacer(minLength: SleepSpacing.xxxl)
 
+            // The lock. A locked user gets the whole of Home — the countdown,
+            // the sloth, their schedule, last night's strip — and is stopped
+            // here, at the one action the subscription buys. The button keeps
+            // its own name and moon: it still leads where it says it leads,
+            // and the paywall (not a disabled control) is what explains the
+            // price. Nothing is greyed out, because a dead button answers no
+            // questions. See DESIGN.md ("Paywall").
             LiquidPrimaryButton(title: "Sleep Now", systemImage: "moon.fill") {
+                guard !store.presentPaywallIfLocked() else { return }
                 withAnimation(.easeInOut(duration: 0.3)) { store.showSleepConfirmation = true }
             }
 

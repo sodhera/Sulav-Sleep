@@ -30,6 +30,12 @@ final class SleepStore {
     /// reason as the others — the `sleepblock://winddown` deep link and the
     /// snooze-over notification both raise it.
     var showWindDown = false
+    /// Whether the paywall is up *over* Main as a dismissible cover. Distinct
+    /// from `needsPaywall`, which is the first-run route: this is the lock
+    /// speaking when someone reaches for a subscriber-only action. On the
+    /// store because every entry point that raises it lives somewhere else —
+    /// Home's Sleep Now, Settings, and the widget/shield/Siri deep links.
+    var showPaywall = false
     var isImportingHealth = false
     // MARK: App update gate state (all logic in SleepUpdateGate.swift —
     // extensions can't add storage, so only the stored slots live here).
@@ -118,6 +124,7 @@ final class SleepStore {
         self.cloud = cloud ?? SleepCloud.makeDefault()
         self.subscription = subscription ?? SleepSubscription.makeDefault()
         screenTimePrimerSeen = persistence.screenTimePrimerSeen
+        paywallDismissed = persistence.paywallDismissed
         reload()
         startSubscriptionTracking()
         Task { [weak self] in await self?.restoreSession() }
@@ -282,18 +289,57 @@ final class SleepStore {
 
     // MARK: - Subscription
 
-    /// Whether the hard paywall stands between this user and Main: signed in,
-    /// onboarded, and *resolved* as not entitled. `.unknown` never gates —
-    /// the gate acts only on an answer, and RevenueCat's cache answers
-    /// offline for real subscribers — and an unconfigured build (dev mode)
-    /// resolves `.entitled` at init, so it never gates either.
+    /// Whether this user is outside the subscription: signed in, onboarded,
+    /// and *resolved* as not entitled. `.unknown` never locks — the lock acts
+    /// only on an answer, and RevenueCat's cache answers offline for real
+    /// subscribers — and an unconfigured build (dev mode) resolves `.entitled`
+    /// at init, so it never locks either.
     ///
     /// The offline grace period (below) is the last exemption: a subscriber
     /// whose cached entitlement lapsed while they were unreachable keeps the
     /// app for a couple more days rather than being locked out of a
     /// fully-offline-capable app they paid for.
-    var needsPaywall: Bool {
+    ///
+    /// **This is no longer a wall around the app.** A locked user gets the
+    /// whole of Main — Home, the record, the schedule, settings — and is
+    /// stopped at exactly one place: starting a night (`startSleep`, and every
+    /// deep link that leads to it). Everything the app *shows* is theirs;
+    /// what it *does* is the subscription. See DESIGN.md ("Paywall").
+    var isLocked: Bool {
         isAuthenticated && isOnboarded && entitlement == .notEntitled && !isWithinOfflineGrace
+    }
+
+    /// Whether the paywall is the *route* — the closing beat of onboarding,
+    /// shown full-screen before Home. It is dismissible (a ✕), and dismissing
+    /// it is remembered per install, so this is a one-time landing rather than
+    /// a wall the user re-hits on every cold launch. After that the paywall
+    /// only appears when someone reaches for the lock (`showPaywall`).
+    var needsPaywall: Bool {
+        isLocked && !paywallDismissed
+    }
+
+    /// Mirrors the persisted dismissal so the route re-computes the instant
+    /// the ✕ is tapped (a bare persistence read is invisible to @Observable).
+    private(set) var paywallDismissed = false
+
+    /// The ✕ on the first-run paywall: drop the user into Main and don't put
+    /// the full-screen paywall in their way again. Per install, like the
+    /// Screen Time primer — not per account, since it describes what this
+    /// person has already been shown on this phone.
+    func dismissPaywall() {
+        persistence.markPaywallDismissed()
+        paywallDismissed = true
+        showPaywall = false
+        AppLog.paywall.info("First-run paywall dismissed")
+    }
+
+    /// Raise the paywall over Main. Every locked action funnels through here
+    /// rather than silently doing nothing, so the lock always explains itself.
+    /// Callers may ask unconditionally: an entitled user is never shown it.
+    func presentPaywallIfLocked() -> Bool {
+        guard isLocked else { return false }
+        showPaywall = true
+        return true
     }
 
     /// Short reprieve for a subscriber the server hasn't been able to confirm.
@@ -771,6 +817,15 @@ final class SleepStore {
     // MARK: - Sleep loop
 
     func startSleep() {
+        // The lock's last line. Home's Sleep Now and the deep links all check
+        // first and raise the paywall themselves, so this should never fire —
+        // but starting a night is the one thing the subscription buys, and it
+        // must not depend on every future caller remembering to ask.
+        guard !presentPaywallIfLocked() else {
+            showSleepConfirmation = false
+            AppLog.store.info("Sleep start blocked — no subscription")
+            return
+        }
         let start = Date()
         activeSession = ActiveSleepSession(start: start)
         selectedTab = .home
@@ -962,8 +1017,15 @@ final class SleepStore {
     /// install*. The seen-marker deliberately lives in the app container
     /// (wiped by deletion), so a reinstalled returning user is primed again —
     /// exactly the case where authorization needs re-granting.
+    ///
+    /// Locked users are exempt. Family Controls is the scariest permission
+    /// the app asks for, and asking it of someone who cannot start a night
+    /// yet spends that one prompt on nothing — they'd be granting the app
+    /// power over their phone for a feature they can't reach. The primer
+    /// waits for the subscription, and `isLocked` false-on-`.unknown` means
+    /// an offline subscriber still gets it.
     var needsScreenTimePrimer: Bool {
-        isAuthenticated && isOnboarded && !screenTimePrimerSeen
+        isAuthenticated && isOnboarded && !screenTimePrimerSeen && !isLocked
             && screenTimeState == .notAuthorized
     }
 
@@ -1473,6 +1535,12 @@ struct SleepPersistence {
     // (where the authorization must be re-granted anyway) primes again. Not
     // cleared by `reset()` — the primer is per-install, not per-account.
     private let screenTimePrimerKey = "sulav.screenTimePrimer.v1"
+    // Whether this install has dismissed the first-run paywall with the ✕.
+    // Per-install like the primer, and deliberately *not* cleared by
+    // `reset()`: signing out is not a reason to put the full-screen paywall
+    // back in front of someone who has already seen and closed it. The lock
+    // itself is unaffected — it lives on the entitlement, not on this.
+    private let paywallDismissedKey = "sulav.paywallDismissed.v1"
     // How many times we've shown the App Store review prompt, and when we last
     // did. Per-install like the primer, and deliberately not cleared by
     // `reset()`: signing out is not a licence to start asking again.
@@ -1586,6 +1654,10 @@ struct SleepPersistence {
     var screenTimePrimerSeen: Bool { defaults.bool(forKey: screenTimePrimerKey) }
 
     func markScreenTimePrimerSeen() { defaults.set(true, forKey: screenTimePrimerKey) }
+
+    var paywallDismissed: Bool { defaults.bool(forKey: paywallDismissedKey) }
+
+    func markPaywallDismissed() { defaults.set(true, forKey: paywallDismissedKey) }
 
     private func decode<T: Decodable>(_ type: T.Type, forKey key: String) -> T? {
         guard let data = defaults.data(forKey: key) else { return nil }

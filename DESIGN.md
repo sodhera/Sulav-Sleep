@@ -666,7 +666,7 @@ enables. The pixel-art
 credit sits quietly at the very bottom. The only other sheet in the app is
 Apple's own `FamilyActivityPicker`.
 
-The **Subscription** group answers one question the hard paywall otherwise
+The **Subscription** group answers one question the paywall otherwise
 leaves hanging once someone's in: *what am I on, and when does it change?* Its
 first row is a **status readout, not a control** — so, like the plan reveal's
 summary rows, it earns a dim detail line (the one place a settings row explains
@@ -956,15 +956,42 @@ alarm. Never style an expected step as an error.
 ## Paywall
 
 SleepBlock is a subscription app, and the paywall (`PaywallView.swift`) is
-the questionnaire's closing beat: it appears once, between the account step
-and Main, on the same living scene as onboarding. It is deliberately a
-**hard paywall** — no ✕, no "not now" — softened by honesty: the primary
-action starts the App Store free trial, so nobody pays blind, and the
-renewal line under the button states the real price and "cancel anytime" in
-quiet type. It only ever renders off a *resolved* not-entitled answer
-(never a loading guess), and an unconfigured dev build never shows it.
+the questionnaire's closing beat: it appears between the account step and
+Main, on the same living scene as onboarding. It is a **soft paywall** — a
+quiet ✕ in the top-right corner closes it — softened further by honesty:
+the renewal line under the button states the real price and "cancel
+anytime" in quiet type. It only ever renders off a *resolved* not-entitled
+answer (never a loading guess), and an unconfigured dev build never shows it.
 
-The screen is deliberately spare: a hard paywall earns its keep by asking
+**What the ✕ buys, and what it doesn't.** Closing the paywall drops the
+user into the whole app: Home with its countdown and sloth, the record,
+the schedule, settings. What they cannot do is **start a night** — Sleep
+Now raises the paywall instead of the confirmation panel, and so does every
+back door that leads to the same place (the widget capsule, the shield
+action, the Siri intent, the wind-down and evening-check-in deep links).
+The rule is worth stating plainly because it decides every future
+question of this shape: *everything the app shows is free, everything it
+does is the subscription.* The lock lives on `SleepStore.isLocked`, with
+`startSleep()` itself carrying a final guard so no future caller can route
+around it.
+
+Nothing is greyed out. Sleep Now keeps its own name, its moon, and its full
+amber weight for a locked user, because a disabled button answers no
+questions — the paywall does. The first-run dismissal is remembered per
+install (`sulav.paywallDismissed.v1`), so the full-screen pitch is a
+one-time landing rather than a wall re-hit on every cold launch; afterwards
+the plans stay reachable from Sleep Now and from a "Unlock SleepBlock" row
+in Settings, where prices belong. On the paywall itself the ✕ is present
+from the first frame — never hidden, never delayed — since a paywall that
+conceals its exit reads as a trap long before it reads as a tactic.
+
+> Note on history: this was a **hard** paywall — no ✕, no "not now",
+> subscribing the only way past onboarding. It was softened deliberately:
+> the wall converted the people it caught, but it turned away everyone who
+> wanted to see the thing before paying for it, and the app has plenty to
+> show. The lock moved from the door to the one action worth paying for.
+
+The screen is deliberately spare: it earns its keep by asking
 one question, not by pitching. The hero is the brand mark over a small
 tracked small-caps **"SLEEPBLOCK"** signature — the two form one brand
 lockup, the wordmark deliberately quiet (label weight, `dim`, letter-
@@ -1019,6 +1046,14 @@ to restore on this Apple ID."). Loading and offline states stay composed —
 spinner with a quiet line, or a wifi-slash glyph row with a glass "Try
 again" — never a broken sheet.
 
+The ✕ itself is the app's standard `GlassIconButton`, one size down (40pt,
+15pt glyph, `muted`) and floated over the scroll at the top-right rather
+than given a row of its own — the header is a centered brand lockup, and a
+row for the close would push the whole pitch down a line on every device.
+Top-right is where this app's other closes live (the settings sheet), and
+it leaves the opposite corner to onboarding's back chevron, which this
+screen follows.
+
 One structural rule: the sleep-mode overlay always outranks the paywall.
 An active night keeps *Hold to wake* / cancel — and with them the Screen
 Time shield teardown — reachable no matter what the subscription state
@@ -1028,9 +1063,12 @@ purchase screen.
 ## Screen Time primer
 
 The last gate before Main (`ScreenTimePrimerView`, SleepScreenTime.swift),
-after the paywall resolves: SleepBlock is an app-blocking app, and this is
-where blocking gets its teeth — asked at peak commitment, right after the
-user paid, never mid-sign-up (the Health rule). The centerpiece is a
+shown **only to subscribers**: SleepBlock is an app-blocking app, and this
+is where blocking gets its teeth — asked at peak commitment, right after
+the user paid, never mid-sign-up (the Health rule). A locked user skips it
+entirely. Family Controls is the most alarming permission the app asks
+for, and spending it on someone who cannot start a night yet asks them to
+hand over their phone for a feature they can't reach. The centerpiece is a
 **mock of the iOS permission dialog** with an amber arrow and "Tap Continue"
 beneath its affirmative button — the primer pattern: the user decides to tap
 Continue on *our* screen, so the real system sheet (fired by the primary

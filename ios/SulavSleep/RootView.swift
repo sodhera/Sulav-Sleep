@@ -94,17 +94,20 @@ struct RootView: View {
         // `SleepStore.showsExistingAccountWelcome`.
         if store.showsExistingAccountWelcome { return .existingAccount }
         guard store.isOnboarded else { return .onboarding }
-        // The hard paywall: signed in and onboarded, but resolved as not
-        // subscribed. While the entitlement is still unknown, hold the splash
-        // (briefly, capped) rather than flashing Home and snapping the
-        // paywall over it — or the reverse.
+        // Onboarding's closing beat: signed in, onboarded, resolved as not
+        // subscribed, and this install has never closed the paywall. It sells
+        // at peak intent — the questionnaire's answers are still on screen in
+        // spirit — but it is *not* a wall: the ✕ drops the user into Main and
+        // is remembered, after which the lock lives on Sleep Now alone. While
+        // the entitlement is still unknown, hold the splash (briefly, capped)
+        // rather than flashing Home and snapping the paywall over it.
         if store.needsPaywall { return .paywall }
         if store.entitlement == .unknown && !entitlementWaitExpired { return .authLoading }
-        // Subscribed (or failed open) but Screen Time was never granted on
-        // this install — the CalAI-style permission primer. Covers both the
-        // fresh sign-up (right after the paywall, at peak commitment) and the
-        // delete-and-reinstall sign-in, where iOS silently dropped the
-        // authorization along with the app.
+        // Subscribed and Screen Time was never granted on this install — the
+        // CalAI-style permission primer. Covers both the fresh sign-up (right
+        // after the purchase, at peak commitment) and the delete-and-reinstall
+        // sign-in, where iOS silently dropped the authorization along with the
+        // app. Locked users skip it (see `needsScreenTimePrimer`).
         if store.needsScreenTimePrimer { return .screenTimePrimer }
         return .main
     }
@@ -116,7 +119,7 @@ struct RootView: View {
                 // App Store Connect asks for when reviewing a subscription.
                 SleepBackground(showsMoon: false)
                 SceneReadabilityScrim()
-                PaywallView(store: store)
+                PaywallView(store: store, onClose: { store.dismissPaywall() })
             } else if showsPrimerPreview {
                 SleepBackground(showsMoon: false)
                 SceneReadabilityScrim()
@@ -186,14 +189,14 @@ struct RootView: View {
                         SceneReadabilityScrim()
                         ExistingAccountWelcomeView(store: store)
                     case .paywall:
-                        // The subscription gate, on the same scene as
+                        // The subscription pitch, on the same scene as
                         // onboarding — it *is* the questionnaire's closing
                         // beat. Note the sleep-mode overlay above outranks
                         // it: an active night always keeps wake/cancel (and
                         // the lockdown teardown) reachable, subscribed or not.
                         SleepBackground(showsMoon: false)
                         SceneReadabilityScrim()
-                        PaywallView(store: store)
+                        PaywallView(store: store, onClose: { store.dismissPaywall() })
                     case .screenTimePrimer:
                         // The Screen Time permission primer, on the same
                         // scene — the last gate before Main. See
@@ -284,6 +287,19 @@ struct MainShellView: View {
                 .tag(AppTab.profile)
         }
         .tint(SleepColor.amber)
+        // The lock, whenever a locked user reaches for a subscriber-only
+        // action (Sleep Now, the Settings row, the widget/shield/Siri deep
+        // links). A full-screen cover rather than a sheet: this is the same
+        // screen as the first-run pitch, and a half-height card would sell
+        // the plan cards short. Closing it here does *not* mark the first-run
+        // dismissal — that already happened, or the route would still be up.
+        .fullScreenCover(isPresented: $store.showPaywall) {
+            ZStack {
+                SleepBackground(showsMoon: false)
+                SceneReadabilityScrim()
+                PaywallView(store: store, onClose: { store.showPaywall = false })
+            }
+        }
     }
 
     // The native TabView content host is opaque, so the scene must live inside

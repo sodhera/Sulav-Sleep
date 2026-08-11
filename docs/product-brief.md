@@ -21,15 +21,15 @@ review the rhythm of recent nights — using **real data only**.
   email/password), then the same questions as a quick setup on a device with
   no profile. The two paths don't cross-link — you choose on the welcome
   screen.
-- **SleepBlock is a subscription.** Right after the questionnaire commits, a
-  hard paywall (RevenueCat; annual with a 7-day free trial, or monthly) is the
-  only door into the app — placed there deliberately, at the moment of highest
-  intent, when the user has just articulated what breaks their sleep and which
-  apps eat their night. The paywall answers with those exact apps. There is no
-  free tier: a behavior-change app has to let people *feel* the fix, so the
-  trial gives the whole product for a week rather than a crippled subset
-  forever. (An unconfigured build — no RevenueCat key — runs without the
-  paywall for development.)
+- **SleepBlock is a subscription.** Right after the questionnaire commits, the
+  paywall (RevenueCat; annual with a free trial, or monthly) appears at the
+  moment of highest intent, when the user has just articulated what breaks
+  their sleep and which apps eat their night — the paywall answers with those
+  exact apps. It is a **soft** paywall: a ✕ closes it and the user gets the
+  whole app to look at. What they cannot do without subscribing is **start a
+  night** — the one action the product exists to perform. Everything the app
+  shows is free; everything it does is the subscription. (An unconfigured
+  build — no RevenueCat key — runs unlocked for development.)
 - After the paywall, a one-time **Screen Time primer** (a mock of the iOS
   permission dialog with an arrow pointing at Allow) asks for the Family
   Controls authorization that powers app blocking, flowing straight into the

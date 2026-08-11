@@ -149,10 +149,13 @@ struct SulavSleepApp: App {
     /// requests do nothing (RootView is already showing welcome or
     /// SleepModeView).
     private func openSleepConfirmation() {
-        // `needsPaywall` also stands the deep links down: while the hard
-        // paywall is up, Home isn't mounted, so raising the confirmation
-        // would open the app on a control the user can't reach.
-        guard store.activeSession == nil, store.isAuthenticated, store.isOnboarded, !store.needsPaywall else { return }
+        guard store.activeSession == nil, store.isAuthenticated, store.isOnboarded else { return }
+        // A locked user asking to sleep — from the widget, the shield, or
+        // Siri — gets the paywall, not silence. These are the app's back
+        // doors into `startSleep`, so leaving them to fall through would
+        // make the Siri intent a way around the subscription; standing them
+        // down without a word would be the older, ruder bug.
+        guard !store.presentPaywallIfLocked() else { return }
         Haptics.soft()
         store.selectedTab = .home
         withAnimation(.easeInOut(duration: 0.3)) {
@@ -164,7 +167,8 @@ struct SulavSleepApp: App {
     /// sleep confirmation — and additionally stood down once a session is
     /// running, since there is nothing left to commit to.
     private func openTonight() {
-        guard store.activeSession == nil, store.isAuthenticated, store.isOnboarded, !store.needsPaywall else { return }
+        guard store.activeSession == nil, store.isAuthenticated, store.isOnboarded else { return }
+        guard !store.presentPaywallIfLocked() else { return }
         Haptics.soft()
         store.selectedTab = .home
         store.showTonightCheckIn = true
@@ -174,7 +178,8 @@ struct SulavSleepApp: App {
     /// that fires when a snooze runs out, which reaches someone at the moment
     /// they are most adrift and least ready to be told to sleep.
     private func openWindDown() {
-        guard store.activeSession == nil, store.isAuthenticated, store.isOnboarded, !store.needsPaywall else { return }
+        guard store.activeSession == nil, store.isAuthenticated, store.isOnboarded else { return }
+        guard !store.presentPaywallIfLocked() else { return }
         Haptics.soft()
         store.selectedTab = .home
         withAnimation(.easeInOut(duration: 0.3)) {

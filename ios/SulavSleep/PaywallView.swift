@@ -1,20 +1,26 @@
 import SwiftUI
 
-// The subscription gate — the last screen before Main, right after the
-// sign-up questionnaire commits. Deliberately a **hard paywall**: no ✕, no
-// "not now". The primary action starts the App Store free trial (an intro
-// offer on the annual plan), so nobody pays blind — but starting the trial
-// or subscribing is the only way in. The moment to sell is now: the user
-// just told us their name, what breaks their sleep, and which apps eat
-// their night, and the copy answers with exactly those apps. See DESIGN.md
-// ("Paywall") and docs/development.md for the RevenueCat setup.
+// The subscription pitch. It appears twice, and it is the same screen both
+// times: once as onboarding's closing beat (the moment to sell — the user
+// just told us their name, what breaks their sleep, and which apps eat their
+// night), and thereafter whenever a locked user reaches for the one thing the
+// subscription buys, starting a night.
 //
-// RootView shows this only when the entitlement has *resolved* to
+// It is a **soft paywall**: the ✕ closes it and drops the user into the app,
+// where they can look at everything and start nothing. That is the deal the
+// lock enforces — see `SleepStore.isLocked`, `HomeView`'s Sleep Now, and
+// DESIGN.md ("Paywall"). docs/development.md covers the RevenueCat setup.
+//
+// Both presentations show this only when the entitlement has *resolved* to
 // not-entitled — never off `.unknown`, and never on an unconfigured (dev)
 // build — so the paywall can assume RevenueCat is live.
 
 struct PaywallView: View {
     let store: SleepStore
+    /// Closes the paywall. Distinct per presentation: the first-run route
+    /// records the dismissal (`SleepStore.dismissPaywall`), the cover over
+    /// Main simply lowers itself.
+    var onClose: () -> Void
 
     @State private var plans: [SleepPlan] = []
     @State private var loadFailed = false
@@ -68,7 +74,28 @@ struct PaywallView: View {
             .scrollBounceBehavior(.basedOnSize)
         }
         .safeAreaInset(edge: .bottom) { footer }
+        // Floated over the scroll rather than placed in it: the header is a
+        // centered brand lockup, and giving the ✕ a row of its own would
+        // push the whole pitch down a line on every device. Top-*trailing*
+        // is where this app's other closes live (the settings sheet), and it
+        // keeps the corner opposite the back chevron of onboarding, which
+        // this screen follows.
+        .overlay(alignment: .topTrailing) { closeButton }
         .task { await loadPlans() }
+    }
+
+    /// The way out. Quiet on purpose — smaller and dimmer than the app's
+    /// other icon buttons — because it should be findable without competing
+    /// with the CTA. It is never hidden or delayed: a paywall that hides its
+    /// exit for three seconds is the pattern App Review rejects, and it reads
+    /// as a trap to the user long before it reads as a conversion tactic.
+    private var closeButton: some View {
+        GlassIconButton(systemImage: "xmark", size: 40, iconSize: 15, tint: SleepColor.muted) {
+            onClose()
+        }
+        .padding(.trailing, SleepSpacing.lg)
+        .padding(.top, SleepSpacing.sm)
+        .accessibilityLabel("Close")
     }
 
     // MARK: - Header
@@ -309,8 +336,13 @@ struct PaywallView: View {
         do {
             guard let entitled = try await store.purchase(planID: plan.id) else { return } // cancelled
             if entitled {
-                // RootView swaps to Main as `needsPaywall` flips.
                 Haptics.success()
+                // The first-run route disappears on its own as `needsPaywall`
+                // flips, but the cover over Main is held up by its own flag
+                // and would otherwise stay parked over the app the user just
+                // paid for. Closing both is correct; the route is already gone
+                // by the time this runs.
+                onClose()
             } else {
                 message = "The App Store confirmed the purchase but the subscription isn't active yet. Try Restore purchases in a moment."
                 messageIsNotice = true
@@ -329,6 +361,7 @@ struct PaywallView: View {
         do {
             if try await store.restorePurchases() {
                 Haptics.success()
+                onClose()
             } else {
                 message = "No subscription to restore on this Apple ID."
                 messageIsNotice = true
