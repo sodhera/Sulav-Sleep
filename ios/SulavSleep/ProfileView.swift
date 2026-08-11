@@ -196,13 +196,19 @@ private struct ProfileRootScreen: View {
             if store.isImportingHealth {
                 ProgressView().controlSize(.small).tint(SleepColor.amber)
             }
-            GlassIconButton(systemImage: "gearshape") {
+            // 44pt, matching Home's corner chips exactly — the gear and the
+            // partner button occupy the same spot one tab apart, so any
+            // difference in size or height reads as the control jumping when
+            // you switch tabs.
+            GlassIconButton(systemImage: "gearshape", size: 44, iconSize: 17) {
                 showsSettings = true
             }
             .accessibilityLabel("Settings")
         }
         .frame(minHeight: 44)
-        .padding(.top, SleepSpacing.lg)
+        // No top padding, for the same reason: `SceneScreen` already applies
+        // the safe-area inset, so this sits flush at the top edge exactly
+        // where Home's chips do.
     }
 
     // MARK: Sleep record
