@@ -155,7 +155,11 @@ struct HomeView: View {
                 .padding(.top, SleepSpacing.sm)
             }
 
-            Spacer(minLength: SleepSpacing.xxxl)
+            // A fixed gap above the button and a flexible spacer below it (see
+            // the end of this stack): the button keeps the same lower-third
+            // position it held before the last-night strip moved up, rather
+            // than being pushed to the very bottom by a flexible gap here.
+            Spacer().frame(height: SleepSpacing.xxxl)
 
             // The lock. A locked user gets the whole of Home — the countdown,
             // the sloth, their schedule, last night's strip — and is stopped
@@ -169,7 +173,7 @@ struct HomeView: View {
                 withAnimation(.easeInOut(duration: 0.3)) { store.showSleepConfirmation = true }
             }
 
-            Spacer().frame(height: SleepSpacing.xl)
+            Spacer(minLength: SleepSpacing.xxxl)
         }
         // The sleep-partners entrance — the one affordance Home carries besides
         // Sleep Now. Pinned to the screen's true top-right corner (the whole
