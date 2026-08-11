@@ -1054,11 +1054,61 @@ Top-right is where this app's other closes live (the settings sheet), and
 it leaves the opposite corner to onboarding's back chevron, which this
 screen follows.
 
+Below the renewal line sits one more quiet door: **"Have a referral
+code?"** in the footer's type, opening the shared redeem sheet (see "Sleep
+partner & referral"). It is deliberately the least prominent thing on the
+screen — for the person holding a friend's code it beats every plan above
+it, but for everyone else it answers a question they weren't asked. It
+hides once the account has redeemed (one code each) and in dev mode.
+
 One structural rule: the sleep-mode overlay always outranks the paywall.
 An active night keeps *Hold to wake* / cancel — and with them the Screen
 Time shield teardown — reachable no matter what the subscription state
 resolves to. The app never traps a user inside a lockdown behind a
 purchase screen.
+
+## Sleep partner & referral
+
+One program, one card (spec: `docs/roadmap-partner-referral.md`). The
+**Sleep partner** card sits on Profile's root between the blocked-apps
+preview and the record, under the standard section kicker, and walks the
+whole lifecycle in one place — it is never two screens:
+
+- **Empty** — the pitch ("Sleep better together") with the Health card's
+  grammar: icon chip, title, two-line copy naming both rewards, then an
+  amber **Invite** capsule (a system `ShareLink` carrying the code and the
+  App Store link) beside a quiet "I have a code" (hidden once this
+  account has redeemed — one code each).
+- **Consent** — "*Name* wants to be your sleep partner", with the line
+  that carries the whole privacy model: **"Nothing is shared until you
+  confirm."** Confirm is the amber capsule; Decline is quiet text. The
+  name comes from the partnership row itself (copied at redemption),
+  because the summaries table stays unreadable until confirmation.
+- **Waiting** — the invitee's mirror state: hourglass chip, "Waiting on
+  your friend", no actions.
+- **Linked** — the partner's name, a quiet **Unlink** top-right (behind a
+  confirmation alert; unilateral by design), and three stat cells in the
+  app's own vocabulary: Home's flame (filled amber alive, hollow muted
+  dying), the schedule as `clock – clock`, the average duration. A
+  partner who has never synced gets the honest-data empty line, never
+  zeroed stats. What is shown is *all* that is shared: derived numbers
+  over the last 7 logged nights, never raw sessions.
+
+The **redeem sheet** (`ReferralRedeemSheet`, `.medium` detent) is one
+hero-type code field and one CTA ("Start 30 nights free"); the server does
+every check and speaks the error copy, in the auth screen's `danger` tone.
+It is the same sheet from both entrances — the paywall's quiet link and
+the card's "I have a code" — because it is the same act.
+
+Settings carries the program's two ledgers: while referral nights run the
+Subscription group shows **Free nights · N left** plus "See the plans"
+(the only voluntary paywall entrance during the grant), and an **Invite**
+group under it holds the share row with a one-line reward caption. In dev
+mode every one of these surfaces hides — the "never fake it" rule.
+
+Deliberately absent (v1): partner push notifications, multiple partners,
+any free-text between partners. The card is quiet accountability — knowing
+they'll see the broken streak — not a chat app.
 
 ## Screen Time primer
 

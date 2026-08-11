@@ -30,6 +30,13 @@ review the rhythm of recent nights — using **real data only**.
   night** — the one action the product exists to perform. Everything the app
   shows is free; everything it does is the subscription. (An unconfigured
   build — no RevenueCat key — runs unlocked for development.)
+- **Growth is the sleep partner.** The referral and the partner feature are
+  one program: invite a friend to *do this with you* — you see each other's
+  streak and schedule (derived numbers only, mutual consent, either side can
+  unlink) — and the invite carries the economics: they get 30 nights free
+  instead of 7, and their first paid payment gives you a month free (a real
+  App Store renewal extension, capped at six earned months a year). The ask
+  is a relationship, not a coupon.
 - After the paywall, a one-time **Screen Time primer** (a mock of the iOS
   permission dialog with an arrow pointing at Allow) asks for the Family
   Controls authorization that powers app blocking, flowing straight into the
