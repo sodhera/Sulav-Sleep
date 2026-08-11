@@ -98,6 +98,11 @@ create table if not exists public.partnerships (
   id           uuid primary key default gen_random_uuid(),
   inviter_id   uuid not null references auth.users(id) on delete cascade,
   invitee_id   uuid not null references auth.users(id) on delete cascade,
+  -- Copied from profiles.name at redemption time (service role) so the
+  -- inviter's confirm card can say WHO is asking — the summaries table
+  -- is deliberately unreadable until the partnership is confirmed, and
+  -- a nameless "someone wants to see your sleep" card is unanswerable.
+  invitee_name text not null default '',
   status       text not null default 'pending',
   created_at   timestamptz not null default now(),
   confirmed_at timestamptz,

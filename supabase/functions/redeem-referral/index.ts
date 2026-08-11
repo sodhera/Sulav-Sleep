@@ -120,9 +120,19 @@ Deno.serve(async (req) => {
 
   // File the partnership request. Best-effort: the unique pair constraint
   // makes a re-file a no-op, and a failure here must not undo the nights
-  // the user was just told they have.
+  // the user was just told they have. The invitee's name rides on the row
+  // because the summaries table stays unreadable until confirmation.
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("name")
+    .eq("id", user.id)
+    .maybeSingle();
   const { error: pErr } = await admin.from("partnerships").upsert(
-    { inviter_id: codeRow.user_id, invitee_id: user.id },
+    {
+      inviter_id: codeRow.user_id,
+      invitee_id: user.id,
+      invitee_name: profile?.name ?? "",
+    },
     { onConflict: "inviter_id,invitee_id", ignoreDuplicates: true },
   );
   if (pErr) {

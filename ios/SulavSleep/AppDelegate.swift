@@ -103,6 +103,7 @@ struct SulavSleepApp: App {
                     store.reload()
                     Task { await store.refreshHealthIfEnabled() }
                     Task { await store.checkAppUpdateGate() }
+                    Task { await store.refreshReferral() }
                 }
                 .onOpenURL { url in
                     // sleepblock://sleep arrives from the widget capsule and

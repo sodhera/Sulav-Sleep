@@ -107,6 +107,7 @@ final class SleepStore {
     private let auth: AuthProviding
     private let cloud: CloudSyncing
     private let subscription: SubscriptionProviding
+    private let referral: ReferralSyncing
 
     init(
         persistence: SleepPersistence = .shared,
@@ -114,7 +115,8 @@ final class SleepStore {
         screenTime: ScreenTimeControlling? = nil,
         auth: AuthProviding? = nil,
         cloud: CloudSyncing? = nil,
-        subscription: SubscriptionProviding? = nil
+        subscription: SubscriptionProviding? = nil,
+        referral: ReferralSyncing? = nil
     ) {
         self.persistence = persistence
         self.health = health ?? SleepHealth.makeDefault()
@@ -123,8 +125,11 @@ final class SleepStore {
         // Cloud must be created after auth (auth creates the shared SupabaseClient)
         self.cloud = cloud ?? SleepCloud.makeDefault()
         self.subscription = subscription ?? SleepSubscription.makeDefault()
+        // Like cloud: needs the shared client auth created.
+        self.referral = referral ?? SleepReferral.makeDefault()
         screenTimePrimerSeen = persistence.screenTimePrimerSeen
         paywallDismissed = persistence.paywallDismissed
+        referralFreeUntil = persistence.referralFreeUntil
         reload()
         startSubscriptionTracking()
         Task { [weak self] in await self?.restoreSession() }
@@ -305,8 +310,14 @@ final class SleepStore {
     /// stopped at exactly one place: starting a night (`startSleep`, and every
     /// deep link that leads to it). Everything the app *shows* is theirs;
     /// what it *does* is the subscription. See DESIGN.md ("Paywall").
+    ///
+    /// Referral nights are the third exemption, beside the offline grace: a
+    /// redeemed code buys 30 server-dated free nights, and while they run
+    /// the user simply isn't locked. Everything downstream — `needsPaywall`,
+    /// the primer, the deep links — inherits that for free.
     var isLocked: Bool {
-        isAuthenticated && isOnboarded && entitlement == .notEntitled && !isWithinOfflineGrace
+        isAuthenticated && isOnboarded && entitlement == .notEntitled
+            && !isWithinOfflineGrace && !isWithinReferralNights
     }
 
     /// Whether the paywall is the *route* — the closing beat of onboarding,
@@ -436,6 +447,132 @@ final class SleepStore {
         return state == .entitled
     }
 
+    // MARK: - Referral & sleep partner
+
+    /// Whether every referral/partner surface exists at all. False in dev
+    /// mode (no Supabase), matching the paywall's "never fake it" rule.
+    var referralAvailable: Bool { referral.isConfigured }
+
+    /// End of the 30 free nights a redeemed code granted, server-dated.
+    /// Cached in persistence so an offline launch keeps the exemption; the
+    /// server row is re-read on every launch/foreground and always wins.
+    private(set) var referralFreeUntil: Date?
+    /// Display-only: whether this user's own referral converted to paid.
+    private(set) var referralStanding: ReferralStanding?
+    /// The partner card's whole world: incoming requests, waiting state,
+    /// confirmed partner + their summary. Nil before the first fetch.
+    private(set) var partnerState: PartnerState?
+    /// The caller's shareable code, fetched lazily when invite UI opens.
+    private(set) var myReferralCode: String?
+    /// How the caller's invites are doing (Settings row). Nil until fetched.
+    private(set) var referrerStats: ReferrerStats?
+
+    /// The lock exemption. Compares against a *server-issued* date — the
+    /// cache only bridges offline launches, so rolling the device clock
+    /// back cannot mint nights the server never granted (the date itself
+    /// is at most 30 days out regardless).
+    var isWithinReferralNights: Bool {
+        guard let referralFreeUntil else { return false }
+        return Date() < referralFreeUntil
+    }
+
+    /// Whole nights left on the grant, for the Settings row ("Free nights ·
+    /// N left"). Rounded up: a grant expiring tomorrow morning is 1 night.
+    var referralNightsLeft: Int {
+        guard let referralFreeUntil else { return 0 }
+        let seconds = referralFreeUntil.timeIntervalSinceNow
+        guard seconds > 0 else { return 0 }
+        return Int((seconds / 86_400).rounded(.up))
+    }
+
+    /// Refreshes everything referral: the caller's own standing (the lock
+    /// exemption) and the partner card's state. Runs on launch and every
+    /// foreground, like the Health refresh — and pushes this side's summary
+    /// up whenever any partnership exists, so the partner's card is never
+    /// staler than the last time this app was opened.
+    @MainActor
+    func refreshReferral() async {
+        guard referral.isConfigured, let account else { return }
+        if let standing = await referral.myStanding() {
+            referralStanding = standing
+            // Only a fetched answer overwrites the cache: a network failure
+            // keeps the last server date rather than locking someone mid-
+            // flight (the offline-grace bias, applied to free nights).
+            referralFreeUntil = standing.freeUntil
+            persistence.saveReferralFreeUntil(standing.freeUntil)
+        }
+        if let state = await referral.partnerState(myUserID: account.id) {
+            partnerState = state
+            await pushPartnerSummary()
+        }
+    }
+
+    /// Redeems a friend's code (paywall sheet / partner card). On success the
+    /// lock recomputes off the new date in the same state change, so the
+    /// paywall route falls through to Main by itself.
+    @MainActor
+    func redeemReferral(code: String) async throws {
+        let until = try await referral.redeem(code: code)
+        referralFreeUntil = until
+        referralStanding = ReferralStanding(freeUntil: until, converted: false)
+        persistence.saveReferralFreeUntil(until)
+        Task { [weak self] in await self?.refreshReferral() }
+        AppLog.store.info("Referral redeemed — free nights until \(until, privacy: .public)")
+    }
+
+    /// The caller's shareable code, created server-side on first ask.
+    @MainActor
+    func loadReferralCode() async {
+        guard referral.isConfigured, myReferralCode == nil else { return }
+        myReferralCode = await referral.myCode()
+        referrerStats = await referral.referrerStats()
+    }
+
+    @MainActor
+    func confirmPartner(requestID: String) async throws {
+        try await referral.confirmPartnership(id: requestID)
+        await refreshReferral()
+    }
+
+    @MainActor
+    func declinePartner(requestID: String) async throws {
+        try await referral.declinePartnership(id: requestID)
+        await refreshReferral()
+    }
+
+    @MainActor
+    func unlinkPartner() async throws {
+        guard let id = partnerState?.partner?.partnershipID else { return }
+        try await referral.unlinkPartnership(id: id)
+        await refreshReferral()
+    }
+
+    /// Pushes this side of the shared summary — the same numbers Profile's
+    /// stat band shows (`streak`, `SleepStats.averages`), so the partner's
+    /// card and the user's own screen can never disagree. A no-op while no
+    /// partnership row exists in any state: nobody could read the row, so
+    /// writing it would only smear sleep data server-side ahead of consent.
+    @MainActor
+    func pushPartnerSummary() async {
+        guard referral.isConfigured, let account, let profile else { return }
+        guard let state = partnerState,
+              state.partner != nil || state.awaitingConfirmation || !state.incomingRequests.isEmpty
+        else { return }
+        let averages = SleepStats.averages(of: displaySessions)
+        let current = streak
+        let summary = PartnerSummary(
+            name: profile.name,
+            streak: current.count,
+            streakDying: current.isDying,
+            avgBedMinutes: averages?.bedtimeMinutes,
+            avgWakeMinutes: averages?.wakeMinutes,
+            avgDurationMinutes: averages?.durationMinutes,
+            nights: averages?.nights ?? 0,
+            updatedAt: nil
+        )
+        await referral.upsertMySummary(summary, userId: account.id)
+    }
+
     // MARK: - Onboarding
 
     /// Commits the questionnaire answers as the local profile.
@@ -545,6 +682,8 @@ final class SleepStore {
             }
             // Pull the account's nights down, push anything missing up.
             Task { [weak self] in await self?.syncCloudSessions() }
+            // Referral standing + partner card, same fire-and-forget shape.
+            Task { [weak self] in await self?.refreshReferral() }
         } else {
             clearPersistedAccount()
         }
@@ -595,9 +734,15 @@ final class SleepStore {
         showsExistingAccountWelcome = false
         clearPersistedAccount()
         // The offline grace belongs to the account that earned it, not to the
-        // device — otherwise the next person to sign in here inherits it.
+        // device — otherwise the next person to sign in here inherits it. The
+        // referral nights and partner state are account-scoped the same way.
         persistence.clearEntitlementGrace()
         entitlementAsOf = nil
+        referralFreeUntil = nil
+        referralStanding = nil
+        partnerState = nil
+        myReferralCode = nil
+        referrerStats = nil
         // The widget flips its action capsule to "Sign in".
         updateWidgetSoon()
         AppLog.store.info("Signed out")
@@ -641,6 +786,11 @@ final class SleepStore {
         activeSession = nil
         account = nil
         authErrorMessage = nil
+        referralFreeUntil = nil
+        referralStanding = nil
+        partnerState = nil
+        myReferralCode = nil
+        referrerStats = nil
         persistence.reset()
         Task { [subscription] in await subscription.logOut() }
         AppLog.store.info("Account deleted (local data wiped)")
@@ -878,9 +1028,11 @@ final class SleepStore {
         }
         AppLog.store.info("Logged night: \(minutes)m")
 
-        // Sync to cloud
+        // Sync to cloud — and refresh the shared partner summary while the
+        // night is fresh, so a partner checking in the morning sees it.
         if let userId = account?.id {
             Task { [cloud] in await cloud.upsertSessions([session], userId: userId) }
+            Task { [weak self] in await self?.pushPartnerSummary() }
         }
 
         if profile?.healthSyncEnabled == true {
@@ -1554,6 +1706,10 @@ struct SleepPersistence {
     // the offline grace window. Cleared on sign-out and account deletion so a
     // lapsed grace can never follow the device to a different account.
     private let lastEntitledAtKey = "sulav.lastEntitledAt.v1"
+    // Server-issued end of the redeemed referral's 30 free nights. A cache of
+    // the `referral_redemptions` row, so an offline launch keeps the
+    // exemption; account-scoped like the grace above, so cleared with it.
+    private let referralFreeUntilKey = "sulav.referralFreeUntil.v1"
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -1586,6 +1742,7 @@ struct SleepPersistence {
         defaults.removeObject(forKey: lastAccountIDKey)
         defaults.removeObject(forKey: legacyCloudSeedCheckedKey)
         defaults.removeObject(forKey: lastEntitledAtKey)
+        defaults.removeObject(forKey: referralFreeUntilKey)
     }
 
     /// Whether the app has been launched before on this install. Backed by the
@@ -1618,9 +1775,17 @@ struct SleepPersistence {
     }
 
     /// Called on sign-out and account deletion — the grace period belongs to
-    /// an account, not to a device.
+    /// an account, not to a device. The referral nights ride along for the
+    /// same reason.
     func clearEntitlementGrace() {
         defaults.removeObject(forKey: lastEntitledAtKey)
+        defaults.removeObject(forKey: referralFreeUntilKey)
+    }
+
+    var referralFreeUntil: Date? { defaults.object(forKey: referralFreeUntilKey) as? Date }
+
+    func saveReferralFreeUntil(_ date: Date) {
+        defaults.set(date, forKey: referralFreeUntilKey)
     }
 
     /// Non-secret account info only (id/email/provider) — the real session
