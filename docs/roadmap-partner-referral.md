@@ -1,5 +1,51 @@
 # Roadmap: Sleep partner + referral
 
+Status: **shipped, then re-architected** (August 2026). This doc records the
+original v1 spec below (fused referral + partner, single partner). It was
+superseded during the build — see the v2 note next — so read the v2 note
+first; the v1 text is kept for the decision trail, not as current behavior.
+`docs/development.md` and DESIGN.md carry the current maintenance and screen
+rules.
+
+## v2 — referral and partnership decoupled (current)
+
+v1 fused the two: the only way to get a sleep partner was to redeem
+someone's referral code. Two problems surfaced immediately:
+
+1. It capped everyone at one partner (the code is one-per-account).
+2. An **already-paid** user couldn't become anyone's partner — they can't
+   meaningfully redeem a code, so two existing subscribers had no way to
+   connect at all.
+
+They're really orthogonal intents — *refer* a coworker (give them a free
+month, share nothing) versus *partner* with a friend (see each other's
+sleep, no money involved) — so v2 splits them into two features that share
+nothing:
+
+- **Referral** is unchanged from v1's growth half: a code, 30 free nights
+  for the referee, a banked free month for the referrer on conversion.
+  `redeem-referral` no longer files a partnership (migration 006).
+- **Sleep partner** is now its own thing: a **partner invite link**
+  (`sleepblock://partner/<token>`, minted by `create_partner_invite`,
+  accepted by `accept_partner_invite`) that anyone can send to anyone
+  regardless of subscription. Accepting auto-confirms — both sides
+  consented, the owner by making the link, the tapper by opening it — so
+  there is **no pending/confirm step** (v1's consent card is gone). Safety
+  is single-use + 7-day expiry + instant unilateral unlink. **Multiple
+  partners**, capped at 10.
+
+UI moved too: the partner card left Profile for a dedicated
+**Sleep Partners** screen behind a Home top-right button; the referral kept
+its Settings "Invite a friend" row and paywall redeem link, de-partnered to
+pure "give a free month". The free-nights **ending nudge** and **expiry
+paywall headline** (v1's conversion mechanics) are unchanged.
+
+Everything below is the original v1 spec, superseded by the above.
+
+---
+
+# v1 spec (superseded)
+
 Status: **planned — being built now** (August 2026). This doc is the spec;
 when the build lands, `docs/development.md` carries the maintenance-facing
 version and DESIGN.md the screen rules. Written the way

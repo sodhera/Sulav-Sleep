@@ -1079,83 +1079,85 @@ purchase screen.
 
 ## Sleep partner & referral
 
-One program, one card (spec: `docs/roadmap-partner-referral.md`). The
-**Sleep partner** card sits on Profile's root between the blocked-apps
-preview and the record, under the standard section kicker, and walks the
-whole lifecycle in one place — it is never two screens:
+**Two separate features** (spec: `docs/roadmap-partner-referral.md`), and
+keeping them separate is the whole design. They were fused once — the only
+way to get a partner was to redeem someone's referral code — which capped
+everyone at one partner and left two already-paid friends unable to
+connect at all. Now:
 
-- **Empty** — the pitch ("Sleep better together") with the Health card's
-  grammar: icon chip, title, one line naming the relationship first and
-  the reward second — "See each other's streak and schedule. You'll both
-  start with 30 nights free." — then an amber **Invite** capsule (a
-  system `ShareLink` carrying the code and the App Store link) beside a
-  quiet "I have a code" (hidden once this account has redeemed — one code
-  each). The copy is deliberately symmetric ("both") rather than a two-
-  line "they get X, you get Y" ledger — this is an invitation, not a
-  referral pitch, and the mechanics live one tap away on the explainer
-  screen for whoever wants them.
-- **Consent** — "*Name* wants to be your sleep partner", with the line
-  that carries the whole privacy model: **"Nothing is shared until you
-  confirm."** Confirm is the amber capsule; Decline is quiet text. The
-  name comes from the partnership row itself (copied at redemption),
-  because the summaries table stays unreadable until confirmation.
-- **Waiting** — the invitee's mirror state: hourglass chip, "Waiting on
-  your friend", no actions.
-- **Linked** — the partner's name, a quiet **Unlink** top-right (behind a
-  confirmation alert; unilateral by design), and three stat cells in the
-  app's own vocabulary: Home's flame (filled amber alive, hollow muted
-  dying), the schedule as `clock – clock`, the average duration. A
-  partner who has never synced gets the honest-data empty line, never
-  zeroed stats. What is shown is *all* that is shared: derived numbers
-  over the last 7 logged nights, never raw sessions.
+- **Referral** is a growth code: share it, a new friend gets 30 free
+  nights, you bank a free month when they subscribe. Transactional, no
+  relationship, no data shared. You'd post it anywhere.
+- **Sleep partner** is a mutual, ongoing relationship: you each see the
+  other's streak and schedule. Built by sending someone a **partner invite
+  link**, unrelated to any code, available to anyone regardless of
+  subscription. Multiple partners, capped at 10.
 
-The **redeem sheet** (`ReferralRedeemSheet`, `.medium` detent) is one
-hero-type code field and one CTA ("Start 30 nights free"); the server does
-every check and speaks the error copy, in the auth screen's `danger` tone.
-It is the same sheet from both entrances — the paywall's quiet link and
-the card's "I have a code" — because it is the same act.
+The intents are orthogonal — refer a coworker without sharing your sleep;
+partner with a friend who already pays, no free month in play — so they
+never share a control or a code.
 
-Settings carries the program's two ledgers: while referral nights run the
-Subscription group shows **Free nights · N left** plus "See the plans"
-(the only voluntary paywall entrance during the grant), and an **Invite**
-group under it holds a single row that pushes `InviteFriendScreen` rather
-than firing the share sheet itself. In dev mode every one of these
-surfaces hides — the "never fake it" rule.
+### Referral surfaces
 
-The invite screen is where the row's tap actually lands — a bare settings
-row jumping straight into the system share sheet left the reward
-unexplained at the one moment someone was about to hand it to a friend.
-Same `SubpageHeader` + `SceneScreen` scaffold as every other pushed
-settings page (back chevron, editorial title, transparent scroll over the
-living scene). Under the header: one benefit row, single moon-glyph icon
-chip, "**30 nights free, for both of you**" — the mutual framing from the
-card, carried through rather than broken back apart into a two-line
-ledger — with the one clause of real nuance in its detail line: "Theirs
-starts tonight. Yours lands the moment they subscribe." Then the code
-itself in a large tracked glass field under a **Your code** kicker, and
-one full-width amber **Share invite** button — a `ShareLink` styled to
-match `LiquidPrimaryButton` rather than wrapped in it, since `ShareLink`
-has to own the tap that presents the system sheet. Below it, the
-joined/subscribed count appears once nonzero (never a zeroed "0
-joined"), and a short consent line closes the screen: "Nothing is shared
-until they confirm." — in `.dim`, not `.faint`: this is a trust
-statement worth actually reading, and `.faint` (30%-opacity white) reads
-as near-invisible against the scene's lighter daytime sky, where the
-background isn't dark enough to carry the app's lowest-contrast tier.
+The referral lives in two quiet places, both pointed at the *growth* code:
+the paywall's "Have a referral code?" link (redeem side) and Settings'
+**Invite a friend** row (share side, a **gift** glyph — never `person.2`,
+which is the partner button now). The row pushes `InviteFriendScreen`
+(`SubpageHeader` + `SceneScreen`, like every settings sub-page): one
+benefit row — "**30 nights free, for both of you**", detail "Theirs starts
+the night they join. Yours lands when they subscribe." — the code in a
+tracked glass field, one amber **Share invite** button (a `ShareLink`
+styled like `LiquidPrimaryButton`), and the joined/subscribed count once
+nonzero. The **redeem sheet** (`ReferralRedeemSheet`, `.medium`) is one
+hero-type code field and a CTA; the server does every check and speaks the
+error copy in `danger` tone. All of this is pure "free month" now — no
+partnership language survives here.
 
-The free nights don't end in a silent wall. In the **last three nights**,
-Profile grows a dismissible warm-glass nudge — same card grammar as the
-Health invite and update nudge — titled by the countdown ("2 free nights
-left", or "Last free night" at one) and naming what's at stake ("Subscribe
-to keep your streak with Maya going after they're up"), with a **See plans**
-button that raises the paywall. Dismissible once per grant; the passive
-"Free nights · N left" Settings row still stands. The pairing is deliberate:
-the nudge is the heads-up *before* the wall, the expiry headline is the
-catch *at* it — length was never the conversion lever, this moment is.
+### Sleep Partners screen
 
-Deliberately absent (v1): partner push notifications, multiple partners,
-any free-text between partners. The card is quiet accountability — knowing
-they'll see the broken streak — not a chat app.
+The partner half has its own home, reached from a **Home top-right button**
+(`person.2`, the one affordance Home carries besides Sleep Now — floated
+top-trailing so it never disturbs the centered instrument). It opens
+`SleepPartnersScreen` as a large sheet:
+
+- **The list** — one glass row per partner: their name, then three stat
+  cells in the app's own vocabulary (Home's flame, filled amber alive /
+  hollow muted dying; the schedule as `clock – clock`; average duration).
+  A partner who has never synced shows the honest empty line, never zeroed
+  stats. What's shown is *all* that's shared — derived numbers over the
+  last seven nights, never raw sessions. Each row unlinks behind a confirm
+  (unilateral, immediate, either side).
+- **Add a partner** — a full-width amber button that mints a one-time
+  invite link and hands it straight to the system share sheet ("Be my
+  sleep partner on SleepBlock…"). "Add another partner" once you have one.
+- **Empty state** — "Sleep better together", the accountability pitch.
+
+A tapped `sleepblock://partner/<token>` link routes through `AppDelegate`
+to the store, which accepts it (connecting both accounts directly — both
+consented, so no confirm step) or stashes it until a fresh-install friend
+signs up, then raises this screen with a one-shot confirmation ("You're
+now sleep partners with Maya"). Safety without a confirm step rests on the
+token being single-use and 7-day-expiring, plus instant unlink.
+
+### The free-nights ending (referral, conversion)
+
+Two mechanics catch the end of a referral's free nights — length was never
+the conversion lever, this moment is:
+
+- **Ending nudge** — in the last three nights, Profile grows a dismissible
+  warm-glass nudge (Health-card grammar) titled by the countdown ("2 free
+  nights left" / "Last free night") and naming what's at stake, with a
+  **See plans** button. The heads-up *before* the wall.
+- **Expiry headline** — once the nights lapse, the paywall leads with the
+  loss-aversion line (see "Paywall"): "Keep your 12-night streak going",
+  naming a partner only when there's exactly one. The catch *at* the wall.
+
+### Deliberately absent (v1)
+
+Partner push notifications, and any free-text between partners. The partner
+screen is quiet accountability — knowing they'll see the broken streak —
+not a chat app. The only thing that ever crosses accounts is a display
+name and four derived numbers.
 
 ## Screen Time primer
 

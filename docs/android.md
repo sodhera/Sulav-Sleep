@@ -174,13 +174,16 @@ Shipped in the July 2026 polish pass:
 Still deferred (phase 3):
 
 - **Referral + sleep partner** (iOS, August 2026 — see
-  `docs/roadmap-partner-referral.md` and `SleepPartnerView.swift`). The
-  schema and edge functions are shared, so this is client work only: the
-  Profile partner card, the redeem sheet, the paywall/Settings entries,
-  and `referralFreeUntil` as the lock exemption. Note the referrer's
-  free-month webhook is App Store-only; a Play Billing equivalent
-  (subscription extension via the Play Developer API) needs its own leg
-  in `revenuecat-webhook`.
+  `docs/roadmap-partner-referral.md` and `SleepPartnerView.swift`). Two
+  separate features. Schema and edge functions are shared, so it's client
+  work: the **referral** (redeem sheet, paywall/Settings entries,
+  `referralFreeUntil` as the lock exemption, the ending nudge + expiry
+  headline) and the **sleep partner** graph (the Sleep Partners screen off
+  a Home button, invite links via `create_/accept_partner_invite`, multiple
+  partners). Android must register the `sleepblock://partner/<token>` deep
+  link. The referrer's free-month webhook is App Store-only; a Play Billing
+  equivalent (subscription extension via the Play Developer API) needs its
+  own leg in `revenuecat-webhook`.
 - **Session cloud sync.** Android syncs the *profile* only (through the
   `sleep_profile` user-metadata key); it never reads or writes the
   `sleep_sessions` table iOS uses. Logged nights therefore live on the

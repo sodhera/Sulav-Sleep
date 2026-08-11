@@ -52,18 +52,19 @@ xcrun simctl launch booted com.sulav.sleepblock -review-subscription
 Like `-review-paywall`, the arg is compiled only under `DEBUG`. Against a real
 RevenueCat key the status is live, so the arg is ignored (dev mode only).
 
-### Preview the sleep-partner card
+### Preview the Sleep Partners screen
 
-The Profile partner card needs a second account and a confirmed
-partnership to render for real, so a DEBUG-only launch argument injects
-deterministic state (and a sample invite code, `SLPX7K`):
+The partners list (Home top-right `person.2` button) needs real
+partnerships to render, so a DEBUG-only launch argument injects sample
+partners (and a referral code, `SLPX7K`):
 
 ```sh
-xcrun simctl launch booted com.sulav.sleepblock -review-partner confirmed
+xcrun simctl launch booted com.sulav.sleepblock -review-partner many
 ```
 
-Variants: `confirmed` (partner "Maya" with summary numbers, the default),
-`request` (the consent card), `waiting` (invitee's pending state).
+Variants: `many` (Maya/Jordan/Sam with summary numbers, the default),
+`one` (a single partner — the case the expiry headline and ending nudge
+name by name). Open the screen from Home's partner button.
 
 ### Preview the free-nights expiry mechanics
 
@@ -1165,40 +1166,52 @@ nights on first launch after upgrading.
 
 ## Referral & sleep partner
 
-One program, two halves (full spec + decision log:
-`docs/roadmap-partner-referral.md`): invite a friend to be your **sleep
-partner** — they get **30 free nights** instead of 7, you see each other's
-streak/schedule/average once both consent, and their **first paid payment**
-banks you a **free month**, applied as a real App Store renewal extension.
+**Two separate features** (full spec + decision log:
+`docs/roadmap-partner-referral.md`), decoupled deliberately:
+
+- **Referral** — a growth code. A new friend redeems it for **30 free
+  nights**; their **first paid payment** banks you a **free month**
+  (a real App Store renewal extension). No relationship, no data shared.
+- **Sleep partner** — a mutual relationship built by a **partner invite
+  link** (`sleepblock://partner/<token>`), unrelated to any code and open
+  to anyone regardless of subscription. Both sides see each other's
+  streak/schedule/average. Multiple partners, capped at 10.
+
+Redeeming a referral does **not** make you partners (migration 006
+severed that). Referring a coworker never shares your sleep.
 
 Code map:
 
-- `supabase/migrations/005_referrals_partners.sql` — five tables + RLS +
-  the partnership RPCs. Clients write nothing except their own
-  `partner_summaries` row; the single cross-account read in the database
-  is a *confirmed* partner reading the other's summary (derived numbers,
-  never raw `sleep_sessions`).
-- `supabase/functions/redeem-referral` — validates and writes a
-  redemption (server-dated `free_until`) + the pending partnership.
+- `supabase/migrations/005_…` — the base tables + RLS. The only
+  cross-account read in the database is a confirmed partner reading the
+  other's `partner_summaries` (derived numbers, never raw sessions).
+- `supabase/migrations/006_partner_invites.sql` — the decoupling:
+  `partner_invites` (one-time, 7-day tokens), `create_partner_invite()` /
+  `accept_partner_invite()` (auto-confirm both sides, cap 10, copy names),
+  and drops the old single-slot `confirm/decline` RPCs.
+- `supabase/functions/redeem-referral` — writes a redemption
+  (server-dated `free_until`) and nothing else (no partnership).
 - `supabase/functions/revenuecat-webhook` — conversion → banked reward
-  (180d/365 cap), refund → void, and opportunistic application of banked
-  days via the App Store Server API (`extendSubscriptionRenewalDate`,
-  ≤90d/call — Apple allows two per subscription per year, which is where
-  the cap comes from). Retries ride on webhook traffic; no cron.
-- `SleepReferral.swift` — the protocol seam (`ReferralSyncing`); dev mode
-  hides every surface.
-- `SleepStore` — `referralFreeUntil` (cached server date; the lock's
-  third exemption via `isWithinReferralNights`), `partnerState`,
-  `refreshReferral()` on launch/foreground, `pushPartnerSummary()` only
-  while a partnership row exists (never ahead of consent).
-- `SleepPartnerView.swift` — the Profile card (invite / consent / waiting
-  / partner's numbers) and the redeem sheet shared with the paywall's
-  "Have a referral code?" entry. Settings: free-nights row + invite row.
+  (180d/365 cap), refund → void, opportunistic App Store Server API
+  extension (`extendSubscriptionRenewalDate`, ≤90d/call, 2/yr). No cron.
+- `SleepReferral.swift` — the protocol seam (`ReferralSyncing`): referral
+  (`myCode`/`redeem`/`myStanding`) plus partners (`partners`,
+  `createPartnerInvite`, `acceptPartnerInvite`, `unlinkPartnership`). Dev
+  mode hides every surface.
+- `SleepStore` — `referralFreeUntil` (the lock's third exemption via
+  `isWithinReferralNights`), `partners: [PartnerLink]`, `showPartners`,
+  `handlePartnerInviteToken` (accept now / stash until sign-in),
+  `pushPartnerSummary()` only while the user has partners.
+- `AppDelegate` — routes `sleepblock://partner/<token>` to the store.
+- `SleepPartnerView.swift` — `SleepPartnersScreen` (the list, add-partner
+  ShareLink, unlink), plus the pure-referral `InviteFriendScreen` and
+  `ReferralRedeemSheet`. `HomeView` carries the partner button;
+  `RootView` presents the partners sheet.
 
 One-time external setup (none of this ships in code):
 
-1. Run migration 005; `supabase functions deploy redeem-referral
-   revenuecat-webhook`.
+1. Run migrations 005 **and 006**; `supabase functions deploy
+   redeem-referral revenuecat-webhook`.
 2. `supabase secrets set REVENUECAT_WEBHOOK_TOKEN=… REVENUECAT_SECRET_KEY=…
    ASC_ISSUER_ID=… ASC_KEY_ID=… ASC_PRIVATE_KEY="$(cat key.p8)"
    APP_BUNDLE_ID=com.sulav.sleepblock` (the ASC key is an App Store
@@ -1206,15 +1219,13 @@ One-time external setup (none of this ships in code):
 3. RevenueCat dashboard → Integrations → Webhooks → add
    `…/functions/v1/revenuecat-webhook` with the same Authorization token.
 
-Until that lands the program is inert: the app's surfaces hide in dev
-mode, redemption fails politely, and no webhook means no rewards — safe
-to ship ahead of the dashboard work.
+Until migration 006 lands, the partner invite/accept RPCs don't exist, so
+adding a partner fails politely; referral still works off 005.
 
-Fraud posture, for the record: rewards trigger only on a *paid*
-transaction (a fake ring costs ~3× the reward), one redemption per
-account (the table's PK), self-redemption rejected server-side, refunds
-void banked rewards, and the 180/365 cap bounds the blast radius of
-anything clever.
+Fraud posture: referral rewards trigger only on a *paid* transaction, one
+redemption per account (PK), self-redeem rejected, refunds void rewards,
+180/365 cap. Partner invites are single-use, 7-day-expiring, self-invite
+rejected, capped at 10, and unlinkable instantly by either side.
 
 ## HealthKit
 
