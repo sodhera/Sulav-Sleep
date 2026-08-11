@@ -114,6 +114,13 @@ struct SulavSleepApp: App {
                     // RootView lands on welcome.)
                     guard url.scheme == "sleepblock", let host = url.host else { return }
                     AppLog.app.info("Opened via sleepblock://\(host, privacy: .public) URL")
+                    // sleepblock://partner/<token> — a tapped sleep-partner
+                    // invite link. The token is the first path component; the
+                    // store applies it now or after the tapper signs in.
+                    if host == "partner", let token = url.pathComponents.first(where: { $0 != "/" }) {
+                        store.handlePartnerInviteToken(token)
+                        return
+                    }
                     route(host)
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .sleepDeepLinkRequested)) { note in

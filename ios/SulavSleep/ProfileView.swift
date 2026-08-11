@@ -141,7 +141,7 @@ private struct ProfileRootScreen: View {
             if store.shouldShowReferralEndingNudge {
                 ReferralEndingCard(
                     nightsLeft: store.referralNightsLeft,
-                    partnerName: store.partnerState?.partner?.summary?.name,
+                    partnerName: store.partners.count == 1 ? store.partners.first?.displayName : nil,
                     onSeePlans: { store.presentPaywall() },
                     onDismiss: { store.dismissReferralEndingNudge() }
                 )
@@ -156,13 +156,6 @@ private struct ProfileRootScreen: View {
             // one; simultaneous so it never steals the tap from the push.
             .simultaneousGesture(TapGesture().onEnded { Haptics.heavy() })
             .padding(.top, SleepSpacing.huge)
-
-            // The partner card — invite, consent, or the partner's numbers,
-            // whichever the account has earned. Absent in dev mode.
-            if store.referralAvailable {
-                SleepPartnerCard(store: store)
-                    .padding(.top, SleepSpacing.huge)
-            }
 
             sleepSection
         }
@@ -533,7 +526,9 @@ struct SettingsModal: View {
                 GlassGroup {
                     NavigationLink(value: SettingsDestination.inviteFriend) {
                         GlassRow(
-                            icon: "person.2.fill",
+                            // Gift, not person.2 — that's the partner glyph now
+                            // (Home's button); referral is "give a free month".
+                            icon: "gift.fill",
                             iconColor: SleepColor.amber,
                             title: "Invite a friend",
                             value: inviteRowValue,

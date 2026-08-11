@@ -132,27 +132,12 @@ final class SleepStore {
         referralFreeUntil = persistence.referralFreeUntil
         referralEndingNudgeDismissed = persistence.referralEndingNudgeDismissed
 #if DEBUG
-        // Deterministic partner-card data for simulator screenshots, in the
+        // Deterministic partners list for simulator screenshots, in the
         // `-review-paywall` / `-review-subscription` tradition. Pass
-        // `-review-partner confirmed|request|waiting` (default confirmed).
+        // `-review-partner one|many` (default many).
         if let index = ProcessInfo.processInfo.arguments.firstIndex(of: "-review-partner") {
-            let variant = ProcessInfo.processInfo.arguments.dropFirst(index + 1).first ?? "confirmed"
-            switch variant {
-            case "request":
-                partnerState = PartnerState(incomingRequests: [PartnerRequest(id: "p", name: "Maya")])
-            case "waiting":
-                partnerState = PartnerState(awaitingConfirmation: true)
-            default:
-                partnerState = PartnerState(partner: PartnerLink(
-                    partnershipID: "p",
-                    partnerUserID: "u",
-                    summary: PartnerSummary(
-                        name: "Maya", streak: 12, streakDying: false,
-                        avgBedMinutes: 23 * 60 + 10, avgWakeMinutes: 7 * 60 + 5,
-                        avgDurationMinutes: 7 * 60 + 22, nights: 7, updatedAt: Date()
-                    )
-                ))
-            }
+            let variant = ProcessInfo.processInfo.arguments.dropFirst(index + 1).first ?? "many"
+            partners = variant == "one" ? [Self.samplePartner] : Self.samplePartners
             myReferralCode = "SLPX7K"
         }
 #endif
@@ -182,14 +167,7 @@ final class SleepStore {
                 profile: profile, sessions: sessions,
                 activeSession: activeSession, reachNights: reachNights
             ))
-            partnerState = PartnerState(partner: PartnerLink(
-                partnershipID: "p", partnerUserID: "u",
-                summary: PartnerSummary(
-                    name: "Maya", streak: 12, streakDying: false,
-                    avgBedMinutes: 23 * 60 + 10, avgWakeMinutes: 7 * 60 + 5,
-                    avgDurationMinutes: 7 * 60 + 22, nights: 7, updatedAt: Date()
-                )
-            ))
+            partners = [Self.samplePartner]
             myReferralCode = "SLPX7K"
         }
 #endif
@@ -198,6 +176,26 @@ final class SleepStore {
     }
 
 #if DEBUG
+    private static let samplePartner = PartnerLink(
+        partnershipID: "p1", partnerUserID: "u1", name: "Maya",
+        summary: PartnerSummary(
+            name: "Maya", streak: 12, streakDying: false,
+            avgBedMinutes: 23 * 60 + 10, avgWakeMinutes: 7 * 60 + 5,
+            avgDurationMinutes: 7 * 60 + 22, nights: 7, updatedAt: Date()
+        )
+    )
+    private static let samplePartners: [PartnerLink] = [
+        samplePartner,
+        PartnerLink(partnershipID: "p2", partnerUserID: "u2", name: "Jordan",
+            summary: PartnerSummary(name: "Jordan", streak: 4, streakDying: true,
+                avgBedMinutes: 0 * 60 + 40, avgWakeMinutes: 8 * 60 + 15,
+                avgDurationMinutes: 6 * 60 + 50, nights: 5, updatedAt: Date())),
+        PartnerLink(partnershipID: "p3", partnerUserID: "u3", name: "Sam",
+            summary: PartnerSummary(name: "Sam", streak: 21, streakDying: false,
+                avgBedMinutes: 22 * 60 + 45, avgWakeMinutes: 6 * 60 + 30,
+                avgDurationMinutes: 7 * 60 + 45, nights: 7, updatedAt: Date())),
+    ]
+
     /// A run of `nights` consecutive ~7.5h nights ending this morning, so the
     /// streak rule counts them. Debug-only, for the referral review args.
     private static func sampleStreakSessions(nights: Int) -> [SleepSession] {
@@ -547,9 +545,9 @@ final class SleepStore {
 
     /// Whether every referral/partner surface exists at all. False in dev
     /// mode (no Supabase), matching the paywall's "never fake it" rule. The
-    /// `partnerState` escape exists only for the DEBUG `-review-partner`
-    /// injection below, which has no real service to be configured.
-    var referralAvailable: Bool { referral.isConfigured || partnerState != nil }
+    /// `partners` escape exists only for the DEBUG review injections below,
+    /// which have no real service to be configured.
+    var referralAvailable: Bool { referral.isConfigured || !partners.isEmpty }
 
     /// End of the 30 free nights a redeemed code granted, server-dated.
     /// Cached in persistence so an offline launch keeps the exemption; the
@@ -557,9 +555,19 @@ final class SleepStore {
     private(set) var referralFreeUntil: Date?
     /// Display-only: whether this user's own referral converted to paid.
     private(set) var referralStanding: ReferralStanding?
-    /// The partner card's whole world: incoming requests, waiting state,
-    /// confirmed partner + their summary. Nil before the first fetch.
-    private(set) var partnerState: PartnerState?
+    /// The caller's confirmed sleep partners, each with their summary.
+    /// Empty before the first fetch and for a user with none.
+    private(set) var partners: [PartnerLink] = []
+    /// Whether the Sleep Partners screen is presented. Raised by the Home
+    /// button and by a tapped partner-invite link.
+    var showPartners = false
+    /// A partner-invite token from a deep link that arrived before sign-in;
+    /// applied once auth resolves. In-memory: a link tapped signed-out is a
+    /// now-or-never intent, not something to persist across launches.
+    private var pendingPartnerToken: String?
+    /// One-shot result of a link-accept, for the partners screen to confirm
+    /// ("You're now partners with Maya") or show the failure. Cleared on read.
+    var partnerInviteMessage: String?
     /// The caller's shareable code, fetched lazily when invite UI opens.
     private(set) var myReferralCode: String?
     /// How the caller's invites are doing (Settings row). Nil until fetched.
@@ -620,7 +628,10 @@ final class SleepStore {
         let count = streak.count
         guard count > 0 else { return nil }
         // "N-night streak" — a compound modifier stays singular regardless of N.
-        if let name = partnerState?.partner?.summary?.name, !name.isEmpty {
+        // Name a partner only when there's exactly one; with several, "with
+        // Maya" would be arbitrary, so the line stays clean.
+        if partners.count == 1 {
+            let name = partners[0].displayName
             return "Keep your \(count)-night streak with \(name) going"
         }
         return "Keep your \(count)-night streak going"
@@ -648,8 +659,8 @@ final class SleepStore {
             referralFreeUntil = standing.freeUntil
             persistence.saveReferralFreeUntil(standing.freeUntil)
         }
-        if let state = await referral.partnerState(myUserID: account.id) {
-            partnerState = state
+        if let fetched = await referral.partners(myUserID: account.id) {
+            partners = fetched
             await pushPartnerSummary()
         }
     }
@@ -675,36 +686,75 @@ final class SleepStore {
         referrerStats = await referral.referrerStats()
     }
 
+    /// Mint a one-time partner invite link to share. The token rides in a
+    /// `sleepblock://partner/<token>` URL the recipient taps to connect.
     @MainActor
-    func confirmPartner(requestID: String) async throws {
-        try await referral.confirmPartnership(id: requestID)
+    func createPartnerInviteURL() async throws -> URL {
+        let token = try await referral.createPartnerInvite()
+        guard let url = URL(string: "sleepblock://partner/\(token)") else {
+            throw ReferralError(message: "Couldn't create an invite. Try again.")
+        }
+        return url
+    }
+
+    /// Accept a partner invite by its token (from a tapped link). Connects
+    /// both accounts and refreshes the list. Returns the new partner's name.
+    @MainActor
+    @discardableResult
+    func acceptPartnerInvite(token: String) async throws -> String {
+        let name = try await referral.acceptPartnerInvite(token: token)
         await refreshReferral()
+        AppLog.store.info("Partner invite accepted")
+        return name
     }
 
     @MainActor
-    func declinePartner(requestID: String) async throws {
-        try await referral.declinePartnership(id: requestID)
+    func unlinkPartner(partnershipID: String) async throws {
+        try await referral.unlinkPartnership(id: partnershipID)
         await refreshReferral()
     }
 
+    /// A `sleepblock://partner/<token>` link was tapped. Accept it now if the
+    /// user is signed in, otherwise stash it and apply the moment auth
+    /// resolves (a fresh-install friend signs up first, then connects).
     @MainActor
-    func unlinkPartner() async throws {
-        guard let id = partnerState?.partner?.partnershipID else { return }
-        try await referral.unlinkPartnership(id: id)
-        await refreshReferral()
+    func handlePartnerInviteToken(_ token: String) {
+        guard isAuthenticated else {
+            pendingPartnerToken = token
+            return
+        }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                let name = try await self.acceptPartnerInvite(token: token)
+                self.partnerInviteMessage = name.isEmpty
+                    ? "You're now sleep partners."
+                    : "You're now sleep partners with \(name)."
+            } catch {
+                self.partnerInviteMessage = error.localizedDescription
+            }
+            self.showPartners = true
+        }
+    }
+
+    /// Applies a partner-invite token that arrived before sign-in. Called once
+    /// `account` is set (restore and fresh sign-in both route through here).
+    @MainActor
+    private func applyPendingPartnerToken() {
+        guard let token = pendingPartnerToken, isAuthenticated else { return }
+        pendingPartnerToken = nil
+        handlePartnerInviteToken(token)
     }
 
     /// Pushes this side of the shared summary — the same numbers Profile's
-    /// stat band shows (`streak`, `SleepStats.averages`), so the partner's
-    /// card and the user's own screen can never disagree. A no-op while no
-    /// partnership row exists in any state: nobody could read the row, so
-    /// writing it would only smear sleep data server-side ahead of consent.
+    /// stat band shows (`streak`, `SleepStats.averages`), so a partner's
+    /// screen and the user's own can never disagree. A no-op while the user
+    /// has no partners: nobody could read the row, so writing it would only
+    /// smear sleep data server-side for no one.
     @MainActor
     func pushPartnerSummary() async {
         guard referral.isConfigured, let account, let profile else { return }
-        guard let state = partnerState,
-              state.partner != nil || state.awaitingConfirmation || !state.incomingRequests.isEmpty
-        else { return }
+        guard !partners.isEmpty else { return }
         let averages = SleepStats.averages(of: displaySessions)
         let current = streak
         let summary = PartnerSummary(
@@ -829,8 +879,10 @@ final class SleepStore {
             }
             // Pull the account's nights down, push anything missing up.
             Task { [weak self] in await self?.syncCloudSessions() }
-            // Referral standing + partner card, same fire-and-forget shape.
+            // Referral standing + partners, same fire-and-forget shape.
             Task { [weak self] in await self?.refreshReferral() }
+            // A partner link tapped before this restore finished can land now.
+            applyPendingPartnerToken()
         } else {
             clearPersistedAccount()
         }
@@ -887,7 +939,9 @@ final class SleepStore {
         entitlementAsOf = nil
         referralFreeUntil = nil
         referralStanding = nil
-        partnerState = nil
+        partners = []
+        showPartners = false
+        partnerInviteMessage = nil
         myReferralCode = nil
         referrerStats = nil
         referralEndingNudgeDismissed = false
@@ -936,7 +990,9 @@ final class SleepStore {
         authErrorMessage = nil
         referralFreeUntil = nil
         referralStanding = nil
-        partnerState = nil
+        partners = []
+        showPartners = false
+        partnerInviteMessage = nil
         myReferralCode = nil
         referrerStats = nil
         referralEndingNudgeDismissed = false
@@ -1036,6 +1092,10 @@ final class SleepStore {
         // Pull the account's nights down and push anything this device holds
         // that never made it up.
         Task { [weak self] in await self?.syncCloudSessions() }
+        Task { [weak self] in await self?.refreshReferral() }
+        // A fresh-install friend who tapped a partner link signs up here —
+        // apply the stashed token now that they have an account.
+        applyPendingPartnerToken()
     }
 
     /// Push the local profile to the cloud table, best-effort. Called

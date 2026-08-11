@@ -303,6 +303,14 @@ struct MainShellView: View {
                 PaywallView(store: store, onClose: { store.showPaywall = false })
             }
         }
+        // The Sleep Partners screen — from Home's partner button, or raised
+        // automatically when a partner-invite link is tapped. On the shell,
+        // not Home, so a tapped link presents it whatever tab is showing.
+        .sheet(isPresented: $store.showPartners) {
+            SleepPartnersScreen(store: store)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
     }
 
     // The native TabView content host is opaque, so the scene must live inside

@@ -31,19 +31,25 @@ struct ReferralStanding: Equatable {
     var converted: Bool
 }
 
-/// One pending "wants to be your sleep partner" request, awaiting the
-/// code owner's confirmation.
-struct PartnerRequest: Identifiable, Equatable {
-    var id: String       // partnerships.id
-    var name: String     // invitee_name, copied at redemption
-}
-
-/// The confirmed partner and their shared summary. `summary` is nil until
-/// their device has pushed one (a partner who has never synced).
-struct PartnerLink: Equatable {
+/// One confirmed sleep partner. `name` comes off the partnership row (copied
+/// when the invite was accepted), so the list always has something to show
+/// even before the partner's own `summary` has synced. Partnerships are
+/// auto-confirmed on invite-link accept — there is no pending/request state.
+struct PartnerLink: Identifiable, Equatable {
     var partnershipID: String
     var partnerUserID: String
+    var name: String
+    /// The partner's shared numbers; nil until their device has pushed one.
     var summary: PartnerSummary?
+
+    var id: String { partnershipID }
+    /// The summary's name wins once it exists (it's self-set and current);
+    /// the partnership-row name is the fallback for a partner who's never
+    /// synced.
+    var displayName: String {
+        if let n = summary?.name, !n.isEmpty { return n }
+        return name.isEmpty ? "Your partner" : name
+    }
 }
 
 /// The derived numbers a confirmed partner may see — the partner-facing
@@ -57,15 +63,6 @@ struct PartnerSummary: Equatable {
     var avgDurationMinutes: Int?
     var nights: Int
     var updatedAt: Date?
-}
-
-/// Everything the partner card needs, fetched in one call.
-struct PartnerState: Equatable {
-    var incomingRequests: [PartnerRequest] = []
-    /// True while the caller's own redemption is still waiting on the
-    /// inviter — the card's "waiting for your friend" state.
-    var awaitingConfirmation = false
-    var partner: PartnerLink?
 }
 
 /// The caller's standing as a *referrer*: how the invite is doing.
@@ -88,10 +85,15 @@ protocol ReferralSyncing: Sendable {
     func myStanding() async -> ReferralStanding?
     /// How the caller's invites are doing (Settings row).
     func referrerStats() async -> ReferrerStats?
-    /// Requests + confirmed partner + their summary, one round trip each.
-    func partnerState(myUserID: String) async -> PartnerState?
-    func confirmPartnership(id: String) async throws
-    func declinePartnership(id: String) async throws
+    /// The caller's confirmed partners, each with their summary. One round
+    /// trip for the partnerships, one for the summaries.
+    func partners(myUserID: String) async -> [PartnerLink]?
+    /// Mint a one-time partner invite token (behind the shareable link).
+    func createPartnerInvite() async throws -> String
+    /// Accept a partner invite by its token — connects both accounts. Returns
+    /// the new partner's display name. Throws the server's user-facing message.
+    func acceptPartnerInvite(token: String) async throws -> String
+    /// Leave a partnership (either side, immediate).
     func unlinkPartnership(id: String) async throws
     /// Owner-side write of the shared summary row. Best-effort like every
     /// cloud call: failures log, the next sync retries.
@@ -125,9 +127,13 @@ struct DisabledReferralService: ReferralSyncing {
     }
     func myStanding() async -> ReferralStanding? { nil }
     func referrerStats() async -> ReferrerStats? { nil }
-    func partnerState(myUserID: String) async -> PartnerState? { nil }
-    func confirmPartnership(id: String) async throws {}
-    func declinePartnership(id: String) async throws {}
+    func partners(myUserID: String) async -> [PartnerLink]? { nil }
+    func createPartnerInvite() async throws -> String {
+        throw ReferralError(message: "Partners aren't available in this build.")
+    }
+    func acceptPartnerInvite(token: String) async throws -> String {
+        throw ReferralError(message: "Partners aren't available in this build.")
+    }
     func unlinkPartnership(id: String) async throws {}
     func upsertMySummary(_ summary: PartnerSummary, userId: String) async {}
 }
@@ -147,6 +153,7 @@ private struct PartnershipRow: Decodable {
     let id: UUID
     let inviter_id: UUID
     let invitee_id: UUID
+    let inviter_name: String
     let invitee_name: String
     let status: String
 }
@@ -293,74 +300,96 @@ final class SupabaseReferralService: ReferralSyncing, @unchecked Sendable {
         }
     }
 
-    func partnerState(myUserID: String) async -> PartnerState? {
+    func partners(myUserID: String) async -> [PartnerLink]? {
         do {
             let rows: [PartnershipRow] = try await client
                 .from("partnerships")
                 .select()
+                .eq("status", value: "confirmed")
                 .execute()  // RLS already scopes to the caller's rows
                 .value
-            var state = PartnerState()
             let myID = myUserID.lowercased()
-            for row in rows {
+            var links: [PartnerLink] = rows.compactMap { row in
                 let inviter = row.inviter_id.uuidString.lowercased()
                 let invitee = row.invitee_id.uuidString.lowercased()
-                switch row.status {
-                case "pending" where inviter == myID:
-                    state.incomingRequests.append(
-                        PartnerRequest(id: row.id.uuidString.lowercased(), name: row.invitee_name)
-                    )
-                case "pending" where invitee == myID:
-                    state.awaitingConfirmation = true
-                case "confirmed":
-                    let partnerID = inviter == myID ? invitee : inviter
-                    state.partner = PartnerLink(
-                        partnershipID: row.id.uuidString.lowercased(),
-                        partnerUserID: partnerID,
-                        summary: nil
-                    )
-                default:
-                    break
-                }
+                let iAmInviter = inviter == myID
+                // The *other* side is the partner; show their name, not mine.
+                let partnerID = iAmInviter ? invitee : inviter
+                let partnerName = iAmInviter ? row.invitee_name : row.inviter_name
+                return PartnerLink(
+                    partnershipID: row.id.uuidString.lowercased(),
+                    partnerUserID: partnerID,
+                    name: partnerName,
+                    summary: nil
+                )
             }
-            if let partner = state.partner {
+            // Each partner's summary in one query (RLS lets a confirmed
+            // partner read exactly these rows).
+            let ids = links.map(\.partnerUserID)
+            if !ids.isEmpty {
                 let summaries: [SummaryRow] = try await client
                     .from("partner_summaries")
                     .select()
-                    .eq("user_id", value: partner.partnerUserID)
-                    .limit(1)
+                    .in("user_id", values: ids)
                     .execute()
                     .value
-                state.partner?.summary = summaries.first?.asSummary
+                let byID = Dictionary(uniqueKeysWithValues: summaries.map { ($0.user_id.lowercased(), $0.asSummary) })
+                for i in links.indices {
+                    links[i].summary = byID[links[i].partnerUserID]
+                }
             }
-            return state
+            // Newest streaks first is arbitrary but stable; sort by name so the
+            // list doesn't reshuffle between fetches.
+            return links.sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
         } catch {
-            AppLog.app.error("Referral: partner fetch failed: \(error.localizedDescription, privacy: .public)")
+            AppLog.app.error("Partners: fetch failed: \(error.localizedDescription, privacy: .public)")
             return nil
         }
     }
 
-    func confirmPartnership(id: String) async throws {
-        try await rpc("confirm_partnership", id: id,
-                      failure: "Couldn't confirm. Your partner slot may already be taken.")
+    func createPartnerInvite() async throws -> String {
+        do {
+            let token: String = try await client
+                .rpc("create_partner_invite")
+                .execute()
+                .value
+            AppLog.app.info("Partners: invite minted")
+            return token
+        } catch {
+            AppLog.app.error("Partners: invite mint failed: \(error.localizedDescription, privacy: .public)")
+            throw ReferralError(message: "Couldn't create an invite. Check your connection and try again.")
+        }
     }
 
-    func declinePartnership(id: String) async throws {
-        try await rpc("decline_partnership", id: id, failure: "Couldn't decline. Try again.")
+    func acceptPartnerInvite(token: String) async throws -> String {
+        do {
+            let name: String = try await client
+                .rpc("accept_partner_invite", params: ["p_token": token])
+                .execute()
+                .value
+            AppLog.app.info("Partners: invite accepted")
+            return name
+        } catch {
+            // The RPC raises user-facing messages (expired, self, cap); surface them.
+            throw ReferralError(message: Self.postgrestMessage(error)
+                ?? "Couldn't accept the invite. It may have expired.")
+        }
     }
 
     func unlinkPartnership(id: String) async throws {
-        try await rpc("unlink_partnership", id: id, failure: "Couldn't unlink. Try again.")
+        do {
+            try await client.rpc("unlink_partnership", params: ["p_id": id]).execute()
+            AppLog.app.info("Partners: unlinked")
+        } catch {
+            throw ReferralError(message: "Couldn't unlink. Try again.")
+        }
     }
 
-    private func rpc(_ name: String, id: String, failure: String) async throws {
-        do {
-            try await client.rpc(name, params: ["p_id": id]).execute()
-            AppLog.app.info("Referral: \(name, privacy: .public) ok")
-        } catch {
-            AppLog.app.error("Referral: \(name, privacy: .public) failed: \(error.localizedDescription, privacy: .public)")
-            throw ReferralError(message: failure)
-        }
+    /// Pulls the human message out of a PostgREST `raise exception`, so the
+    /// RPC's own copy ("This invite has expired…") reaches the user.
+    private static func postgrestMessage(_ error: Error) -> String? {
+        if let pg = error as? PostgrestError, !pg.message.isEmpty { return pg.message }
+        return nil
     }
 
     func upsertMySummary(_ summary: PartnerSummary, userId: String) async {
