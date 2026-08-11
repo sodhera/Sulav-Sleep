@@ -119,18 +119,6 @@ struct HomeView: View {
                     .foregroundStyle(SleepColor.ink)
             }
             .padding(.top, SleepSpacing.huge)
-            // The sleep-partners entrance — the one affordance Home carries
-            // besides Sleep Now. Floated top-trailing so it never disturbs the
-            // centered instrument beneath it (greeting, countdown, capsule).
-            // Only when the feature exists (hidden in dev mode).
-            .overlay(alignment: .topTrailing) {
-                if store.referralAvailable {
-                    GlassIconButton(systemImage: "person.2.fill", size: 44, iconSize: 17) {
-                        store.showPartners = true
-                    }
-                    .accessibilityLabel("Sleep partners")
-                }
-            }
 
             Spacer(minLength: SleepSpacing.xxxl)
 
@@ -179,6 +167,19 @@ struct HomeView: View {
             }
 
             Spacer().frame(height: SleepSpacing.xl)
+        }
+        // The sleep-partners entrance — the one affordance Home carries besides
+        // Sleep Now. Pinned to the screen's true top-right corner (the whole
+        // column is full-width, so this lands at the edge, not against the
+        // centered greeting), in the empty band above the greeting so it never
+        // crowds the instrument. Only when the feature exists (hidden in dev).
+        .overlay(alignment: .topTrailing) {
+            if store.referralAvailable {
+                GlassIconButton(systemImage: "person.2.fill", size: 44, iconSize: 17) {
+                    store.showPartners = true
+                }
+                .accessibilityLabel("Sleep partners")
+            }
         }
     }
 
