@@ -89,7 +89,10 @@ struct SleepPartnersScreen: View {
                     .font(SleepFont.hero(28))
                     .foregroundStyle(SleepColor.ink)
                 Spacer()
-                GlassIconButton(systemImage: "xmark", iconSize: 15, tint: SleepColor.ink) {
+                // 44pt, the app's one icon-button size (Home's chips, the
+                // Profile gear, the Settings close) — this sheet's own
+                // opener is Home's partner button, so it must match it.
+                GlassIconButton(systemImage: "xmark", size: 44, iconSize: 17, tint: SleepColor.ink) {
                     dismiss()
                 }
                 .accessibilityLabel("Close")
@@ -260,9 +263,9 @@ private struct PartnerRow: View {
     }
 }
 
-// MARK: - Invite explainer (Settings → Invite a friend)
+// MARK: - Referral explainer (Settings → Refer a friend)
 
-/// Pushed from Settings' "Invite a friend" row — the row itself no longer
+/// Pushed from Settings' "Refer a friend" row — the row itself no longer
 /// fires the share sheet directly. A bare settings row landing straight in
 /// the system share sheet left the reward unexplained at the exact moment
 /// someone was about to hand it to a friend; this screen answers "what is
@@ -274,7 +277,7 @@ struct InviteFriendScreen: View {
     var body: some View {
         SceneScreen {
             SubpageHeader(
-                title: "Invite a friend",
+                title: "Refer a friend",
                 subtitle: "Give a friend a free month of SleepBlock."
             )
 
@@ -353,7 +356,7 @@ struct InviteFriendScreen: View {
         if let code = store.myReferralCode {
             ShareLink(item: inviteMessage(code: code)) {
                 Label {
-                    Text("Share invite").font(SleepFont.label(16)).tracking(0.2)
+                    Text("Share referral").font(SleepFont.label(16)).tracking(0.2)
                 } icon: {
                     Image(systemName: "square.and.arrow.up")
                 }
@@ -370,7 +373,7 @@ struct InviteFriendScreen: View {
             .buttonStyle(.plain)
             .simultaneousGesture(TapGesture().onEnded { Haptics.heavy() })
         } else {
-            Text("Share invite")
+            Text("Share referral")
                 .font(SleepFont.label(16))
                 .foregroundStyle(SleepColor.background)
                 .frame(maxWidth: .infinity, minHeight: 58)

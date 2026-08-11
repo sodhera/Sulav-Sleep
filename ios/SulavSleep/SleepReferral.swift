@@ -356,8 +356,14 @@ final class SupabaseReferralService: ReferralSyncing, @unchecked Sendable {
             AppLog.app.info("Partners: invite minted")
             return token
         } catch {
-            AppLog.app.error("Partners: invite mint failed: \(error.localizedDescription, privacy: .public)")
-            throw ReferralError(message: "Couldn't create an invite. Check your connection and try again.")
+            // Surface the server's own message when it has one (the RPC raises
+            // user-facing text, e.g. 'not authenticated'). A blanket
+            // "check your connection" hid real, actionable failures behind a
+            // network excuse — the same mistake this file already avoids in
+            // `acceptPartnerInvite`.
+            AppLog.app.error("Partners: invite mint failed: \(String(describing: error), privacy: .public)")
+            throw ReferralError(message: Self.postgrestMessage(error)
+                ?? "Couldn't create an invite. Check your connection and try again.")
         }
     }
 

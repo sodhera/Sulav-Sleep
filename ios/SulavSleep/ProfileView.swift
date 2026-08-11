@@ -69,7 +69,12 @@ struct SubpageHeader: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(alignment: .leading, spacing: SleepSpacing.xl) {
+        // `lg` between the chevron and the title, not `xl`, and no top
+        // padding: `SceneScreen` already applies the safe-area inset, so the
+        // chevron lands flush at the top edge exactly where the Profile gear
+        // and Home's chips do. Sub-pages used to start ~28pt lower than the
+        // screen that pushed them, which read as the header sagging.
+        VStack(alignment: .leading, spacing: SleepSpacing.lg) {
             GlassBackButton { dismiss() }
             VStack(alignment: .leading, spacing: SleepSpacing.sm) {
                 Text(title)
@@ -91,7 +96,6 @@ struct SubpageHeader: View {
                 }
             }
         }
-        .padding(.top, SleepSpacing.lg)
     }
 }
 
@@ -521,13 +525,19 @@ struct SettingsModal: View {
     /// The referrer's half of the program: a door into the explainer screen,
     /// not the share sheet itself. Tapping straight into a system share sheet
     /// from a bare settings row left the reward unexplained at the one moment
-    /// someone was about to hand it to a friend — see `InviteFriendScreen`.
+    /// someone was about to hand it to a friend — see `InviteFriendScreen`
+    /// (the type name predates the Refer/Invite split; the screen is the
+    /// referral one).
     /// Absent in dev mode; the count line appears once anyone has joined.
     @ViewBuilder
     private var referralSection: some View {
         if store.referralAvailable {
             VStack(alignment: .leading, spacing: SleepSpacing.md) {
-                Text("Invite").sectionLabel()
+                // "Refer", not "Invite" — inviting is what you do to make
+                // someone a sleep partner (Home's button). This is the
+                // referral: a free month for them, a free month for you.
+                // Two features, two words, no overlap.
+                Text("Refer").sectionLabel()
 
                 GlassGroup {
                     NavigationLink(value: SettingsDestination.inviteFriend) {
@@ -536,7 +546,7 @@ struct SettingsModal: View {
                             // (Home's button); referral is "give a free month".
                             icon: "gift.fill",
                             iconColor: SleepColor.amber,
-                            title: "Invite a friend",
+                            title: "Refer a friend",
                             value: inviteRowValue,
                             showsChevron: true
                         )
@@ -561,9 +571,10 @@ struct SettingsModal: View {
                 .font(SleepFont.hero(28))
                 .foregroundStyle(SleepColor.ink)
             Spacer()
-            // Same footprint as the Profile gear this sheet is opened from,
-            // so the two read as one "settings" affordance.
-            GlassIconButton(systemImage: "xmark", iconSize: 17, tint: SleepColor.ink) {
+            // Same 44pt footprint as the Profile gear this sheet is opened
+            // from (and as Home's corner chips), so the control the thumb
+            // just hit doesn't change size under it.
+            GlassIconButton(systemImage: "xmark", size: 44, iconSize: 17, tint: SleepColor.ink) {
                 dismiss()
             }
             .accessibilityLabel("Close settings")
