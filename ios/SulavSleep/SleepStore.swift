@@ -13,12 +13,29 @@ final class SleepStore {
     var importedHealthSessions: [SleepSession] = []
     var profile: Profile?
     var activeSession: ActiveSleepSession?
+    /// Reach attempts per night, harvested out of the App Group log. See
+    /// `harvestReachLog()`.
+    var reachNights: [ReachNight] = []
     var selectedTab: AppTab = .home
     /// Whether Home shows the slide-to-sleep confirmation panel. Lives on the
     /// store (not Home-local state) so the widget/shield `sleepblock://sleep`
     /// deep link can open it — a tap anywhere never *starts* a session; the
     /// slide gesture is the only way a night begins.
     var showSleepConfirmation = false
+    /// Whether Home shows the evening check-in. Like `showSleepConfirmation`
+    /// this lives on the store so the `sleepblock://tonight` notification can
+    /// raise it.
+    var showTonightCheckIn = false
+    /// Whether Home shows the two-minute wind-down. On the store for the same
+    /// reason as the others — the `sleepblock://winddown` deep link and the
+    /// snooze-over notification both raise it.
+    var showWindDown = false
+    /// Whether the paywall is up *over* Main as a dismissible cover. Distinct
+    /// from `needsPaywall`, which is the first-run route: this is the lock
+    /// speaking when someone reaches for a subscriber-only action. On the
+    /// store because every entry point that raises it lives somewhere else —
+    /// Home's Sleep Now, Settings, and the widget/shield/Siri deep links.
+    var showPaywall = false
     var isImportingHealth = false
     // MARK: App update gate state (all logic in SleepUpdateGate.swift —
     // extensions can't add storage, so only the stored slots live here).
@@ -90,6 +107,7 @@ final class SleepStore {
     private let auth: AuthProviding
     private let cloud: CloudSyncing
     private let subscription: SubscriptionProviding
+    private let referral: ReferralSyncing
 
     init(
         persistence: SleepPersistence = .shared,
@@ -97,7 +115,8 @@ final class SleepStore {
         screenTime: ScreenTimeControlling? = nil,
         auth: AuthProviding? = nil,
         cloud: CloudSyncing? = nil,
-        subscription: SubscriptionProviding? = nil
+        subscription: SubscriptionProviding? = nil,
+        referral: ReferralSyncing? = nil
     ) {
         self.persistence = persistence
         self.health = health ?? SleepHealth.makeDefault()
@@ -106,11 +125,92 @@ final class SleepStore {
         // Cloud must be created after auth (auth creates the shared SupabaseClient)
         self.cloud = cloud ?? SleepCloud.makeDefault()
         self.subscription = subscription ?? SleepSubscription.makeDefault()
+        // Like cloud: needs the shared client auth created.
+        self.referral = referral ?? SleepReferral.makeDefault()
         screenTimePrimerSeen = persistence.screenTimePrimerSeen
+        paywallDismissed = persistence.paywallDismissed
+        referralFreeUntil = persistence.referralFreeUntil
+        referralEndingNudgeDismissed = persistence.referralEndingNudgeDismissed
+#if DEBUG
+        // Deterministic partners list for simulator screenshots, in the
+        // `-review-paywall` / `-review-subscription` tradition. Pass
+        // `-review-partner one|many` (default many).
+        if let index = ProcessInfo.processInfo.arguments.firstIndex(of: "-review-partner") {
+            let variant = ProcessInfo.processInfo.arguments.dropFirst(index + 1).first ?? "many"
+            partners = variant == "one" ? [Self.samplePartner] : Self.samplePartners
+            myReferralCode = "SLPX7K"
+        }
+#endif
         reload()
+#if DEBUG
+        // Referral free-nights states, otherwise impossible to stage on the
+        // Simulator (dev mode entitles everyone). Placed *after* `reload()`
+        // because it overwrites `sessions` from persistence, and the streak
+        // hook needs the injected nights to survive. `-review-referral-nudge`
+        // lands in the app with 2 free nights left → Profile's ending nudge;
+        // `-review-referral-expiry` forces the paywall past a lapsed grant →
+        // the streak-aware headline. Both inject a short streak + a partner so
+        // the copy has real numbers and a name to speak to.
+        let referralReviewArgs = ProcessInfo.processInfo.arguments
+        if referralReviewArgs.contains("-review-referral-nudge")
+            || referralReviewArgs.contains("-review-referral-expiry") {
+            let expired = referralReviewArgs.contains("-review-referral-expiry")
+            let until = Date().addingTimeInterval(expired ? -3_600 : 2 * 86_400)
+            referralFreeUntil = until
+            persistence.saveReferralFreeUntil(until)
+            sessions = Self.sampleStreakSessions(nights: 12)
+            // Persist the samples too — the scene-active handler calls
+            // `reload()`, which would otherwise reload sessions from disk and
+            // drop the streak back to zero. Debug-only; pollutes this sim's
+            // store until reinstall, which is fine for a review arg.
+            persistence.save(SleepSnapshot(
+                profile: profile, sessions: sessions,
+                activeSession: activeSession, reachNights: reachNights
+            ))
+            partners = [Self.samplePartner]
+            myReferralCode = "SLPX7K"
+        }
+#endif
         startSubscriptionTracking()
         Task { [weak self] in await self?.restoreSession() }
     }
+
+#if DEBUG
+    private static let samplePartner = PartnerLink(
+        partnershipID: "p1", partnerUserID: "u1", name: "Maya",
+        summary: PartnerSummary(
+            name: "Maya", streak: 12, streakDying: false,
+            avgBedMinutes: 23 * 60 + 10, avgWakeMinutes: 7 * 60 + 5,
+            avgDurationMinutes: 7 * 60 + 22, nights: 7, updatedAt: Date()
+        )
+    )
+    private static let samplePartners: [PartnerLink] = [
+        samplePartner,
+        PartnerLink(partnershipID: "p2", partnerUserID: "u2", name: "Jordan",
+            summary: PartnerSummary(name: "Jordan", streak: 4, streakDying: true,
+                avgBedMinutes: 0 * 60 + 40, avgWakeMinutes: 8 * 60 + 15,
+                avgDurationMinutes: 6 * 60 + 50, nights: 5, updatedAt: Date())),
+        PartnerLink(partnershipID: "p3", partnerUserID: "u3", name: "Sam",
+            summary: PartnerSummary(name: "Sam", streak: 21, streakDying: false,
+                avgBedMinutes: 22 * 60 + 45, avgWakeMinutes: 6 * 60 + 30,
+                avgDurationMinutes: 7 * 60 + 45, nights: 7, updatedAt: Date())),
+    ]
+
+    /// A run of `nights` consecutive ~7.5h nights ending this morning, so the
+    /// streak rule counts them. Debug-only, for the referral review args.
+    private static func sampleStreakSessions(nights: Int) -> [SleepSession] {
+        let cal = Calendar.current
+        let wake0 = cal.date(bySettingHour: 7, minute: 0, second: 0, of: Date()) ?? Date()
+        return (0..<nights).map { i in
+            let end = cal.date(byAdding: .day, value: -i, to: wake0) ?? wake0
+            let start = end.addingTimeInterval(-7.5 * 3_600)
+            return SleepSession(
+                id: "sample-\(i)", start: start, end: end,
+                durationMinutes: 450, source: .local
+            )
+        }
+    }
+#endif
 
     // MARK: - Derived state
 
@@ -145,36 +245,31 @@ final class SleepStore {
         return SleepMath.windowMinutes(bedtime: profile.bedtime, wakeTime: profile.wakeTime)
     }
 
-    /// Consecutive on-track nights, counted back from the most recent one.
+    /// Nights logged in a row, and whether the run is one miss from ending.
     ///
-    /// A night is on track when it reaches at least 85% of the sleep target —
-    /// the same bar the retired 0–100 score set at "score ≥ 80" — *and* falls on
-    /// the sleep day right after the night before it. The day check is what
-    /// makes this a streak: without it a good night in June and a good night in
-    /// July counted as 2.
+    /// The rule itself lives in `SleepStreakRule` — dependency-free and unit
+    /// tested (`scripts/test-streak.sh`). All this does is bind the merged
+    /// history to it: qualifying nights become sleep days, and the profile's
+    /// wake time says when an absent night stops being "not yet" and becomes a
+    /// miss.
     ///
-    /// The run must reach today or yesterday to still be live. Yesterday counts
-    /// because tonight's sleep hasn't happened yet — a streak shouldn't visibly
-    /// lapse all day and come back at breakfast.
-    var onTrackStreak: Int {
+    /// Recomputed on every read, never stored. See `SleepStreakRule` for why
+    /// that is load-bearing rather than incidental.
+    var streak: SleepStreak {
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        var streak = 0
-        var expectedDay: Date?
-        // `displaySessions` is one entry per sleep day, oldest first.
-        for session in displaySessions.reversed() {
-            let day = SleepMerge.key(for: session.end, calendar: calendar)
-            if let expectedDay {
-                guard day == expectedDay else { break }
-            } else {
-                let daysAgo = calendar.dateComponents([.day], from: day, to: today).day ?? .max
-                guard daysAgo <= 1 else { break }
-            }
-            guard session.durationMinutes * 100 >= targetMinutes * 85 else { break }
-            streak += 1
-            expectedDay = calendar.date(byAdding: .day, value: -1, to: day)
-        }
-        return streak
+        // `displaySessions` is already one entry per sleep day, so the set can
+        // only collapse days that were never distinct.
+        let days = Set(
+            displaySessions
+                .filter { SleepStreakRule.qualifies(durationMinutes: $0.durationMinutes) }
+                .map { SleepMerge.key(for: $0.end, calendar: calendar) }
+        )
+        return SleepStreakRule.streak(
+            days: days,
+            now: Date(),
+            wakeMinutes: profile?.wakeTime,
+            calendar: calendar
+        )
     }
 
     var healthSyncState: HealthSyncState {
@@ -193,7 +288,6 @@ final class SleepStore {
     /// The user's "Block while you sleep" switch (Blocked apps screen). On by
     /// default — this is a preference, never an authorization snapshot.
     var blockingEnabled: Bool { profile?.blockDuringSleep ?? true }
-    var lockdownMaxHours: Int { profile?.lockdownMaxHours ?? 6 }
 
     /// Whether tapping Sleep Now will actually shield anything tonight:
     /// blocking switched on, Screen Time authorized (checked live, so a stale
@@ -211,11 +305,28 @@ final class SleepStore {
         profile = snapshot.profile
         sessions = snapshot.sessions
         activeSession = snapshot.activeSession
+        reachNights = snapshot.reachNights
         account = persistence.loadAccount()
+        // The shield extensions read these out of the App Group; the app is the
+        // only writer, so every foreground is the cheapest place to keep the
+        // mirror honest (a reinstall or a cloud-restored profile lands here).
+        mirrorLockdownPreferences()
+        // File any finished night's reach attempts into local history before
+        // anything reads them.
+        harvestReachLog()
+        // Idempotent — re-registering the same daily trigger replaces it.
+        scheduleEveningCheckIn()
         // Safety net for the shield snooze: if a "5 more minutes" grant lapsed
         // while the timed re-arm didn't fire, restore the block now. Cheap and
         // a no-op unless a snooze is actually outstanding.
         screenTime.reapplyShieldIfSnoozeExpired()
+        // Lands any schedule change that was made while the shield was up:
+        // `rescheduleLockdown` holds those rather than re-registering
+        // mid-window, and this is where the held change gets registered once
+        // the window has closed. Deliberately unconditional and idempotent —
+        // it self-defers while a window is running, so there is no flag to keep
+        // in sync and nothing to lose if the app is killed in between.
+        rescheduleLockdown()
         if refreshWidget {
             updateWidgetSoon()
         }
@@ -227,15 +338,17 @@ final class SleepStore {
         let recent = Array(displaySessions.suffix(7)).map {
             WidgetNight(end: $0.end, durationMinutes: $0.durationMinutes)
         }
+        let streak = self.streak
         let summary = SleepWidgetSummary(
             nights: recent,
             latestDurationMinutes: lastNightSession?.durationMinutes,
-            streak: onTrackStreak,
+            streak: streak.count,
             targetMinutes: targetMinutes,
             bedtimeMinutes: profile?.bedtime,
             wakeMinutes: profile?.wakeTime,
             asleepSince: activeSession?.start,
             isSignedIn: isAuthenticated,
+            streakIsDying: streak.isDying,
             updated: Date()
         )
         SleepWidgetStore.save(summary)
@@ -258,18 +371,71 @@ final class SleepStore {
 
     // MARK: - Subscription
 
-    /// Whether the hard paywall stands between this user and Main: signed in,
-    /// onboarded, and *resolved* as not entitled. `.unknown` never gates —
-    /// the gate acts only on an answer, and RevenueCat's cache answers
-    /// offline for real subscribers — and an unconfigured build (dev mode)
-    /// resolves `.entitled` at init, so it never gates either.
+    /// Whether this user is outside the subscription: signed in, onboarded,
+    /// and *resolved* as not entitled. `.unknown` never locks — the lock acts
+    /// only on an answer, and RevenueCat's cache answers offline for real
+    /// subscribers — and an unconfigured build (dev mode) resolves `.entitled`
+    /// at init, so it never locks either.
     ///
     /// The offline grace period (below) is the last exemption: a subscriber
     /// whose cached entitlement lapsed while they were unreachable keeps the
     /// app for a couple more days rather than being locked out of a
     /// fully-offline-capable app they paid for.
+    ///
+    /// **This is no longer a wall around the app.** A locked user gets the
+    /// whole of Main — Home, the record, the schedule, settings — and is
+    /// stopped at exactly one place: starting a night (`startSleep`, and every
+    /// deep link that leads to it). Everything the app *shows* is theirs;
+    /// what it *does* is the subscription. See DESIGN.md ("Paywall").
+    ///
+    /// Referral nights are the third exemption, beside the offline grace: a
+    /// redeemed code buys 30 server-dated free nights, and while they run
+    /// the user simply isn't locked. Everything downstream — `needsPaywall`,
+    /// the primer, the deep links — inherits that for free.
+    var isLocked: Bool {
+        isAuthenticated && isOnboarded && entitlement == .notEntitled
+            && !isWithinOfflineGrace && !isWithinReferralNights
+    }
+
+    /// Whether the paywall is the *route* — the closing beat of onboarding,
+    /// shown full-screen before Home. It is dismissible (a ✕), and dismissing
+    /// it is remembered per install, so this is a one-time landing rather than
+    /// a wall the user re-hits on every cold launch. After that the paywall
+    /// only appears when someone reaches for the lock (`showPaywall`).
     var needsPaywall: Bool {
-        isAuthenticated && isOnboarded && entitlement == .notEntitled && !isWithinOfflineGrace
+        isLocked && !paywallDismissed
+    }
+
+    /// Mirrors the persisted dismissal so the route re-computes the instant
+    /// the ✕ is tapped (a bare persistence read is invisible to @Observable).
+    private(set) var paywallDismissed = false
+
+    /// The ✕ on the first-run paywall: drop the user into Main and don't put
+    /// the full-screen paywall in their way again. Per install, like the
+    /// Screen Time primer — not per account, since it describes what this
+    /// person has already been shown on this phone.
+    func dismissPaywall() {
+        persistence.markPaywallDismissed()
+        paywallDismissed = true
+        showPaywall = false
+        AppLog.paywall.info("First-run paywall dismissed")
+    }
+
+    /// Raise the paywall over Main. Every locked action funnels through here
+    /// rather than silently doing nothing, so the lock always explains itself.
+    /// Callers may ask unconditionally: an entitled user is never shown it.
+    func presentPaywallIfLocked() -> Bool {
+        guard isLocked else { return false }
+        showPaywall = true
+        return true
+    }
+
+    /// The *voluntary* entrance — Settings rows for someone who isn't locked
+    /// right now (referral nights running) but wants to subscribe anyway.
+    /// Unconditional on purpose; the callers gate on `entitlement`.
+    @MainActor
+    func presentPaywall() {
+        showPaywall = true
     }
 
     /// Short reprieve for a subscriber the server hasn't been able to confirm.
@@ -309,6 +475,15 @@ final class SleepStore {
     private func startSubscriptionTracking() {
         guard subscription.isConfigured else {
             entitlement = .entitled
+#if DEBUG
+            // The referral-review args stage a *not-entitled* referral user on
+            // the Simulator, where dev mode would otherwise force `.entitled`
+            // and hide every referral surface. See the init block.
+            if ProcessInfo.processInfo.arguments.contains("-review-referral-nudge")
+                || ProcessInfo.processInfo.arguments.contains("-review-referral-expiry") {
+                entitlement = .notEntitled
+            }
+#endif
 #if DEBUG
             // Dev mode has no real subscription, so the status row hides. This
             // arg injects a sample trial so the Settings row can be previewed
@@ -364,6 +539,235 @@ final class SleepStore {
         let state = try await subscription.restore()
         entitlement = state
         return state == .entitled
+    }
+
+    // MARK: - Referral & sleep partner
+
+    /// Whether every referral/partner surface exists at all. False in dev
+    /// mode (no Supabase), matching the paywall's "never fake it" rule. The
+    /// `partners` escape exists only for the DEBUG review injections below,
+    /// which have no real service to be configured.
+    var referralAvailable: Bool { referral.isConfigured || !partners.isEmpty }
+
+    /// End of the 30 free nights a redeemed code granted, server-dated.
+    /// Cached in persistence so an offline launch keeps the exemption; the
+    /// server row is re-read on every launch/foreground and always wins.
+    private(set) var referralFreeUntil: Date?
+    /// Display-only: whether this user's own referral converted to paid.
+    private(set) var referralStanding: ReferralStanding?
+    /// The caller's confirmed sleep partners, each with their summary.
+    /// Empty before the first fetch and for a user with none.
+    private(set) var partners: [PartnerLink] = []
+    /// Whether the Sleep Partners screen is presented. Raised by the Home
+    /// button and by a tapped partner-invite link.
+    var showPartners = false
+    /// A partner-invite token from a deep link that arrived before sign-in;
+    /// applied once auth resolves. In-memory: a link tapped signed-out is a
+    /// now-or-never intent, not something to persist across launches.
+    private var pendingPartnerToken: String?
+    /// One-shot result of a link-accept, for the partners screen to confirm
+    /// ("You're now partners with Maya") or show the failure. Cleared on read.
+    var partnerInviteMessage: String?
+    /// The caller's shareable code, fetched lazily when invite UI opens.
+    private(set) var myReferralCode: String?
+    /// How the caller's invites are doing (Settings row). Nil until fetched.
+    private(set) var referrerStats: ReferrerStats?
+
+    /// The lock exemption. Compares against a *server-issued* date — the
+    /// cache only bridges offline launches, so rolling the device clock
+    /// back cannot mint nights the server never granted (the date itself
+    /// is at most 30 days out regardless).
+    var isWithinReferralNights: Bool {
+        guard let referralFreeUntil else { return false }
+        return Date() < referralFreeUntil
+    }
+
+    /// Whole nights left on the grant, for the Settings row ("Free nights ·
+    /// N left"). Rounded up: a grant expiring tomorrow morning is 1 night.
+    var referralNightsLeft: Int {
+        guard let referralFreeUntil else { return 0 }
+        let seconds = referralFreeUntil.timeIntervalSinceNow
+        guard seconds > 0 else { return 0 }
+        return Int((seconds / 86_400).rounded(.up))
+    }
+
+    /// How close to the end of the free nights the ending-soon nudge starts
+    /// appearing. Three is late enough to be urgent, early enough to act.
+    private static let referralNudgeThreshold = 3
+
+    /// Whether Profile shows the "free nights ending" nudge — the proactive
+    /// heads-up so night 31 isn't a surprise wall. Only in the final stretch,
+    /// only for someone who hasn't subscribed, and only until they wave it off
+    /// (once per grant — the grant is one-per-account, so effectively once).
+    /// The passive Settings counter still stands; this is the push.
+    var shouldShowReferralEndingNudge: Bool {
+        guard referralAvailable, entitlement != .entitled else { return false }
+        guard isWithinReferralNights, referralNightsLeft <= Self.referralNudgeThreshold else { return false }
+        return !referralEndingNudgeDismissed
+    }
+
+    /// Mirrors the persisted dismissal so the nudge recomputes the instant the
+    /// ✕ is tapped (a bare persistence read is invisible to @Observable).
+    private(set) var referralEndingNudgeDismissed = false
+
+    @MainActor
+    func dismissReferralEndingNudge() {
+        persistence.markReferralEndingNudgeDismissed()
+        referralEndingNudgeDismissed = true
+    }
+
+    /// The paywall's headline when a referral user's free nights have *run
+    /// out* — the conversion moment. Loss aversion is the whole play: name
+    /// the streak (and the partner) they built over the free month rather
+    /// than pitching cold. Nil when there's nothing built to lose (they
+    /// redeemed but never slept), so the paywall falls back to its normal
+    /// pitch instead of an empty "keep your 0-night streak going".
+    var referralExpiryHeadline: String? {
+        // Only past the end of a grant that was actually issued.
+        guard referralFreeUntil != nil, !isWithinReferralNights else { return nil }
+        let count = streak.count
+        guard count > 0 else { return nil }
+        // "N-night streak" — a compound modifier stays singular regardless of N.
+        // Name a partner only when there's exactly one; with several, "with
+        // Maya" would be arbitrary, so the line stays clean.
+        if partners.count == 1 {
+            let name = partners[0].displayName
+            return "Keep your \(count)-night streak with \(name) going"
+        }
+        return "Keep your \(count)-night streak going"
+    }
+
+    /// Refreshes everything referral: the caller's own standing (the lock
+    /// exemption) and the partner card's state. Runs on launch and every
+    /// foreground, like the Health refresh — and pushes this side's summary
+    /// up whenever any partnership exists, so the partner's card is never
+    /// staler than the last time this app was opened.
+    @MainActor
+    func refreshReferral() async {
+#if DEBUG
+        // The review args stage referral state by hand; a real backend fetch
+        // would overwrite it. Leave the injected demo state alone.
+        if ProcessInfo.processInfo.arguments.contains("-review-referral-nudge")
+            || ProcessInfo.processInfo.arguments.contains("-review-referral-expiry") { return }
+#endif
+        guard referral.isConfigured, let account else { return }
+        if let standing = await referral.myStanding() {
+            referralStanding = standing
+            // Only a fetched answer overwrites the cache: a network failure
+            // keeps the last server date rather than locking someone mid-
+            // flight (the offline-grace bias, applied to free nights).
+            referralFreeUntil = standing.freeUntil
+            persistence.saveReferralFreeUntil(standing.freeUntil)
+        }
+        if let fetched = await referral.partners(myUserID: account.id) {
+            partners = fetched
+            await pushPartnerSummary()
+        }
+    }
+
+    /// Redeems a friend's code (paywall sheet / partner card). On success the
+    /// lock recomputes off the new date in the same state change, so the
+    /// paywall route falls through to Main by itself.
+    @MainActor
+    func redeemReferral(code: String) async throws {
+        let until = try await referral.redeem(code: code)
+        referralFreeUntil = until
+        referralStanding = ReferralStanding(freeUntil: until, converted: false)
+        persistence.saveReferralFreeUntil(until)
+        Task { [weak self] in await self?.refreshReferral() }
+        AppLog.store.info("Referral redeemed — free nights until \(until, privacy: .public)")
+    }
+
+    /// The caller's shareable code, created server-side on first ask.
+    @MainActor
+    func loadReferralCode() async {
+        guard referral.isConfigured, myReferralCode == nil else { return }
+        myReferralCode = await referral.myCode()
+        referrerStats = await referral.referrerStats()
+    }
+
+    /// Mint a one-time partner invite link to share. The token rides in a
+    /// `sleepblock://partner/<token>` URL the recipient taps to connect.
+    @MainActor
+    func createPartnerInviteURL() async throws -> URL {
+        let token = try await referral.createPartnerInvite()
+        guard let url = URL(string: "sleepblock://partner/\(token)") else {
+            throw ReferralError(message: "Couldn't create an invite. Try again.")
+        }
+        return url
+    }
+
+    /// Accept a partner invite by its token (from a tapped link). Connects
+    /// both accounts and refreshes the list. Returns the new partner's name.
+    @MainActor
+    @discardableResult
+    func acceptPartnerInvite(token: String) async throws -> String {
+        let name = try await referral.acceptPartnerInvite(token: token)
+        await refreshReferral()
+        AppLog.store.info("Partner invite accepted")
+        return name
+    }
+
+    @MainActor
+    func unlinkPartner(partnershipID: String) async throws {
+        try await referral.unlinkPartnership(id: partnershipID)
+        await refreshReferral()
+    }
+
+    /// A `sleepblock://partner/<token>` link was tapped. Accept it now if the
+    /// user is signed in, otherwise stash it and apply the moment auth
+    /// resolves (a fresh-install friend signs up first, then connects).
+    @MainActor
+    func handlePartnerInviteToken(_ token: String) {
+        guard isAuthenticated else {
+            pendingPartnerToken = token
+            return
+        }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                let name = try await self.acceptPartnerInvite(token: token)
+                self.partnerInviteMessage = name.isEmpty
+                    ? "You're now sleep partners."
+                    : "You're now sleep partners with \(name)."
+            } catch {
+                self.partnerInviteMessage = error.localizedDescription
+            }
+            self.showPartners = true
+        }
+    }
+
+    /// Applies a partner-invite token that arrived before sign-in. Called once
+    /// `account` is set (restore and fresh sign-in both route through here).
+    @MainActor
+    private func applyPendingPartnerToken() {
+        guard let token = pendingPartnerToken, isAuthenticated else { return }
+        pendingPartnerToken = nil
+        handlePartnerInviteToken(token)
+    }
+
+    /// Pushes this side of the shared summary — the same numbers Profile's
+    /// stat band shows (`streak`, `SleepStats.averages`), so a partner's
+    /// screen and the user's own can never disagree. A no-op while the user
+    /// has no partners: nobody could read the row, so writing it would only
+    /// smear sleep data server-side for no one.
+    @MainActor
+    func pushPartnerSummary() async {
+        guard referral.isConfigured, let account, let profile else { return }
+        guard !partners.isEmpty else { return }
+        let averages = SleepStats.averages(of: displaySessions)
+        let current = streak
+        let summary = PartnerSummary(
+            name: profile.name,
+            streak: current.count,
+            streakDying: current.isDying,
+            avgBedMinutes: averages?.bedtimeMinutes,
+            avgWakeMinutes: averages?.wakeMinutes,
+            avgDurationMinutes: averages?.durationMinutes,
+            nights: averages?.nights ?? 0,
+            updatedAt: nil
+        )
+        await referral.upsertMySummary(summary, userId: account.id)
     }
 
     // MARK: - Onboarding
@@ -475,6 +879,10 @@ final class SleepStore {
             }
             // Pull the account's nights down, push anything missing up.
             Task { [weak self] in await self?.syncCloudSessions() }
+            // Referral standing + partners, same fire-and-forget shape.
+            Task { [weak self] in await self?.refreshReferral() }
+            // A partner link tapped before this restore finished can land now.
+            applyPendingPartnerToken()
         } else {
             clearPersistedAccount()
         }
@@ -525,9 +933,18 @@ final class SleepStore {
         showsExistingAccountWelcome = false
         clearPersistedAccount()
         // The offline grace belongs to the account that earned it, not to the
-        // device — otherwise the next person to sign in here inherits it.
+        // device — otherwise the next person to sign in here inherits it. The
+        // referral nights and partner state are account-scoped the same way.
         persistence.clearEntitlementGrace()
         entitlementAsOf = nil
+        referralFreeUntil = nil
+        referralStanding = nil
+        partners = []
+        showPartners = false
+        partnerInviteMessage = nil
+        myReferralCode = nil
+        referrerStats = nil
+        referralEndingNudgeDismissed = false
         // The widget flips its action capsule to "Sign in".
         updateWidgetSoon()
         AppLog.store.info("Signed out")
@@ -571,6 +988,14 @@ final class SleepStore {
         activeSession = nil
         account = nil
         authErrorMessage = nil
+        referralFreeUntil = nil
+        referralStanding = nil
+        partners = []
+        showPartners = false
+        partnerInviteMessage = nil
+        myReferralCode = nil
+        referrerStats = nil
+        referralEndingNudgeDismissed = false
         persistence.reset()
         Task { [subscription] in await subscription.logOut() }
         AppLog.store.info("Account deleted (local data wiped)")
@@ -667,6 +1092,10 @@ final class SleepStore {
         // Pull the account's nights down and push anything this device holds
         // that never made it up.
         Task { [weak self] in await self?.syncCloudSessions() }
+        Task { [weak self] in await self?.refreshReferral() }
+        // A fresh-install friend who tapped a partner link signs up here —
+        // apply the stashed token now that they have an account.
+        applyPendingPartnerToken()
     }
 
     /// Push the local profile to the cloud table, best-effort. Called
@@ -747,6 +1176,15 @@ final class SleepStore {
     // MARK: - Sleep loop
 
     func startSleep() {
+        // The lock's last line. Home's Sleep Now and the deep links all check
+        // first and raise the paywall themselves, so this should never fire —
+        // but starting a night is the one thing the subscription buys, and it
+        // must not depend on every future caller remembering to ask.
+        guard !presentPaywallIfLocked() else {
+            showSleepConfirmation = false
+            AppLog.store.info("Sleep start blocked — no subscription")
+            return
+        }
         let start = Date()
         activeSession = ActiveSleepSession(start: start)
         selectedTab = .home
@@ -756,10 +1194,9 @@ final class SleepStore {
         // Refresh the widget so it flips into the asleep state immediately.
         persist()
         let shouldStartLockdown = willLockDuringSleep
-        let capHours = lockdownMaxHours
         performAfterStateChange { [weak self] in
             guard let self else { return }
-            if shouldStartLockdown { self.screenTime.startLockdown(maxHours: capHours) }
+            if shouldStartLockdown { self.screenTime.startLockdown() }
             Task { SleepLiveActivity.start(startDate: start) }
         }
         AppLog.store.info("Sleep session started")
@@ -800,9 +1237,11 @@ final class SleepStore {
         }
         AppLog.store.info("Logged night: \(minutes)m")
 
-        // Sync to cloud
+        // Sync to cloud — and refresh the shared partner summary while the
+        // night is fresh, so a partner checking in the morning sees it.
         if let userId = account?.id {
             Task { [cloud] in await cloud.upsertSessions([session], userId: userId) }
+            Task { [weak self] in await self?.pushPartnerSummary() }
         }
 
         if profile?.healthSyncEnabled == true {
@@ -939,8 +1378,15 @@ final class SleepStore {
     /// install*. The seen-marker deliberately lives in the app container
     /// (wiped by deletion), so a reinstalled returning user is primed again —
     /// exactly the case where authorization needs re-granting.
+    ///
+    /// Locked users are exempt. Family Controls is the scariest permission
+    /// the app asks for, and asking it of someone who cannot start a night
+    /// yet spends that one prompt on nothing — they'd be granting the app
+    /// power over their phone for a feature they can't reach. The primer
+    /// waits for the subscription, and `isLocked` false-on-`.unknown` means
+    /// an offline subscriber still gets it.
     var needsScreenTimePrimer: Bool {
-        isAuthenticated && isOnboarded && !screenTimePrimerSeen
+        isAuthenticated && isOnboarded && !screenTimePrimerSeen && !isLocked
             && screenTimeState == .notAuthorized
     }
 
@@ -986,19 +1432,6 @@ final class SleepStore {
         AppLog.store.info("Sleep blocking switched \(on ? "on" : "off")")
     }
 
-    /// The "Unlock anyway after" stepper. Deliberately does *not* reschedule the
-    /// bedtime window: the cap is armed per-session by `startLockdown`, so the
-    /// window no longer depends on it — and re-registering mid-night would
-    /// re-fire the monitor's `intervalDidStart`, which resets the night's snooze
-    /// allowance. The new value applies to the next session.
-    func setLockdownMaxHours(_ hours: Int) {
-        guard var profile else { return }
-        guard profile.lockdownMaxHours != hours else { return }
-        profile.lockdownMaxHours = hours
-        self.profile = profile
-        persist(refreshWidget: false)
-    }
-
     /// Opaque encoded app selection for the lockdown picker UI.
     /// Reads `appSelectionRevision` to create an observation dependency so
     /// SwiftUI views re-render when the selection changes.
@@ -1022,9 +1455,228 @@ final class SleepStore {
 
     /// Re-registers the scheduled bedtime->wake DeviceActivityMonitor window so
     /// the shield applies/clears even if the app isn't open.
+    ///
+    /// **Never re-registers while tonight's window is still running.** Doing so
+    /// was the way out of a lockdown: `saveSchedule` rescheduled immediately, so
+    /// moving wake time to a few minutes away made the monitor's
+    /// `intervalDidEnd` fire and clear the shield for the rest of the night —
+    /// and any save at all re-fired `intervalDidStart`, which handed out a fresh
+    /// snooze allowance. The settings that govern the lock were editable while
+    /// the lock was in force. Now a change made mid-window is simply held, and
+    /// `reload()` registers it once the window has closed.
+    ///
+    /// Deferral keys off *both* signals. A live phase means the shield is up.
+    /// But `isInsideLockdownWindow` has to be checked as well, for the gap the
+    /// phase alone misses: waking before wake time clears the phase while the
+    /// clock is still inside the window, and re-registering there would re-fire
+    /// `intervalDidStart` and put the shield straight back — silently undoing
+    /// the wake the user just performed.
     private func rescheduleLockdown() {
         guard let profile, willLockDuringSleep else { return }
+        guard SleepLockdownSelection.currentPhase() == nil, !isInsideLockdownWindow else {
+            AppLog.store.info("Lockdown reschedule deferred — window still running")
+            return
+        }
         screenTime.scheduleLockdown(
+            bedtimeMinutes: profile.bedtime,
+            wakeMinutes: profile.wakeTime
+        )
+    }
+
+    // MARK: - Evening check-in
+
+    /// How long before bedtime the check-in fires.
+    ///
+    /// The whole point is to catch the user while they are still the person who
+    /// *wants* this. At 1am the argument is already lost — that self did not
+    /// choose the schedule and does not feel bound by it. An hour before bed
+    /// they are rational, unhurried, and asking them to commit costs nothing,
+    /// because the thing they're committing to is still hypothetical.
+    private static let eveningCheckInLead = 60
+
+    /// Schedules (or reschedules) the nightly check-in. Repeating and
+    /// calendar-based, so it survives the app being closed for weeks.
+    ///
+    /// Fire-and-forget: a user who denied notifications simply never sees it,
+    /// which is the correct outcome — this is a nudge, not a mechanism, and
+    /// nothing else depends on it arriving.
+    private func scheduleEveningCheckIn() {
+        guard let profile, profile.onboarded else { return }
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: [Self.eveningCheckInID])
+
+        var minutes = profile.bedtime - Self.eveningCheckInLead
+        if minutes < 0 { minutes += 1_440 }
+
+        let content = UNMutableNotificationContent()
+        content.title = "Tonight's plan"
+        content.body = "Bed at \(SleepFormatting.clock(profile.bedtime)). Tap to look it over."
+        content.sound = nil   // an hour before bed is not a moment for a chime
+        content.userInfo = ["url": "sleepblock://tonight"]
+
+        var components = DateComponents()
+        components.hour = minutes / 60
+        components.minute = minutes % 60
+        let request = UNNotificationRequest(
+            identifier: Self.eveningCheckInID,
+            content: content,
+            trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
+        )
+        center.add(request)
+        AppLog.store.info("Evening check-in scheduled for \(components.hour ?? 0):\(components.minute ?? 0)")
+    }
+
+    private static let eveningCheckInID = "sulav.sleep.evening-checkin"
+
+    /// Pushes the profile fields the sandboxed shield extensions need into the
+    /// App Group. They can't reach the app's storage, so anything the lock
+    /// screen shows has to be mirrored here first.
+    private func mirrorLockdownPreferences() {
+        guard let profile else { return }
+        SleepLockdownSelection.setReasons(profile.lockReasons)
+        SleepLockdownSelection.setHardMode(profile.hardMode)
+        SleepLockdownSelection.setWakeMinutes(profile.wakeTime)
+    }
+
+    // MARK: - Reach attempts (the morning mirror)
+
+    /// Moves finished nights out of the App Group log and into local history.
+    ///
+    /// The shield extension can only append — it has no idea when a night is
+    /// over — so the app does the filing. Anything belonging to a sleep day
+    /// that isn't today's window is closed and gets archived; today's stays in
+    /// the log so the count keeps climbing if the user is still up.
+    ///
+    /// Runs on every foreground. Cheap: the usual answer is "nothing to file".
+    private func harvestReachLog() {
+        let attempts = SleepLockdownSelection.reachLog()
+        guard !attempts.isEmpty else { return }
+        let calendar = Calendar.current
+        // The window that is still running, if any — its attempts stay live.
+        let openWindow: Date? = {
+            guard let profile, isInsideLockdownWindow else { return nil }
+            return SleepLockdownSelection.windowStart(bedtimeMinutes: profile.bedtime)
+        }()
+
+        var grouped: [Date: [Date]] = [:]
+        var stillOpen: [Date] = []
+        for attempt in attempts {
+            if let openWindow, attempt >= openWindow {
+                stillOpen.append(attempt)
+            } else {
+                grouped[SleepMerge.key(for: attempt, calendar: calendar), default: []].append(attempt)
+            }
+        }
+        guard !grouped.isEmpty else { return }
+
+        var nights = reachNights
+        for (day, dayAttempts) in grouped {
+            if let index = nights.firstIndex(where: { $0.day == day }) {
+                // Merge rather than replace: a night can be harvested in two
+                // passes if the user opens the app mid-window and again later.
+                let merged = Set(nights[index].attempts).union(dayAttempts)
+                nights[index].attempts = merged.sorted()
+            } else {
+                nights.append(ReachNight(day: day, attempts: dayAttempts.sorted()))
+            }
+        }
+        nights.sort { $0.day < $1.day }
+        // A rolling window is plenty — this is a mirror, not an archive, and an
+        // unbounded personal log of someone's worst moments is not a thing to
+        // keep forever.
+        if nights.count > Self.reachHistoryNights {
+            nights.removeFirst(nights.count - Self.reachHistoryNights)
+        }
+        reachNights = nights
+
+        if stillOpen.isEmpty {
+            SleepLockdownSelection.clearReachLog()
+        } else {
+            SleepLockdownSelection.replaceReachLog(with: stillOpen)
+        }
+        persist(refreshWidget: false)
+        AppLog.store.info("Harvested reach log into \(grouped.count) night(s)")
+    }
+
+    private static let reachHistoryNights = 30
+
+    /// Last night's reaches, for Home's morning mirror. Nil when there were
+    /// none — silence is the right output for a night someone didn't struggle,
+    /// and a triumphant "0 attempts!" card would cheapen the ones that matter.
+    var lastNightReaches: ReachNight? {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        guard let latest = reachNights.last, latest.count > 0 else { return nil }
+        let daysAgo = calendar.dateComponents([.day], from: latest.day, to: today).day ?? .max
+        guard daysAgo <= 1 else { return nil }
+        return latest
+    }
+
+    /// Reaches over the last seven nights, for the Profile summary.
+    var reachesThisWeek: Int {
+        let calendar = Calendar.current
+        guard let cutoff = calendar.date(byAdding: .day, value: -7, to: Date()) else { return 0 }
+        return reachNights.filter { $0.day >= cutoff }.reduce(0) { $0 + $1.count }
+    }
+
+    // MARK: - The user's own words
+
+    var lockReasons: [String] { profile?.lockReasons ?? [] }
+
+    /// Replaces the user's reasons and mirrors them to the App Group where the
+    /// shield can read them. Trimmed, length-capped, blanks dropped.
+    func saveLockReasons(_ reasons: [String]) {
+        guard var profile else { return }
+        let cleaned = reasons
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .map { String($0.prefix(SleepLockdownSelection.reasonMaxLength)) }
+            .prefix(SleepLockdownSelection.reasonLimit)
+        let next = Array(cleaned)
+        guard profile.lockReasons != next else { return }
+        profile.lockReasons = next
+        self.profile = profile
+        persist(refreshWidget: false)
+        SleepLockdownSelection.setReasons(next)
+        AppLog.store.info("Saved \(next.count) lock reason(s)")
+    }
+
+    /// Whether to ask the user for their reason right now.
+    ///
+    /// The timing is the whole feature. Asked during sign-up this question
+    /// returns a slogan; asked the morning after a night they reached for a
+    /// blocked app, it returns the true answer, because the feeling is still
+    /// available. So: they have no reasons yet, and last night they struggled.
+    var shouldPromptForReason: Bool {
+        lockReasons.isEmpty && (lastNightReaches?.count ?? 0) >= 2
+    }
+
+    /// The opt-in strictness switch. Mirrored for the shield extensions, which
+    /// use it to drop the snooze button and lengthen the slow door's wait.
+    func setHardMode(_ on: Bool) {
+        guard var profile, profile.hardMode != on else { return }
+        profile.hardMode = on
+        self.profile = profile
+        persist(refreshWidget: false)
+        SleepLockdownSelection.setHardMode(on)
+        AppLog.store.info("Hard mode \(on ? "on" : "off")")
+    }
+
+    // Neither `lockReasons` nor `hardMode` is pushed to `CloudProfile`, and
+    // that is deliberate rather than an omission. The reasons are the most
+    // personal sentences in the app — someone's real answer to why they can't
+    // put the phone down — and they exist to be read by a lock screen on *this*
+    // device; shipping them to a table earns nothing and costs a promise.
+    // `reachNights` stays local for the same reason. Hard mode is device-bound
+    // in the same way authorization is: it means nothing on a phone that isn't
+    // doing the blocking. Syncing any of it would need a schema migration
+    // (`supabase/`), so this is a decision to revisit deliberately, not drift
+    // into.
+
+    /// Whether the clock is inside the user's bedtime→wake window right now.
+    private var isInsideLockdownWindow: Bool {
+        guard let profile else { return false }
+        return SleepLockdownSelection.isWithinWindow(
             bedtimeMinutes: profile.bedtime,
             wakeMinutes: profile.wakeTime
         )
@@ -1050,6 +1702,7 @@ final class SleepStore {
         self.profile = profile
         persist()
         rescheduleLockdown()
+        scheduleEveningCheckIn()
         syncCloudProfile()
     }
 
@@ -1156,6 +1809,25 @@ struct SleepSnapshot: Codable {
     var profile: Profile?
     var sessions: [SleepSession]
     var activeSession: ActiveSleepSession?
+    /// Harvested from the App Group reach log, one entry per night. Decode-safe
+    /// for snapshots written before it existed.
+    var reachNights: [ReachNight] = []
+
+    init(profile: Profile?, sessions: [SleepSession], activeSession: ActiveSleepSession?,
+         reachNights: [ReachNight] = []) {
+        self.profile = profile
+        self.sessions = sessions
+        self.activeSession = activeSession
+        self.reachNights = reachNights
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        profile = try c.decodeIfPresent(Profile.self, forKey: .profile)
+        sessions = try c.decodeIfPresent([SleepSession].self, forKey: .sessions) ?? []
+        activeSession = try c.decodeIfPresent(ActiveSleepSession.self, forKey: .activeSession)
+        reachNights = try c.decodeIfPresent([ReachNight].self, forKey: .reachNights) ?? []
+    }
 }
 
 /// The app's App Store identity.
@@ -1199,6 +1871,10 @@ struct SleepPersistence {
     private let sessionsKey = "sulav.sessions.v1"
     private let activeKey = "sulav.active.v1"
     private let accountKey = "sulav.account.v1"
+    // Nightly reach-attempt history, harvested out of the App Group log. Local
+    // only and cleared by `reset()`: this is the most personal thing the app
+    // records, and it has no business following an account onto another device.
+    private let reachNightsKey = "sulav.reachNights.v1"
     // Lives in the app container (wiped on delete), so its absence marks a
     // fresh install. Deliberately not cleared by `reset()` — a sign-out within
     // the same install is not a reinstall.
@@ -1220,6 +1896,12 @@ struct SleepPersistence {
     // (where the authorization must be re-granted anyway) primes again. Not
     // cleared by `reset()` — the primer is per-install, not per-account.
     private let screenTimePrimerKey = "sulav.screenTimePrimer.v1"
+    // Whether this install has dismissed the first-run paywall with the ✕.
+    // Per-install like the primer, and deliberately *not* cleared by
+    // `reset()`: signing out is not a reason to put the full-screen paywall
+    // back in front of someone who has already seen and closed it. The lock
+    // itself is unaffected — it lives on the entitlement, not on this.
+    private let paywallDismissedKey = "sulav.paywallDismissed.v1"
     // How many times we've shown the App Store review prompt, and when we last
     // did. Per-install like the primer, and deliberately not cleared by
     // `reset()`: signing out is not a licence to start asking again.
@@ -1233,6 +1915,13 @@ struct SleepPersistence {
     // the offline grace window. Cleared on sign-out and account deletion so a
     // lapsed grace can never follow the device to a different account.
     private let lastEntitledAtKey = "sulav.lastEntitledAt.v1"
+    // Server-issued end of the redeemed referral's 30 free nights. A cache of
+    // the `referral_redemptions` row, so an offline launch keeps the
+    // exemption; account-scoped like the grace above, so cleared with it.
+    private let referralFreeUntilKey = "sulav.referralFreeUntil.v1"
+    // Whether the "free nights ending" nudge has been waved off for this
+    // grant. Account-scoped like the grant itself, so cleared alongside it.
+    private let referralEndingNudgeKey = "sulav.referralEndingNudge.v1"
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -1244,7 +1933,8 @@ struct SleepPersistence {
         SleepSnapshot(
             profile: decode(Profile.self, forKey: profileKey),
             sessions: decode([SleepSession].self, forKey: sessionsKey) ?? [],
-            activeSession: decode(ActiveSleepSession.self, forKey: activeKey)
+            activeSession: decode(ActiveSleepSession.self, forKey: activeKey),
+            reachNights: decode([ReachNight].self, forKey: reachNightsKey) ?? []
         )
     }
 
@@ -1252,16 +1942,20 @@ struct SleepPersistence {
         encode(snapshot.profile, forKey: profileKey)
         encode(snapshot.sessions, forKey: sessionsKey)
         encode(snapshot.activeSession, forKey: activeKey)
+        encode(snapshot.reachNights, forKey: reachNightsKey)
     }
 
     func reset() {
         defaults.removeObject(forKey: profileKey)
         defaults.removeObject(forKey: sessionsKey)
         defaults.removeObject(forKey: activeKey)
+        defaults.removeObject(forKey: reachNightsKey)
         defaults.removeObject(forKey: accountKey)
         defaults.removeObject(forKey: lastAccountIDKey)
         defaults.removeObject(forKey: legacyCloudSeedCheckedKey)
         defaults.removeObject(forKey: lastEntitledAtKey)
+        defaults.removeObject(forKey: referralFreeUntilKey)
+        defaults.removeObject(forKey: referralEndingNudgeKey)
     }
 
     /// Whether the app has been launched before on this install. Backed by the
@@ -1294,10 +1988,23 @@ struct SleepPersistence {
     }
 
     /// Called on sign-out and account deletion — the grace period belongs to
-    /// an account, not to a device.
+    /// an account, not to a device. The referral nights ride along for the
+    /// same reason.
     func clearEntitlementGrace() {
         defaults.removeObject(forKey: lastEntitledAtKey)
+        defaults.removeObject(forKey: referralFreeUntilKey)
+        defaults.removeObject(forKey: referralEndingNudgeKey)
     }
+
+    var referralFreeUntil: Date? { defaults.object(forKey: referralFreeUntilKey) as? Date }
+
+    func saveReferralFreeUntil(_ date: Date) {
+        defaults.set(date, forKey: referralFreeUntilKey)
+    }
+
+    var referralEndingNudgeDismissed: Bool { defaults.bool(forKey: referralEndingNudgeKey) }
+
+    func markReferralEndingNudgeDismissed() { defaults.set(true, forKey: referralEndingNudgeKey) }
 
     /// Non-secret account info only (id/email/provider) — the real session
     /// token lives in the Keychain via the auth SDK, never here.
@@ -1330,6 +2037,10 @@ struct SleepPersistence {
     var screenTimePrimerSeen: Bool { defaults.bool(forKey: screenTimePrimerKey) }
 
     func markScreenTimePrimerSeen() { defaults.set(true, forKey: screenTimePrimerKey) }
+
+    var paywallDismissed: Bool { defaults.bool(forKey: paywallDismissedKey) }
+
+    func markPaywallDismissed() { defaults.set(true, forKey: paywallDismissedKey) }
 
     private func decode<T: Decodable>(_ type: T.Type, forKey key: String) -> T? {
         guard let data = defaults.data(forKey: key) else { return nil }

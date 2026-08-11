@@ -88,6 +88,19 @@ Shipped in the MVP:
   equivalent of until Health Connect lands. Both platforms must agree here:
   sessions sync through Supabase, so a date-blind streak showed the same user
   different numbers depending on which phone they opened.
+
+  > **Known divergence — Android is behind iOS on the streak rule.** iOS moved
+  > to dying/reset semantics (a night counts at 30+ minutes; one missed due
+  > night → dying; two in a row → reset; a day is only judged once its wake
+  > time + 2h has passed). Android still runs the old ≥85%-of-target rule with
+  > the `1 + streak / 7` allowance, *including* the bug where the most recent
+  > day can never be forgiven. By the paragraph above, this is exactly the
+  > class of disagreement that shows one user two different numbers on two
+  > phones — so porting it is a prerequisite for shipping Android, not a
+  > polish item. The rule to port is `ios/SulavSleep/SleepStreak.swift`
+  > (dependency-free by design, so it translates almost line for line), and
+  > `ios/SulavSleepTests/SleepStreakTests.swift` is the case list to port with
+  > it. See [DESIGN.md](../DESIGN.md#the-streak).
 - Profile: stat band, 7-night bar rhythm, recent nights, settings (rename,
   schedule steppers, sign out, delete account). Honest data only — no
   seeded history.
@@ -160,6 +173,17 @@ Shipped in the July 2026 polish pass:
 
 Still deferred (phase 3):
 
+- **Referral + sleep partner** (iOS, August 2026 — see
+  `docs/roadmap-partner-referral.md` and `SleepPartnerView.swift`). Two
+  separate features. Schema and edge functions are shared, so it's client
+  work: the **referral** (redeem sheet, paywall/Settings entries,
+  `referralFreeUntil` as the lock exemption, the ending nudge + expiry
+  headline) and the **sleep partner** graph (the Sleep Partners screen off
+  a Home button, invite links via `create_/accept_partner_invite`, multiple
+  partners). Android must register the `sleepblock://partner/<token>` deep
+  link. The referrer's free-month webhook is App Store-only; a Play Billing
+  equivalent (subscription extension via the Play Developer API) needs its
+  own leg in `revenuecat-webhook`.
 - **Session cloud sync.** Android syncs the *profile* only (through the
   `sleep_profile` user-metadata key); it never reads or writes the
   `sleep_sessions` table iOS uses. Logged nights therefore live on the

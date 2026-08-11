@@ -44,68 +44,40 @@ class ShieldConfigProvider: ShieldConfigurationDataSource {
     private static let gold = UIColor(red: 0xE9 / 255.0, green: 0xC4 / 255.0, blue: 0x6A / 255.0, alpha: 1)
     private static let ink = UIColor(red: 0xF5 / 255.0, green: 0xF5 / 255.0, blue: 0xF2 / 255.0, alpha: 1)
     private static let dim = UIColor(red: 0xB7 / 255.0, green: 0xBD / 255.0, blue: 0xC7 / 255.0, alpha: 1)
+    private static let faint = UIColor(red: 0x7A / 255.0, green: 0x84 / 255.0, blue: 0x94 / 255.0, alpha: 1)
     private static let bg = UIColor(red: 0.03, green: 0.07, blue: 0.12, alpha: 1) // ~#08111E
 
     // MARK: - Phase-aware shield configuration
 
-    /// App Group constants — hardcoded because this extension target does not
-    /// include `SleepLockdownShared.swift` (adding it would pull in
-    /// FamilyControls / DeviceActivity, bloating the jetsam-constrained
-    /// shield process).
-    private static let appGroup = "group.com.sulav.sleepblock"
-    private static let phaseKey = "sulav.lock.phase"
-    private static let bedtimeKey = "sulav.lock.bedtimeMinutes"
-    private static let snoozeCountKey = "sulav.lock.snoozeCount"
-    private static let snoozeLimit = 2
-    private static let snoozeMinutes = 5
-
-    private static var groupDefaults: UserDefaults? { UserDefaults(suiteName: appGroup) }
-
     /// Whether the current lockdown is the pre-sleep nudge or the firm active
     /// session lock.
     private var isPresleep: Bool {
-        let raw = Self.groupDefaults?.string(forKey: Self.phaseKey)
-        return raw == "presleep"
+        SleepLockdownSelection.currentPhase() == .presleep
     }
 
-    /// Whether this night still has a "5 more minutes" left. Once spent, the
-    /// secondary button disappears entirely rather than degrading to a dead
-    /// "OK" — the active-phase shield already ships with a single button, so
-    /// one button is established grammar here.
-    private var snoozeAvailable: Bool {
-        (Self.groupDefaults?.integer(forKey: Self.snoozeCountKey) ?? 0) < Self.snoozeLimit
-    }
-
-    /// Minutes since the user's bedtime. Nil when bedtime isn't known yet (no
-    /// lockdown has been scheduled on this install).
-    private var minutesPastBedtime: Int? {
-        guard let bedtime = Self.groupDefaults?.object(forKey: Self.bedtimeKey) as? Int else { return nil }
-        let calendar = Calendar.current
-        let now = calendar.component(.hour, from: Date()) * 60 + calendar.component(.minute, from: Date())
-        var diff = now - bedtime
-        if diff < 0 { diff += 1_440 }   // bedtime last night, now past midnight
-        return diff
-    }
-
-    /// The lateness as a **title** — "5 minutes past bedtime".
+    /// Hours and minutes until the alarm — "5h 48m until your alarm".
     ///
-    /// It lives in the title slot because that is the only way to make it
-    /// bold: `ShieldConfiguration.Label` carries a string and a colour and
-    /// nothing else, so there is no way to emphasise part of the subtitle.
-    /// The system renders the title large and bold, so the growing number —
-    /// the one fact on this screen the user doesn't already know — gets the
-    /// weight, and "Time for bed" steps down to the subtitle.
+    /// This replaced "42 minutes past bedtime", and the swap is the point: one
+    /// is a fact about the pain arriving in the morning, the other is a
+    /// scolding about a decision already made. Someone standing at a block
+    /// screen at 1am has fully priced in that they are up late; what they have
+    /// not done is the subtraction.
     ///
-    /// Nil in the first minute (a bold "0 minutes past bedtime" is silly) and
-    /// when bedtime is unknown; the shield then keeps "Time for bed" as its
-    /// title, exactly as before.
-    private var lateTitle: String? {
-        guard let minutes = minutesPastBedtime, minutes >= 1 else { return nil }
-        return "\(Self.lateAmount(minutes)) past bedtime"
+    /// It lives in the title slot because that is the only way to make it bold:
+    /// `ShieldConfiguration.Label` carries a string and a colour and nothing
+    /// else, so there is no way to emphasise part of the subtitle. Nil when
+    /// wake time isn't mirrored yet (no lockdown scheduled on this install), or
+    /// once the alarm has already gone — a session that outslept its wake time
+    /// keeps the shield up, and counting down to *tomorrow's* alarm there would
+    /// turn a 10-minute lie-in into "23h 50m". The shield then keeps its
+    /// written title, whose subtitle already says asleep until you wake.
+    private var alarmTitle: String? {
+        guard let minutes = SleepLockdownSelection.minutesUntilWakeTonight(), minutes >= 1 else { return nil }
+        return "\(Self.duration(minutes)) until your alarm"
     }
 
     /// "5 minutes" / "1 minute" / "1h 15m" / "2h".
-    private static func lateAmount(_ minutes: Int) -> String {
+    private static func duration(_ minutes: Int) -> String {
         if minutes < 60 {
             return minutes == 1 ? "1 minute" : "\(minutes) minutes"
         }
@@ -114,24 +86,55 @@ class ShieldConfigProvider: ShieldConfigurationDataSource {
         return rest == 0 ? "\(hours)h" : "\(hours)h \(rest)m"
     }
 
+    /// The secondary button, resolved from the shared escape state so this and
+    /// `ShieldActionHandler` can't disagree about what a tap means.
+    ///
+    /// Never nil any more. A shield with no way out at all is a dead end, and
+    /// the only exit left from a dead end is deleting SleepBlock — which takes
+    /// the blocking with it, permanently. The door is deliberately cheap to
+    /// ask for and slow to open; see `SleepLockdownSelection.doorRequestedKey`.
+    private func secondaryLabel(for escape: SleepLockdownSelection.Escape) -> ShieldConfiguration.Label {
+        switch escape {
+        case .snooze:
+            return .init(text: "\(SleepLockdownSelection.snoozeMinutes) more minutes", color: Self.dim)
+        case .doorClosed:
+            return .init(text: "I need \(SleepLockdownSelection.doorMinutes) minutes", color: Self.dim)
+        case .doorWaiting(let seconds):
+            // Informational — the tap does nothing. The wait *is* the feature:
+            // a craving fades in about a minute, and most people put the phone
+            // down here rather than come back.
+            return .init(text: "Unlocks in \(seconds)s", color: Self.faint)
+        case .doorReady:
+            return .init(text: "Unlock \(SleepLockdownSelection.doorMinutes) minutes", color: Self.dim)
+        }
+    }
+
     private func makeConfig(noun: String) -> ShieldConfiguration {
+        // Counting happens here because this method runs exactly when the user
+        // reaches for a blocked app — the measurement is free, on a screen that
+        // has to render anyway. Debounced inside `recordReach`, since the
+        // system can ask for a configuration more than once per launch.
+        let reach = SleepLockdownSelection.recordReach()
+        let escape = SleepLockdownSelection.currentEscape()
+        // Their own sentence, rotated per reach, beats anything we could write:
+        // there is no app to be annoyed at in it. Falls back to our copy until
+        // they've written one.
+        let reason = SleepLockdownSelection.reasonForReach(reach)
+
         if isPresleep {
-            // The number leads and takes the bold title slot; "Time for bed"
-            // steps down to the subtitle. Both stay to one short line each —
-            // the user is staring at a block screen, so restating that the app
-            // is blocked only spends wrapped lines on what they can already
-            // see, and the buttons say what the options are.
-            let late = lateTitle
+            let alarm = alarmTitle
             return ShieldConfiguration(
                 backgroundBlurStyle: .systemUltraThinMaterialDark,
                 backgroundColor: Self.bg,
                 icon: Self.brandMarkIcon ?? UIImage(systemName: "moon.zzz.fill"),
                 title: ShieldConfiguration.Label(
-                    text: late ?? "Time for bed",
+                    text: alarm ?? "Time for bed",
                     color: Self.ink
                 ),
                 subtitle: ShieldConfiguration.Label(
-                    text: late == nil ? "Put your phone down and head to bed." : "Time for bed.",
+                    text: reason ?? (alarm == nil
+                        ? "Put your phone down and head to bed."
+                        : "Time for bed."),
                     color: Self.dim
                 ),
                 primaryButtonLabel: ShieldConfiguration.Label(
@@ -141,14 +144,8 @@ class ShieldConfigProvider: ShieldConfigurationDataSource {
                 primaryButtonBackgroundColor: Self.amber,
                 // The escape hatch takes the quiet secondary slot, never the
                 // amber one — a shield whose loudest control is "not yet"
-                // argues against itself. It replaces the old "OK", which only
-                // ever closed the shield, so nothing usable was displaced.
-                secondaryButtonLabel: snoozeAvailable
-                    ? ShieldConfiguration.Label(
-                        text: "\(Self.snoozeMinutes) more minutes",
-                        color: Self.dim
-                    )
-                    : nil
+                // argues against itself.
+                secondaryButtonLabel: secondaryLabel(for: escape)
             )
         } else {
             return ShieldConfiguration(
@@ -156,18 +153,27 @@ class ShieldConfigProvider: ShieldConfigurationDataSource {
                 backgroundColor: Self.bg,
                 icon: Self.brandMarkIcon ?? UIImage(systemName: "moon.zzz.fill"),
                 title: ShieldConfiguration.Label(
-                    text: "Time to sleep",
+                    text: alarmTitle ?? "Time to sleep",
                     color: Self.ink
                 ),
                 subtitle: ShieldConfiguration.Label(
-                    text: "\(noun) is asleep until you wake. Head back to bed.",
+                    text: reason ?? "\(noun) is asleep until you wake.",
                     color: Self.dim
                 ),
                 primaryButtonLabel: ShieldConfiguration.Label(
                     text: "Good night",
                     color: .black
                 ),
-                primaryButtonBackgroundColor: Self.amber
+                primaryButtonBackgroundColor: Self.amber,
+                // The active-phase shield used to ship with no secondary button
+                // at all, on the reasoning that snoozing out of a session you
+                // deliberately started makes lockdown meaningless. That still
+                // holds for the *snooze* — `currentEscape` won't offer one here.
+                // The door is different: it is the phase where someone is
+                // furthest from morning and most likely to reach for the
+                // uninstall button, and "wait six hours or delete the app" is
+                // not a choice worth forcing.
+                secondaryButtonLabel: secondaryLabel(for: escape)
             )
         }
     }

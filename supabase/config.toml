@@ -9,3 +9,14 @@ project_id = "sleepblock"
 # token via getUser() before deleting. See functions/delete-account/index.ts.
 [functions.delete-account]
 verify_jwt = true
+
+# Referral redemption runs as the signed-in caller, same pattern.
+[functions.redeem-referral]
+verify_jwt = true
+
+# RevenueCat's server is not a Supabase user, so JWT verification is OFF
+# here; the function authenticates the caller against the shared
+# REVENUECAT_WEBHOOK_TOKEN secret instead (the dashboard sends it in the
+# Authorization header). See functions/revenuecat-webhook/index.ts.
+[functions.revenuecat-webhook]
+verify_jwt = false

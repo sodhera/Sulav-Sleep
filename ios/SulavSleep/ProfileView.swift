@@ -51,6 +51,13 @@ struct SceneScreen<Content: View>: View {
                 VStack(alignment: .leading, spacing: 0) {
                     content
                 }
+                // Claim the full width, or the column shrinks to its widest
+                // child and the ScrollView *centers* it — which reads as extra
+                // padding on both sides, and only on screens whose content
+                // happens to carry no full-width element (Blocked apps with
+                // Screen Time unavailable is just two text blocks). With the
+                // frame, the horizontal padding below is the only inset.
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, SleepSpacing.xxl)
                 .padding(.bottom, 140)
             }
@@ -69,22 +76,33 @@ struct SubpageHeader: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(alignment: .leading, spacing: SleepSpacing.xl) {
+        // `lg` between the chevron and the title, not `xl`, and no top
+        // padding: `SceneScreen` already applies the safe-area inset, so the
+        // chevron lands flush at the top edge exactly where the Profile gear
+        // and Home's chips do. Sub-pages used to start ~28pt lower than the
+        // screen that pushed them, which read as the header sagging.
+        VStack(alignment: .leading, spacing: SleepSpacing.lg) {
             GlassBackButton { dismiss() }
             VStack(alignment: .leading, spacing: SleepSpacing.sm) {
                 Text(title)
                     .font(SleepFont.hero(28))
                     .foregroundStyle(SleepColor.ink)
                 if let subtitle {
+                    // `.dim`, not `.muted`. The whole ink system was designed
+                    // against the night stage, and the readability scrim is at
+                    // its *thinnest* at the top of the screen (30% on the day
+                    // scene) — exactly where this line sits. Mid-grey `.muted`
+                    // has almost no contrast against a lit daytime sky there;
+                    // `.dim` is lighter, so it separates from the scene at
+                    // every phase. Subtitles are read, not skimmed.
                     Text(subtitle)
                         .font(SleepFont.body(15))
-                        .foregroundStyle(SleepColor.muted)
+                        .foregroundStyle(SleepColor.dim)
                         .lineSpacing(3)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
-        .padding(.top, SleepSpacing.lg)
     }
 }
 
@@ -124,6 +142,19 @@ private struct ProfileRootScreen: View {
                     version: version,
                     onUpdate: { store.openAppStoreProductPage() },
                     onDismiss: { store.dismissUpdateNudge() }
+                )
+                .padding(.top, SleepSpacing.xxl)
+            }
+
+            // The free-nights heads-up, same dismissible-card slot and grammar
+            // as the two above — so night 31 arrives as a choice already made,
+            // not a wall. Only in the last few nights; see the store.
+            if store.shouldShowReferralEndingNudge {
+                ReferralEndingCard(
+                    nightsLeft: store.referralNightsLeft,
+                    partnerName: store.partners.count == 1 ? store.partners.first?.displayName : nil,
+                    onSeePlans: { store.presentPaywall() },
+                    onDismiss: { store.dismissReferralEndingNudge() }
                 )
                 .padding(.top, SleepSpacing.xxl)
             }
@@ -176,13 +207,19 @@ private struct ProfileRootScreen: View {
             if store.isImportingHealth {
                 ProgressView().controlSize(.small).tint(SleepColor.amber)
             }
-            GlassIconButton(systemImage: "gearshape") {
+            // 44pt, matching Home's corner chips exactly — the gear and the
+            // partner button occupy the same spot one tab apart, so any
+            // difference in size or height reads as the control jumping when
+            // you switch tabs.
+            GlassIconButton(systemImage: "gearshape", size: 44, iconSize: 17) {
                 showsSettings = true
             }
             .accessibilityLabel("Settings")
         }
         .frame(minHeight: 44)
-        .padding(.top, SleepSpacing.lg)
+        // No top padding, for the same reason: `SceneScreen` already applies
+        // the safe-area inset, so this sits flush at the top edge exactly
+        // where Home's chips do.
     }
 
     // MARK: Sleep record
@@ -314,6 +351,7 @@ struct SettingsModal: View {
 
                 profileSection
                 subscriptionSection
+                referralSection
                 configSection
                 feedbackSection
                 accountSection
@@ -331,6 +369,8 @@ struct SettingsModal: View {
                     BlockedAppsScreen(store: store)
                 case .featureRequests:
                     FeatureRequestsScreen(store: store)
+                case .inviteFriend:
+                    InviteFriendScreen(store: store)
                 }
             }
             .alert("Your name", isPresented: $isRenaming) {
@@ -392,9 +432,67 @@ struct SettingsModal: View {
     /// to manage billing. It hides entirely when there's no status to show
     /// (dev mode, or before the first entitlement fetch resolves), matching the
     /// paywall's "never shows in dev mode" rule rather than faking a plan.
+    ///
+    /// A locked user gets a different group: the way *in*. Once the first-run
+    /// paywall is dismissed, Sleep Now is the only other place the plans are
+    /// reachable, and someone who closed the pitch and then went looking for
+    /// the price should find it in Settings, where prices live.
     @ViewBuilder
     private var subscriptionSection: some View {
-        if let status = store.subscriptionStatus {
+        if store.isLocked {
+            VStack(alignment: .leading, spacing: SleepSpacing.md) {
+                Text("Subscription").sectionLabel()
+
+                GlassGroup {
+                    Button {
+                        Haptics.heavy()
+                        openPaywall()
+                    } label: {
+                        GlassRow(
+                            icon: "moon.stars.fill",
+                            iconColor: SleepColor.amber,
+                            title: "Unlock SleepBlock",
+                            showsChevron: true
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.top, SleepSpacing.xxl)
+        } else if store.isWithinReferralNights {
+            // On referral nights: not locked, but no App Store status either.
+            // Show the grant honestly, and keep a door to the plans open —
+            // this is the only voluntary route to the paywall while the free
+            // nights run.
+            VStack(alignment: .leading, spacing: SleepSpacing.md) {
+                Text("Subscription").sectionLabel()
+
+                GlassGroup {
+                    GlassRow(
+                        icon: "moon.stars.fill",
+                        iconColor: SleepColor.amber,
+                        title: "Free nights",
+                        value: "\(store.referralNightsLeft) left"
+                    )
+
+                    GlassRowDivider()
+
+                    Button {
+                        Haptics.heavy()
+                        openPaywall()
+                    } label: {
+                        GlassRow(
+                            icon: "creditcard.fill",
+                            iconColor: SleepColor.muted,
+                            title: "See the plans",
+                            showsChevron: true
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.top, SleepSpacing.xxl)
+        } else if let status = store.subscriptionStatus {
             VStack(alignment: .leading, spacing: SleepSpacing.md) {
                 Text("Subscription").sectionLabel()
 
@@ -421,15 +519,69 @@ struct SettingsModal: View {
         }
     }
 
+    /// The paywall cover hangs off MainShellView, *under* this sheet — iOS
+    /// won't present it while the sheet is up, so the sheet steps aside
+    /// first and raises it a beat later, once the dismissal has landed.
+    private func openPaywall() {
+        dismiss()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+            store.presentPaywall()
+        }
+    }
+
+    /// The referrer's half of the program: a door into the explainer screen,
+    /// not the share sheet itself. Tapping straight into a system share sheet
+    /// from a bare settings row left the reward unexplained at the one moment
+    /// someone was about to hand it to a friend — see `InviteFriendScreen`
+    /// (the type name predates the Refer/Invite split; the screen is the
+    /// referral one).
+    /// Absent in dev mode; the count line appears once anyone has joined.
+    @ViewBuilder
+    private var referralSection: some View {
+        if store.referralAvailable {
+            VStack(alignment: .leading, spacing: SleepSpacing.md) {
+                // "Refer", not "Invite" — inviting is what you do to make
+                // someone a sleep partner (Home's button). This is the
+                // referral: a free month for them, a free month for you.
+                // Two features, two words, no overlap.
+                Text("Refer").sectionLabel()
+
+                GlassGroup {
+                    NavigationLink(value: SettingsDestination.inviteFriend) {
+                        GlassRow(
+                            // Gift, not person.2 — that's the partner glyph now
+                            // (Home's button); referral is "give a free month".
+                            icon: "gift.fill",
+                            iconColor: SleepColor.amber,
+                            title: "Refer a friend",
+                            value: inviteRowValue,
+                            showsChevron: true
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .simultaneousGesture(TapGesture().onEnded { Haptics.heavy() })
+                }
+            }
+            .padding(.top, SleepSpacing.xxl)
+            .task { await store.loadReferralCode() }
+        }
+    }
+
+    private var inviteRowValue: String? {
+        guard let stats = store.referrerStats, stats.invitedCount > 0 else { return nil }
+        return "\(stats.invitedCount) joined"
+    }
+
     private var header: some View {
         HStack {
             Text("Settings")
                 .font(SleepFont.hero(28))
                 .foregroundStyle(SleepColor.ink)
             Spacer()
-            // Same footprint as the Profile gear this sheet is opened from,
-            // so the two read as one "settings" affordance.
-            GlassIconButton(systemImage: "xmark", iconSize: 17, tint: SleepColor.ink) {
+            // Same 44pt footprint as the Profile gear this sheet is opened
+            // from (and as Home's corner chips), so the control the thumb
+            // just hit doesn't change size under it.
+            GlassIconButton(systemImage: "xmark", size: 44, iconSize: 17, tint: SleepColor.ink) {
                 dismiss()
             }
             .accessibilityLabel("Close settings")
@@ -649,6 +801,7 @@ enum SettingsDestination: Hashable {
     case schedule
     case blockedApps
     case featureRequests
+    case inviteFriend
 }
 
 // MARK: - Sleep schedule (pushed or sheet)
@@ -800,6 +953,89 @@ private struct HealthConnectCard: View {
         }
         .padding(SleepSpacing.lg)
         // The glass draws its own edge; no manual border on top of it.
+        .liquidGlass(cornerRadius: SleepRadius.lg, tint: SleepColor.glassWarm)
+    }
+}
+
+// MARK: - Referral ending nudge
+
+/// The "free nights running out" heads-up, in the same dismissible warm-glass
+/// card as the Health invite. Its whole job is to turn the end of the grant
+/// from a surprise wall into a decision the user makes in their own time — so
+/// it names what they'd keep (the streak, and the partner if there is one),
+/// not just the deadline. "See plans" raises the paywall over Main; the ✕
+/// waves it off for the rest of the grant.
+private struct ReferralEndingCard: View {
+    let nightsLeft: Int
+    var partnerName: String?
+    var onSeePlans: () -> Void
+    var onDismiss: () -> Void
+
+    private var title: String {
+        nightsLeft == 1 ? "Last free night" : "\(nightsLeft) free nights left"
+    }
+
+    private var body_: String {
+        if let name = partnerName, !name.isEmpty {
+            return "Subscribe to keep your streak with \(name) going after they're up."
+        }
+        return "Subscribe to keep your streak going after they're up."
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: SleepSpacing.md) {
+            Image(systemName: "hourglass")
+                .font(.system(size: 24, weight: .regular))
+                .foregroundStyle(SleepColor.amber)
+
+            VStack(alignment: .leading, spacing: SleepSpacing.sm) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(SleepFont.title(16))
+                        .foregroundStyle(SleepColor.ink)
+                    Text(body_)
+                        .font(SleepFont.body(13))
+                        .foregroundStyle(SleepColor.dim)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Button {
+                    Haptics.heavy()
+                    onSeePlans()
+                } label: {
+                    Text("See plans")
+                        .font(SleepFont.label(14))
+                        .foregroundStyle(SleepColor.background)
+                        .padding(.horizontal, SleepSpacing.lg)
+                        .padding(.vertical, SleepSpacing.sm)
+                        .background {
+                            Capsule(style: .continuous)
+                                .fill(LinearGradient(
+                                    colors: [SleepColor.gold, SleepColor.amber],
+                                    startPoint: .topLeading, endPoint: .bottomTrailing
+                                ))
+                        }
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 2)
+            }
+
+            Spacer(minLength: 0)
+
+            Button {
+                Haptics.heavy()
+                onDismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(SleepColor.muted)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Dismiss")
+        }
+        .padding(SleepSpacing.lg)
         .liquidGlass(cornerRadius: SleepRadius.lg, tint: SleepColor.glassWarm)
     }
 }

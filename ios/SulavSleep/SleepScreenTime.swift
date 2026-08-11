@@ -22,17 +22,17 @@ protocol ScreenTimeControlling {
     var isSupported: Bool { get }
     func authorizationState() -> ScreenTimeState
     func requestAuthorization() async -> Bool
-    /// Shields the chosen apps for a session the user just started, and arms the
-    /// "Unlock anyway after `maxHours`" valve so the shield can't outlive the
-    /// night if `wakeUp()` is never called.
-    func startLockdown(maxHours: Int)
+    /// Shields the chosen apps for a session the user just started. Nothing is
+    /// armed to undo it: the shield comes down when the session ends, via
+    /// `endLockdown()`.
+    func startLockdown()
     func endLockdown()
     /// Schedules a DeviceActivityMonitor interval around the bedtime→wake
     /// window. At interval start (bedtime), the monitor extension applies the
     /// shield in the pre-sleep phase. At interval end (wake time) the monitor
     /// clears both the shield and the phase — even if the app isn't
-    /// foregrounded. The max-hours cap is *not* part of this window; it is
-    /// anchored to the session, so `startLockdown(maxHours:)` arms it.
+    /// foregrounded — *unless a session is running*, in which case the shield
+    /// outlasts the window and only waking lifts it.
     func scheduleLockdown(bedtimeMinutes: Int, wakeMinutes: Int)
     func cancelScheduledLockdown()
     /// Puts the shield back if a "5 more minutes" snooze has run out. The
@@ -134,7 +134,7 @@ final class ScreenTimeService: ScreenTimeControlling {
         }
     }
 
-    func startLockdown(maxHours: Int) {
+    func startLockdown() {
         guard isSupported else { return }
         let selection = SleepScreenTime.decodeSelection(selectionData())
         store.shield.applications = selection.applicationTokens.isEmpty ? nil : selection.applicationTokens
@@ -144,7 +144,11 @@ final class ScreenTimeService: ScreenTimeControlling {
         SleepLockdownSelection.setPhase(.active)
         SleepLockdownSelection.clearSnoozeWindow()
         cancelSnoozeEndNotification()
-        scheduleCap(hours: maxHours)
+        // Retire a cap left armed by a build that predates the session-anchored
+        // rule. Cheap, idempotent, and this is the moment it matters: without
+        // it, the very first night after updating could still expire on the old
+        // timer. Harmless when there is nothing to stop.
+        deviceActivityCenter.stopMonitoring([sleepCapActivityName])
         AppLog.app.info("Sleep lockdown applied as active (\(selection.applicationTokens.count) apps)")
     }
 
@@ -154,52 +158,31 @@ final class ScreenTimeService: ScreenTimeControlling {
         store.shield.applicationCategories = nil
         SleepLockdownSelection.clearPhase()
         cancelSnoozeEndNotification()
-        // Waking (or cancelling) retires the valve. Left running, a stale cap
-        // would fire mid-way through some later night and drop that shield.
+        // Waking (or cancelling) is the one thing that ends a lockdown, so this
+        // is also where any legacy cap is retired for good. Left running, a
+        // stale one would fire mid-way through some later night and drop that
+        // shield — the exact behaviour this change exists to remove.
         deviceActivityCenter.stopMonitoring([sleepCapActivityName])
         AppLog.app.info("Sleep lockdown cleared")
     }
 
-    /// Arms the "Unlock anyway after Nh" valve, `hours` from now.
-    ///
-    /// Only the interval's *start* matters — the monitor clears the shield there
-    /// and treats this activity's end as a no-op. DeviceActivity refuses
-    /// intervals under 15 minutes, hence the 20-minute tail. Full date
-    /// components (`year…second`): a `repeats: false` schedule has no recurrence
-    /// to pin a bare time-of-day to, and one built that way never fires.
-    private func scheduleCap(hours: Int) {
-        let fire = Date().addingTimeInterval(Double(hours) * 3600)
-        let calendar = Calendar.current
-        let fields: Set<Calendar.Component> = [.year, .month, .day, .hour, .minute, .second]
-        let schedule = DeviceActivitySchedule(
-            intervalStart: calendar.dateComponents(fields, from: fire),
-            intervalEnd: calendar.dateComponents(fields, from: fire.addingTimeInterval(20 * 60)),
-            repeats: false
-        )
-        do {
-            try deviceActivityCenter.startMonitoring(sleepCapActivityName, during: schedule)
-            AppLog.app.info("Unlock-anyway cap armed for \(hours)h")
-        } catch {
-            // Non-fatal: the scheduled window's own interval end still clears
-            // the shield at wake time, so the valve is late, not absent.
-            AppLog.app.error("Failed to arm unlock-anyway cap: \(error.localizedDescription, privacy: .public)")
-        }
-    }
-
     func reapplyShieldIfSnoozeExpired() {
-        guard isSupported,
-              SleepLockdownSelection.currentPhase() != nil,
-              SleepLockdownSelection.snoozeHasExpired()
-        else { return }
+        guard isSupported, SleepLockdownSelection.currentPhase() != nil else { return }
+        // The slow door is the same shape of grant as a snooze — the shield
+        // lifted for a fixed span — so it lapses through the same layers.
+        let snoozeLapsed = SleepLockdownSelection.snoozeHasExpired()
+        let doorLapsed = SleepLockdownSelection.doorHasExpired()
+        guard snoozeLapsed || doorLapsed else { return }
         let selection = SleepScreenTime.decodeSelection(selectionData())
         store.shield.applications = selection.applicationTokens.isEmpty ? nil : selection.applicationTokens
         store.shield.applicationCategories = selection.categoryTokens.isEmpty
             ? nil
             : .specific(selection.categoryTokens)
         SleepLockdownSelection.clearSnoozeWindow()
+        SleepLockdownSelection.clearDoor()
         deviceActivityCenter.stopMonitoring([sleepSnoozeActivityName])
         cancelSnoozeEndNotification()
-        AppLog.app.info("Snooze expired — shield re-applied")
+        AppLog.app.info("\(snoozeLapsed ? "Snooze" : "Door") expired — shield re-applied")
     }
 
     /// The shield-action extension schedules a "five minutes are up" nudge when
@@ -213,19 +196,21 @@ final class ScreenTimeService: ScreenTimeControlling {
 
     func scheduleLockdown(bedtimeMinutes: Int, wakeMinutes: Int) {
         guard isSupported else { return }
-        // Mirrored into the App Group so the shield extension can say how far
-        // past bedtime the user is without reaching into the app's profile.
+        // Mirrored into the App Group so the shield extension can count the
+        // hours left until the alarm without reaching into the app's profile.
         SleepLockdownSelection.setBedtimeMinutes(bedtimeMinutes)
+        SleepLockdownSelection.setWakeMinutes(wakeMinutes)
         let selection = SleepScreenTime.decodeSelection(selectionData())
         let schedule = DeviceActivitySchedule(
             intervalStart: dateComponents(fromMinutes: bedtimeMinutes),
             intervalEnd: dateComponents(fromMinutes: wakeMinutes),
             repeats: true
         )
-        // Only the snooze re-arms. The max-hours cap used to live here as a
-        // `threshold: DateComponents(hour: maxHours)` event, which could never
-        // fire — shielded apps accrue no screen time to meter. It is now a
-        // wall-clock activity armed at Sleep Now; see `sleepCapActivityName`.
+        // Only the snooze re-arms. A max-hours cap used to live here too, as a
+        // `threshold: DateComponents(hour:)` event that could never fire —
+        // shielded apps accrue no screen time to meter — then as a wall-clock
+        // activity armed at Sleep Now. Both are gone: the shield is anchored to
+        // the session now, not to any clock. See `sleepCapActivityName`.
         //
         // These are registered here, at schedule time, because the shield-action
         // extension that grants a snooze cannot reliably register anything
@@ -609,7 +594,7 @@ struct BlockedAppsScreen: View {
     @State private var selection = FamilyActivitySelection()
     @State private var showPicker = false
     @State private var blockOn = true
-    @State private var maxHours = 6
+    @State private var hardMode = false
 
     var body: some View {
         SceneScreen {
@@ -669,28 +654,57 @@ struct BlockedAppsScreen: View {
 
                     GlassRowDivider()
 
-                    // Safety valve: the shield always drops after this many
-                    // hours, even if the user never taps wake.
-                    HStack(spacing: SleepSpacing.md) {
-                        GlassRowIcon(icon: "alarm.fill")
-                        Text("Unlock anyway after")
-                            .font(SleepFont.body(16))
-                            .foregroundStyle(SleepColor.ink)
-                        Spacer(minLength: SleepSpacing.md)
-                        Text("\(maxHours)h")
-                            .font(SleepFont.label(16))
-                            .foregroundStyle(SleepColor.amber)
-                            .monospacedDigit()
-                        Stepper("", value: $maxHours, in: 1...12)
-                            .labelsHidden()
-                            .tint(SleepColor.amber)
-                            .onChange(of: maxHours) { _, hours in
-                                Haptics.heavy()
-                                store.setLockdownMaxHours(hours)
+                    GlassRowDivider()
+
+                    // The reasons live here rather than in general settings:
+                    // this is the lockdown's own screen, and the sentences are
+                    // part of the lock, not a preference.
+                    NavigationLink {
+                        ReasonsScreen(store: store)
+                    } label: {
+                        GlassRow(
+                            icon: "quote.opening",
+                            title: "Why you're doing this",
+                            value: reasonsSummary,
+                            showsChevron: true
+                        )
+                    }
+                    .buttonStyle(.plain)
+
+                    GlassRowDivider()
+
+                    // Strictness the user chooses, never one the app imposes.
+                    // A self-chosen constraint gets respected; the same
+                    // constraint applied to someone is resented, and resentment
+                    // is what uninstalls the app.
+                    VStack(alignment: .leading, spacing: SleepSpacing.xs) {
+                        HStack(spacing: SleepSpacing.md) {
+                            GlassRowIcon(icon: "lock.shield.fill")
+                            Toggle(isOn: $hardMode) {
+                                Text("Hard mode")
+                                    .font(SleepFont.body(16))
+                                    .foregroundStyle(SleepColor.ink)
                             }
+                            .tint(SleepColor.amber)
+                        }
+                        Text("No snooze, and the 10-minute unlock takes 3 minutes to open.")
+                            .font(SleepFont.body(13))
+                            .foregroundStyle(SleepColor.muted)
+                            .padding(.leading, 52)
                     }
                     .padding(.vertical, SleepSpacing.md)
-                    .frame(minHeight: 52)
+                    .onChange(of: hardMode) { _, on in
+                        Haptics.heavy()
+                        store.setHardMode(on)
+                    }
+
+                    // There was an "Unlock anyway after Nh" stepper here. It
+                    // is gone, not moved: a block that expires on its own is
+                    // not a block, and the hour it expired at was always the
+                    // hour the user most needed it. The block now lasts as long
+                    // as the session, and the slow door on the shield is the
+                    // way out — a wait you choose, not a clock that runs down
+                    // while you sleep.
                 }
                 .padding(.top, SleepSpacing.xl)
 
@@ -728,7 +742,7 @@ struct BlockedAppsScreen: View {
         .onAppear {
             selection = SleepScreenTime.decodeSelection(store.appSelectionData())
             blockOn = store.blockingEnabled
-            maxHours = store.lockdownMaxHours
+            hardMode = store.profile?.hardMode ?? false
         }
     }
 
@@ -737,5 +751,13 @@ struct BlockedAppsScreen: View {
             apps: selection.applicationTokens.count,
             categories: selection.categoryTokens.count
         )
+    }
+
+    /// "None" reads as a setting left alone; "Not written" says there is
+    /// something here the user hasn't done yet.
+    private var reasonsSummary: String {
+        let count = store.lockReasons.count
+        guard count > 0 else { return "Not written" }
+        return count == 1 ? "1 reason" : "\(count) reasons"
     }
 }

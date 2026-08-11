@@ -21,15 +21,22 @@ review the rhythm of recent nights — using **real data only**.
   email/password), then the same questions as a quick setup on a device with
   no profile. The two paths don't cross-link — you choose on the welcome
   screen.
-- **SleepBlock is a subscription.** Right after the questionnaire commits, a
-  hard paywall (RevenueCat; annual with a 7-day free trial, or monthly) is the
-  only door into the app — placed there deliberately, at the moment of highest
-  intent, when the user has just articulated what breaks their sleep and which
-  apps eat their night. The paywall answers with those exact apps. There is no
-  free tier: a behavior-change app has to let people *feel* the fix, so the
-  trial gives the whole product for a week rather than a crippled subset
-  forever. (An unconfigured build — no RevenueCat key — runs without the
-  paywall for development.)
+- **SleepBlock is a subscription.** Right after the questionnaire commits, the
+  paywall (RevenueCat; annual with a free trial, or monthly) appears at the
+  moment of highest intent, when the user has just articulated what breaks
+  their sleep and which apps eat their night — the paywall answers with those
+  exact apps. It is a **soft** paywall: a ✕ closes it and the user gets the
+  whole app to look at. What they cannot do without subscribing is **start a
+  night** — the one action the product exists to perform. Everything the app
+  shows is free; everything it does is the subscription. (An unconfigured
+  build — no RevenueCat key — runs unlocked for development.)
+- **Growth is the sleep partner.** The referral and the partner feature are
+  one program: invite a friend to *do this with you* — you see each other's
+  streak and schedule (derived numbers only, mutual consent, either side can
+  unlink) — and the invite carries the economics: they get 30 nights free
+  instead of 7, and their first paid payment gives you a month free (a real
+  App Store renewal extension, capped at six earned months a year). The ask
+  is a relationship, not a coupon.
 - After the paywall, a one-time **Screen Time primer** (a mock of the iOS
   permission dialog with an arrow pointing at Allow) asks for the Family
   Controls authorization that powers app blocking, flowing straight into the
@@ -40,8 +47,11 @@ review the rhythm of recent nights — using **real data only**.
   the top of Profile (which also keeps the toggle), rather than interrupting
   sign-up with a permission sheet.
 - Home is a pure "go to bed" screen: greeting, bedtime countdown, `Sleep Now`,
-  and a last-night summary (duration, color-coded score, streak) — or an honest
-  empty state when nothing has been logged yet.
+  and a last-night summary (duration and streak) — or an honest empty state
+  when nothing has been logged yet. The streak rewards **showing up**, not
+  sleeping well: any night of 30+ minutes keeps it, one missed night leaves it
+  dying (a hollow flame), two in a row resets it. Whether you slept *enough*
+  is the job of the duration hero, the chart, and the target chip.
 - Active sleep mode hides navigation, shows elapsed time, and offers a single
   `Wake up` action.
 - Profile is everything about the user: editable name and account email, a

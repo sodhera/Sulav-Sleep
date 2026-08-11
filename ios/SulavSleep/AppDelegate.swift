@@ -46,12 +46,17 @@ class SleepAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCente
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
+        // A notification tap does **not** go through `onOpenURL` — it arrives
+        // here — so every deep link the app posts to itself has to be routed
+        // twice. The host travels as the notification's object and the scene
+        // does the routing, so the two paths stay one switch.
         let userInfo = response.notification.request.content.userInfo
         if let urlString = userInfo["url"] as? String,
            let url = URL(string: urlString),
-           url.scheme == "sleepblock", url.host == "sleep" {
-            AppLog.app.info("Notification tapped with sleepblock://sleep")
-            NotificationCenter.default.post(name: .sleepConfirmationRequested, object: nil)
+           url.scheme == "sleepblock",
+           let host = url.host {
+            AppLog.app.info("Notification tapped with sleepblock://\(host, privacy: .public)")
+            NotificationCenter.default.post(name: .sleepDeepLinkRequested, object: host)
         }
         completionHandler()
     }
@@ -98,15 +103,30 @@ struct SulavSleepApp: App {
                     store.reload()
                     Task { await store.refreshHealthIfEnabled() }
                     Task { await store.checkAppUpdateGate() }
+                    Task { await store.refreshReferral() }
                 }
                 .onOpenURL { url in
                     // sleepblock://sleep arrives from the widget capsule and
-                    // the shield action extension. (sleepblock://signin, from
-                    // the widget's signed-out capsule, needs no handling:
-                    // opening the app is enough — RootView lands on welcome.)
-                    guard url.scheme == "sleepblock", url.host == "sleep" else { return }
-                    AppLog.app.info("Opened via sleepblock://sleep URL")
-                    openSleepConfirmation()
+                    // the shield action extension. sleepblock://tonight comes
+                    // from the evening check-in notification.
+                    // (sleepblock://signin, from the widget's signed-out
+                    // capsule, needs no handling: opening the app is enough —
+                    // RootView lands on welcome.)
+                    guard url.scheme == "sleepblock", let host = url.host else { return }
+                    AppLog.app.info("Opened via sleepblock://\(host, privacy: .public) URL")
+                    // sleepblock://partner/<token> — a tapped sleep-partner
+                    // invite link. The token is the first path component; the
+                    // store applies it now or after the tapper signs in.
+                    if host == "partner", let token = url.pathComponents.first(where: { $0 != "/" }) {
+                        store.handlePartnerInviteToken(token)
+                        return
+                    }
+                    route(host)
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .sleepDeepLinkRequested)) { note in
+                    // The notification-tap half of the same links.
+                    guard let host = note.object as? String else { return }
+                    route(host)
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .sleepConfirmationRequested)) { _ in
                     // Siri / Shortcuts ("Sleep Now" intent), after the system
@@ -117,6 +137,19 @@ struct SulavSleepApp: App {
         }
     }
 
+    /// The one place a `sleepblock://` host becomes a screen, shared by the
+    /// URL-open and notification-tap paths.
+    private func route(_ host: String) {
+        switch host {
+        case "sleep": openSleepConfirmation()
+        case "tonight": openTonight()
+        case "winddown": openWindDown()
+        // "signin" needs no handling: opening the app is enough, RootView
+        // lands on welcome.
+        default: break
+        }
+    }
+
     /// Every external "sleep" entry point — widget capsule, shield action,
     /// Siri intent — lands here, and none of them starts the session: this
     /// only raises Home's slide-to-sleep confirmation, because the slide
@@ -124,14 +157,41 @@ struct SulavSleepApp: App {
     /// requests do nothing (RootView is already showing welcome or
     /// SleepModeView).
     private func openSleepConfirmation() {
-        // `needsPaywall` also stands the deep links down: while the hard
-        // paywall is up, Home isn't mounted, so raising the confirmation
-        // would open the app on a control the user can't reach.
-        guard store.activeSession == nil, store.isAuthenticated, store.isOnboarded, !store.needsPaywall else { return }
+        guard store.activeSession == nil, store.isAuthenticated, store.isOnboarded else { return }
+        // A locked user asking to sleep — from the widget, the shield, or
+        // Siri — gets the paywall, not silence. These are the app's back
+        // doors into `startSleep`, so leaving them to fall through would
+        // make the Siri intent a way around the subscription; standing them
+        // down without a word would be the older, ruder bug.
+        guard !store.presentPaywallIfLocked() else { return }
         Haptics.soft()
         store.selectedTab = .home
         withAnimation(.easeInOut(duration: 0.3)) {
             store.showSleepConfirmation = true
+        }
+    }
+
+    /// The evening check-in, an hour before bedtime. Gated the same way as the
+    /// sleep confirmation — and additionally stood down once a session is
+    /// running, since there is nothing left to commit to.
+    private func openTonight() {
+        guard store.activeSession == nil, store.isAuthenticated, store.isOnboarded else { return }
+        guard !store.presentPaywallIfLocked() else { return }
+        Haptics.soft()
+        store.selectedTab = .home
+        store.showTonightCheckIn = true
+    }
+
+    /// The wind-down, from `sleepblock://winddown` — chiefly the notification
+    /// that fires when a snooze runs out, which reaches someone at the moment
+    /// they are most adrift and least ready to be told to sleep.
+    private func openWindDown() {
+        guard store.activeSession == nil, store.isAuthenticated, store.isOnboarded else { return }
+        guard !store.presentPaywallIfLocked() else { return }
+        Haptics.soft()
+        store.selectedTab = .home
+        withAnimation(.easeInOut(duration: 0.3)) {
+            store.showWindDown = true
         }
     }
 }

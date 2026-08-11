@@ -22,27 +22,14 @@ import UserNotifications
 
 class ShieldActionHandler: ShieldActionDelegate {
 
-    /// App Group constants — hardcoded because this extension target does not
-    /// include `SleepLockdownShared.swift`. Keep in sync with
-    /// `SleepLockdownSelection`.
-    private static let appGroup = "group.com.sulav.sleepblock"
-    private static let phaseKey = "sulav.lock.phase"
-    private static let selectionKey = "sulav.lock.selection.v1"
-    private static let snoozeUntilKey = "sulav.lock.snoozeUntil"
-    private static let snoozeCountKey = "sulav.lock.snoozeCount"
-    private static let snoozeLimit = 2
-    private static let snoozeMinutes = 5
+    /// The one DeviceActivity name this target needs. Hardcoded rather than
+    /// read from `SleepLockdownShared.swift`, which would pull FamilyControls
+    /// into the extension; the App Group keys all come from
+    /// `SleepLockdownKeys.swift`, which this target does compile.
     private static let snoozeActivity = DeviceActivityName("sulav.sleep.snooze")
 
-    private static var groupDefaults: UserDefaults? { UserDefaults(suiteName: appGroup) }
-
     private var isPresleep: Bool {
-        let raw = Self.groupDefaults?.string(forKey: Self.phaseKey)
-        return raw == "presleep"
-    }
-
-    private var snoozeAvailable: Bool {
-        (Self.groupDefaults?.integer(forKey: Self.snoozeCountKey) ?? 0) < Self.snoozeLimit
+        SleepLockdownSelection.currentPhase() == .presleep
     }
 
     override func handle(action: ShieldAction,
@@ -75,12 +62,20 @@ class ShieldActionHandler: ShieldActionDelegate {
             completionHandler(.close)
 
         case .secondaryButtonPressed:
-            // Presleep only. The active-phase shield has no secondary button:
-            // snoozing out of a session the user deliberately started would
-            // make lockdown meaningless, and `lockdownMaxHours` is already the
-            // sanctioned way out of one.
-            if isPresleep, snoozeAvailable {
+            // What the secondary button *means* is resolved in one shared
+            // place, so the label the user read and the action they get can't
+            // drift apart.
+            switch SleepLockdownSelection.currentEscape() {
+            case .snooze:
                 grantSnooze()
+            case .doorClosed:
+                // Costs nothing but starts the clock. The wait is the whole
+                // mechanism: most people never come back for the second tap.
+                SleepLockdownSelection.requestDoor()
+            case .doorWaiting:
+                break   // still waiting; the label already said so
+            case .doorReady:
+                openDoor()
             }
             completionHandler(.close)
 
@@ -102,18 +97,29 @@ class ShieldActionHandler: ShieldActionDelegate {
     /// (the usage-threshold event, the app's foreground check) live elsewhere;
     /// what happens here is best-effort on top of them.
     private func grantSnooze() {
-        let defaults = Self.groupDefaults
-        let spent = defaults?.integer(forKey: Self.snoozeCountKey) ?? 0
-        let until = Date().addingTimeInterval(Double(Self.snoozeMinutes) * 60)
-        defaults?.set(spent + 1, forKey: Self.snoozeCountKey)
-        defaults?.set(until.timeIntervalSince1970, forKey: Self.snoozeUntilKey)
+        let until = SleepLockdownSelection.consumeSnooze()
+        lift(until: until)
+        postSnoozeEndNotification(at: until, title: "Five minutes are up")
+    }
 
+    /// Opens the slow door: the user asked, waited out the delay, and came
+    /// back. Unlike the snooze this is *not* rationed per night — it is the
+    /// exit that must always exist, because the alternative someone reaches for
+    /// when no exit exists is deleting the app. It costs the wait every time,
+    /// which is what keeps it from becoming a plain off switch.
+    private func openDoor() {
+        let until = SleepLockdownSelection.openDoor()
+        lift(until: until)
+        postSnoozeEndNotification(at: until, title: "Your \(SleepLockdownSelection.doorMinutes) minutes are up")
+    }
+
+    /// Drops the shield and arranges every way we have of putting it back.
+    private func lift(until: Date) {
         let store = ManagedSettingsStore()
         store.shield.applications = nil
         store.shield.applicationCategories = nil
 
         scheduleReArm(at: until)
-        postSnoozeEndNotification(at: until)
     }
 
     /// Best-effort wall-clock re-arm, for the snooze that gets put down rather
@@ -155,12 +161,18 @@ class ShieldActionHandler: ShieldActionDelegate {
     /// The one link that reaches someone who is still scrolling: local
     /// notifications are scheduled by the system, so this survives the
     /// extension being killed a moment from now.
-    private func postSnoozeEndNotification(at date: Date) {
+    private func postSnoozeEndNotification(at date: Date, title: String) {
         let content = UNMutableNotificationContent()
-        content.title = "Five minutes are up"
-        content.body = "Time to put it down. Tap to start your sleep session."
+        content.title = title
+        // Lands on the wind-down, not the slide-to-sleep commitment. Someone
+        // whose snooze just ran out is, by definition, not ready to sleep —
+        // that is why they spent the snooze — so asking them to commit to a
+        // whole night is the wrong-sized ask, and the easy refusal sends them
+        // straight back to the app they were in. Two minutes of breathing is a
+        // much easier yes, and it ends one tap from the real thing.
+        content.body = "Two minutes to wind down?"
         content.sound = .default
-        content.userInfo = ["url": "sleepblock://sleep"]
+        content.userInfo = ["url": "sleepblock://winddown"]
 
         let delay = max(1, date.timeIntervalSinceNow)
         let request = UNNotificationRequest(

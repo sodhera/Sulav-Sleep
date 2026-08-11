@@ -743,17 +743,26 @@ private struct LargeSleepView: View {
                     // longest string in the header for the least information —
                     // a flame beside a number already reads as a streak, and
                     // the words only crowded the kicker's opposite corner.
+                    //
+                    // A dying streak hollows the flame and drops it to muted,
+                    // the same swap Home makes. Nothing else moves, so the
+                    // header doesn't reflow on the day it happens.
+                    let dying = summary.streakIsDying == true
                     HStack(spacing: 4) {
-                        Image(systemName: "flame.fill")
+                        Image(systemName: dying ? "flame" : "flame.fill")
                             .font(.system(size: 10))
-                            .foregroundStyle(SleepColor.gold)
+                            .foregroundStyle(dying ? SleepColor.muted : SleepColor.gold)
                         Text("\(summary.streak)")
                             .font(SleepFont.body(12))
-                            .foregroundStyle(SleepColor.dim)
+                            .foregroundStyle(dying ? SleepColor.muted : SleepColor.dim)
                             .monospacedDigit()
                     }
                     .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("\(summary.streak) nights on track")
+                    .accessibilityLabel(
+                        dying
+                            ? "\(summary.streak) night streak, ending tonight unless you log sleep"
+                            : "\(summary.streak) night streak"
+                    )
                 }
             }
 
@@ -1288,6 +1297,7 @@ extension SleepWidgetSummary {
             wakeMinutes: 7 * 60,
             asleepSince: nil,
             isSignedIn: true,
+            streakIsDying: false,
             updated: now
         )
     }

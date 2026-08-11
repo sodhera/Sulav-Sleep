@@ -52,10 +52,44 @@ xcrun simctl launch booted com.sulav.sleepblock -review-subscription
 Like `-review-paywall`, the arg is compiled only under `DEBUG`. Against a real
 RevenueCat key the status is live, so the arg is ignored (dev mode only).
 
+### Preview the Sleep Partners screen
+
+The partners list (Home top-right `person.2` button) needs real
+partnerships to render, so a DEBUG-only launch argument injects sample
+partners (and a referral code, `SLPX7K`):
+
+```sh
+xcrun simctl launch booted com.sulav.sleepblock -review-partner many
+```
+
+Variants: `many` (Maya/Jordan/Sam with summary numbers, the default),
+`one` (a single partner — the case the expiry headline and ending nudge
+name by name). Open the screen from Home's partner button.
+
+### Preview the free-nights expiry mechanics
+
+Both ends of the referral free-nights window are impossible to stage in
+dev mode (no RevenueCat key ⇒ everyone entitled ⇒ never locked), so two
+DEBUG args inject a lapsing/lapsed grant with a 12-night streak and a
+partner ("Maya"):
+
+```sh
+xcrun simctl launch booted com.sulav.sleepblock -review-referral-nudge
+```
+
+`-review-referral-nudge` lands in the app with **2 free nights left**, so
+Profile shows the ending nudge. `-review-referral-expiry` forces the
+paywall past a **lapsed** grant, so the headline reads the streak-aware
+expiry line. Both set `entitlement = .notEntitled` for the run and make
+`refreshReferral` leave the injected state alone. Caveat: the expiry arg
+**persists sample nights** to the simulator's store (the scene-active
+`reload()` would otherwise wipe them) — delete the app from the sim to
+clear them afterward.
+
 ### Preview the Screen Time primer
 
 The permission primer (`ScreenTimePrimerView` — the mock-dialog gate between
-the paywall and Main) never fires on the simulator, where Family Controls
+the paywall and Main, shown to subscribers only) never fires on the simulator, where Family Controls
 reports `.unavailable`. A DEBUG-only launch argument renders it
 deterministically:
 
@@ -387,10 +421,11 @@ target can inject fakes without new hooks.
   that keeps Apple Health out of onboarding). The answer personalizes the
   paywall's lock line; the real lockdown selection is still made on the
   Blocked apps screen.
-- **SleepBlock is a subscription app.** After onboarding, a hard paywall (see
-  "Subscription (RevenueCat)") stands between the questionnaire and Main.
+- **SleepBlock is a subscription app.** After onboarding, the paywall (see
+  "Subscription (RevenueCat)") closes the questionnaire. Its ✕ leads into the
+  app; starting a night is what stays locked.
 - **The Screen Time primer** (`ScreenTimePrimerView`, SleepScreenTime.swift)
-  is the last gate before Main once the entitlement resolves: a mock of the
+  is the last gate before Main for a *subscribed* user: a mock of the
   iOS permission dialog with an amber "Tap Allow" arrow, whose CTA fires the
   real `AuthorizationCenter` request and, when granted, chains straight into
   the `FamilyActivityPicker`. One-shot **per install** — the seen-marker
@@ -410,8 +445,7 @@ target can inject fakes without new hooks.
 - `Sleep Now` writes an active session; `Wake up` logs the duration, clears
   active, and (if Health is connected) writes the night to Apple Health.
   Duration is the app's only metric — the 0–100 sleep score is retired
-  (old records' `score` keys are ignored on decode; "on track" for the
-  streak now means ≥85% of the sleep target).
+  (old records' `score` keys are ignored on decode).
 - Profile/Home show a deduplicated merge of local + Health nights.
 - **Sleep days.** A night belongs to **the day you woke up** — `SleepMerge.key`
   is `startOfDay(session.end)`, so a Fri 23:00 → Sat 07:00 night is Saturday's.
@@ -431,11 +465,51 @@ target can inject fakes without new hooks.
   two genuinely different events, and it failed when the night was local and
   the nap came from Health. Every display surface inherits this invariant —
   none of them dedupe again.
-- `onTrackStreak` counts consecutive on-track nights on *consecutive sleep
-  days*, and the run must reach today or yesterday to still be live (yesterday
-  because tonight's sleep hasn't happened yet). Before the day check it counted
-  qualifying records regardless of gaps, so a good night in June plus a good
-  night in July read as a streak of 2.
+
+### The streak (`SleepStreak.swift`)
+
+`SleepStore.streak` returns a `SleepStreak` (a count plus `.alive` / `.dying`),
+replacing the old `onTrackStreak: Int`. The rule:
+
+- **A night counts** at `SleepStreakRule.minimumNightMinutes` (30) or more.
+  Not the old ≥85%-of-target bar — see [DESIGN.md](../DESIGN.md#the-streak)
+  for why that bar made the flame unreachable for the app's core user.
+- **Miss one due night** → `.dying` (count unchanged, run alive). **Miss two in
+  a row** → reset to zero. The same rule applies at the head of the run and to
+  interior gaps; there is no separate case.
+- **A day is only "due"** once its wake time plus `dueGraceMinutes` (120) has
+  passed. Before that it is *pending*, not missed. This is what stops every
+  user seeing a dying streak every evening, since sleep days are keyed by the
+  morning you woke and today's night hasn't happened yet. With no wake time on
+  file (signed out, pre-onboarding), today is never judged.
+- **Never persisted.** Recomputed from `displaySessions` on every read, so a
+  Health night that syncs late fills its own gap and revives the run. A stored
+  counter would have been zeroed permanently — this matters far more under a
+  hard reset than it did under the old forgiving rule.
+
+`SleepStreak.swift` is deliberately **dependency-free** (Foundation only, no
+SwiftUI, no `SleepSession`) so it compiles standalone. That is what lets
+`scripts/test-streak.sh` compile it with
+`ios/SulavSleepTests/SleepStreakTests.swift` into a plain executable and run
+25 assertions in ~2s, with no Xcode test target and no simulator:
+
+```bash
+./scripts/test-streak.sh
+```
+
+Keep that file free of app types and the tests keep running. `SleepStore`
+holds the only adapter (qualifying sessions → sleep-day keys → the rule).
+
+> Note on history: the previous rule skipped misses with an allowance of
+> `1 + streak / 7`. It also carried a bug — the allowance was guarded by
+> `streak > 0`, never true on the first day examined, so the most recent day
+> could never be forgiven: a short night today zeroed a 40-night flame while
+> logging *nothing at all* preserved it, and the flame then sprang back the
+> next day. `mostRecentDayIsForgivable()` in the test suite is the regression
+> guard.
+- The streak walks *consecutive sleep days*, not the session list. Before that
+  day check existed it counted qualifying records regardless of gaps, so a good
+  night in June plus a good night in July read as a streak of 2.
 - Schedule/name edits persist immediately. There is no in-app "reset all data"
   action — sign out is the only account-level exit, and it keeps the local
   profile so signing back in skips the questionnaire.
@@ -939,11 +1013,40 @@ path, and a published contact — see the note in `DESIGN.md`.
 
 ## Subscription (RevenueCat)
 
-SleepBlock is a subscription app with a **hard paywall + free trial**: after
-the sign-up questionnaire commits (or a returning unsubscribed user signs in),
-`RootView` shows `PaywallView` instead of Main — no ✕, no skip. The primary
-action starts the App Store free-trial intro offer on the annual plan;
-starting the trial or subscribing is the only way in.
+SleepBlock is a subscription app with a **soft paywall around one action**.
+After the sign-up questionnaire commits (or a returning unsubscribed user
+signs in), `RootView` shows `PaywallView` instead of Main — but it carries a
+✕. Closing it drops the user into the full app; what stays locked is
+**starting a night**. Everything the app *shows* is free, everything it
+*does* is the subscription.
+
+Two states, easy to confuse — keep them straight:
+
+| | meaning | drives |
+|---|---|---|
+| `SleepStore.isLocked` | signed in + onboarded + *resolved* not-entitled, no offline grace | the lock on `startSleep` and every path to it; hides the Screen Time primer |
+| `SleepStore.needsPaywall` | `isLocked` **and** this install has never closed the paywall | the first-run full-screen route in `RootView` |
+| `SleepStore.showPaywall` | someone reached for the lock | the dismissible `fullScreenCover` over Main |
+
+The lock's enforcement points, all funnelling through
+`presentPaywallIfLocked()` so the paywall always explains itself rather than
+a control going dead:
+
+- `HomeView` — Sleep Now raises the paywall instead of the confirmation panel.
+- `AppDelegate` — the `sleepblock://sleep`, `://tonight` and `://winddown`
+  deep links (widget capsule, shield action, Siri `StartSleepIntent`,
+  bedtime notifications). These previously *stood down* silently under the
+  hard paywall; now they sell. Miss one of these and the Siri intent becomes
+  a way around the subscription.
+- `SleepStore.startSleep()` — a final guard, so a future caller that forgets
+  to ask still can't start a night.
+
+Dismissing the first-run paywall is remembered per install
+(`sulav.paywallDismissed.v1`, alongside the Screen Time primer marker — not
+cleared by `reset()`, since signing out is no reason to re-wall someone).
+After that the plans are reachable from Sleep Now and from the "Unlock
+SleepBlock" row that replaces the Subscription group in Settings while
+locked.
 
 Code map (all behind the app's usual protocol seam):
 
@@ -958,12 +1061,17 @@ Code map (all behind the app's usual protocol seam):
   App Store management sheet (`manageSubscriptions` → `showManageSubscriptions`),
   and links the RevenueCat identity to the Supabase account id on sign-in/out
   (`logIn`/`logOut`) so a subscription follows the user across devices.
-- `SleepStore` — `entitlement`, `subscriptionStatus`, `needsPaywall` (signed
-  in + onboarded + *resolved* not-entitled), and `fetchPlans`/`purchase`/
-  `restorePurchases`/`manageSubscriptions` intents.
-- `PaywallView.swift` — the screen (see DESIGN.md "Paywall").
+- `SleepStore` — `entitlement`, `subscriptionStatus`, the three gate values
+  in the table above, `dismissPaywall()`/`presentPaywallIfLocked()`, and the
+  `fetchPlans`/`purchase`/`restorePurchases`/`manageSubscriptions` intents.
+- `PaywallView.swift` — the screen (see DESIGN.md "Paywall"). Takes an
+  `onClose` closure, because the two presentations close differently: the
+  first-run route records the dismissal, the cover over Main just lowers
+  itself. A successful purchase or restore calls it too — otherwise the
+  cover stays parked over the app the user just paid for.
 - `ProfileView.swift` — the **Subscription** group in `SettingsModal`
-  (`SubscriptionStatusRow` + Manage subscription), hidden when
+  (`SubscriptionStatusRow` + Manage subscription), replaced by an "Unlock
+  SleepBlock" row while `isLocked`, and hidden entirely when
   `subscriptionStatus` is nil (dev mode / unresolved). See DESIGN.md
   "Navigation & structure".
 - `scripts/generate-subscription-icon.py` — generates the status row's
@@ -977,7 +1085,9 @@ Code map (all behind the app's usual protocol seam):
   Main; locking a paying user out over a network hiccup is worse than one
   free session. The sleep-mode overlay outranks the paywall, so an active
   night's wake/cancel (and the Screen Time shield teardown) stay reachable
-  regardless of subscription state.
+  regardless of subscription state. `.unknown` also means **not** locked, so
+  an offline subscriber whose entitlement hasn't resolved can still start a
+  night — the same fail-open bias as the route.
 
 Configuration — the same plumbing as the Supabase keys:
 
@@ -1025,7 +1135,7 @@ lowercases it explicitly. RevenueCat treats the App User ID as an opaque,
 case-sensitive string: without that call the SDK identifies as
 `AADE23E7-…` while the dashboard customer is `aade23e7-…`, silently forking
 every account into two customer records. The symptom is a granted entitlement
-that never reaches the device — the user sits on the hard paywall while the
+that never reaches the device — the user is held out of Sleep Now while the
 dashboard insists they are `Active`.
 
 To check what a Simulator build is actually identifying as, read the SDK's
@@ -1053,6 +1163,69 @@ cloud-migration marker, both comparisons are case-insensitive — an install
 predating the lowercasing holds the uppercase id, and an exact compare would
 read the same user as a different one and wipe their local profile and
 nights on first launch after upgrading.
+
+## Referral & sleep partner
+
+**Two separate features** (full spec + decision log:
+`docs/roadmap-partner-referral.md`), decoupled deliberately:
+
+- **Referral** — a growth code. A new friend redeems it for **30 free
+  nights**; their **first paid payment** banks you a **free month**
+  (a real App Store renewal extension). No relationship, no data shared.
+- **Sleep partner** — a mutual relationship built by a **partner invite
+  link** (`sleepblock://partner/<token>`), unrelated to any code and open
+  to anyone regardless of subscription. Both sides see each other's
+  streak/schedule/average. Multiple partners, capped at 10.
+
+Redeeming a referral does **not** make you partners (migration 006
+severed that). Referring a coworker never shares your sleep.
+
+Code map:
+
+- `supabase/migrations/005_…` — the base tables + RLS. The only
+  cross-account read in the database is a confirmed partner reading the
+  other's `partner_summaries` (derived numbers, never raw sessions).
+- `supabase/migrations/006_partner_invites.sql` — the decoupling:
+  `partner_invites` (one-time, 7-day tokens), `create_partner_invite()` /
+  `accept_partner_invite()` (auto-confirm both sides, cap 10, copy names),
+  and drops the old single-slot `confirm/decline` RPCs.
+- `supabase/functions/redeem-referral` — writes a redemption
+  (server-dated `free_until`) and nothing else (no partnership).
+- `supabase/functions/revenuecat-webhook` — conversion → banked reward
+  (180d/365 cap), refund → void, opportunistic App Store Server API
+  extension (`extendSubscriptionRenewalDate`, ≤90d/call, 2/yr). No cron.
+- `SleepReferral.swift` — the protocol seam (`ReferralSyncing`): referral
+  (`myCode`/`redeem`/`myStanding`) plus partners (`partners`,
+  `createPartnerInvite`, `acceptPartnerInvite`, `unlinkPartnership`). Dev
+  mode hides every surface.
+- `SleepStore` — `referralFreeUntil` (the lock's third exemption via
+  `isWithinReferralNights`), `partners: [PartnerLink]`, `showPartners`,
+  `handlePartnerInviteToken` (accept now / stash until sign-in),
+  `pushPartnerSummary()` only while the user has partners.
+- `AppDelegate` — routes `sleepblock://partner/<token>` to the store.
+- `SleepPartnerView.swift` — `SleepPartnersScreen` (the list, add-partner
+  ShareLink, unlink), plus the pure-referral `InviteFriendScreen` and
+  `ReferralRedeemSheet`. `HomeView` carries the partner button;
+  `RootView` presents the partners sheet.
+
+One-time external setup (none of this ships in code):
+
+1. Run migrations 005 **and 006**; `supabase functions deploy
+   redeem-referral revenuecat-webhook`.
+2. `supabase secrets set REVENUECAT_WEBHOOK_TOKEN=… REVENUECAT_SECRET_KEY=…
+   ASC_ISSUER_ID=… ASC_KEY_ID=… ASC_PRIVATE_KEY="$(cat key.p8)"
+   APP_BUNDLE_ID=com.sulav.sleepblock` (the ASC key is an App Store
+   Connect **In-App Purchase** key).
+3. RevenueCat dashboard → Integrations → Webhooks → add
+   `…/functions/v1/revenuecat-webhook` with the same Authorization token.
+
+Until migration 006 lands, the partner invite/accept RPCs don't exist, so
+adding a partner fails politely; referral still works off 005.
+
+Fraud posture: referral rewards trigger only on a *paid* transaction, one
+redemption per account (PK), self-redeem rejected, refunds void rewards,
+180/365 cap. Partner invites are single-use, 7-day-expiring, self-invite
+rejected, capped at 10, and unlinkable instantly by either side.
 
 ## HealthKit
 
@@ -1260,41 +1433,155 @@ nights on first launch after upgrading.
   touches `snoozeCount` — resetting the spent count there would hand out an
   unlimited supply.
 
-- **"Unlock anyway after Nh"** (`Profile.lockdownMaxHours`, default 6) — the
-  safety valve for the morning where the app is never reopened to tap wake. It
-  is `sleepCapActivityName`: a one-shot DeviceActivity whose *interval start*,
-  N hours after the user taps Sleep Now, runs the monitor's `clearShield()`. Its
-  interval end is a no-op (the `intervalDidEnd` guard admits only
-  `sleepActivityName`); the 20-minute tail is just DeviceActivity's 15-minute
-  interval floor, and the components carry the full date for the same
-  `repeats: false` reason as the snooze re-arm.
+- **The lockdown ends with the session, not with a clock.** Once the shield is
+  up for a session (`phase == .active`), the *only* things that take it down
+  are `wakeUp()` and `cancelSleep()` — both of which run `endLockdown()`. No
+  timer lifts it. A block that expires on its own stops being a block at
+  exactly the hour it is most needed: someone who tapped Sleep Now at 11pm and
+  reached for the phone at 3am used to find the apps open again.
 
-  Anchored to the **session**, not to bedtime, and armed by
-  `startLockdown(maxHours:)` — from the app, in the foreground, the one moment
-  scheduling reliably sticks. Session-anchored because the shield can be applied
-  outside the bedtime→wake window (an afternoon nap), and there no
-  `intervalDidEnd` is coming for hours; that is exactly the runaway the cap
-  exists to stop. Retired by `endLockdown()` and by the monitor's
-  `clearShield()`, so a stale cap can't fire partway through a later night.
+  The monitor funnels **every** timed path through
+  `endWindowUnlessSleeping()`, which clears only when the phase is not
+  `.active`:
 
-  It was previously a `DeviceActivityEvent` on `sleepActivityName` with
-  `threshold: DateComponents(hour: maxHours)` — and it could never fire, for the
-  same reason the snooze threshold *does*: shielded apps accrue no screen time,
-  so the meter sat near zero all night. `sleepEventName` is no longer registered;
-  the monitor still answers it so installs that armed it before the fix behave
-  sanely until something naturally reschedules the window.
+  - `intervalDidEnd(sleepActivityName)` — wake time.
+  - `intervalDidStart(sleepCapActivityName)` — a legacy cap (see below).
+  - `eventDidReachThreshold(sleepEventName)` — an even older legacy threshold.
 
-  Consequence worth knowing: the cap now genuinely bites. With the default 6h
-  and a longer bedtime→wake window, the shield lifts 6h after Sleep Now rather
-  than at wake time. That is what the stepper has always promised ("lifts it
-  early if the cap is reached"), but it is new *behaviour* — before the fix the
-  shield always ran to wake time.
+  The phase is the whole test, because the monitor is sandboxed and cannot see
+  the app's `activeSession`; `.active` is written by `startLockdown()` at Sleep
+  Now and cleared by `endLockdown()`, so it means exactly "a session is
+  running" from out there.
 
-  `setLockdownMaxHours` deliberately does **not** reschedule the bedtime window
-  any more: the window no longer depends on the cap, and re-registering
-  `sleepActivityName` mid-night would re-fire `intervalDidStart` →
-  `applyShield()` → `resetSnoozes()`, quietly handing out a fresh snooze
-  allowance. A changed cap applies to the next session.
+  **`.presleep` still clears at wake time**, and must. That is the window that
+  shielded at bedtime and was never slept through — there is no session to
+  finish, so nothing else on any schedule would ever lift it, and the user
+  would be locked out of their apps indefinitely for the crime of not using the
+  app that night.
+
+  The way out during a session is the **slow door** on the shield itself — a
+  wait the user chooses, every time — not a clock that runs down while they
+  sleep.
+
+- **Retired: the "Unlock anyway after Nh" cap** (`Profile.lockdownMaxHours`,
+  the stepper on the Blocked apps screen, and `setLockdownMaxHours`). All
+  removed. `sleepCapActivityName` survives as a name only, for migration:
+  `startLockdown()` and `endLockdown()` both `stopMonitoring` it, so a cap
+  armed by an older build is retired on the next Sleep Now or the next wake,
+  and if one fires first the monitor answers it through
+  `endWindowUnlessSleeping()` and cannot cut a running session short.
+
+  Two earlier shapes are worth knowing, because both left traces. It began as a
+  `DeviceActivityEvent` on `sleepActivityName` with
+  `threshold: DateComponents(hour:)`, which could never fire, for the same
+  reason the snooze threshold *does*: shielded apps accrue no screen time, so
+  the meter sat near zero all night. It then became a wall-clock one-shot
+  activity armed at Sleep Now, which fired reliably — and that is the version
+  this change removes. `sleepEventName` and `sleepCapActivityName` are both
+  still answered by the monitor for installs that armed them.
+
+- **The shield's countdown stops at the alarm** (`minutesUntilWakeTonight`).
+  `minutesUntilWake` wraps to tomorrow's alarm the moment this morning's goes
+  by — correct for scheduling, wrong on a shield. Now that a session can outlive
+  its wake time, that state is reachable, and it rendered a ten-minute lie-in as
+  "23h 50m until your alarm". `minutesUntilWakeTonight` returns nil outside the
+  bedtime→wake window, and the shield falls back to its written title, whose
+  subtitle already says the honest thing: asleep until you wake.
+
+- **Mid-window edits are held, not applied** (`rescheduleLockdown`). The lock's
+  own settings used to be live-editable while the lock was in force, which made
+  the shield escapable from the UI. The exploit window is the **pre-sleep**
+  phase: the shield is up but there is no `activeSession`, so `RootView` hands
+  the user the full app, Profile included. Two ways out, both through sanctioned
+  code paths:
+
+  1. `saveSchedule` rescheduled immediately, so moving wake time to a few
+     minutes out made the monitor's `intervalDidEnd` fire and `clearShield()`
+     for the rest of the night.
+  2. *Any* save re-registered `sleepActivityName` mid-window, re-firing
+     `intervalDidStart` → `resetSnoozes()`. Nudge bedtime by a minute, save,
+     collect two more "5 more minutes", repeat — an unlimited supply.
+
+  `rescheduleLockdown` now refuses to register while the window is running and
+  `reload()` (every foreground) retries, so a held change lands once the window
+  closes. The retry is unconditional and idempotent — it self-defers — so there
+  is no flag to persist and nothing is lost if the app is killed in between.
+
+  Deferral keys off **both** `currentPhase() != nil` and `isInsideLockdownWindow`.
+  The phase alone misses a real gap: waking before wake time clears the phase
+  while the clock is still inside the window, and re-registering there would
+  re-fire `intervalDidStart` and put the shield straight back — silently undoing
+  the wake the user just performed.
+
+  Second lock on the same door: the monitor calls
+  `resetSnoozesForNewWindow()` instead of `resetSnoozes()`. The allowance is
+  keyed to the window's start date (`snoozeWindowKey`) rather than to the fact of
+  `intervalDidStart` firing, which is *not* once-per-night. `windowStart` looks
+  back a day when today's bedtime hasn't passed yet, so one midnight-crossing
+  night yields one anchor from either side of 00:00. With no mirrored bedtime to
+  identify a window it falls back to resetting — the forgiving direction.
+
+  Not yet closed, and deliberately out of scope here: `setBlockingEnabled(false)`
+  and clearing the app selection still call `endLockdown()` outright. Closing
+  those is the staged-edit ("only tightens") work — see the roadmap.
+
+- **The slow door** (`SleepLockdownSelection.doorRequestedKey`). An
+  always-available exit that costs 60 seconds (180 in hard mode) rather than
+  being refused. First tap writes a timestamp and unlocks nothing; the shield
+  rendered on the user's *next* attempt offers the real unlock, good for 10
+  minutes.
+
+  Two steps by necessity as much as design: a shield action extension is torn
+  down the instant it answers a tap and cannot run a timer, but
+  `ShieldConfigProvider` is asked for a fresh configuration on every attempt —
+  so the user's own second attempt is the clock. No new activity to register.
+
+  It lapses through the same layers as a snooze: `reapplyAfterSnooze` in the
+  monitor (which now clears the door too) and
+  `reapplyShieldIfSnoozeExpired` on app foreground, both keyed off
+  `doorHasExpired()`. It re-uses `sleepSnoozeActivityName` for the wall-clock
+  re-arm — same shape of grant, same corrective action, one fewer thing to lose.
+
+  Unlike the snooze it is **not rationed**: an exit that can be exhausted is a
+  dead end with extra steps, and the exit someone takes from a dead end is
+  deleting the app — which takes the blocking with it, permanently. The wait is
+  what keeps it from being a plain off switch.
+
+  `currentEscape()` is the single resolver for what the secondary button means,
+  read by both the extension that draws the label and the one that answers the
+  tap, so the two can't disagree.
+
+- **Reach attempts.** `ShieldConfigProvider.makeConfig` calls `recordReach()`,
+  appending a timestamp to the App Group log (debounced 5s — the system can ask
+  for a configuration more than once per launch, and an inflated count would
+  make the morning mirror a lie; capped at 500 entries so a jetsam-constrained
+  extension can't grow it without bound).
+
+  The extension can only append — it has no idea when a night ends — so
+  `SleepStore.harvestReachLog()` does the filing on every foreground, moving
+  closed nights into `reachNights` (local only, 30-night rolling window) and
+  leaving the still-running window's tail in place. The log is cleared when a
+  window *opens*, never when it closes, because the morning mirror reads it
+  long after the shield is gone.
+
+  `lockReasons`, `hardMode` and `reachNights` are deliberately **not** synced to
+  `CloudProfile` — see the note in `SleepStore`. Syncing any of them needs a
+  `supabase/` migration, so it should be a decision, not drift.
+
+- **Deep links are routed twice.** A notification tap arrives at
+  `userNotificationCenter(_:didReceive:)` and does **not** fire `onOpenURL`, so
+  every `sleepblock://` link the app posts to itself needs both paths. The
+  delegate forwards the URL's host as the object of
+  `.sleepDeepLinkRequested`; the scene handles that and `onOpenURL` through one
+  `route(_:)` switch. Getting this wrong is silent — the app opens, the screen
+  never appears — which is exactly what happened when `tonight` and `winddown`
+  were first added alongside a handler hardcoded to `sleep`.
+
+- **Evening check-in.** A repeating `UNCalendarNotificationTrigger` an hour
+  before bedtime (`scheduleEveningCheckIn`, re-registered idempotently on every
+  `reload()` and on `saveSchedule`), carrying `sleepblock://tonight`. Soundless
+  on purpose. Fire-and-forget: a user who denied notifications never sees it,
+  and nothing depends on it arriving.
 - The Shield Action API cannot open the host app, so the pre-sleep "Sleep Now"
   button posts a local notification with the deep link — tapping the
   notification opens the app on the sleep confirmation panel
