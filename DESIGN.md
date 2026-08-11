@@ -1121,12 +1121,12 @@ never share a control or a code.
 
 The referral lives in two quiet places, both pointed at the *growth* code:
 the paywall's "Have a referral code?" link (redeem side) and Settings'
-**Invite a friend** row (share side, a **gift** glyph — never `person.2`,
+**Refer a friend** row (share side, a **gift** glyph — never `person.2`,
 which is the partner button now). The row pushes `InviteFriendScreen`
 (`SubpageHeader` + `SceneScreen`, like every settings sub-page): one
 benefit row — "**30 nights free, for both of you**", detail "Theirs starts
 the night they join. Yours lands when they subscribe." — the code in a
-tracked glass field, one amber **Share invite** button (a `ShareLink`
+tracked glass field, one amber **Share referral** button (a `ShareLink`
 styled like `LiquidPrimaryButton`), and the joined/subscribed count once
 nonzero. The **redeem sheet** (`ReferralRedeemSheet`, `.medium`) is one
 hero-type code field and a CTA; the server does every check and speaks the
