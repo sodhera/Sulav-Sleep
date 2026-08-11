@@ -1103,8 +1103,25 @@ the card's "I have a code" — because it is the same act.
 Settings carries the program's two ledgers: while referral nights run the
 Subscription group shows **Free nights · N left** plus "See the plans"
 (the only voluntary paywall entrance during the grant), and an **Invite**
-group under it holds the share row with a one-line reward caption. In dev
-mode every one of these surfaces hides — the "never fake it" rule.
+group under it holds a single row that pushes `InviteFriendScreen` rather
+than firing the share sheet itself. In dev mode every one of these
+surfaces hides — the "never fake it" rule.
+
+The invite screen is where the row's tap actually lands — a bare settings
+row jumping straight into the system share sheet left the reward
+unexplained at the one moment someone was about to hand it to a friend.
+Same `SubpageHeader` + `SceneScreen` scaffold as every other pushed
+settings page (back chevron, editorial title, transparent scroll over the
+living scene). Under the header: two benefit rows in the app's standard
+icon-chip-plus-copy shape (moon glyph — "They get 30 nights free"; gift
+glyph — "You get a month free"), the code itself in a large tracked glass
+field under a **Your code** kicker, then one full-width amber **Share
+invite** button — a `ShareLink` styled to match `LiquidPrimaryButton`
+rather than wrapped in it, since `ShareLink` has to own the tap that
+presents the system sheet. Below it, the joined/subscribed count appears
+once nonzero (never a zeroed "0 joined"), and the same consent line the
+partner card's confirm state uses closes the screen: "Nothing about your
+sleep is shared until they send a partner request and you confirm it."
 
 Deliberately absent (v1): partner push notifications, multiple partners,
 any free-text between partners. The card is quiet accountability — knowing
