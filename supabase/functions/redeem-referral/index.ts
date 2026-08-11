@@ -118,26 +118,11 @@ Deno.serve(async (req) => {
     return json({ error: "Couldn't redeem the code. Try again in a moment." }, 500);
   }
 
-  // File the partnership request. Best-effort: the unique pair constraint
-  // makes a re-file a no-op, and a failure here must not undo the nights
-  // the user was just told they have. The invitee's name rides on the row
-  // because the summaries table stays unreadable until confirmation.
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("name")
-    .eq("id", user.id)
-    .maybeSingle();
-  const { error: pErr } = await admin.from("partnerships").upsert(
-    {
-      inviter_id: codeRow.user_id,
-      invitee_id: user.id,
-      invitee_name: profile?.name ?? "",
-    },
-    { onConflict: "inviter_id,invitee_id", ignoreDuplicates: true },
-  );
-  if (pErr) {
-    console.error("redeem-referral: partnership file failed", pErr.message);
-  }
-
+  // Referral and partnership are separate features now: redeeming a code is
+  // a pure growth act (free nights + a reward when they subscribe) and does
+  // NOT connect the two accounts. Becoming sleep partners is its own
+  // deliberate step, via a partner invite link — see migration 006 and
+  // docs/roadmap-partner-referral.md. Referring a coworker no longer means
+  // sharing your sleep with them.
   return json({ free_until: freeUntil }, 200);
 });
