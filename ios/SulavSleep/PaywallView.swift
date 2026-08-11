@@ -137,6 +137,11 @@ struct PaywallView: View {
     }
 
     private var headline: String {
+        // A user whose free nights just ran out gets the loss-aversion hook —
+        // the streak (and partner) they built over the month — instead of a
+        // cold pitch. The trial badge/CTA/subline still carry the mechanics;
+        // only the emotional line changes. See `SleepStore.referralExpiryHeadline`.
+        if let expiry = store.referralExpiryHeadline { return expiry }
         guard let plan = selectedPlan else { return "Lock your nights in" }
         guard plan.trialDays > 0 else {
             return "Unlock SleepBlock to build a sleep routine that sticks"

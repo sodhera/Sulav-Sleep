@@ -130,6 +130,7 @@ final class SleepStore {
         screenTimePrimerSeen = persistence.screenTimePrimerSeen
         paywallDismissed = persistence.paywallDismissed
         referralFreeUntil = persistence.referralFreeUntil
+        referralEndingNudgeDismissed = persistence.referralEndingNudgeDismissed
 #if DEBUG
         // Deterministic partner-card data for simulator screenshots, in the
         // `-review-paywall` / `-review-subscription` tradition. Pass
@@ -156,9 +157,62 @@ final class SleepStore {
         }
 #endif
         reload()
+#if DEBUG
+        // Referral free-nights states, otherwise impossible to stage on the
+        // Simulator (dev mode entitles everyone). Placed *after* `reload()`
+        // because it overwrites `sessions` from persistence, and the streak
+        // hook needs the injected nights to survive. `-review-referral-nudge`
+        // lands in the app with 2 free nights left → Profile's ending nudge;
+        // `-review-referral-expiry` forces the paywall past a lapsed grant →
+        // the streak-aware headline. Both inject a short streak + a partner so
+        // the copy has real numbers and a name to speak to.
+        let referralReviewArgs = ProcessInfo.processInfo.arguments
+        if referralReviewArgs.contains("-review-referral-nudge")
+            || referralReviewArgs.contains("-review-referral-expiry") {
+            let expired = referralReviewArgs.contains("-review-referral-expiry")
+            let until = Date().addingTimeInterval(expired ? -3_600 : 2 * 86_400)
+            referralFreeUntil = until
+            persistence.saveReferralFreeUntil(until)
+            sessions = Self.sampleStreakSessions(nights: 12)
+            // Persist the samples too — the scene-active handler calls
+            // `reload()`, which would otherwise reload sessions from disk and
+            // drop the streak back to zero. Debug-only; pollutes this sim's
+            // store until reinstall, which is fine for a review arg.
+            persistence.save(SleepSnapshot(
+                profile: profile, sessions: sessions,
+                activeSession: activeSession, reachNights: reachNights
+            ))
+            partnerState = PartnerState(partner: PartnerLink(
+                partnershipID: "p", partnerUserID: "u",
+                summary: PartnerSummary(
+                    name: "Maya", streak: 12, streakDying: false,
+                    avgBedMinutes: 23 * 60 + 10, avgWakeMinutes: 7 * 60 + 5,
+                    avgDurationMinutes: 7 * 60 + 22, nights: 7, updatedAt: Date()
+                )
+            ))
+            myReferralCode = "SLPX7K"
+        }
+#endif
         startSubscriptionTracking()
         Task { [weak self] in await self?.restoreSession() }
     }
+
+#if DEBUG
+    /// A run of `nights` consecutive ~7.5h nights ending this morning, so the
+    /// streak rule counts them. Debug-only, for the referral review args.
+    private static func sampleStreakSessions(nights: Int) -> [SleepSession] {
+        let cal = Calendar.current
+        let wake0 = cal.date(bySettingHour: 7, minute: 0, second: 0, of: Date()) ?? Date()
+        return (0..<nights).map { i in
+            let end = cal.date(byAdding: .day, value: -i, to: wake0) ?? wake0
+            let start = end.addingTimeInterval(-7.5 * 3_600)
+            return SleepSession(
+                id: "sample-\(i)", start: start, end: end,
+                durationMinutes: 450, source: .local
+            )
+        }
+    }
+#endif
 
     // MARK: - Derived state
 
@@ -424,6 +478,15 @@ final class SleepStore {
         guard subscription.isConfigured else {
             entitlement = .entitled
 #if DEBUG
+            // The referral-review args stage a *not-entitled* referral user on
+            // the Simulator, where dev mode would otherwise force `.entitled`
+            // and hide every referral surface. See the init block.
+            if ProcessInfo.processInfo.arguments.contains("-review-referral-nudge")
+                || ProcessInfo.processInfo.arguments.contains("-review-referral-expiry") {
+                entitlement = .notEntitled
+            }
+#endif
+#if DEBUG
             // Dev mode has no real subscription, so the status row hides. This
             // arg injects a sample trial so the Settings row can be previewed
             // and screenshotted on the Simulator (mirrors `-review-paywall`).
@@ -520,6 +583,49 @@ final class SleepStore {
         return Int((seconds / 86_400).rounded(.up))
     }
 
+    /// How close to the end of the free nights the ending-soon nudge starts
+    /// appearing. Three is late enough to be urgent, early enough to act.
+    private static let referralNudgeThreshold = 3
+
+    /// Whether Profile shows the "free nights ending" nudge — the proactive
+    /// heads-up so night 31 isn't a surprise wall. Only in the final stretch,
+    /// only for someone who hasn't subscribed, and only until they wave it off
+    /// (once per grant — the grant is one-per-account, so effectively once).
+    /// The passive Settings counter still stands; this is the push.
+    var shouldShowReferralEndingNudge: Bool {
+        guard referralAvailable, entitlement != .entitled else { return false }
+        guard isWithinReferralNights, referralNightsLeft <= Self.referralNudgeThreshold else { return false }
+        return !referralEndingNudgeDismissed
+    }
+
+    /// Mirrors the persisted dismissal so the nudge recomputes the instant the
+    /// ✕ is tapped (a bare persistence read is invisible to @Observable).
+    private(set) var referralEndingNudgeDismissed = false
+
+    @MainActor
+    func dismissReferralEndingNudge() {
+        persistence.markReferralEndingNudgeDismissed()
+        referralEndingNudgeDismissed = true
+    }
+
+    /// The paywall's headline when a referral user's free nights have *run
+    /// out* — the conversion moment. Loss aversion is the whole play: name
+    /// the streak (and the partner) they built over the free month rather
+    /// than pitching cold. Nil when there's nothing built to lose (they
+    /// redeemed but never slept), so the paywall falls back to its normal
+    /// pitch instead of an empty "keep your 0-night streak going".
+    var referralExpiryHeadline: String? {
+        // Only past the end of a grant that was actually issued.
+        guard referralFreeUntil != nil, !isWithinReferralNights else { return nil }
+        let count = streak.count
+        guard count > 0 else { return nil }
+        // "N-night streak" — a compound modifier stays singular regardless of N.
+        if let name = partnerState?.partner?.summary?.name, !name.isEmpty {
+            return "Keep your \(count)-night streak with \(name) going"
+        }
+        return "Keep your \(count)-night streak going"
+    }
+
     /// Refreshes everything referral: the caller's own standing (the lock
     /// exemption) and the partner card's state. Runs on launch and every
     /// foreground, like the Health refresh — and pushes this side's summary
@@ -527,6 +633,12 @@ final class SleepStore {
     /// staler than the last time this app was opened.
     @MainActor
     func refreshReferral() async {
+#if DEBUG
+        // The review args stage referral state by hand; a real backend fetch
+        // would overwrite it. Leave the injected demo state alone.
+        if ProcessInfo.processInfo.arguments.contains("-review-referral-nudge")
+            || ProcessInfo.processInfo.arguments.contains("-review-referral-expiry") { return }
+#endif
         guard referral.isConfigured, let account else { return }
         if let standing = await referral.myStanding() {
             referralStanding = standing
@@ -778,6 +890,7 @@ final class SleepStore {
         partnerState = nil
         myReferralCode = nil
         referrerStats = nil
+        referralEndingNudgeDismissed = false
         // The widget flips its action capsule to "Sign in".
         updateWidgetSoon()
         AppLog.store.info("Signed out")
@@ -826,6 +939,7 @@ final class SleepStore {
         partnerState = nil
         myReferralCode = nil
         referrerStats = nil
+        referralEndingNudgeDismissed = false
         persistence.reset()
         Task { [subscription] in await subscription.logOut() }
         AppLog.store.info("Account deleted (local data wiped)")
@@ -1745,6 +1859,9 @@ struct SleepPersistence {
     // the `referral_redemptions` row, so an offline launch keeps the
     // exemption; account-scoped like the grace above, so cleared with it.
     private let referralFreeUntilKey = "sulav.referralFreeUntil.v1"
+    // Whether the "free nights ending" nudge has been waved off for this
+    // grant. Account-scoped like the grant itself, so cleared alongside it.
+    private let referralEndingNudgeKey = "sulav.referralEndingNudge.v1"
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -1778,6 +1895,7 @@ struct SleepPersistence {
         defaults.removeObject(forKey: legacyCloudSeedCheckedKey)
         defaults.removeObject(forKey: lastEntitledAtKey)
         defaults.removeObject(forKey: referralFreeUntilKey)
+        defaults.removeObject(forKey: referralEndingNudgeKey)
     }
 
     /// Whether the app has been launched before on this install. Backed by the
@@ -1815,6 +1933,7 @@ struct SleepPersistence {
     func clearEntitlementGrace() {
         defaults.removeObject(forKey: lastEntitledAtKey)
         defaults.removeObject(forKey: referralFreeUntilKey)
+        defaults.removeObject(forKey: referralEndingNudgeKey)
     }
 
     var referralFreeUntil: Date? { defaults.object(forKey: referralFreeUntilKey) as? Date }
@@ -1822,6 +1941,10 @@ struct SleepPersistence {
     func saveReferralFreeUntil(_ date: Date) {
         defaults.set(date, forKey: referralFreeUntilKey)
     }
+
+    var referralEndingNudgeDismissed: Bool { defaults.bool(forKey: referralEndingNudgeKey) }
+
+    func markReferralEndingNudgeDismissed() { defaults.set(true, forKey: referralEndingNudgeKey) }
 
     /// Non-secret account info only (id/email/provider) — the real session
     /// token lives in the Keychain via the auth SDK, never here.

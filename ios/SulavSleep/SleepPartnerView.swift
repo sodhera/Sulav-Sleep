@@ -316,13 +316,13 @@ struct InviteFriendScreen: View {
         SceneScreen {
             SubpageHeader(
                 title: "Invite a friend",
-                subtitle: "You'll see each other's streak and schedule — and you'll both get 30 nights free."
+                subtitle: "See each other's streak and schedule."
             )
 
             benefitRow(
                 icon: "moon.stars.fill",
                 title: "30 nights free, for both of you",
-                detail: "Theirs starts tonight. Yours lands the moment they subscribe."
+                detail: "Theirs starts tonight, yours when they subscribe."
             )
             .padding(.top, SleepSpacing.huge)
 

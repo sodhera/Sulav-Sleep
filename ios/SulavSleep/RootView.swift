@@ -20,6 +20,9 @@ struct RootView: View {
     private var showsReviewPaywall: Bool {
 #if DEBUG
         ProcessInfo.processInfo.arguments.contains("-review-paywall")
+            // Forces the paywall past a lapsed referral grant so the
+            // streak-aware expiry headline can be seen (see SleepStore).
+            || ProcessInfo.processInfo.arguments.contains("-review-referral-expiry")
 #else
         false
 #endif

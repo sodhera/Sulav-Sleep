@@ -76,9 +76,16 @@ struct SubpageHeader: View {
                     .font(SleepFont.hero(28))
                     .foregroundStyle(SleepColor.ink)
                 if let subtitle {
+                    // `.dim`, not `.muted`. The whole ink system was designed
+                    // against the night stage, and the readability scrim is at
+                    // its *thinnest* at the top of the screen (30% on the day
+                    // scene) — exactly where this line sits. Mid-grey `.muted`
+                    // has almost no contrast against a lit daytime sky there;
+                    // `.dim` is lighter, so it separates from the scene at
+                    // every phase. Subtitles are read, not skimmed.
                     Text(subtitle)
                         .font(SleepFont.body(15))
-                        .foregroundStyle(SleepColor.muted)
+                        .foregroundStyle(SleepColor.dim)
                         .lineSpacing(3)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -124,6 +131,19 @@ private struct ProfileRootScreen: View {
                     version: version,
                     onUpdate: { store.openAppStoreProductPage() },
                     onDismiss: { store.dismissUpdateNudge() }
+                )
+                .padding(.top, SleepSpacing.xxl)
+            }
+
+            // The free-nights heads-up, same dismissible-card slot and grammar
+            // as the two above — so night 31 arrives as a choice already made,
+            // not a wall. Only in the last few nights; see the store.
+            if store.shouldShowReferralEndingNudge {
+                ReferralEndingCard(
+                    nightsLeft: store.referralNightsLeft,
+                    partnerName: store.partnerState?.partner?.summary?.name,
+                    onSeePlans: { store.presentPaywall() },
+                    onDismiss: { store.dismissReferralEndingNudge() }
                 )
                 .padding(.top, SleepSpacing.xxl)
             }
@@ -914,6 +934,89 @@ private struct HealthConnectCard: View {
         }
         .padding(SleepSpacing.lg)
         // The glass draws its own edge; no manual border on top of it.
+        .liquidGlass(cornerRadius: SleepRadius.lg, tint: SleepColor.glassWarm)
+    }
+}
+
+// MARK: - Referral ending nudge
+
+/// The "free nights running out" heads-up, in the same dismissible warm-glass
+/// card as the Health invite. Its whole job is to turn the end of the grant
+/// from a surprise wall into a decision the user makes in their own time — so
+/// it names what they'd keep (the streak, and the partner if there is one),
+/// not just the deadline. "See plans" raises the paywall over Main; the ✕
+/// waves it off for the rest of the grant.
+private struct ReferralEndingCard: View {
+    let nightsLeft: Int
+    var partnerName: String?
+    var onSeePlans: () -> Void
+    var onDismiss: () -> Void
+
+    private var title: String {
+        nightsLeft == 1 ? "Last free night" : "\(nightsLeft) free nights left"
+    }
+
+    private var body_: String {
+        if let name = partnerName, !name.isEmpty {
+            return "Subscribe to keep your streak with \(name) going after they're up."
+        }
+        return "Subscribe to keep your streak going after they're up."
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: SleepSpacing.md) {
+            Image(systemName: "hourglass")
+                .font(.system(size: 24, weight: .regular))
+                .foregroundStyle(SleepColor.amber)
+
+            VStack(alignment: .leading, spacing: SleepSpacing.sm) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(SleepFont.title(16))
+                        .foregroundStyle(SleepColor.ink)
+                    Text(body_)
+                        .font(SleepFont.body(13))
+                        .foregroundStyle(SleepColor.dim)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Button {
+                    Haptics.heavy()
+                    onSeePlans()
+                } label: {
+                    Text("See plans")
+                        .font(SleepFont.label(14))
+                        .foregroundStyle(SleepColor.background)
+                        .padding(.horizontal, SleepSpacing.lg)
+                        .padding(.vertical, SleepSpacing.sm)
+                        .background {
+                            Capsule(style: .continuous)
+                                .fill(LinearGradient(
+                                    colors: [SleepColor.gold, SleepColor.amber],
+                                    startPoint: .topLeading, endPoint: .bottomTrailing
+                                ))
+                        }
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 2)
+            }
+
+            Spacer(minLength: 0)
+
+            Button {
+                Haptics.heavy()
+                onDismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(SleepColor.muted)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Dismiss")
+        }
+        .padding(SleepSpacing.lg)
         .liquidGlass(cornerRadius: SleepRadius.lg, tint: SleepColor.glassWarm)
     }
 }

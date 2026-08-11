@@ -105,7 +105,8 @@ enum SleepSubscription {
 
     static func makeDefault() -> SubscriptionProviding {
 #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("-review-paywall") {
+        if ProcessInfo.processInfo.arguments.contains("-review-paywall")
+            || ProcessInfo.processInfo.arguments.contains("-review-referral-expiry") {
             return ReviewPaywallSubscriptionService()
         }
 #endif
