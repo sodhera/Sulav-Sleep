@@ -139,27 +139,12 @@ struct HomeView: View {
                 }
             }
 
-            // Last night's recap, sitting under the schedule pill so the whole
-            // status block reads top-down — countdown, schedule, last night —
-            // and Sleep Now stays the one thing anchored low.
-            LastNightStrip(lastSession: store.lastNightSession)
-                .padding(.top, SleepSpacing.xl)
+            Spacer(minLength: SleepSpacing.xxxl)
 
-            // The morning mirror, directly under the strip that already answers
-            // "how was last night" — same question, the part the duration can't
-            // say. Absent entirely on a night with no reaches.
-            if let night = store.lastNightReaches {
-                ReachMirrorLine(night: night, invitesReason: store.shouldPromptForReason) {
-                    showingReasons = true
-                }
-                .padding(.top, SleepSpacing.sm)
-            }
-
-            // A fixed gap above the button and a flexible spacer below it (see
-            // the end of this stack): the button keeps the same lower-third
-            // position it held before the last-night strip moved up, rather
-            // than being pushed to the very bottom by a flexible gap here.
-            Spacer().frame(height: SleepSpacing.xxxl)
+            // A fixed nudge on top of the flexible spacer above: the button
+            // sits a touch below where the free space alone would put it,
+            // deeper into thumb reach.
+            Spacer().frame(height: SleepSpacing.xxl)
 
             // The lock. A locked user gets the whole of Home — the countdown,
             // the sloth, their schedule, last night's strip — and is stopped
@@ -173,7 +158,22 @@ struct HomeView: View {
                 withAnimation(.easeInOut(duration: 0.3)) { store.showSleepConfirmation = true }
             }
 
-            Spacer(minLength: SleepSpacing.xxxl)
+            // Last night's recap under the button — the quiet footnote to the
+            // action, not a step on the way to it.
+            LastNightStrip(lastSession: store.lastNightSession)
+                .padding(.top, SleepSpacing.xl)
+
+            // The morning mirror, directly under the strip that already answers
+            // "how was last night" — same question, the part the duration can't
+            // say. Absent entirely on a night with no reaches.
+            if let night = store.lastNightReaches {
+                ReachMirrorLine(night: night, invitesReason: store.shouldPromptForReason) {
+                    showingReasons = true
+                }
+                .padding(.top, SleepSpacing.sm)
+            }
+
+            Spacer().frame(height: SleepSpacing.xl)
         }
         // The two corner chips, in the empty band beside the greeting — a
         // balanced pair, not chrome: **your streak** top-left, **your
@@ -183,11 +183,9 @@ struct HomeView: View {
         // the duration now) — status lives at the edges, the instrument
         // stays in the middle.
         .overlay(alignment: .topLeading) {
-            if store.streak.isVisible {
-                StreakChip(streak: store.streak) {
-                    // The flame's story lives on Profile (the record).
-                    store.selectedTab = .profile
-                }
+            StreakChip(streak: store.streak) {
+                // The flame's story lives on Profile (the record).
+                store.selectedTab = .profile
             }
         }
         .overlay(alignment: .topTrailing) {
@@ -388,22 +386,30 @@ private struct LastNightStrip: View {
 /// The streak, worn as a corner chip — Home's top-left answer to the partner
 /// button on the right: your run on one side, your people on the other. A
 /// glass capsule the same 44pt height as its twin, flame + bare count (a
-/// flame beside a number already reads as a streak). Dying keeps the hollow
-/// muted-grey grammar (see DESIGN.md): same glyph, same count, the fill is
-/// what goes out. Hidden entirely at zero — honest data, no cold ashes.
-/// Tapping leads to Profile, where the record behind the number lives.
+/// flame beside a number already reads as a streak). Tapping leads to
+/// Profile, where the record behind the number lives.
+///
+/// **Zero shows.** It could hide (the app's honest-data reflex), but a `0`
+/// sitting where a number is supposed to grow is the invitation — the one
+/// place on Home that asks for tonight. It just doesn't *celebrate*: zero
+/// wears the same hollow muted flame as a dying run, so only a real streak
+/// gets the filled gold. Same glyph throughout, the fill is the only thing
+/// that changes — see DESIGN.md ("How dying looks").
 private struct StreakChip: View {
     let streak: SleepStreak
     let action: () -> Void
+
+    /// Zero and dying share the hollow flame; only a live run is filled gold.
+    private var isLit: Bool { streak.count > 0 && !streak.isDying }
 
     var body: some View {
         Button {
             Haptics.heavy()
             action()
         } label: {
-            Label("\(streak.count)", systemImage: streak.isDying ? "flame" : "flame.fill")
+            Label("\(streak.count)", systemImage: isLit ? "flame.fill" : "flame")
                 .font(SleepFont.label(15))
-                .foregroundStyle(streak.isDying ? SleepColor.muted : SleepColor.gold)
+                .foregroundStyle(isLit ? SleepColor.gold : SleepColor.muted)
                 .monospacedDigit()
                 .padding(.horizontal, SleepSpacing.lg)
                 .frame(minHeight: 44)
@@ -411,10 +417,14 @@ private struct StreakChip: View {
         }
         .buttonStyle(.plain)
         .liquidGlass(cornerRadius: SleepRadius.pill, interactive: true)
-        .accessibilityLabel(
-            streak.isDying
-                ? "\(streak.count) night streak, ending tonight unless you log sleep"
-                : "\(streak.count) night streak"
-        )
+        .accessibilityLabel(accessibilityText)
+    }
+
+    private var accessibilityText: String {
+        if streak.count == 0 { return "No streak yet. Sleep tonight to start one." }
+        if streak.isDying {
+            return "\(streak.count) night streak, ending tonight unless you log sleep"
+        }
+        return "\(streak.count) night streak"
     }
 }
