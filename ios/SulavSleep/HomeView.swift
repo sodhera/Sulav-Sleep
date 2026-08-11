@@ -139,6 +139,22 @@ struct HomeView: View {
                 }
             }
 
+            // Last night's recap, sitting under the schedule pill so the whole
+            // status block reads top-down — countdown, schedule, last night —
+            // and Sleep Now stays the one thing anchored low.
+            LastNightStrip(lastSession: store.lastNightSession, streak: store.streak)
+                .padding(.top, SleepSpacing.xl)
+
+            // The morning mirror, directly under the strip that already answers
+            // "how was last night" — same question, the part the duration can't
+            // say. Absent entirely on a night with no reaches.
+            if let night = store.lastNightReaches {
+                ReachMirrorLine(night: night, invitesReason: store.shouldPromptForReason) {
+                    showingReasons = true
+                }
+                .padding(.top, SleepSpacing.sm)
+            }
+
             Spacer(minLength: SleepSpacing.xxxl)
 
             // The lock. A locked user gets the whole of Home — the countdown,
@@ -151,19 +167,6 @@ struct HomeView: View {
             LiquidPrimaryButton(title: "Sleep Now", systemImage: "moon.fill") {
                 guard !store.presentPaywallIfLocked() else { return }
                 withAnimation(.easeInOut(duration: 0.3)) { store.showSleepConfirmation = true }
-            }
-
-            LastNightStrip(lastSession: store.lastNightSession, streak: store.streak)
-                .padding(.top, SleepSpacing.xl)
-
-            // The morning mirror, directly under the strip that already answers
-            // "how was last night" — same question, the part the duration can't
-            // say. Absent entirely on a night with no reaches.
-            if let night = store.lastNightReaches {
-                ReachMirrorLine(night: night, invitesReason: store.shouldPromptForReason) {
-                    showingReasons = true
-                }
-                .padding(.top, SleepSpacing.sm)
             }
 
             Spacer().frame(height: SleepSpacing.xl)
