@@ -21,9 +21,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.sulav.sleepblock.data.AppTab
 import com.sulav.sleepblock.data.SleepStore
 import com.sulav.sleepblock.ui.home.HomeScreen
+import com.sulav.sleepblock.ui.paywall.PaywallScreen
 import com.sulav.sleepblock.ui.profile.ProfileScreen
 import com.sulav.sleepblock.ui.theme.NightBackground
 import com.sulav.sleepblock.ui.theme.SleepColors
@@ -61,6 +64,28 @@ fun MainScreen(store: SleepStore) {
                     TabIcon(store, AppTab.PROFILE)
                 }
             }
+        }
+    }
+
+    // The lock, whenever a locked user reaches for a subscriber-only action
+    // (Sleep Now, the Settings "Unlock SleepBlock" row). A full-screen cover
+    // rather than a bottom sheet: this is the same screen as the first-run
+    // pitch, and a half-height card would sell the plan cards short. Closing
+    // it here does *not* record the first-run dismissal — that already
+    // happened, or the route would still be up.
+    if (store.showPaywall) {
+        Dialog(
+            onDismissRequest = { store.showPaywall = false },
+            // decorFitsSystemWindows=false so the scene bleeds under the
+            // status and nav bars exactly as it does on the first-run route —
+            // the two presentations must read as one screen, and a dialog
+            // that fits the decor would letterbox this one between grey bars.
+            properties = DialogProperties(
+                usePlatformDefaultWidth = false,
+                decorFitsSystemWindows = false,
+            ),
+        ) {
+            PaywallScreen(store, onClose = { store.showPaywall = false })
         }
     }
 }

@@ -58,6 +58,17 @@ class SleepPersistence(context: Context) {
         get() = prefs.getBoolean("blockingPrimerSeen", false)
         set(value) = prefs.edit().putBoolean("blockingPrimerSeen", value).apply()
 
+    /**
+     * Whether this install has closed the first-run paywall with its ✕.
+     * Per install like [blockingPrimerSeen] (iOS: `sulav.paywallDismissed.v1`),
+     * and deliberately not cleared by [reset]: signing out is no reason to put
+     * the full-screen pitch back in front of someone who has already seen and
+     * closed it. The lock itself is unaffected — it lives on the entitlement.
+     */
+    var paywallDismissed: Boolean
+        get() = prefs.getBoolean("paywallDismissed", false)
+        set(value) = prefs.edit().putBoolean("paywallDismissed", value).apply()
+
     /** Wipe after account deletion — no previous user left to protect. */
     fun reset() {
         prefs.edit()

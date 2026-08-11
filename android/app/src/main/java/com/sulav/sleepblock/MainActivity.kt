@@ -49,9 +49,15 @@ fun RootScreen(store: SleepStore = viewModel()) {
         // lockdown teardown) stays reachable whatever the entitlement says.
         store.activeSession != null -> Destination.SLEEP
         !store.isAuthenticated || !store.isOnboarded -> Destination.ONBOARDING
+        // Onboarding's closing beat: signed in, onboarded, resolved as not
+        // subscribed, and this install has never closed the paywall. It sells
+        // at peak intent, but it is *not* a wall — the ✕ drops the user into
+        // Main and is remembered, after which the lock lives on Sleep Now
+        // alone (MainScreen raises the same screen as a cover).
         store.needsPaywall -> Destination.PAYWALL
-        // After the paywall resolves: blocking gets its teeth at peak
-        // commitment, never mid-sign-up (the iOS Screen Time primer rule).
+        // Blocking gets its teeth at peak commitment, right after the
+        // purchase, never mid-sign-up (the iOS Screen Time primer rule).
+        // Locked users skip it — see SleepStore.needsBlockingPrimer.
         store.needsBlockingPrimer -> Destination.PRIMER
         else -> Destination.MAIN
     }
@@ -64,7 +70,7 @@ fun RootScreen(store: SleepStore = viewModel()) {
             }
             Destination.SLEEP -> SleepModeScreen(store)
             Destination.ONBOARDING -> OnboardingFlow(store)
-            Destination.PAYWALL -> PaywallScreen(store)
+            Destination.PAYWALL -> PaywallScreen(store, onClose = { store.dismissPaywall() })
             Destination.PRIMER -> BlockingPrimerScreen(store)
             Destination.MAIN -> MainScreen(store)
         }

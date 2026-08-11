@@ -273,10 +273,26 @@ private fun SettingsSheet(store: SleepStore, onClose: () -> Unit) {
                 }
                 Spacer(Modifier.height(32.dp))
 
+                // A locked user gets a different group: the way *in*. Once the
+                // first-run paywall is dismissed, Sleep Now is the only other
+                // place the plans are reachable, and someone who closed the
+                // pitch and then went looking for the price should find it in
+                // Settings, where prices live.
+                if (store.isLocked) {
+                    SectionLabel("Subscription")
+                    Spacer(Modifier.height(8.dp))
+                    SettingsGroup {
+                        // The cover itself lives in MainScreen; its window is
+                        // added after this one, so it lands above Settings.
+                        SettingsRow("Unlock SleepBlock", "") { store.presentPaywallIfLocked() }
+                    }
+                    Spacer(Modifier.height(32.dp))
+                }
+
                 // What am I on, and when does it change? Hidden when there's
                 // no status to show (dev mode, or before the first fetch) —
                 // the app never fakes a plan.
-                store.subscriptionStatus?.let { status ->
+                store.subscriptionStatus?.takeIf { !store.isLocked }?.let { status ->
                     SectionLabel("Subscription")
                     Spacer(Modifier.height(8.dp))
                     SettingsGroup {

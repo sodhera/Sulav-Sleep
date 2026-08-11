@@ -33,7 +33,8 @@ Copy `android/secrets.properties.example` → `android/secrets.properties`
 (gitignored) and fill in the same Supabase values as `ios/Config.xcconfig`.
 Missing/placeholder values put the app in **dev mode** — identical policy to
 the unconfigured iOS build: auth surfaces a friendly "not configured" error,
-and no paywall gates (there is no paywall at all yet, see the parity map).
+and nothing is locked (an unconfigured RevenueCat key resolves `ENTITLED` at
+init, so the paywall never appears — see "The lock").
 
 ## Architecture
 
@@ -51,6 +52,7 @@ iOS `RootView` as a state machine in `MainActivity.kt`:
 | `HomeView.swift` + `SleepConfirmationPanel.swift` | `ui/home/HomeScreen.kt` |
 | `SleepModeView.swift` | `ui/sleep/SleepModeScreen.kt` |
 | `ProfileView.swift` (+ Settings cover) | `ui/profile/ProfileScreen.kt` |
+| `PaywallView.swift` | `ui/paywall/PaywallScreen.kt` |
 | `SleepTheme.swift` / `LiquidGlass.swift` | `ui/theme/SleepTheme.kt` |
 
 The GoTrue client is deliberately hand-rolled: the app touches a tiny auth
@@ -121,10 +123,11 @@ Shipped in phase 2 (July 2026):
   on every persistence write and every 30 minutes.
 - **Paywall** (`ui/paywall/`, `subscription/`). RevenueCat purchases-android
   behind the same three-state entitlement gate as iOS (`UNKNOWN` never
-  gates; unconfigured key = dev mode, entitled at init). Hard paywall
-  between onboarding and Main; an active night always outranks it. Needs
-  `REVENUECAT_API_KEY` + Play Console products (entitlement id `pro`) to go
-  live; terms/privacy footer links land with the Play listing.
+  gates; unconfigured key = dev mode, entitled at init). A **soft paywall
+  around one action** — see "The lock" below; an active night always
+  outranks it. Needs `REVENUECAT_API_KEY` + Play Console products
+  (entitlement id `pro`) to go live; terms/privacy footer links land with
+  the Play listing.
 - **Google sign-in** (`auth/GoogleCredential.kt`): Credential Manager →
   Google ID token → Supabase `id_token` grant. The provider buttons render
   only when `GOOGLE_WEB_CLIENT_ID` (the *web* client id Supabase is
@@ -153,8 +156,12 @@ Shipped in the July 2026 polish pass:
 - **Review switches** (`data/DebugFlags.kt`, debug builds only) — the
   Android `-review-*`:
   `adb shell am start -n com.sulav.sleepblock/.MainActivity --ez review-paywall true`
-  renders the hard paywall with sample plans; `--ez review-subscription
-  true` injects a sample trial into the Settings row.
+  puts the app in the **locked** state with sample plans: the first-run
+  paywall on launch, and behind its ✕ the locked Main (Sleep Now raises the
+  cover, Settings shows "Unlock SleepBlock"). The flag also ignores the
+  stored dismissal marker, so the full-screen route renders on every launch
+  and stays screenshottable. `--ez review-subscription true` injects a
+  sample trial into the Settings status row.
 - **The brand mark alive** (`ui/theme/SlothBrandMark.kt`): the rising gold
   z's on welcome, sign-in, the plan build beat, and the paywall.
 
@@ -178,6 +185,69 @@ interaction before Next enables (see the DESIGN.md Android note). The
 sign-in screen mirrors iOS "Welcome back": brand hero + provider stack
 (Google pill with the real "G" from the iOS asset, quiet glass email path
 that reveals the form in place; back unwinds form → providers → welcome).
+
+## The lock (soft paywall)
+
+Ported from iOS in August 2026 (`feat(paywall): let people in, lock the
+night`). The paywall is **not** a wall around the app: it is a lock on one
+action. A locked user gets the whole of Main — Home with its countdown and
+sloth, the record, the schedule, settings — and is stopped at exactly one
+place, **starting a night**. Everything the app *shows* is free, everything
+it *does* is the subscription. See DESIGN.md ("Paywall") and the
+"Subscription (RevenueCat)" section of `docs/development.md` for the iOS
+originals; this section covers only what differs.
+
+Three states, easy to confuse — all on `data/SleepStore.kt`, mirroring iOS:
+
+| | meaning | drives |
+| --- | --- | --- |
+| `isLocked` | signed in + onboarded + *resolved* `NOT_ENTITLED` | the lock on `startSleep` and every path to it; hides the blocking primer; swaps the Settings group |
+| `needsPaywall` | `isLocked` **and** this install has never closed the paywall | the first-run full-screen route in `RootScreen` |
+| `showPaywall` | someone reached for the lock | the dismissible cover over `MainScreen` |
+
+`PaywallScreen` takes an `onClose` because the two presentations close
+differently: the first-run route records the dismissal (`dismissPaywall()` →
+`SleepPersistence.paywallDismissed`, per install, *not* cleared by `reset()`);
+the cover just lowers itself. A successful purchase or restore calls it too,
+or the cover would stay parked over the app the user just paid for.
+
+The lock's enforcement points, all funnelling through
+`presentPaywallIfLocked()` so the paywall explains itself rather than a
+control going dead:
+
+- `ui/home/HomeScreen.kt` — Sleep Now raises the paywall instead of the
+  confirmation panel. Nothing is greyed out: the button keeps its name and
+  its full amber weight, because a disabled button answers no questions.
+- `ui/profile/ProfileScreen.kt` — an "Unlock SleepBlock" row replaces the
+  Subscription status group while locked.
+- `SleepStore.startSleep()` — a final guard, so a future caller that forgets
+  to ask still can't start a night.
+
+Android differences from the iOS model, both deliberate:
+
+- **No deep-link enforcement points, because there are no deep links.** iOS
+  gates `sleepblock://sleep`, `://tonight` and `://winddown` (widget capsule,
+  shield action, Siri intent, bedtime notifications). The Glance widget only
+  ever opens `MainActivity` and the shield's "Good night" goes to the
+  launcher, so today the slide-to-sleep panel is the only route into
+  `startSleep()`. **When a widget action, notification, or Quick Settings
+  tile lands, it must call `presentPaywallIfLocked()` first** — the
+  `startSleep()` guard catches the mistake, but silently, and the point of
+  funnelling is that the paywall sells rather than stands down.
+- **No offline grace.** iOS exempts a subscriber whose cached entitlement
+  lapsed while they were unreachable (`isWithinOfflineGrace`, a couple of
+  days). Android has no equivalent yet; `UNKNOWN`-never-locks is the only
+  fail-open bias here. Port it with the entitlement-refresh work.
+
+The cover over Main is a full-screen `Dialog` (`usePlatformDefaultWidth =
+false`), the same grammar as the Settings cover, rather than a bottom sheet —
+this is the same screen as the first-run pitch and a half-height card would
+sell the plan cards short. Its window is added after the Settings dialog's,
+so "Unlock SleepBlock" lands the paywall *above* Settings; back-press closes
+it, which is what a soft paywall should do. The blocking primer is shown to
+subscribers only: usage access and overlay are the most alarming grants the
+app asks for, and spending them on someone who cannot start a night yet asks
+for the phone in exchange for a feature they can't reach.
 
 ## Design language
 

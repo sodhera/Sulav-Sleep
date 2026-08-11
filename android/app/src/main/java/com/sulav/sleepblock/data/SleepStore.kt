@@ -101,11 +101,19 @@ class SleepStore(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { restoreSession() }
     }
 
-    /** Whether the blocking-permission primer stands between Main and us. */
+    /**
+     * Whether the blocking-permission primer stands between Main and us.
+     *
+     * Locked users are exempt (iOS `needsScreenTimePrimer`). Usage access and
+     * "display over other apps" are the most alarming grants the app asks for,
+     * and spending them on someone who cannot start a night yet asks them to
+     * hand over their phone for a feature they can't reach. The primer waits
+     * for the subscription.
+     */
     val needsBlockingPrimer: Boolean
         get() {
             val context = getApplication<Application>()
-            return isAuthenticated && isOnboarded && !blockingPrimerSeen &&
+            return isAuthenticated && isOnboarded && !blockingPrimerSeen && !isLocked &&
                 (!SleepAppBlocking.hasUsageAccess(context) || !SleepAppBlocking.hasOverlayPermission(context))
         }
 
@@ -122,10 +130,82 @@ class SleepStore(application: Application) : AndroidViewModel(application) {
 
     // MARK: - Subscription
 
-    /** Whether the hard paywall stands between this user and Main. */
-    val needsPaywall: Boolean
+    /**
+     * Whether this user is outside the subscription: signed in, onboarded, and
+     * *resolved* as not entitled. UNKNOWN never locks — the lock acts only on
+     * an answer, and RevenueCat's cache answers offline for real subscribers —
+     * and an unconfigured build (dev mode) resolves ENTITLED at init, so it
+     * never locks either.
+     *
+     * **This is not a wall around the app.** A locked user gets the whole of
+     * Main — Home, the record, the schedule, settings — and is stopped at
+     * exactly one place: starting a night ([startSleep]). Everything the app
+     * *shows* is theirs; what it *does* is the subscription. See DESIGN.md
+     * ("Paywall") and iOS `SleepStore.isLocked`.
+     *
+     * *Parity note:* iOS additionally exempts a subscriber whose cached
+     * entitlement lapsed while they were unreachable (`isWithinOfflineGrace`).
+     * Android has no offline-grace window yet — see docs/android.md.
+     */
+    val isLocked: Boolean
         get() = (isAuthenticated && isOnboarded && entitlement == EntitlementState.NOT_ENTITLED) ||
             (DebugFlags.reviewPaywall && isAuthenticated && isOnboarded)
+
+    /**
+     * Whether the paywall is the *route* — the closing beat of onboarding,
+     * shown full-screen before Main. It is dismissible (a ✕), and dismissing
+     * it is remembered per install, so this is a one-time landing rather than
+     * a wall the user re-hits on every cold launch. After that the paywall
+     * only appears when someone reaches for the lock ([showPaywall]).
+     */
+    val needsPaywall: Boolean get() = isLocked && !paywallDismissed
+
+    /**
+     * Whether the paywall is up *over* Main as a dismissible cover. Distinct
+     * from [needsPaywall], which is the first-run route: this is the lock
+     * speaking when someone reaches for a subscriber-only action. On the store
+     * because the entry points that raise it live elsewhere — Home's Sleep Now
+     * and the Settings "Unlock SleepBlock" row.
+     */
+    var showPaywall: Boolean by mutableStateOf(false)
+
+    /**
+     * Observable mirror of the container-backed dismissal marker, so the route
+     * re-computes the instant the ✕ is tapped (a bare persistence read is
+     * invisible to Compose).
+     *
+     * A `--ez review-paywall true` build ignores the stored marker, so the
+     * first-run route renders on every launch and stays screenshottable.
+     */
+    var paywallDismissed: Boolean by mutableStateOf(
+        persistence.paywallDismissed && !DebugFlags.reviewPaywall
+    )
+        private set
+
+    /**
+     * The ✕ on the first-run paywall: drop the user into Main and don't put
+     * the full-screen paywall in their way again. Per install, like the
+     * blocking primer — not per account, since it describes what this person
+     * has already been shown on this phone.
+     */
+    fun dismissPaywall() {
+        persistence.paywallDismissed = true
+        paywallDismissed = true
+        showPaywall = false
+        Log.i(TAG, "First-run paywall dismissed")
+    }
+
+    /**
+     * Raise the paywall over Main, returning whether it went up. Every locked
+     * action funnels through here rather than silently doing nothing, so the
+     * lock always explains itself. Callers may ask unconditionally: an
+     * entitled user is never shown it.
+     */
+    fun presentPaywallIfLocked(): Boolean {
+        if (!isLocked) return false
+        showPaywall = true
+        return true
+    }
 
     suspend fun fetchPlans(): List<SleepPlan> = subscription.fetchPlans()
 
@@ -435,6 +515,16 @@ class SleepStore(application: Application) : AndroidViewModel(application) {
     // MARK: - Sleep loop
 
     fun startSleep() {
+        // The lock's last line. Home's Sleep Now checks first and raises the
+        // paywall itself, so this should never fire — but starting a night is
+        // the one thing the subscription buys, and it must not depend on every
+        // future caller (a widget action, a notification, a Quick Settings
+        // tile) remembering to ask.
+        if (presentPaywallIfLocked()) {
+            showSleepConfirmation = false
+            Log.i(TAG, "Sleep start blocked — no subscription")
+            return
+        }
         activeSession = ActiveSleepSession(start = Instant.now())
         selectedTab = AppTab.HOME
         // The confirmation did its job; without this, Home would reopen on

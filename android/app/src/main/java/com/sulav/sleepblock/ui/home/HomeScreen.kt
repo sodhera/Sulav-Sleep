@@ -156,7 +156,16 @@ private fun HomeBody(store: SleepStore) {
             Text(SleepFormatting.clockTime(profile.wakeTime), style = SleepType.body)
         }
         Spacer(Modifier.weight(1f))
-        PrimaryButton("Sleep Now") { store.showSleepConfirmation = true }
+        // The lock. A locked user gets the whole of Home — the countdown, the
+        // sloth, their schedule, last night's strip — and is stopped here, at
+        // the one action the subscription buys. The button keeps its own name
+        // and its full amber weight: it still leads where it says it leads,
+        // and the paywall (not a dead control) is what explains the price.
+        // Nothing is greyed out, because a disabled button answers no
+        // questions. See DESIGN.md ("Paywall").
+        PrimaryButton("Sleep Now") {
+            if (!store.presentPaywallIfLocked()) store.showSleepConfirmation = true
+        }
         Spacer(Modifier.height(16.dp))
         // Last night as one quiet centered strip — only when it honestly is
         // last night; a stale record renders nothing at all.

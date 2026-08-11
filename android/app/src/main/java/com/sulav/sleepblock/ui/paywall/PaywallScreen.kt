@@ -5,6 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,9 +13,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.IconButton
 import androidx.compose.runtime.setValue
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,6 +32,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -56,13 +62,24 @@ private val samplePlans = listOf(
 )
 
 /**
- * The hard paywall (mirrors ios PaywallView): appears once between the
- * account step and Main, only ever off a *resolved* not-entitled answer.
- * No ✕, no "not now" — softened by honesty: the CTA names the real trial,
- * annual preselected, failures in danger red, notices in calm amber.
+ * The subscription pitch (mirrors ios PaywallView). It appears twice, and it
+ * is the same screen both times: once as onboarding's closing beat, between
+ * the account step and Main, and thereafter whenever a locked user reaches for
+ * the one thing the subscription buys — starting a night.
+ *
+ * It is a **soft paywall**: the ✕ closes it and drops the user into the app,
+ * where they can look at everything and start nothing. That is the deal the
+ * lock enforces — see [SleepStore.isLocked], Home's Sleep Now, and DESIGN.md
+ * ("Paywall"). Both presentations render only off a *resolved* not-entitled
+ * answer. Honesty carries the rest: the CTA names the real trial, annual is
+ * preselected, failures land in danger red and notices in calm amber.
+ *
+ * @param onClose how this presentation goes away — distinct per caller: the
+ *   first-run route records the dismissal ([SleepStore.dismissPaywall]), the
+ *   cover over Main simply lowers itself.
  */
 @Composable
-fun PaywallScreen(store: SleepStore) {
+fun PaywallScreen(store: SleepStore, onClose: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var plans by remember { mutableStateOf<List<SleepPlan>?>(null) }
@@ -156,8 +173,21 @@ fun PaywallScreen(store: SleepStore) {
                         busy = true
                         scope.launch {
                             try {
-                                store.purchase(activity, plan)
-                                // Entitled: the root gate swaps to Main on its own.
+                                // Null means the user backed out of the Play sheet.
+                                when (store.purchase(activity, plan)) {
+                                    // The first-run route disappears on its own as
+                                    // needsPaywall flips, but the cover over Main is
+                                    // held up by its own flag and would otherwise stay
+                                    // parked over the app the user just paid for.
+                                    true -> onClose()
+                                    false -> {
+                                        message = "Google Play confirmed the purchase but the " +
+                                            "subscription isn't active yet. Try Restore purchases " +
+                                            "in a moment."
+                                        messageIsNotice = true
+                                    }
+                                    null -> Unit
+                                }
                             } catch (e: Exception) {
                                 message = e.message ?: "Purchase failed. Try again."
                                 messageIsNotice = false
@@ -190,7 +220,9 @@ fun PaywallScreen(store: SleepStore) {
                         scope.launch {
                             try {
                                 val entitled = store.restorePurchases()
-                                if (!entitled) {
+                                if (entitled) {
+                                    onClose()
+                                } else {
                                     message = "No subscription to restore on this Google account."
                                     messageIsNotice = true
                                 }
@@ -203,6 +235,34 @@ fun PaywallScreen(store: SleepStore) {
                     .padding(8.dp),
             )
             Spacer(Modifier.height(24.dp))
+        }
+        // The way out, floated over the pitch rather than given a row of its
+        // own: the header is a centered brand lockup, and a row for the close
+        // would push the whole screen down a line on every device. Top-*end*
+        // is where this app's other closes live (the settings cover), leaving
+        // the opposite corner to onboarding's back, which this screen follows.
+        //
+        // Quiet on purpose — a size down from the settings ✕ and dimmer —
+        // because it should be findable without competing with the CTA. Never
+        // hidden and never delayed: a paywall that conceals its exit reads as
+        // a trap long before it reads as a conversion tactic (and it is the
+        // pattern store review rejects).
+        Box(
+            contentAlignment = Alignment.TopEnd,
+            modifier = Modifier
+                .fillMaxSize()
+                .systemBarsPadding()
+                .padding(end = 16.dp, top = 8.dp),
+        ) {
+            IconButton(
+                onClick = onClose,
+                modifier = Modifier
+                    .size(40.dp)
+                    .glassSurface(CircleShape)
+                    .semantics { contentDescription = "Close" },
+            ) {
+                Text("✕", style = SleepType.body, fontSize = 15.sp, color = SleepColors.muted)
+            }
         }
     }
 }
