@@ -27,6 +27,7 @@ struct PaywallView: View {
     @State private var selectedPlanID: String?
     @State private var isPurchasing = false
     @State private var isRestoring = false
+    @State private var showsRedeemSheet = false
     /// Failure or guidance shown above the CTA — same two-tone grammar as
     /// the auth screen: `danger` for failures, `amber` for normal next steps.
     @State private var message: String?
@@ -219,6 +220,35 @@ struct PaywallView: View {
                 Text(renewalLine(for: plan))
                     .font(SleepFont.body(13))
                     .foregroundStyle(SleepColor.muted)
+            }
+
+            // The referred user's door, directly under the money: a friend's
+            // code beats every plan on this screen, so it must be findable
+            // here — but quietly, in the footer's type, because for most
+            // people it's an answer to a question they weren't asked. Hidden
+            // once this account has redeemed (one code each) and in dev mode.
+            if store.referralAvailable && store.referralStanding == nil {
+                Button {
+                    Haptics.heavy()
+                    showsRedeemSheet = true
+                } label: {
+                    Text("Have a referral code?")
+                        .font(SleepFont.body(13))
+                        .foregroundStyle(SleepColor.dim)
+                        .frame(minHeight: 34)
+                }
+                .buttonStyle(.plain)
+                .sheet(isPresented: $showsRedeemSheet) {
+                    // On success the lock recomputes and the paywall route
+                    // falls through to Main on its own; the cover variant is
+                    // closed explicitly for the same reason as purchase.
+                    ReferralRedeemSheet(store: store)
+                        .presentationDetents([.medium])
+                        .presentationDragIndicator(.visible)
+                        .onDisappear {
+                            if store.isWithinReferralNights { onClose() }
+                        }
+                }
             }
         }
     }

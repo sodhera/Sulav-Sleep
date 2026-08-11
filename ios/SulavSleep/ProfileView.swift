@@ -137,6 +137,13 @@ private struct ProfileRootScreen: View {
             .simultaneousGesture(TapGesture().onEnded { Haptics.heavy() })
             .padding(.top, SleepSpacing.huge)
 
+            // The partner card — invite, consent, or the partner's numbers,
+            // whichever the account has earned. Absent in dev mode.
+            if store.referralAvailable {
+                SleepPartnerCard(store: store)
+                    .padding(.top, SleepSpacing.huge)
+            }
+
             sleepSection
         }
         .sheet(isPresented: $showsSettings) {
@@ -314,6 +321,7 @@ struct SettingsModal: View {
 
                 profileSection
                 subscriptionSection
+                referralSection
                 configSection
                 feedbackSection
                 accountSection
@@ -406,12 +414,45 @@ struct SettingsModal: View {
                 GlassGroup {
                     Button {
                         Haptics.heavy()
-                        _ = store.presentPaywallIfLocked()
+                        openPaywall()
                     } label: {
                         GlassRow(
                             icon: "moon.stars.fill",
                             iconColor: SleepColor.amber,
                             title: "Unlock SleepBlock",
+                            showsChevron: true
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.top, SleepSpacing.xxl)
+        } else if store.isWithinReferralNights {
+            // On referral nights: not locked, but no App Store status either.
+            // Show the grant honestly, and keep a door to the plans open —
+            // this is the only voluntary route to the paywall while the free
+            // nights run.
+            VStack(alignment: .leading, spacing: SleepSpacing.md) {
+                Text("Subscription").sectionLabel()
+
+                GlassGroup {
+                    GlassRow(
+                        icon: "moon.stars.fill",
+                        iconColor: SleepColor.amber,
+                        title: "Free nights",
+                        value: "\(store.referralNightsLeft) left"
+                    )
+
+                    GlassRowDivider()
+
+                    Button {
+                        Haptics.heavy()
+                        openPaywall()
+                    } label: {
+                        GlassRow(
+                            icon: "creditcard.fill",
+                            iconColor: SleepColor.muted,
+                            title: "See the plans",
                             showsChevron: true
                         )
                     }
@@ -444,6 +485,67 @@ struct SettingsModal: View {
             }
             .padding(.top, SleepSpacing.xxl)
         }
+    }
+
+    /// The paywall cover hangs off MainShellView, *under* this sheet — iOS
+    /// won't present it while the sheet is up, so the sheet steps aside
+    /// first and raises it a beat later, once the dismissal has landed.
+    private func openPaywall() {
+        dismiss()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+            store.presentPaywall()
+        }
+    }
+
+    /// The referrer's half of the program: share the code, watch it work.
+    /// Absent in dev mode; the count line appears once anyone has joined.
+    @ViewBuilder
+    private var referralSection: some View {
+        if store.referralAvailable {
+            VStack(alignment: .leading, spacing: SleepSpacing.md) {
+                Text("Invite").sectionLabel()
+
+                GlassGroup {
+                    if let code = store.myReferralCode {
+                        ShareLink(item: inviteMessage(code: code)) {
+                            GlassRow(
+                                icon: "person.2.fill",
+                                iconColor: SleepColor.amber,
+                                title: "Invite a friend",
+                                value: inviteValue,
+                                showsChevron: true
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .simultaneousGesture(TapGesture().onEnded { Haptics.heavy() })
+                    } else {
+                        // Code still loading (one tiny RPC) — same row, inert,
+                        // so the group doesn't jump when it arrives.
+                        GlassRow(
+                            icon: "person.2.fill",
+                            iconColor: SleepColor.muted,
+                            title: "Invite a friend"
+                        )
+                    }
+                }
+
+                Text("They get 30 nights free — and you get a month free when they subscribe.")
+                    .font(SleepFont.body(12))
+                    .foregroundStyle(SleepColor.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.top, SleepSpacing.xxl)
+            .task { await store.loadReferralCode() }
+        }
+    }
+
+    private var inviteValue: String? {
+        guard let stats = store.referrerStats, stats.invitedCount > 0 else { return nil }
+        return "\(stats.invitedCount) joined"
+    }
+
+    private func inviteMessage(code: String) -> String {
+        "Be my sleep partner on SleepBlock — we'll see each other's streaks, and my code \(code) gets you 30 nights free. https://apps.apple.com/app/id\(AppStoreLink.appID)"
     }
 
     private var header: some View {

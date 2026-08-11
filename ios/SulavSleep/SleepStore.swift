@@ -130,6 +130,31 @@ final class SleepStore {
         screenTimePrimerSeen = persistence.screenTimePrimerSeen
         paywallDismissed = persistence.paywallDismissed
         referralFreeUntil = persistence.referralFreeUntil
+#if DEBUG
+        // Deterministic partner-card data for simulator screenshots, in the
+        // `-review-paywall` / `-review-subscription` tradition. Pass
+        // `-review-partner confirmed|request|waiting` (default confirmed).
+        if let index = ProcessInfo.processInfo.arguments.firstIndex(of: "-review-partner") {
+            let variant = ProcessInfo.processInfo.arguments.dropFirst(index + 1).first ?? "confirmed"
+            switch variant {
+            case "request":
+                partnerState = PartnerState(incomingRequests: [PartnerRequest(id: "p", name: "Maya")])
+            case "waiting":
+                partnerState = PartnerState(awaitingConfirmation: true)
+            default:
+                partnerState = PartnerState(partner: PartnerLink(
+                    partnershipID: "p",
+                    partnerUserID: "u",
+                    summary: PartnerSummary(
+                        name: "Maya", streak: 12, streakDying: false,
+                        avgBedMinutes: 23 * 60 + 10, avgWakeMinutes: 7 * 60 + 5,
+                        avgDurationMinutes: 7 * 60 + 22, nights: 7, updatedAt: Date()
+                    )
+                ))
+            }
+            myReferralCode = "SLPX7K"
+        }
+#endif
         reload()
         startSubscriptionTracking()
         Task { [weak self] in await self?.restoreSession() }
@@ -353,6 +378,14 @@ final class SleepStore {
         return true
     }
 
+    /// The *voluntary* entrance — Settings rows for someone who isn't locked
+    /// right now (referral nights running) but wants to subscribe anyway.
+    /// Unconditional on purpose; the callers gate on `entitlement`.
+    @MainActor
+    func presentPaywall() {
+        showPaywall = true
+    }
+
     /// Short reprieve for a subscriber the server hasn't been able to confirm.
     ///
     /// The app works entirely offline — logging nights, blocking apps, the
@@ -450,8 +483,10 @@ final class SleepStore {
     // MARK: - Referral & sleep partner
 
     /// Whether every referral/partner surface exists at all. False in dev
-    /// mode (no Supabase), matching the paywall's "never fake it" rule.
-    var referralAvailable: Bool { referral.isConfigured }
+    /// mode (no Supabase), matching the paywall's "never fake it" rule. The
+    /// `partnerState` escape exists only for the DEBUG `-review-partner`
+    /// injection below, which has no real service to be configured.
+    var referralAvailable: Bool { referral.isConfigured || partnerState != nil }
 
     /// End of the 30 free nights a redeemed code granted, server-dated.
     /// Cached in persistence so an offline launch keeps the exemption; the

@@ -62,6 +62,7 @@
 		FA831C765CABBEF773CE99ED /* SleepStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2248DEAF235A937EB6B1B2C7 /* SleepStore.swift */; };
 		F100000000000000000ST2 /* SleepStreak.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000ST1 /* SleepStreak.swift */; };
 		F100000000000000000RF2 /* SleepReferral.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000RF1 /* SleepReferral.swift */; };
+		F100000000000000000RF4 /* SleepPartnerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F100000000000000000RF3 /* SleepPartnerView.swift */; };
 		F600000000000000000000AC /* SulavSleepShieldConfig.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F600000000000000000000A2 /* SulavSleepShieldConfig.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		F600000000000000000000C1 /* ShieldConfigProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F600000000000000000000B1 /* ShieldConfigProvider.swift */; };
 		F600000000000000000000B6 /* ShieldSloth.png in Resources */ = {isa = PBXBuildFile; fileRef = F600000000000000000000B5 /* ShieldSloth.png */; };
@@ -125,6 +126,7 @@
 		2248DEAF235A937EB6B1B2C7 /* SleepStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepStore.swift; path = SulavSleep/SleepStore.swift; sourceTree = "<group>"; };
 		F100000000000000000ST1 /* SleepStreak.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepStreak.swift; path = SulavSleep/SleepStreak.swift; sourceTree = "<group>"; };
 		F100000000000000000RF1 /* SleepReferral.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepReferral.swift; path = SulavSleep/SleepReferral.swift; sourceTree = "<group>"; };
+		F100000000000000000RF3 /* SleepPartnerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepPartnerView.swift; path = SulavSleep/SleepPartnerView.swift; sourceTree = "<group>"; };
 		7C0000000000000000000012 /* SleepSubscription.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepSubscription.swift; path = SulavSleep/SleepSubscription.swift; sourceTree = "<group>"; };
 		7C0000000000000000000014 /* PaywallView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PaywallView.swift; path = SulavSleep/PaywallView.swift; sourceTree = "<group>"; };
 		314F2F155CF97AAF34DA0A4C /* HomeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeView.swift; path = SulavSleep/HomeView.swift; sourceTree = "<group>"; };
@@ -246,6 +248,7 @@
 				2248DEAF235A937EB6B1B2C7 /* SleepStore.swift */,
 				F100000000000000000ST1 /* SleepStreak.swift */,
 				F100000000000000000RF1 /* SleepReferral.swift */,
+				F100000000000000000RF3 /* SleepPartnerView.swift */,
 				7C0000000000000000000012 /* SleepSubscription.swift */,
 				7C0000000000000000000014 /* PaywallView.swift */,
 				F69F492AFB4609915E10F59C /* SleepTheme.swift */,
@@ -602,6 +605,7 @@
 				FA831C765CABBEF773CE99ED /* SleepStore.swift in Sources */,
 				F100000000000000000ST2 /* SleepStreak.swift in Sources */,
 				F100000000000000000RF2 /* SleepReferral.swift in Sources */,
+				F100000000000000000RF4 /* SleepPartnerView.swift in Sources */,
 				7C0000000000000000000013 /* SleepSubscription.swift in Sources */,
 				7C0000000000000000000015 /* PaywallView.swift in Sources */,
 				9741BE20E4028E51160BDC75 /* SleepTheme.swift in Sources */,
