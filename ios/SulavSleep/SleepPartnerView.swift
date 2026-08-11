@@ -53,14 +53,6 @@ struct SleepPartnersScreen: View {
                     }
 
                     addButton.padding(.top, SleepSpacing.xl)
-
-                    Text("They'll see your streak and schedule, and you'll see theirs. Either of you can unlink anytime.")
-                        .font(SleepFont.body(12))
-                        .foregroundStyle(SleepColor.muted)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, SleepSpacing.xxl)
                 }
                 .padding(.horizontal, SleepSpacing.xxl)
                 .padding(.bottom, 120)
@@ -122,7 +114,7 @@ struct SleepPartnersScreen: View {
                 Text("Sleep better together")
                     .font(SleepFont.title(16))
                     .foregroundStyle(SleepColor.ink)
-                Text("Add a partner and you'll each see the other's streak and schedule — quiet accountability, both ways.")
+                Text("See each other's streak and schedule.")
                     .font(SleepFont.body(13))
                     .foregroundStyle(SleepColor.dim)
                     .fixedSize(horizontal: false, vertical: true)
