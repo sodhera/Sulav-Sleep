@@ -145,7 +145,7 @@ struct HomeView: View {
                 withAnimation(.easeInOut(duration: 0.3)) { store.showSleepConfirmation = true }
             }
 
-            LastNightStrip(lastSession: store.lastNightSession, streak: store.onTrackStreak)
+            LastNightStrip(lastSession: store.lastNightSession, streak: store.streak)
                 .padding(.top, SleepSpacing.xl)
 
             // The morning mirror, directly under the strip that already answers
@@ -329,7 +329,7 @@ private struct ScheduleCapsuleButtonStyle: ButtonStyle {
 /// night begins the record.
 private struct LastNightStrip: View {
     let lastSession: SleepSession?
-    let streak: Int
+    let streak: SleepStreak
 
     var body: some View {
         if let lastSession {
@@ -341,13 +341,24 @@ private struct LastNightStrip: View {
                     .font(SleepFont.label(14))
                     .foregroundStyle(SleepColor.dim)
                     .monospacedDigit()
-                if streak > 0 {
+                if streak.isVisible {
                     Text("·")
                         .font(SleepFont.body(13))
                         .foregroundStyle(SleepColor.faint)
-                    Label("\(streak)", systemImage: "flame.fill")
+                    // Dying draws the *hollow* flame in muted grey rather than
+                    // the filled gold one: the shape is unchanged, so the
+                    // number still reads as the same streak, but an outline
+                    // that has lost its fill says "going out" without a word
+                    // of warning copy or a colour the app reserves for real
+                    // alarm. See DESIGN.md.
+                    Label("\(streak.count)", systemImage: streak.isDying ? "flame" : "flame.fill")
                         .font(SleepFont.label(13))
-                        .foregroundStyle(SleepColor.gold)
+                        .foregroundStyle(streak.isDying ? SleepColor.muted : SleepColor.gold)
+                        .accessibilityLabel(
+                            streak.isDying
+                                ? "\(streak.count) night streak, ending tonight unless you log sleep"
+                                : "\(streak.count) night streak"
+                        )
                 }
             }
             .frame(maxWidth: .infinity)

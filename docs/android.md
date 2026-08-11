@@ -88,6 +88,19 @@ Shipped in the MVP:
   equivalent of until Health Connect lands. Both platforms must agree here:
   sessions sync through Supabase, so a date-blind streak showed the same user
   different numbers depending on which phone they opened.
+
+  > **Known divergence — Android is behind iOS on the streak rule.** iOS moved
+  > to dying/reset semantics (a night counts at 30+ minutes; one missed due
+  > night → dying; two in a row → reset; a day is only judged once its wake
+  > time + 2h has passed). Android still runs the old ≥85%-of-target rule with
+  > the `1 + streak / 7` allowance, *including* the bug where the most recent
+  > day can never be forgiven. By the paragraph above, this is exactly the
+  > class of disagreement that shows one user two different numbers on two
+  > phones — so porting it is a prerequisite for shipping Android, not a
+  > polish item. The rule to port is `ios/SulavSleep/SleepStreak.swift`
+  > (dependency-free by design, so it translates almost line for line), and
+  > `ios/SulavSleepTests/SleepStreakTests.swift` is the case list to port with
+  > it. See [DESIGN.md](../DESIGN.md#the-streak).
 - Profile: stat band, 7-night bar rhythm, recent nights, settings (rename,
   schedule steppers, sign out, delete account). Honest data only — no
   seeded history.

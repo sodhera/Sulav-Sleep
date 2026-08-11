@@ -40,8 +40,11 @@ review the rhythm of recent nights — using **real data only**.
   the top of Profile (which also keeps the toggle), rather than interrupting
   sign-up with a permission sheet.
 - Home is a pure "go to bed" screen: greeting, bedtime countdown, `Sleep Now`,
-  and a last-night summary (duration, color-coded score, streak) — or an honest
-  empty state when nothing has been logged yet.
+  and a last-night summary (duration and streak) — or an honest empty state
+  when nothing has been logged yet. The streak rewards **showing up**, not
+  sleeping well: any night of 30+ minutes keeps it, one missed night leaves it
+  dying (a hollow flame), two in a row resets it. Whether you slept *enough*
+  is the job of the duration hero, the chart, and the target chip.
 - Active sleep mode hides navigation, shows elapsed time, and offers a single
   `Wake up` action.
 - Profile is everything about the user: editable name and account email, a

@@ -156,67 +156,32 @@ final class SleepStore {
         return SleepMath.windowMinutes(bedtime: profile.bedtime, wakeTime: profile.wakeTime)
     }
 
-    /// Consecutive on-track nights, counted back from the most recent one.
+    /// Nights logged in a row, and whether the run is one miss from ending.
     ///
-    /// A night is on track when it reaches at least 85% of the sleep target —
-    /// the same bar the retired 0–100 score set at "score ≥ 80" — *and* falls on
-    /// the sleep day right after the night before it. The day check is what
-    /// makes this a streak: without it a good night in June and a good night in
-    /// July counted as 2.
+    /// The rule itself lives in `SleepStreakRule` — dependency-free and unit
+    /// tested (`scripts/test-streak.sh`). All this does is bind the merged
+    /// history to it: qualifying nights become sleep days, and the profile's
+    /// wake time says when an absent night stops being "not yet" and becomes a
+    /// miss.
     ///
-    /// The run must reach today or yesterday to still be live. Yesterday counts
-    /// because tonight's sleep hasn't happened yet — a streak shouldn't visibly
-    /// lapse all day and come back at breakfast.
-    ///
-    /// **One bad night doesn't shatter it.** A streak that resets to zero after
-    /// forty days is a well-known way to lose a user outright: the loss is felt
-    /// as final, and starting from nothing is less appealing than deleting the
-    /// app. So a miss inside a live run is *skipped* rather than fatal — it
-    /// doesn't add to the count, but the run survives it.
-    ///
-    /// The allowance grows with the run (`1 + streak / 7`), evaluated against
-    /// the nights already counted, so a week-old streak gets one pass and a
-    /// two-month streak gets more. Longer runs have more to lose, which is
-    /// exactly when the cliff does the most damage. Two misses back to back
-    /// still end a short streak, and a run that hasn't started yet gets no
-    /// forgiveness at all — there is nothing to protect.
-    var onTrackStreak: Int {
+    /// Recomputed on every read, never stored. See `SleepStreakRule` for why
+    /// that is load-bearing rather than incidental.
+    var streak: SleepStreak {
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        // `displaySessions` is already one entry per sleep day.
-        let byDay = Dictionary(
-            displaySessions.map { (SleepMerge.key(for: $0.end, calendar: calendar), $0) },
-            uniquingKeysWith: { _, latest in latest }
+        // `displaySessions` is already one entry per sleep day, so the set can
+        // only collapse days that were never distinct.
+        let days = Set(
+            displaySessions
+                .filter { SleepStreakRule.qualifies(durationMinutes: $0.durationMinutes) }
+                .map { SleepMerge.key(for: $0.end, calendar: calendar) }
         )
-        guard let mostRecent = byDay.keys.max() else { return 0 }
-        let daysAgo = calendar.dateComponents([.day], from: mostRecent, to: today).day ?? .max
-        guard daysAgo <= 1 else { return 0 }
-
-        var streak = 0
-        var forgiven = 0
-        var day = mostRecent
-        // Walking days rather than sessions means a night with no record at all
-        // is forgivable on the same terms as a short one — usually the same
-        // thing anyway (someone forgot to log), and treating them differently
-        // would punish the more honest case.
-        for _ in 0..<Self.streakScanLimit {
-            let onTrack = byDay[day].map { $0.durationMinutes * 100 >= targetMinutes * 85 } ?? false
-            if onTrack {
-                streak += 1
-            } else if streak > 0, forgiven < 1 + streak / 7 {
-                forgiven += 1
-            } else {
-                break
-            }
-            guard let previous = calendar.date(byAdding: .day, value: -1, to: day) else { break }
-            day = previous
-        }
-        return streak
+        return SleepStreakRule.streak(
+            days: days,
+            now: Date(),
+            wakeMinutes: profile?.wakeTime,
+            calendar: calendar
+        )
     }
-
-    /// Hard stop on the streak walk. Long enough that no real run hits it,
-    /// short enough that a corrupt date can't spin the loop.
-    private static let streakScanLimit = 400
 
     var healthSyncState: HealthSyncState {
         guard health.isAvailable else { return .unavailable }
@@ -285,15 +250,17 @@ final class SleepStore {
         let recent = Array(displaySessions.suffix(7)).map {
             WidgetNight(end: $0.end, durationMinutes: $0.durationMinutes)
         }
+        let streak = self.streak
         let summary = SleepWidgetSummary(
             nights: recent,
             latestDurationMinutes: lastNightSession?.durationMinutes,
-            streak: onTrackStreak,
+            streak: streak.count,
             targetMinutes: targetMinutes,
             bedtimeMinutes: profile?.bedtime,
             wakeMinutes: profile?.wakeTime,
             asleepSince: activeSession?.start,
             isSignedIn: isAuthenticated,
+            streakIsDying: streak.isDying,
             updated: Date()
         )
         SleepWidgetStore.save(summary)

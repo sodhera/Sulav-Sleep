@@ -410,8 +410,7 @@ target can inject fakes without new hooks.
 - `Sleep Now` writes an active session; `Wake up` logs the duration, clears
   active, and (if Health is connected) writes the night to Apple Health.
   Duration is the app's only metric — the 0–100 sleep score is retired
-  (old records' `score` keys are ignored on decode; "on track" for the
-  streak now means ≥85% of the sleep target).
+  (old records' `score` keys are ignored on decode).
 - Profile/Home show a deduplicated merge of local + Health nights.
 - **Sleep days.** A night belongs to **the day you woke up** — `SleepMerge.key`
   is `startOfDay(session.end)`, so a Fri 23:00 → Sat 07:00 night is Saturday's.
@@ -431,11 +430,51 @@ target can inject fakes without new hooks.
   two genuinely different events, and it failed when the night was local and
   the nap came from Health. Every display surface inherits this invariant —
   none of them dedupe again.
-- `onTrackStreak` counts consecutive on-track nights on *consecutive sleep
-  days*, and the run must reach today or yesterday to still be live (yesterday
-  because tonight's sleep hasn't happened yet). Before the day check it counted
-  qualifying records regardless of gaps, so a good night in June plus a good
-  night in July read as a streak of 2.
+
+### The streak (`SleepStreak.swift`)
+
+`SleepStore.streak` returns a `SleepStreak` (a count plus `.alive` / `.dying`),
+replacing the old `onTrackStreak: Int`. The rule:
+
+- **A night counts** at `SleepStreakRule.minimumNightMinutes` (30) or more.
+  Not the old ≥85%-of-target bar — see [DESIGN.md](../DESIGN.md#the-streak)
+  for why that bar made the flame unreachable for the app's core user.
+- **Miss one due night** → `.dying` (count unchanged, run alive). **Miss two in
+  a row** → reset to zero. The same rule applies at the head of the run and to
+  interior gaps; there is no separate case.
+- **A day is only "due"** once its wake time plus `dueGraceMinutes` (120) has
+  passed. Before that it is *pending*, not missed. This is what stops every
+  user seeing a dying streak every evening, since sleep days are keyed by the
+  morning you woke and today's night hasn't happened yet. With no wake time on
+  file (signed out, pre-onboarding), today is never judged.
+- **Never persisted.** Recomputed from `displaySessions` on every read, so a
+  Health night that syncs late fills its own gap and revives the run. A stored
+  counter would have been zeroed permanently — this matters far more under a
+  hard reset than it did under the old forgiving rule.
+
+`SleepStreak.swift` is deliberately **dependency-free** (Foundation only, no
+SwiftUI, no `SleepSession`) so it compiles standalone. That is what lets
+`scripts/test-streak.sh` compile it with
+`ios/SulavSleepTests/SleepStreakTests.swift` into a plain executable and run
+25 assertions in ~2s, with no Xcode test target and no simulator:
+
+```bash
+./scripts/test-streak.sh
+```
+
+Keep that file free of app types and the tests keep running. `SleepStore`
+holds the only adapter (qualifying sessions → sleep-day keys → the rule).
+
+> Note on history: the previous rule skipped misses with an allowance of
+> `1 + streak / 7`. It also carried a bug — the allowance was guarded by
+> `streak > 0`, never true on the first day examined, so the most recent day
+> could never be forgiven: a short night today zeroed a 40-night flame while
+> logging *nothing at all* preserved it, and the flame then sprang back the
+> next day. `mostRecentDayIsForgivable()` in the test suite is the regression
+> guard.
+- The streak walks *consecutive sleep days*, not the session list. Before that
+  day check existed it counted qualifying records regardless of gaps, so a good
+  night in June plus a good night in July read as a streak of 2.
 - Schedule/name edits persist immediately. There is no in-app "reset all data"
   action — sign out is the only account-level exit, and it keeps the local
   profile so signing back in skips the questionnaire.

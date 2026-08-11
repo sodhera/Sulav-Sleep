@@ -41,6 +41,11 @@ struct SleepWidgetSummary: Codable {
     /// decode-compat with older summaries; readers treat absent as signed in
     /// (the app rewrites the summary on its first run after updating).
     var isSignedIn: Bool?
+    /// Whether the streak is one missed night from resetting, so the widget
+    /// can draw the same hollow flame Home does. Optional for decode-compat
+    /// with older summaries; absent reads as a healthy streak, which is what
+    /// the previous rule could only ever produce.
+    var streakIsDying: Bool?
     var updated: Date
 
     var isEmpty: Bool { nights.isEmpty }
@@ -52,7 +57,7 @@ struct SleepWidgetSummary: Codable {
         nights: [], latestDurationMinutes: nil,
         streak: 0, targetMinutes: 480,
         bedtimeMinutes: nil, wakeMinutes: nil, asleepSince: nil,
-        isSignedIn: false,
+        isSignedIn: false, streakIsDying: false,
         updated: Date(timeIntervalSince1970: 0)
     )
 }

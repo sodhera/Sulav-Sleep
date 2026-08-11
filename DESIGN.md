@@ -522,9 +522,11 @@ Two tabs, each with exactly one job:
   > meter, an "Avg score" stat, and score heroes on the widgets. The score
   > is retired app-wide: it was a second number derived from the first,
   > dressed as an insight — duration against the target already says
-  > everything it said. **Duration is the app's only metric.** "On track"
-  > (the streak) now means reaching ≥85% of the sleep target, the same bar
-  > the score set at "score ≥ 80", so existing streaks carry over.
+  > everything it said. **Duration is the app's only metric.** The streak
+  > briefly inherited the score's bar (≥85% of the sleep target, the same
+  > line as "score ≥ 80"); it no longer does — see [The streak](#the-streak),
+  > where the flame measures showing up and duration is left to the surfaces
+  > that already carry it.
   The blocked block is an **interactive glass row** with no kicker over it —
   containers are reserved for tappable controls, and the glass is what says
   "you can press this"; plain floating text read as static copy. Instead of
@@ -1121,7 +1123,9 @@ The surfaces split one job:
   streak on its trailing side (**flame glyph + the bare count**, no "on
   track" — a flame beside a number already reads as a streak, and the words
   were the longest string in the header for the least information; the
-  spelled-out phrasing survives as the VoiceOver label), then last night's
+  spelled-out phrasing survives as the VoiceOver label, and the flame hollows
+  to muted grey when the streak is dying, per [The streak](#the-streak)),
+  then last night's
   duration as a hero numeral tagged "LAST NIGHT", tall full-width bars with
   weekday initials and in-bar hour labels, then a hairline and a **mini-Home
   footer** anchored to the bottom edge: the sloth as tonight's figure, the
@@ -1565,13 +1569,15 @@ to do instead.
   long enough to feel like a chore is one people decline.
 - **A quiet countdown, never a progress bar.** A filling bar turns settling
   down into a task with a finish line, which is the opposite of the point.
-- Reachable from the sleep confirmation ("Not ready? Wind down for two
-  minutes", amber — it's a destination, not a dismissal, so Cancel stays the
-  quiet last resort beneath it), from `sleepblock://winddown`, and from the
-  notification fired when a snooze runs out. That last one matters most: a
-  person whose five minutes just expired is by definition not ready to sleep,
-  and the old copy ("Tap to start your sleep session") was an easy refusal that
-  sent them straight back to the app they were in.
+- Reached from the notification fired when a snooze runs out, and from
+  `sleepblock://winddown`. That first one is the whole point: a person whose
+  five minutes just expired is by definition not ready to sleep, and the old
+  copy ("Tap to start your sleep session") was an easy refusal that sent them
+  straight back to the app they came from.
+- **Not offered on the sleep confirmation.** It was, briefly. That screen has
+  exactly one job — the slide — and a second amber control beneath it split the
+  ask in two. Someone who has already opened the confirmation is past needing
+  to be eased in; the wind-down belongs where people are actually stuck.
 
 ### Hard mode
 
@@ -1582,17 +1588,44 @@ A restriction someone chose is respected; the same restriction imposed is
 resented, and resentment is what uninstalls the app. Offering a real hard mode
 is also how you serve the people who want more without punishing everyone else.
 
-### Streak forgiveness
+### The streak
 
-One bad night doesn't reset the flame. A miss inside a live run is skipped —
-it doesn't add to the count, but the run survives — and the allowance grows
-with the run (`1 + streak / 7`), so longer streaks absorb more.
+**A streak behaves like a streak.** Miss one night and it's *dying*; miss the
+next and it's gone. One state of warning, then the consequence — the model
+every user already carries in from every other streak they've held, and one
+that can be explained in a sentence. The rule it replaced (skip a miss, with
+an allowance of `1 + streak / 7`) was gentler but unreadable: nobody could
+have told you what it would do, so it couldn't motivate anything.
 
-A forty-day streak that shatters is a well-known way to lose a user outright:
-the loss reads as final, and starting from zero is less appealing than deleting
-the app. Longer runs have more to lose, which is exactly when the cliff does
-the most damage. Two misses in a row still end a short run, and a run that
-hasn't started gets no forgiveness — there is nothing to protect yet.
+A dying streak keeps its count. The missed night never increments it, so the
+number only ever means nights slept, and reviving it costs one night rather
+than restarting from zero.
+
+**What counts is showing up, not the score.** A night qualifies at **30
+minutes or more** — not the old ≥85%-of-target bar. At an eight-hour target
+that bar sat at 6h48m, which means someone averaging six hours, exactly the
+person this app is for, could never hold a streak at all and would open the
+app to a permanent zero. Duration already has three honest homes — the hero,
+the chart, the target chip — and doesn't need a fourth that shames. The
+30-minute floor is a junk filter for an accidental session or an aborted nap,
+nothing more.
+
+**Nothing is judged before it's due.** Sleep days are keyed by the morning you
+woke, so having no record for today is the ordinary state of every evening —
+you haven't slept yet. A day only becomes missable once its wake time plus two
+hours has passed, which is late enough to absorb a lie-in or a slow Health
+sync. Without that, every user would watch their streak start dying at dinner.
+
+The count is recomputed from history on every read and never stored, so a
+Health night that syncs a day late fills its own gap and the run comes back on
+its own.
+
+**How dying looks.** The filled gold flame becomes a **hollow flame in muted
+grey** — same glyph, same count, same position, so nothing reflows on the day
+it happens and the number still reads as the streak it always was. An outline
+that has lost its fill says "going out" without warning copy, and without
+`danger`, which stays reserved for things that are actually wrong. VoiceOver
+carries the full sentence. Home and the large widget make the identical swap.
 
 ## What to avoid
 
