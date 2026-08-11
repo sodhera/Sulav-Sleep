@@ -1012,6 +1012,16 @@ third rather than jammed under the status bar, while the same lower spacer
 keeps the plan cards and CTA anchored low — cardless space, not a wall of
 copy, carries the gap on any device height.
 
+One headline overrides both: a user whose **referral free nights have run
+out** (see "Sleep partner & referral") gets a loss-aversion line instead of
+a cold pitch — "Keep your 12-night streak with Maya going", naming the
+streak and the partner they built over the free month. The trial badge,
+CTA, and renewal line still carry the mechanics underneath; only the
+emotional line changes. It appears only when there's a streak to lose — a
+user who redeemed but never slept falls back to the normal pitch, never an
+empty "keep your 0-night streak going". This is the conversion moment the
+whole free-nights model rests on, so it gets the honest, specific hook.
+
 > Note on history: the paywall previously opened with a "Your plan" kicker,
 > a fixed "Lock your nights in" headline, a two-line subtitle personalizing
 > the user's chosen apps, and — before that — three glyph-led feature
@@ -1132,6 +1142,16 @@ until they confirm." — in `.dim`, not `.faint`: this is a trust
 statement worth actually reading, and `.faint` (30%-opacity white) reads
 as near-invisible against the scene's lighter daytime sky, where the
 background isn't dark enough to carry the app's lowest-contrast tier.
+
+The free nights don't end in a silent wall. In the **last three nights**,
+Profile grows a dismissible warm-glass nudge — same card grammar as the
+Health invite and update nudge — titled by the countdown ("2 free nights
+left", or "Last free night" at one) and naming what's at stake ("Subscribe
+to keep your streak with Maya going after they're up"), with a **See plans**
+button that raises the paywall. Dismissible once per grant; the passive
+"Free nights · N left" Settings row still stands. The pairing is deliberate:
+the nudge is the heads-up *before* the wall, the expiry headline is the
+catch *at* it — length was never the conversion lever, this moment is.
 
 Deliberately absent (v1): partner push notifications, multiple partners,
 any free-text between partners. The card is quiet accountability — knowing

@@ -65,6 +65,26 @@ xcrun simctl launch booted com.sulav.sleepblock -review-partner confirmed
 Variants: `confirmed` (partner "Maya" with summary numbers, the default),
 `request` (the consent card), `waiting` (invitee's pending state).
 
+### Preview the free-nights expiry mechanics
+
+Both ends of the referral free-nights window are impossible to stage in
+dev mode (no RevenueCat key ⇒ everyone entitled ⇒ never locked), so two
+DEBUG args inject a lapsing/lapsed grant with a 12-night streak and a
+partner ("Maya"):
+
+```sh
+xcrun simctl launch booted com.sulav.sleepblock -review-referral-nudge
+```
+
+`-review-referral-nudge` lands in the app with **2 free nights left**, so
+Profile shows the ending nudge. `-review-referral-expiry` forces the
+paywall past a **lapsed** grant, so the headline reads the streak-aware
+expiry line. Both set `entitlement = .notEntitled` for the run and make
+`refreshReferral` leave the injected state alone. Caveat: the expiry arg
+**persists sample nights** to the simulator's store (the scene-active
+`reload()` would otherwise wipe them) — delete the app from the sim to
+clear them afterward.
+
 ### Preview the Screen Time primer
 
 The permission primer (`ScreenTimePrimerView` — the mock-dialog gate between
