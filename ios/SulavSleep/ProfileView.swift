@@ -339,6 +339,8 @@ struct SettingsModal: View {
                     BlockedAppsScreen(store: store)
                 case .featureRequests:
                     FeatureRequestsScreen(store: store)
+                case .inviteFriend:
+                    InviteFriendScreen(store: store)
                 }
             }
             .alert("Your name", isPresented: $isRenaming) {
@@ -497,7 +499,10 @@ struct SettingsModal: View {
         }
     }
 
-    /// The referrer's half of the program: share the code, watch it work.
+    /// The referrer's half of the program: a door into the explainer screen,
+    /// not the share sheet itself. Tapping straight into a system share sheet
+    /// from a bare settings row left the reward unexplained at the one moment
+    /// someone was about to hand it to a friend — see `InviteFriendScreen`.
     /// Absent in dev mode; the count line appears once anyone has joined.
     @ViewBuilder
     private var referralSection: some View {
@@ -506,46 +511,27 @@ struct SettingsModal: View {
                 Text("Invite").sectionLabel()
 
                 GlassGroup {
-                    if let code = store.myReferralCode {
-                        ShareLink(item: inviteMessage(code: code)) {
-                            GlassRow(
-                                icon: "person.2.fill",
-                                iconColor: SleepColor.amber,
-                                title: "Invite a friend",
-                                value: inviteValue,
-                                showsChevron: true
-                            )
-                        }
-                        .buttonStyle(.plain)
-                        .simultaneousGesture(TapGesture().onEnded { Haptics.heavy() })
-                    } else {
-                        // Code still loading (one tiny RPC) — same row, inert,
-                        // so the group doesn't jump when it arrives.
+                    NavigationLink(value: SettingsDestination.inviteFriend) {
                         GlassRow(
                             icon: "person.2.fill",
-                            iconColor: SleepColor.muted,
-                            title: "Invite a friend"
+                            iconColor: SleepColor.amber,
+                            title: "Invite a friend",
+                            value: inviteRowValue,
+                            showsChevron: true
                         )
                     }
+                    .buttonStyle(.plain)
+                    .simultaneousGesture(TapGesture().onEnded { Haptics.heavy() })
                 }
-
-                Text("They get 30 nights free — and you get a month free when they subscribe.")
-                    .font(SleepFont.body(12))
-                    .foregroundStyle(SleepColor.muted)
-                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.top, SleepSpacing.xxl)
             .task { await store.loadReferralCode() }
         }
     }
 
-    private var inviteValue: String? {
+    private var inviteRowValue: String? {
         guard let stats = store.referrerStats, stats.invitedCount > 0 else { return nil }
         return "\(stats.invitedCount) joined"
-    }
-
-    private func inviteMessage(code: String) -> String {
-        "Be my sleep partner on SleepBlock — we'll see each other's streaks, and my code \(code) gets you 30 nights free. https://apps.apple.com/app/id\(AppStoreLink.appID)"
     }
 
     private var header: some View {
@@ -776,6 +762,7 @@ enum SettingsDestination: Hashable {
     case schedule
     case blockedApps
     case featureRequests
+    case inviteFriend
 }
 
 // MARK: - Sleep schedule (pushed or sheet)

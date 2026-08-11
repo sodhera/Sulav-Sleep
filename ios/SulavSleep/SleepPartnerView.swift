@@ -1,11 +1,11 @@
 import SwiftUI
 
-// The sleep-partner card and the referral-code sheet — the visible half of
-// docs/roadmap-partner-referral.md. The card lives on Profile's root screen
-// (between the blocked-apps preview and the record) and walks the whole
-// partnership lifecycle in one place: invite → request → confirmed numbers.
-// The redeem sheet is shared with the paywall's "Have a referral code?"
-// entry, because it is the same act in both places.
+// The sleep-partner card, the invite explainer, and the referral-code sheet —
+// the visible half of docs/roadmap-partner-referral.md. The card lives on
+// Profile's root screen (between the blocked-apps preview and the record)
+// and walks the whole partnership lifecycle in one place: invite → request →
+// confirmed numbers. The redeem sheet is shared with the paywall's "Have a
+// referral code?" entry, because it is the same act in both places.
 //
 // Grammar notes (DESIGN.md "Sleep partner"): the card is standard glass with
 // the section-kicker header, the invite CTA is the Health card's amber
@@ -298,6 +298,152 @@ struct SleepPartnerCard: View {
         } catch {
             actionError = error.localizedDescription
         }
+    }
+}
+
+// MARK: - Invite explainer (Settings → Invite a friend)
+
+/// Pushed from Settings' "Invite a friend" row — the row itself no longer
+/// fires the share sheet directly. A bare settings row landing straight in
+/// the system share sheet left the reward unexplained at the exact moment
+/// someone was about to hand it to a friend; this screen answers "what is
+/// this and what's in it for each of us" first, in the same `SubpageHeader`
+/// + `SceneScreen` grammar every other pushed settings page uses.
+struct InviteFriendScreen: View {
+    var store: SleepStore
+
+    var body: some View {
+        SceneScreen {
+            SubpageHeader(
+                title: "Invite a friend",
+                subtitle: "Turn an invite into a sleep partner — you'll see each other's streak, schedule, and average sleep once they join."
+            )
+
+            VStack(alignment: .leading, spacing: SleepSpacing.md) {
+                benefitRow(
+                    icon: "moon.stars.fill",
+                    title: "They get 30 nights free",
+                    detail: "Instead of the usual 7 — enough to actually feel the difference."
+                )
+                benefitRow(
+                    icon: "gift.fill",
+                    title: "You get a month free",
+                    detail: "The moment they subscribe. Applied to your account automatically — nothing to redeem."
+                )
+            }
+            .padding(.top, SleepSpacing.huge)
+
+            VStack(alignment: .leading, spacing: SleepSpacing.md) {
+                Text("Your code").sectionLabel()
+                codeField
+            }
+            .padding(.top, SleepSpacing.huge)
+
+            shareButton
+                .padding(.top, SleepSpacing.xl)
+
+            if let stats = store.referrerStats, stats.invitedCount > 0 {
+                Text(statsLine(stats))
+                    .font(SleepFont.body(13))
+                    .foregroundStyle(SleepColor.muted)
+                    .padding(.top, SleepSpacing.lg)
+                    .frame(maxWidth: .infinity)
+                    .multilineTextAlignment(.center)
+            }
+
+            Text("Nothing about your sleep is shared until they send a partner request and you confirm it.")
+                .font(SleepFont.body(12))
+                .foregroundStyle(SleepColor.faint)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity)
+                .padding(.top, SleepSpacing.xxl)
+        }
+        .task { await store.loadReferralCode() }
+    }
+
+    private func benefitRow(icon: String, title: String, detail: String) -> some View {
+        HStack(alignment: .top, spacing: SleepSpacing.md) {
+            Image(systemName: icon)
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(SleepColor.amber)
+                .frame(width: 40, height: 40)
+                .background { Circle().fill(SleepColor.glassWarm) }
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(SleepFont.title(16))
+                    .foregroundStyle(SleepColor.ink)
+                Text(detail)
+                    .font(SleepFont.body(13))
+                    .foregroundStyle(SleepColor.dim)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .lineSpacing(2)
+            }
+        }
+    }
+
+    @ViewBuilder private var codeField: some View {
+        if let code = store.myReferralCode {
+            Text(code)
+                .font(SleepFont.hero(28))
+                .tracking(4)
+                .foregroundStyle(SleepColor.ink)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, SleepSpacing.lg)
+                .liquidGlass(cornerRadius: SleepRadius.lg)
+        } else {
+            ProgressView()
+                .tint(SleepColor.amber)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, SleepSpacing.lg)
+                .liquidGlass(cornerRadius: SleepRadius.lg)
+        }
+    }
+
+    /// A full-width `ShareLink`, styled like `LiquidPrimaryButton` (the same
+    /// amber capsule every other primary CTA uses) rather than that type
+    /// itself — `ShareLink` owns its own tap-to-present-the-share-sheet
+    /// behavior and needs to be the outermost control, not wrapped in one.
+    @ViewBuilder private var shareButton: some View {
+        if let code = store.myReferralCode {
+            ShareLink(item: inviteMessage(code: code)) {
+                Label {
+                    Text("Share invite").font(SleepFont.label(16)).tracking(0.2)
+                } icon: {
+                    Image(systemName: "square.and.arrow.up")
+                }
+                .foregroundStyle(SleepColor.background)
+                .frame(maxWidth: .infinity, minHeight: 58)
+                .background {
+                    Capsule(style: .continuous)
+                        .fill(LinearGradient(
+                            colors: [SleepColor.gold, SleepColor.amber],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        ))
+                }
+            }
+            .buttonStyle(.plain)
+            .simultaneousGesture(TapGesture().onEnded { Haptics.heavy() })
+        } else {
+            Text("Share invite")
+                .font(SleepFont.label(16))
+                .foregroundStyle(SleepColor.background)
+                .frame(maxWidth: .infinity, minHeight: 58)
+                .background {
+                    Capsule(style: .continuous).fill(SleepColor.amber.opacity(0.4))
+                }
+        }
+    }
+
+    private func statsLine(_ stats: ReferrerStats) -> String {
+        let joined = "\(stats.invitedCount) friend\(stats.invitedCount == 1 ? "" : "s") joined"
+        guard stats.convertedCount > 0 else { return joined }
+        return "\(joined) · \(stats.convertedCount) subscribed"
+    }
+
+    private func inviteMessage(code: String) -> String {
+        "Be my sleep partner on SleepBlock — we'll see each other's streaks, and my code \(code) gets you 30 nights free. https://apps.apple.com/app/id\(AppStoreLink.appID)"
     }
 }
 
