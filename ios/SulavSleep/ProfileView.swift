@@ -51,6 +51,13 @@ struct SceneScreen<Content: View>: View {
                 VStack(alignment: .leading, spacing: 0) {
                     content
                 }
+                // Claim the full width, or the column shrinks to its widest
+                // child and the ScrollView *centers* it — which reads as extra
+                // padding on both sides, and only on screens whose content
+                // happens to carry no full-width element (Blocked apps with
+                // Screen Time unavailable is just two text blocks). With the
+                // frame, the horizontal padding below is the only inset.
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, SleepSpacing.xxl)
                 .padding(.bottom, 140)
             }
