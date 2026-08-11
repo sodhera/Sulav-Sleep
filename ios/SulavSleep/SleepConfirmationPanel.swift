@@ -35,10 +35,16 @@ struct SleepConfirmationPanel: View {
                     .font(SleepFont.hero(52))
                     .foregroundStyle(SleepColor.gold)
                     .monospacedDigit()
+                // `.dim` + the kicker's own scrim shadow. Bare `.muted` (a
+                // mid-grey built for the night stage) vanished into the dusk
+                // and day skies this panel also runs on — the "TONIGHT"
+                // kicker above survives precisely because `sectionLabel()`
+                // carries that shadow, so this line borrows it.
                 Text("of sleep · wake \(SleepFormatting.clock(profile.wakeTime))")
                     .font(SleepFont.body(14))
-                    .foregroundStyle(SleepColor.muted)
+                    .foregroundStyle(SleepColor.dim)
                     .monospacedDigit()
+                    .shadow(color: SleepColor.background.opacity(0.85), radius: 3, y: 1)
             }
 
             lockdownRow
@@ -62,8 +68,9 @@ struct SleepConfirmationPanel: View {
             } label: {
                 Text("Cancel")
                     .font(SleepFont.body(15))
-                    .foregroundStyle(SleepColor.muted)
+                    .foregroundStyle(SleepColor.dim)
                     .frame(maxWidth: .infinity, minHeight: 44)
+                    .shadow(color: SleepColor.background.opacity(0.85), radius: 3, y: 1)
             }
             .buttonStyle(.plain)
             .padding(.top, SleepSpacing.sm)
