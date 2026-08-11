@@ -142,7 +142,7 @@ struct HomeView: View {
             // Last night's recap, sitting under the schedule pill so the whole
             // status block reads top-down — countdown, schedule, last night —
             // and Sleep Now stays the one thing anchored low.
-            LastNightStrip(lastSession: store.lastNightSession, streak: store.streak)
+            LastNightStrip(lastSession: store.lastNightSession)
                 .padding(.top, SleepSpacing.xl)
 
             // The morning mirror, directly under the strip that already answers
@@ -175,12 +175,23 @@ struct HomeView: View {
 
             Spacer(minLength: SleepSpacing.xxxl)
         }
-        // The sleep-partners entrance — the one affordance Home carries besides
-        // Sleep Now. Pinned to the screen's true top-right corner (the whole
-        // column is full-width, so this lands at the edge, not against the
-        // centered greeting), in the empty band above the greeting so it never
-        // crowds the instrument. Only when the feature exists (hidden in dev).
+        // The two corner chips, in the empty band beside the greeting — a
+        // balanced pair, not chrome: **your streak** top-left, **your
+        // partners** top-right. Both are glass, both 44pt tall, so the top
+        // edge reads as one row. The streak chip is also what keeps the
+        // flame out of the center column (the last-night strip carries only
+        // the duration now) — status lives at the edges, the instrument
+        // stays in the middle.
+        .overlay(alignment: .topLeading) {
+            if store.streak.isVisible {
+                StreakChip(streak: store.streak) {
+                    // The flame's story lives on Profile (the record).
+                    store.selectedTab = .profile
+                }
+            }
+        }
         .overlay(alignment: .topTrailing) {
+            // The sleep-partners entrance — hidden in dev mode.
             if store.referralAvailable {
                 GlassIconButton(systemImage: "person.2.fill", size: 44, iconSize: 17) {
                     store.showPartners = true
@@ -357,7 +368,6 @@ private struct ScheduleCapsuleButtonStyle: ButtonStyle {
 /// night begins the record.
 private struct LastNightStrip: View {
     let lastSession: SleepSession?
-    let streak: SleepStreak
 
     var body: some View {
         if let lastSession {
@@ -369,27 +379,42 @@ private struct LastNightStrip: View {
                     .font(SleepFont.label(14))
                     .foregroundStyle(SleepColor.dim)
                     .monospacedDigit()
-                if streak.isVisible {
-                    Text("·")
-                        .font(SleepFont.body(13))
-                        .foregroundStyle(SleepColor.faint)
-                    // Dying draws the *hollow* flame in muted grey rather than
-                    // the filled gold one: the shape is unchanged, so the
-                    // number still reads as the same streak, but an outline
-                    // that has lost its fill says "going out" without a word
-                    // of warning copy or a colour the app reserves for real
-                    // alarm. See DESIGN.md.
-                    Label("\(streak.count)", systemImage: streak.isDying ? "flame" : "flame.fill")
-                        .font(SleepFont.label(13))
-                        .foregroundStyle(streak.isDying ? SleepColor.muted : SleepColor.gold)
-                        .accessibilityLabel(
-                            streak.isDying
-                                ? "\(streak.count) night streak, ending tonight unless you log sleep"
-                                : "\(streak.count) night streak"
-                        )
-                }
             }
             .frame(maxWidth: .infinity)
         }
+    }
+}
+
+/// The streak, worn as a corner chip — Home's top-left answer to the partner
+/// button on the right: your run on one side, your people on the other. A
+/// glass capsule the same 44pt height as its twin, flame + bare count (a
+/// flame beside a number already reads as a streak). Dying keeps the hollow
+/// muted-grey grammar (see DESIGN.md): same glyph, same count, the fill is
+/// what goes out. Hidden entirely at zero — honest data, no cold ashes.
+/// Tapping leads to Profile, where the record behind the number lives.
+private struct StreakChip: View {
+    let streak: SleepStreak
+    let action: () -> Void
+
+    var body: some View {
+        Button {
+            Haptics.heavy()
+            action()
+        } label: {
+            Label("\(streak.count)", systemImage: streak.isDying ? "flame" : "flame.fill")
+                .font(SleepFont.label(15))
+                .foregroundStyle(streak.isDying ? SleepColor.muted : SleepColor.gold)
+                .monospacedDigit()
+                .padding(.horizontal, SleepSpacing.lg)
+                .frame(minHeight: 44)
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .liquidGlass(cornerRadius: SleepRadius.pill, interactive: true)
+        .accessibilityLabel(
+            streak.isDying
+                ? "\(streak.count) night streak, ending tonight unless you log sleep"
+                : "\(streak.count) night streak"
+        )
     }
 }

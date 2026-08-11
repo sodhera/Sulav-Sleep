@@ -277,14 +277,28 @@ Two tabs, each with exactly one job:
   Under the sloth, one small non-interactive glass capsule states tonight's
   window as the single fact it is — moon + bedtime → sun + wake — rather
   than two disconnected chips; read-only, the schedule is edited in
-  Settings. The Sleep Now capsule anchors low where a thumb rests, with last
-  night as one quiet centered strip beneath it (`Last night 7h 20m · 82 ·
-  🔥3`). The strip only appears when the newest night can honestly be called
-  "last night" — it ended this morning or yesterday; older records are stale
-  and never wear that label. With no history (or only stale history) the strip
-  renders nothing at all — no hairline, no empty-state copy; the pixel scene
-  carries the space. (Same recency gate feeds the widget's morning glance, so
-  it never shows weeks-old hours as last night's.)
+  Settings. Directly beneath the pill sits last night as one quiet centered
+  strip (`Last night 7h 30m` — duration only), so the status block reads
+  top-down: countdown, schedule, last night. The strip only appears when the
+  newest night can honestly be called "last night" — it ended this morning
+  or yesterday; older records are stale and never wear that label. With no
+  history (or only stale history) the strip renders nothing at all — no
+  hairline, no empty-state copy; the pixel scene carries the space. (Same
+  recency gate feeds the widget's morning glance, so it never shows
+  weeks-old hours as last night's.) The Sleep Now capsule anchors low where
+  a thumb rests, alone — the one action, nothing riding under it.
+
+  The top corners hold Home's only two chips, a **balanced pair** in the
+  empty band beside the greeting: the **streak** top-left (glass capsule,
+  flame + bare count, tap → Profile where the record lives) and the
+  **sleep-partners** button top-right (glass circle, `person.2`, tap → the
+  partners sheet). Your run on one side, your people on the other — both
+  44pt glass so the top edge reads as one row, and both are *status at the
+  edges*: the flame used to ride the last-night strip, which crowded the
+  center column with a third fact. The streak chip keeps the dying grammar
+  (hollow, muted, same count) and hides entirely at zero — honest data, no
+  cold ashes; the partner button hides in dev mode. A streakless new user
+  simply has quiet corners.
   Tapping "Sleep Now" does *not* start sleep immediately — the whole screen
   transitions to a **confirmation** that is deliberately near-wordless: a
   "Tonight" kicker, one hero gold number (the sleep you'd get sliding now),
