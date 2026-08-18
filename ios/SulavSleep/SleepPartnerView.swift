@@ -208,39 +208,21 @@ private struct PartnerRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: SleepSpacing.md) {
-            HStack {
+            HStack(spacing: SleepSpacing.md) {
+                avatar
                 Text(partner.displayName)
-                    .font(SleepFont.title(16))
+                    .font(SleepFont.title(17))
                     .foregroundStyle(SleepColor.ink)
-                Spacer()
-                Button {
-                    Haptics.heavy()
-                    onUnlink()
-                } label: {
-                    Text("Unlink")
-                        .font(SleepFont.label(12))
-                        .foregroundStyle(SleepColor.muted)
-                        .frame(minHeight: 28)
+                    .lineLimit(1)
+                Spacer(minLength: SleepSpacing.sm)
+                if let summary = partner.summary {
+                    streakChip(summary)
                 }
-                .buttonStyle(.plain)
+                unlinkMenu
             }
 
             if let summary = partner.summary {
-                HStack(spacing: 0) {
-                    stat(label: "Streak",
-                         value: Label("\(summary.streak)", systemImage: summary.streakDying ? "flame" : "flame.fill")
-                            .foregroundStyle(summary.streakDying ? SleepColor.muted : SleepColor.amber))
-                    if let bed = summary.avgBedMinutes, let wake = summary.avgWakeMinutes {
-                        stat(label: "Schedule",
-                             value: Text("\(SleepFormatting.clock(bed)) – \(SleepFormatting.clock(wake))")
-                                .foregroundStyle(SleepColor.ink))
-                    }
-                    if let duration = summary.avgDurationMinutes {
-                        stat(label: "Avg sleep",
-                             value: Text(SleepFormatting.duration(duration))
-                                .foregroundStyle(SleepColor.ink))
-                    }
-                }
+                secondLine(summary)
             } else {
                 Text("No nights to show yet — their numbers appear after their first sleep.")
                     .font(SleepFont.body(13))
@@ -252,16 +234,96 @@ private struct PartnerRow: View {
         .liquidGlass(cornerRadius: SleepRadius.lg)
     }
 
-    private func stat(label: String, value: some View) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(label)
-                .font(SleepFont.label(11))
-                .tracking(1.2)
-                .textCase(.uppercase)
-                .foregroundStyle(SleepColor.muted)
-            value.font(SleepFont.title(15))
+    /// A monogram, so a stack of partners reads as *people* at a glance
+    /// rather than three identical glass slabs. Warm glass + amber initial,
+    /// the same pairing the empty state's `person.2` badge uses.
+    private var avatar: some View {
+        Text(initial)
+            .font(SleepFont.title(15))
+            .foregroundStyle(SleepColor.amber)
+            .frame(width: 34, height: 34)
+            .background { Circle().fill(SleepColor.glassWarm) }
+    }
+
+    private var initial: String {
+        let name = partner.displayName.trimmingCharacters(in: .whitespaces)
+        return name.isEmpty ? "?" : String(name.prefix(1)).uppercased()
+    }
+
+    /// The streak rides top-right, opposite the name: it's the one number
+    /// this screen exists for (knowing they'll see a broken streak), so it
+    /// gets the position the eye lands on, not a third of a label row.
+    /// Filled amber alive / hollow muted dying — Home's own flame rule.
+    private func streakChip(_ summary: PartnerSummary) -> some View {
+        let dying = summary.streakDying
+        return HStack(spacing: SleepSpacing.xs) {
+            Image(systemName: dying ? "flame" : "flame.fill")
+                .font(.system(size: 12, weight: .medium))
+            Text("\(summary.streak)")
+                .font(SleepFont.label(14))
+                .monospacedDigit()
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .foregroundStyle(dying ? SleepColor.muted : SleepColor.amber)
+        .padding(.horizontal, SleepSpacing.sm)
+        .frame(height: 28)
+        .background { Capsule(style: .continuous).fill(SleepColor.glassWarm) }
+        .accessibilityLabel("\(summary.streak) night streak\(dying ? ", at risk" : "")")
+    }
+
+    /// Schedule and average on one quiet line, in Home's own grammar
+    /// (moon → sun). The old three-column band forced the schedule into a
+    /// third of the width, where "11:10 PM – 7:05 AM" wrapped onto two lines
+    /// and left the cards ragged; given the full width it never wraps, and
+    /// the repeated STREAK/SCHEDULE/AVG SLEEP caps stop shouting three times
+    /// down a stack of partners.
+    private func secondLine(_ summary: PartnerSummary) -> some View {
+        HStack(spacing: SleepSpacing.sm) {
+            if let bed = summary.avgBedMinutes, let wake = summary.avgWakeMinutes {
+                Image(systemName: "moon.fill")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(SleepColor.amber)
+                Text(SleepFormatting.clock(bed))
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(SleepColor.muted)
+                Image(systemName: "sun.max.fill")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(SleepColor.amber)
+                Text(SleepFormatting.clock(wake))
+            }
+            if let duration = summary.avgDurationMinutes {
+                if summary.avgBedMinutes != nil {
+                    Text("·").foregroundStyle(SleepColor.muted)
+                }
+                Text(SleepFormatting.duration(duration))
+            }
+            Spacer(minLength: 0)
+        }
+        .font(SleepFont.label(13))
+        .foregroundStyle(SleepColor.dim)
+        .monospacedDigit()
+        .lineLimit(1)
+        .minimumScaleFactor(0.85)
+    }
+
+    /// Unlink moves behind an ellipsis. It was a text button sitting where
+    /// a primary action sits, repeating the word on every card — loud for
+    /// something rare and destructive. One tap away, still confirmed by the
+    /// caller's alert.
+    private var unlinkMenu: some View {
+        Menu {
+            Button("Unlink", systemImage: "person.badge.minus", role: .destructive) {
+                Haptics.heavy()
+                onUnlink()
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(SleepColor.muted)
+                .frame(width: 30, height: 30)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("More options for \(partner.displayName)")
     }
 }
 

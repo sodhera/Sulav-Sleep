@@ -1160,13 +1160,28 @@ The partner half has its own home, reached from a **Home top-right button**
 top-trailing so it never disturbs the centered instrument). It opens
 `SleepPartnersScreen` as a large sheet:
 
-- **The list** — one glass row per partner: their name, then three stat
-  cells in the app's own vocabulary (Home's flame, filled amber alive /
-  hollow muted dying; the schedule as `clock – clock`; average duration).
+- **The list** — one glass card per partner, two lines:
+  - **Line one** is the person: an amber **monogram** on warm glass, their
+    name, and the **streak** as a warm-glass chip pinned top-right —
+    Home's flame rule exactly (filled amber alive / hollow muted dying).
+    The streak takes the position the eye lands on because it's the number
+    this screen exists for: knowing they'll see a broken streak.
+  - **Line two** is the night, in Home's own grammar: moon → sun with the
+    schedule, then `·` and the average duration, all in one quiet dim row.
+
+  This replaced a three-column `STREAK / SCHEDULE / AVG SLEEP` band. That
+  band gave the schedule a third of the width, where `11:10 PM – 7:05 AM`
+  wrapped onto two lines and left cards ragged and tall, and it shouted
+  the same three uppercase labels down every card in the stack. The
+  numbers are identical; only the frame changed.
+
   A partner who has never synced shows the honest empty line, never zeroed
   stats. What's shown is *all* that's shared — derived numbers over the
-  last seven nights, never raw sessions. Each row unlinks behind a confirm
-  (unilateral, immediate, either side).
+  last seven nights, never raw sessions. **Unlink** lives behind a
+  trailing `ellipsis` menu (destructive role) and still lands on the
+  confirm alert — it was a text button sitting where a primary action
+  sits, repeating a destructive word on every card, which is loud for
+  something this rare. Unlinking stays unilateral, immediate, either side.
 - **Adding someone** — two ways, both codes:
   1. **Show my code** (amber primary) — a 6-character pairing code on its
      own `.medium` sheet, set at 38pt with wide tracking because this
