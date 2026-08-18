@@ -654,7 +654,11 @@ final class SleepStore {
         // The review args stage referral state by hand; a real backend fetch
         // would overwrite it. Leave the injected demo state alone.
         if ProcessInfo.processInfo.arguments.contains("-review-referral-nudge")
-            || ProcessInfo.processInfo.arguments.contains("-review-referral-expiry") { return }
+            || ProcessInfo.processInfo.arguments.contains("-review-referral-expiry")
+            // -review-partner too: against a configured Supabase this fetch
+            // replaced Maya/Jordan/Sam with the signed-in account's real
+            // (usually empty) list, so the arg silently did nothing.
+            || ProcessInfo.processInfo.arguments.contains("-review-partner") { return }
 #endif
         guard referral.isConfigured, let account else { return }
         if let standing = await referral.myStanding() {
