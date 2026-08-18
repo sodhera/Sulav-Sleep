@@ -1064,7 +1064,15 @@ Code map (all behind the app's usual protocol seam):
 - `SleepStore` — `entitlement`, `subscriptionStatus`, the three gate values
   in the table above, `dismissPaywall()`/`presentPaywallIfLocked()`, and the
   `fetchPlans`/`purchase`/`restorePurchases`/`manageSubscriptions` intents.
-- `PaywallView.swift` — the screen (see DESIGN.md "Paywall"). Takes an
+- `PaywallView.swift` — the screen (see DESIGN.md "Paywall"). **Guideline
+  3.1.2(c) constraint:** the amount the user is actually billed has to be
+  the most conspicuous pricing element on the screen; every calculated
+  figure (the annual card's `/mo` equivalent, the savings percentage) and
+  all free-trial copy must be smaller, dimmer, and lower than it. The 1.4
+  submission was rejected for the opposite — a large `$5.00/mo` over a quiet
+  "$59.99 billed annually" — so check this before touching card or terms
+  copy. The full ranking is in DESIGN.md → "The billed amount leads". The
+  view takes an
   `onClose` closure, because the two presentations close differently: the
   first-run route records the dismissal, the cover over Main just lowers
   itself. A successful purchase or restore calls it too — otherwise the

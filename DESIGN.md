@@ -979,8 +979,8 @@ SleepBlock is a subscription app, and the paywall (`PaywallView.swift`) is
 the questionnaire's closing beat: it appears between the account step and
 Main, on the same living scene as onboarding. It is a **soft paywall** — a
 quiet ✕ in the top-right corner closes it — softened further by honesty:
-the renewal line under the button states the real price and "cancel
-anytime" in quiet type. It only ever renders off a *resolved* not-entitled
+the terms line under the button leads with the real billed price and says
+"cancel anytime". It only ever renders off a *resolved* not-entitled
 answer (never a loading guess), and an unconfigured dev build never shows it.
 
 **What the ✕ buys, and what it doesn't.** Closing the paywall drops the
@@ -1020,23 +1020,19 @@ with the headline; when it matched the headline's size and weight the two
 read as twin headlines with no hierarchy. Beneath the lockup sits **one
 headline and nothing else** — no other kicker, no subtitle, no feature
 list — set as the screen's hero (semibold, `ink`, the largest type on the
-screen). That headline answers
-*the plan currently selected* rather than narrating features: the trial
-plan reads "Start your 7-nights FREE trial to continue," the no-trial plan
-reads "Unlock SleepBlock to build a sleep routine that sticks." Switching
-the plan card crossfades the headline, so the copy always matches the
-button the user is about to press (the Cal AI paywall does the same swap
-between its trial and no-trial screens). The whole hero (mark + wordmark +
+screen): "Unlock SleepBlock to build a sleep routine that sticks." It
+pitches the app and carries **no price and no trial copy at all** — see
+"The billed amount leads" below. The whole hero (mark + wordmark +
 headline) floats between two flexible spacers so it sits in the upper
 third rather than jammed under the status bar, while the same lower spacer
 keeps the plan cards and CTA anchored low — cardless space, not a wall of
 copy, carries the gap on any device height.
 
-One headline overrides both: a user whose **referral free nights have run
+One headline overrides it: a user whose **referral free nights have run
 out** (see "Sleep partner & referral") gets a loss-aversion line instead of
 a cold pitch — "Keep your 12-night streak with Maya going", naming the
 streak and the partner they built over the free month. The trial badge,
-CTA, and renewal line still carry the mechanics underneath; only the
+CTA, and terms line still carry the mechanics underneath; only the
 emotional line changes. It appears only when there's a streak to lose — a
 user who redeemed but never slept falls back to the normal pitch, never an
 empty "keep your 0-night streak going". This is the conversion moment the
@@ -1048,27 +1044,51 @@ whole free-nights model rests on, so it gets the honest, specific hook.
 > lines. Each was retired in turn: the feature lines repeated the plan
 > cards, the fixed headline repeated across both plans regardless of which
 > was selected, and the personalized subtitle was the last static line
-> once the headline itself started doing that job dynamically.
+> once the headline itself started doing that job dynamically. The headline
+> then went *dynamic per plan* — the trial plan read "Start your 7-nights
+> FREE trial to continue" — and that was reverted in Aug 2026 by the
+> 3.1.2(c) rejection: a free-trial line at 30pt is a pricing element
+> outranking every price on the screen. The headline is fixed again, and
+> price-free.
+
+### The billed amount leads
+
+**Every pricing element on this screen ranks below the amount the user is
+actually charged.** This is App Store Guideline 3.1.2(c), and the 1.4
+submission was rejected under it: the annual card led with a large
+"$5.00/mo" over a quiet "$59.99 billed annually", and the hero headline sold
+the free trial in 30pt type. Calculated pricing (a monthly equivalent, a
+savings percentage) and free-trial copy are *subordinate elements* —
+smaller, dimmer, and lower than the billed amount — and any future change
+here has to preserve that order.
+
+The hierarchy, concretely:
+
+1. **The billed amount** — the card's trailing price, `title(19)` in `ink`,
+   the largest and brightest thing on the card, and always the real charge
+   for that plan's own period ("$59.99/yr", "$5.99/mo"). Never a derived
+   figure.
+2. **The plan name** — `label(17)`, "Yearly" / "Monthly".
+3. **The derived line** — `body(13)` in `muted`, annual card only:
+   "$5.00/mo equivalent · save 17%". The equivalent comes from the product's
+   own price formatter so the two cards can never mix currency styles; the
+   percentage is computed from the fetched plans' real prices
+   (`SleepPlan.priceValue`, arithmetic-only, never displayed) so it always
+   tracks whatever RevenueCat returns.
+4. **The trial** — never card text: an amber capsule **badge** on the annual
+   card's top edge ("7 NIGHTS FREE", `label(11)`, the primary button's
+   amber-on-navy colors), plus the CTA and the subordinate terms line.
 
 The two plan cards are interactive glass rounded-rects in one
-`LiquidGlassContainer`, each carrying **one price fact**: the annual card's
-trailing price is its monthly equivalent over a quiet "billed annually"
-subline naming the full price; the monthly card is a single row, title and
-price. Both prices read "…/mo", and the monthly equivalent comes from the
-product's own price formatter so the two cards can never mix currency
-styles. The annual card's own title states the deal instead of naming the
-period — "Start for free & save 17%" (or "Save 17%" once the trial ends) —
-computed from the two fetched plans' real prices (`SleepPlan.priceValue`,
-arithmetic-only, never displayed) so the percentage always tracks whatever
-RevenueCat actually returns; the monthly card keeps its plain "Monthly"
-title. The trial is not card text — it rides the annual card's top edge as
-an amber capsule **badge** ("7 NIGHTS FREE", the primary button's
-amber-on-navy colors). Selection keeps the onboarding grammar (constant
+`LiquidGlassContainer`. Selection keeps the onboarding grammar (constant
 tint, amber ring + filled trailing circle), the unselected card dims to
 ~55% so the chosen plan reads first, and annual is preselected. The CTA is
 the standard `LiquidPrimaryButton` ("Start 7 nights free", derived from the
-product's real intro offer), the renewal line beneath it restates the
-selected plan's real terms in quiet type, and the footer is three quiet
+product's real intro offer). Beneath it the **terms line** repeats the same
+ranking as a two-row stack: the full charge first — "$59.99 per year",
+`label(15)` in `ink` — then the trial and cancel note under it in `body(12)`
+`muted` ("Starts after your 7-night free trial · cancel anytime"). The
+footer is three quiet
 text links (Restore purchases · Terms · Privacy) over a soft navy floor
 gradient. Failures and notices reuse the auth screen's two-tone rule:
 `danger` for real failures, `amber` for normal next steps ("No subscription
@@ -1084,7 +1104,7 @@ Top-right is where this app's other closes live (the settings sheet), and
 it leaves the opposite corner to onboarding's back chevron, which this
 screen follows.
 
-Below the renewal line sits one more quiet door: **"Have a referral
+Below the terms line sits one more quiet door: **"Have a referral
 code?"** in the footer's type, opening the shared redeem sheet (see "Sleep
 partner & referral"). It is deliberately the least prominent thing on the
 screen — for the person holding a friend's code it beats every plan above

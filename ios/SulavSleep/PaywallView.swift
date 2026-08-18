@@ -40,6 +40,10 @@ struct PaywallView: View {
     private static let termsURL = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
     private static let privacyURL = URL(string: "https://www.orecci.com/sleepblock/privacy-policy.html")!
 
+    /// Height of the floating `footer`, reserved at the bottom of the scroll
+    /// content so nothing is laid out beneath it.
+    private static let footerClearance: CGFloat = 44 + SleepSpacing.md * 2
+
     private var selectedPlan: SleepPlan? {
         plans.first { $0.id == selectedPlanID }
     }
@@ -70,7 +74,15 @@ struct PaywallView: View {
                 .padding(.horizontal, SleepSpacing.xxl)
                 .padding(.top, SleepSpacing.xl)
                 .padding(.bottom, SleepSpacing.lg)
-                .frame(minHeight: proxy.size.height, alignment: .top)
+                // The footer is a `safeAreaInset`, but this GeometryReader
+                // sits *outside* it and still measures the full height — so
+                // a plain `minHeight: proxy.size.height` stretches the
+                // flexible spacers until the last row (the referral door)
+                // lands underneath the footer links. Bottom padding can't fix
+                // that: it's inside the stretched frame, so the spacers just
+                // give the space back. The footer's own height comes off the
+                // minimum instead.
+                .frame(minHeight: proxy.size.height - Self.footerClearance, alignment: .top)
             }
             .scrollBounceBehavior(.basedOnSize)
         }
@@ -103,9 +115,12 @@ struct PaywallView: View {
 
     /// Brand mark, the "SleepBlock" wordmark, then one headline — no subtext.
     /// The wordmark signs the screen (the same identity the welcome screen
-    /// leads with); the headline answers the plan currently selected rather
-    /// than repeating the cards: the trial plan gets the trial pitch, the
-    /// no-trial plan gets the app's own pitch.
+    /// leads with); the headline pitches the app, and deliberately carries
+    /// **no pricing and no trial copy**. App Store Guideline 3.1.2(c)
+    /// requires the billed amount to be the most conspicuous pricing element
+    /// in the purchase flow, and a free-trial line set as the screen's hero
+    /// (30pt) outranked the prices below it. Every price fact now lives in
+    /// the cards and the terms line, where the billed amount leads.
     private var header: some View {
         VStack(spacing: SleepSpacing.xl) {
             // Logo + wordmark are one brand lockup: the wordmark is a small,
@@ -131,7 +146,6 @@ struct PaywallView: View {
                 // minHeight; without this, that pass wins and the headline
                 // renders single-line and clips instead of wrapping.
                 .fixedSize(horizontal: false, vertical: true)
-                .animation(.easeInOut(duration: 0.18), value: selectedPlanID)
         }
         .frame(maxWidth: .infinity)
     }
@@ -139,15 +153,13 @@ struct PaywallView: View {
     private var headline: String {
         // A user whose free nights just ran out gets the loss-aversion hook —
         // the streak (and partner) they built over the month — instead of a
-        // cold pitch. The trial badge/CTA/subline still carry the mechanics;
-        // only the emotional line changes. See `SleepStore.referralExpiryHeadline`.
+        // cold pitch. The trial badge, CTA, and terms line still carry the
+        // mechanics. See `SleepStore.referralExpiryHeadline`.
         if let expiry = store.referralExpiryHeadline { return expiry }
-        guard let plan = selectedPlan else { return "Lock your nights in" }
-        guard plan.trialDays > 0 else {
-            return "Unlock SleepBlock to build a sleep routine that sticks"
-        }
-        let nightWord = plan.trialDays == 1 ? "night" : "nights"
-        return "Start your \(plan.trialDays)-\(nightWord) FREE trial to continue"
+        // Kept to two lines on a 6.1" phone. The screen fits its cards, CTA,
+        // terms, and referral door above the footer with nothing to spare, so
+        // a third headline line pushes the last row underneath the links.
+        return "Build a sleep routine that sticks"
     }
 
     // MARK: - Plans
@@ -222,9 +234,7 @@ struct PaywallView: View {
             .disabled(isPurchasing || isRestoring || selectedPlan == nil)
 
             if let plan = selectedPlan {
-                Text(renewalLine(for: plan))
-                    .font(SleepFont.body(13))
-                    .foregroundStyle(SleepColor.muted)
+                termsLine(for: plan)
             }
 
             // The referred user's door, directly under the money: a friend's
@@ -263,10 +273,28 @@ struct PaywallView: View {
         return plan.trialDays > 0 ? "Start \(plan.trialDays) nights free" : "Continue"
     }
 
-    private func renewalLine(for plan: SleepPlan) -> String {
-        plan.trialDays > 0
-            ? "Then \(plan.priceString) per \(plan.periodUnit) · cancel anytime"
-            : "\(plan.priceString) per \(plan.periodUnit) · cancel anytime"
+    /// The terms under the CTA, stacked so the **billed amount leads** — the
+    /// full charge in `ink` label type, with the trial and the cancel note
+    /// beneath it in smaller, dimmer type. Guideline 3.1.2(c): the amount the
+    /// user is actually charged has to be the clearest price on the screen,
+    /// and the trial is subordinate to it in both position and size.
+    private func termsLine(for plan: SleepPlan) -> some View {
+        VStack(spacing: SleepSpacing.xs) {
+            Text("\(plan.priceString) per \(plan.periodUnit)")
+                .font(SleepFont.label(15))
+                .foregroundStyle(SleepColor.ink)
+            Text(subordinateTerms(for: plan))
+                .font(SleepFont.body(12))
+                .foregroundStyle(SleepColor.muted)
+                .multilineTextAlignment(.center)
+        }
+    }
+
+    private func subordinateTerms(for plan: SleepPlan) -> String {
+        guard plan.trialDays > 0 else { return "Auto-renews · cancel anytime" }
+        // "7-night free trial": the hyphenated compound stays singular no
+        // matter the count, unlike the standalone badge ("7 NIGHTS FREE").
+        return "Starts after your \(plan.trialDays)-night free trial · cancel anytime"
     }
 
     // MARK: - Loading / failure
@@ -410,19 +438,22 @@ struct PaywallView: View {
 
 // MARK: - Pieces
 
-/// One selectable plan: an interactive glass rounded-rect carrying **one
-/// price fact** — the annual card's price is its monthly equivalent (the
-/// full price lives in a quiet "billed annually" subline and the renewal
-/// line), the monthly card's price is simply its own. The trial is not card
-/// text: it rides the top edge as an amber capsule badge (`trialBadge`,
-/// attached at the picker level — see planPicker). The annual card's title
-/// states the deal itself ("Start for free & save 17%") rather than naming
-/// the period — the period is already implied by "billed annually" beneath
-/// it, and stating the savings is what actually moves someone off the
-/// monthly card. Selection is the
-/// onboarding grammar: constant glass
-/// tint (toggling it rebuilds the effect and lags the tap — see
-/// StruggleRow), amber ring + filled circle when chosen; the unselected
+/// One selectable plan. The trailing price is always the **amount the user
+/// is actually billed** for that plan's own period ("$59.99/yr", "$5.99/mo")
+/// in the card's largest, brightest type; every derived figure — the annual
+/// card's monthly equivalent and its savings percentage — sits beneath the
+/// title in small `muted` type. That order is a hard requirement, not a
+/// preference: App Store Guideline 3.1.2(c) rejects a purchase flow where
+/// calculated pricing reads more conspicuously than the billed amount, which
+/// is exactly what the earlier card did (a big "$5.00/mo" over a quiet
+/// "$59.99 billed annually").
+///
+/// The trial is not card text: it rides the top edge as an amber capsule
+/// badge (`trialBadge`, attached at the picker level — see planPicker).
+/// Titles name the period ("Yearly" / "Monthly"), since the savings claim
+/// moved to the subordinate line. Selection is the onboarding grammar:
+/// constant glass tint (toggling it rebuilds the effect and lags the tap —
+/// see StruggleRow), amber ring + filled circle when chosen; the unselected
 /// card dims so the chosen plan reads first.
 private struct PlanCard: View {
     let plan: SleepPlan
@@ -434,28 +465,32 @@ private struct PlanCard: View {
         Button(action: action) {
             HStack(spacing: SleepSpacing.md) {
                 VStack(alignment: .leading, spacing: SleepSpacing.xs) {
-                    Text(titleText)
+                    Text(plan.title)
                         .font(SleepFont.label(17))
                         .foregroundStyle(SleepColor.ink)
-                        // The savings headline is long enough to need two
-                        // lines on narrower phones. Without this, the HStack
-                        // measures Text at its unwrapped ideal width, then
-                        // clips it to an ellipsis instead of wrapping once
-                        // the trailing price/checkmark claim their space.
+                        // Long enough to need two lines on narrower phones.
+                        // Without this, the HStack measures Text at its
+                        // unwrapped ideal width, then clips it to an ellipsis
+                        // instead of wrapping once the trailing price and
+                        // checkmark claim their space.
                         .fixedSize(horizontal: false, vertical: true)
-                    if plan.isAnnual {
-                        Text("\(plan.priceString) billed annually")
+                    if let derived = derivedLine {
+                        Text(derived)
                             .font(SleepFont.body(13))
                             .foregroundStyle(SleepColor.muted)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 // Claims the leftover width outright rather than leaving it
                 // to Spacer's minLength, so the title actually gets the full
                 // space to wrap into.
                 .frame(maxWidth: .infinity, alignment: .leading)
+                // A step above the title's 17pt: the billed amount is the
+                // largest, brightest thing on the card by design (3.1.2(c)).
                 Text(priceLine)
-                    .font(SleepFont.title(17))
+                    .font(SleepFont.title(19))
                     .foregroundStyle(SleepColor.ink)
+                    .fixedSize(horizontal: true, vertical: false)
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 20, weight: .light))
                     .foregroundStyle(isSelected ? SleepColor.amber : SleepColor.faint)
@@ -479,15 +514,23 @@ private struct PlanCard: View {
         .accessibilityLabel(accessibilitySummary)
     }
 
-    private var titleText: String {
-        guard plan.isAnnual, let percent = savingsPercent else { return plan.title }
-        return plan.trialDays > 0 ? "Start for free & save \(percent)%" : "Save \(percent)%"
+    /// The calculated extras, kept small and `muted` under the title: the
+    /// annual plan's monthly equivalent and how much it saves. Both are
+    /// derived from the billed amount above, and must never outweigh it.
+    private var derivedLine: String? {
+        // Only the annual card has anything to derive; `savingsPercent` is
+        // passed nil for the monthly plan, which is priced as-is.
+        guard plan.isAnnual, let perMonth = plan.perMonthString else { return nil }
+        // Kept to one line on the narrowest phone: wrapped, it grew the card
+        // and ran the derived figures alongside the billed price instead of
+        // clearly beneath the title.
+        guard let percent = savingsPercent else { return "\(perMonth)/mo" }
+        return "\(perMonth)/mo · save \(percent)%"
     }
 
+    /// Always the real charge for this plan's own billing period — never the
+    /// monthly equivalent. See the type doc for why.
     private var priceLine: String {
-        if plan.isAnnual, let perMonth = plan.perMonthString {
-            return "\(perMonth)/mo"
-        }
         switch plan.periodUnit {
         case "month": return "\(plan.priceString)/mo"
         case "week": return "\(plan.priceString)/wk"
@@ -497,9 +540,8 @@ private struct PlanCard: View {
     }
 
     /// The badge and subline are visual shorthand; the label reads the whole
-    /// card back in one sentence. Uses `plan.title` ("Yearly"/"Monthly")
-    /// rather than the savings headline — VoiceOver needs the period name
-    /// even when the on-screen title doesn't say it.
+    /// card back in one sentence, and — like the visible card — leads with
+    /// the billed amount before any derived figure.
     private var accessibilitySummary: String {
         var parts = [plan.title, "\(plan.priceString) per \(plan.periodUnit)"]
         if plan.trialDays > 0 { parts.append("\(plan.trialDays) nights free") }
