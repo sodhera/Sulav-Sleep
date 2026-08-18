@@ -16,8 +16,13 @@ Store fallback; most messengers won't even linkify a custom scheme, so it
 often arrives as dead grey text. The sender gets no signal that any of this
 happened.
 
-v3 adds a **6-character pairing code** (migration 008) and makes it the
-lead affordance, with the link demoted to a tertiary "copy a link instead".
+v3 replaces it with a **6-character pairing code** (migration 008). The
+link control is removed from the screen outright rather than demoted:
+keeping a second, quieter control that silently dead-ends for anyone
+without the app buys nothing and costs a wrong guess. Tokens already in
+the wild still connect — `AppDelegate` routing and `accept_partner_invite`
+are untouched — the app simply stops minting new links, and
+`create_partner_invite` is gone from the client.
 
 Why a code fixes it: nothing has to survive the install. "Get SleepBlock,
 then enter 4KM9PX" works whether or not the app is there yet, and it works
@@ -55,7 +60,7 @@ in-person mechanism next to a code that already covers in-person, and it
 costs a camera permission and a scanner view.
 
 Everything below is v2, still accurate except that the invite link is no
-longer the primary way in.
+longer how anyone gets a partner.
 
 ## v2 — referral and partnership decoupled
 

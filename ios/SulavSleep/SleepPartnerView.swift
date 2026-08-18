@@ -27,8 +27,6 @@ struct SleepPartnersScreen: View {
     var store: SleepStore
 
     @Environment(\.dismiss) private var dismiss
-    @State private var isMintingInvite = false
-    @State private var justCopied = false
     @State private var errorMessage: String?
     @State private var unlinkTarget: PartnerLink?
     @State private var activeSheet: PartnerSheet?
@@ -158,14 +156,18 @@ struct SleepPartnersScreen: View {
         }
     }
 
-    /// Two ways in, and the code leads. A `sleepblock://` link only resolves
-    /// for someone who already has the app — there's no associated-domains
-    /// entitlement, so no Universal Link and no App Store fallback, and most
-    /// messengers won't even make the string tappable. A typed code needs
-    /// none of that to survive: the friend installs first and types it after.
-    /// It also works out loud, across a room, which is how sleep partners
-    /// usually pair. The link stays as a quiet third option for anyone
-    /// already mid-conversation with a friend who has the app.
+    /// Two ways in, and both are codes. The `sleepblock://` invite link that
+    /// shipped first is gone from the UI: it only resolves for someone who
+    /// already has the app — there's no associated-domains entitlement, so no
+    /// Universal Link and no App Store fallback, and most messengers won't
+    /// even make the string tappable, so it often arrives as dead grey text.
+    /// A typed code needs none of that to survive: the friend installs first
+    /// and types it after. It also works out loud, across a room, which is
+    /// how sleep partners usually pair.
+    ///
+    /// Links already in the wild still work — `AppDelegate` still routes
+    /// `sleepblock://partner/<token>` and the accept path is untouched — the
+    /// app just stops minting new ones.
     private var actions: some View {
         VStack(spacing: SleepSpacing.md) {
             LiquidPrimaryButton(title: codeButtonTitle, systemImage: "person.badge.plus") {
@@ -174,25 +176,6 @@ struct SleepPartnersScreen: View {
             LiquidSecondaryButton(title: "Enter a friend's code", systemImage: "character.cursor.ibeam") {
                 activeSheet = .enterCode
             }
-            Button {
-                Haptics.heavy()
-                Task { await copyInvite() }
-            } label: {
-                HStack(spacing: SleepSpacing.xs) {
-                    if isMintingInvite {
-                        ProgressView().tint(SleepColor.muted)
-                    } else {
-                        Image(systemName: justCopied ? "checkmark" : "link")
-                        Text(justCopied ? "Link copied" : "Copy an invite link instead")
-                    }
-                }
-                .font(SleepFont.label(13))
-                .foregroundStyle(SleepColor.muted)
-                .frame(maxWidth: .infinity, minHeight: 44)
-                .animation(.easeInOut(duration: 0.18), value: justCopied)
-            }
-            .buttonStyle(.plain)
-            .disabled(isMintingInvite)
         }
     }
 
@@ -202,25 +185,6 @@ struct SleepPartnersScreen: View {
 
     private var unlinkBinding: Binding<Bool> {
         Binding(get: { unlinkTarget != nil }, set: { if !$0 { unlinkTarget = nil } })
-    }
-
-    private func copyInvite() async {
-        guard !isMintingInvite else { return }
-        isMintingInvite = true
-        errorMessage = nil
-        do {
-            let url = try await store.createPartnerInviteURL()
-            UIPasteboard.general.string = url.absoluteString
-            isMintingInvite = false
-            Haptics.success()
-            withAnimation { justCopied = true }
-            // Revert the label after a beat; a fresh tap mints a fresh link.
-            try? await Task.sleep(for: .seconds(2))
-            withAnimation { justCopied = false }
-        } catch {
-            isMintingInvite = false
-            errorMessage = error.localizedDescription
-        }
     }
 
     private func unlink(_ partner: PartnerLink) async {

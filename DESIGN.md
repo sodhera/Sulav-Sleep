@@ -1167,7 +1167,7 @@ top-trailing so it never disturbs the centered instrument). It opens
   stats. What's shown is *all* that's shared — derived numbers over the
   last seven nights, never raw sessions. Each row unlinks behind a confirm
   (unilateral, immediate, either side).
-- **Adding someone** — three ways, in deliberate priority order:
+- **Adding someone** — two ways, both codes:
   1. **Show my code** (amber primary) — a 6-character pairing code on its
      own `.medium` sheet, set at 38pt with wide tracking because this
      string gets *read aloud*, not scanned. Alphabet is 005's, no
@@ -1179,17 +1179,20 @@ top-trailing so it never disturbs the centered instrument). It opens
   2. **Enter a friend's code** (glass secondary) — the twin of
      `ReferralRedeemSheet`, pointed at partnership. Server owns every
      check and all error copy.
-  3. **Copy an invite link instead** (quiet tertiary) — the original
-     `sleepblock://` link, demoted. It copies to the clipboard (never a
-     share sheet: the user pastes it into the conversation they're already
-     in) and the label flips to "Link copied" for a beat.
 
-  The code leads because the link only resolves for someone who *already
-  has the app* — there's no associated-domains entitlement, so no
-  Universal Link and no App Store fallback, and most messengers won't even
-  make a custom-scheme string tappable. A typed code needs none of that to
-  survive an install, and it works across a room, which is how sleep
-  partners usually pair.
+  The `sleepblock://` invite link this screen shipped with is **gone from
+  the UI**. It only resolves for someone who *already has the app* —
+  there's no associated-domains entitlement, so no Universal Link and no
+  App Store fallback, and most messengers won't even make a custom-scheme
+  string tappable, so it often arrives as dead grey text. A typed code
+  needs none of that to survive an install, and it works across a room,
+  which is how sleep partners usually pair. Two controls that do the same
+  job, one of which silently fails for anyone without the app, is a worse
+  screen than one that works.
+
+  Links already handed out still connect — `AppDelegate` still routes
+  them and the accept path is untouched — the app just stops minting new
+  ones.
 
   Both sheets are one `sheet(item:)` on an enum, never two stacked
   `sheet(isPresented:)` — SwiftUI honors only one and still *builds* the

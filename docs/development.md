@@ -1192,11 +1192,14 @@ nights on first launch after upgrading.
   nights**; their **first paid payment** banks you a **free month**
   (a real App Store renewal extension). No relationship, no data shared.
 - **Sleep partner** — a mutual relationship built by a **6-character
-  pairing code** (primary) or the older **invite link**
-  (`sleepblock://partner/<token>`, now a tertiary control), unrelated to
-  any referral code and open to anyone regardless of subscription. Both
-  sides see each other's streak/schedule/average. Multiple partners,
-  capped at 10.
+  pairing code**, unrelated to any referral code and open to anyone
+  regardless of subscription. Both sides see each other's
+  streak/schedule/average. Multiple partners, capped at 10.
+  The `sleepblock://partner/<token>` **invite link is no longer minted**
+  (the app has no control for it and `createPartnerInvite` is gone from
+  the client), but `AppDelegate` still routes it and
+  `accept_partner_invite` still works, so tokens issued before the change
+  connect until they expire.
 
 Redeeming a referral does **not** make you partners (migration 006
 severed that). Referring a coworker never shares your sleep.
@@ -1234,7 +1237,7 @@ Code map:
   `handlePartnerInviteToken` (accept now / stash until sign-in),
   `pushPartnerSummary()` only while the user has partners.
 - `AppDelegate` — routes `sleepblock://partner/<token>` to the store.
-- `SleepPartnerView.swift` — `SleepPartnersScreen` (the list, the three
+- `SleepPartnerView.swift` — `SleepPartnersScreen` (the list, the two
   add paths, unlink), `PartnerCodeSheet` (shows the code, polls until it's
   claimed, shares App Store link + code) and `PartnerCodeEntrySheet`.
   Both hang off **one** `sheet(item:)` over a `PartnerSheet` enum: two

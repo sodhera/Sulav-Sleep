@@ -88,8 +88,6 @@ protocol ReferralSyncing: Sendable {
     /// The caller's confirmed partners, each with their summary. One round
     /// trip for the partnerships, one for the summaries.
     func partners(myUserID: String) async -> [PartnerLink]?
-    /// Mint a one-time partner invite token (behind the shareable link).
-    func createPartnerInvite() async throws -> String
     /// Accept a partner invite by its token — connects both accounts. Returns
     /// the new partner's display name. Throws the server's user-facing message.
     func acceptPartnerInvite(token: String) async throws -> String
@@ -135,9 +133,6 @@ struct DisabledReferralService: ReferralSyncing {
     func myStanding() async -> ReferralStanding? { nil }
     func referrerStats() async -> ReferrerStats? { nil }
     func partners(myUserID: String) async -> [PartnerLink]? { nil }
-    func createPartnerInvite() async throws -> String {
-        throw ReferralError(message: "Partners aren't available in this build.")
-    }
     func acceptPartnerInvite(token: String) async throws -> String {
         throw ReferralError(message: "Partners aren't available in this build.")
     }
@@ -369,26 +364,8 @@ final class SupabaseReferralService: ReferralSyncing, @unchecked Sendable {
         }
     }
 
-    func createPartnerInvite() async throws -> String {
-        do {
-            let token: String = try await client
-                .rpc("create_partner_invite")
-                .execute()
-                .value
-            AppLog.app.info("Partners: invite minted")
-            return token
-        } catch {
-            // Surface the server's own message when it has one (the RPC raises
-            // user-facing text, e.g. 'not authenticated'). A blanket
-            // "check your connection" hid real, actionable failures behind a
-            // network excuse — the same mistake this file already avoids in
-            // `acceptPartnerInvite`.
-            AppLog.app.error("Partners: invite mint failed: \(String(describing: error), privacy: .public)")
-            throw ReferralError(message: Self.postgrestMessage(error)
-                ?? "Couldn't create an invite. Check your connection and try again.")
-        }
-    }
-
+    /// Still here with no minter beside it on purpose: links handed out
+    /// before pairing codes landed keep working until they expire.
     func acceptPartnerInvite(token: String) async throws -> String {
         do {
             let name: String = try await client

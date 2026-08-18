@@ -692,19 +692,12 @@ final class SleepStore {
         referrerStats = await referral.referrerStats()
     }
 
-    /// Mint a one-time partner invite link to share. The token rides in a
-    /// `sleepblock://partner/<token>` URL the recipient taps to connect.
-    @MainActor
-    func createPartnerInviteURL() async throws -> URL {
-        let token = try await referral.createPartnerInvite()
-        guard let url = URL(string: "sleepblock://partner/\(token)") else {
-            throw ReferralError(message: "Couldn't create an invite. Try again.")
-        }
-        return url
-    }
-
     /// Accept a partner invite by its token (from a tapped link). Connects
     /// both accounts and refreshes the list. Returns the new partner's name.
+    ///
+    /// The app no longer *mints* these links — pairing codes replaced them —
+    /// but tokens minted before that change stay valid for their 7 days, so
+    /// this path and `AppDelegate`'s routing both stay.
     @MainActor
     @discardableResult
     func acceptPartnerInvite(token: String) async throws -> String {
