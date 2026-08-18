@@ -708,6 +708,26 @@ final class SleepStore {
         return name
     }
 
+    /// Mint (or re-show) the caller's 6-character pairing code — the typed
+    /// path into partnership, for the friend a link can't reach. Unlike the
+    /// link, this survives not having the app: they install first, then type
+    /// it. Deliberately not a permanent per-user ID (see migration 008).
+    @MainActor
+    func createPartnerCode() async throws -> String {
+        try await referral.createPartnerCode()
+    }
+
+    /// Redeem a friend's pairing code. Connects both accounts and refreshes
+    /// the list, exactly like a tapped link. Returns the new partner's name.
+    @MainActor
+    @discardableResult
+    func redeemPartnerCode(code: String) async throws -> String {
+        let name = try await referral.redeemPartnerCode(code: code)
+        await refreshReferral()
+        AppLog.store.info("Partner code redeemed")
+        return name
+    }
+
     @MainActor
     func unlinkPartner(partnershipID: String) async throws {
         try await referral.unlinkPartnership(id: partnershipID)

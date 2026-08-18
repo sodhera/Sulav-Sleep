@@ -93,6 +93,13 @@ protocol ReferralSyncing: Sendable {
     /// Accept a partner invite by its token — connects both accounts. Returns
     /// the new partner's display name. Throws the server's user-facing message.
     func acceptPartnerInvite(token: String) async throws -> String
+    /// Mint (or re-show) the caller's 6-character pairing code — the typed
+    /// alternative to the link, for a friend who isn't in a text thread or
+    /// doesn't have the app yet.
+    func createPartnerCode() async throws -> String
+    /// Redeem a friend's pairing code. Returns the new partner's display
+    /// name. Throws the server's own message on any refusal.
+    func redeemPartnerCode(code: String) async throws -> String
     /// Leave a partnership (either side, immediate).
     func unlinkPartnership(id: String) async throws
     /// Owner-side write of the shared summary row. Best-effort like every
@@ -132,6 +139,12 @@ struct DisabledReferralService: ReferralSyncing {
         throw ReferralError(message: "Partners aren't available in this build.")
     }
     func acceptPartnerInvite(token: String) async throws -> String {
+        throw ReferralError(message: "Partners aren't available in this build.")
+    }
+    func createPartnerCode() async throws -> String {
+        throw ReferralError(message: "Partners aren't available in this build.")
+    }
+    func redeemPartnerCode(code: String) async throws -> String {
         throw ReferralError(message: "Partners aren't available in this build.")
     }
     func unlinkPartnership(id: String) async throws {}
@@ -189,6 +202,15 @@ private struct RedeemResponse: Decodable {
 
 private struct RedeemErrorResponse: Decodable {
     let error: String
+}
+
+/// `redeem_partner_code` answers with a result instead of raising, so that
+/// its rate-limit bookkeeping survives a refusal (a raise would roll the
+/// attempt row back). Migration 008 explains the reasoning.
+private struct PartnerCodeResponse: Decodable {
+    let ok: Bool
+    let name: String?
+    let error: String?
 }
 
 /// Same two-formatter timestamptz dance as `SessionRow` — Postgres trims
@@ -380,6 +402,42 @@ final class SupabaseReferralService: ReferralSyncing, @unchecked Sendable {
             throw ReferralError(message: Self.postgrestMessage(error)
                 ?? "Couldn't accept the invite. It may have expired.")
         }
+    }
+
+    func createPartnerCode() async throws -> String {
+        do {
+            let code: String = try await client
+                .rpc("create_partner_code")
+                .execute()
+                .value
+            AppLog.app.info("Partners: pairing code minted")
+            return code
+        } catch {
+            AppLog.app.error("Partners: code mint failed: \(String(describing: error), privacy: .public)")
+            throw ReferralError(message: Self.postgrestMessage(error)
+                ?? "Couldn't create a code. Check your connection and try again.")
+        }
+    }
+
+    func redeemPartnerCode(code: String) async throws -> String {
+        let response: PartnerCodeResponse
+        do {
+            response = try await client
+                .rpc("redeem_partner_code", params: ["p_code": code])
+                .execute()
+                .value
+        } catch {
+            // Only transport/decode failures land here; every user-facing
+            // refusal arrives as ok:false below.
+            AppLog.app.error("Partners: code redeem failed: \(String(describing: error), privacy: .public)")
+            throw ReferralError(message: Self.postgrestMessage(error)
+                ?? "Couldn't reach the server. Check your connection and try again.")
+        }
+        guard response.ok else {
+            throw ReferralError(message: response.error ?? "That code didn't work.")
+        }
+        AppLog.app.info("Partners: pairing code redeemed")
+        return response.name ?? ""
     }
 
     func unlinkPartnership(id: String) async throws {
