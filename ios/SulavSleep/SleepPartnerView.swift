@@ -11,6 +11,13 @@ import UIKit
 
 // MARK: - Sleep Partners screen (Home → partner button)
 
+/// Which pairing sheet is up. An enum behind one `sheet(item:)` rather than
+/// a Bool per sheet — see the presentation note on `SleepPartnersScreen`.
+private enum PartnerSheet: String, Identifiable {
+    case showCode, enterCode
+    var id: String { rawValue }
+}
+
 /// The one home for sleep partners: the list, adding, and unlinking. Presented
 /// as a sheet from Home's top-right button (and raised automatically when a
 /// partner-invite link is tapped). A partner's numbers reuse Home's flame and
@@ -24,6 +31,7 @@ struct SleepPartnersScreen: View {
     @State private var justCopied = false
     @State private var errorMessage: String?
     @State private var unlinkTarget: PartnerLink?
+    @State private var activeSheet: PartnerSheet?
 
     var body: some View {
         ZStack {
@@ -53,7 +61,7 @@ struct SleepPartnersScreen: View {
                             .padding(.top, SleepSpacing.lg)
                     }
 
-                    addButton.padding(.top, SleepSpacing.xl)
+                    actions.padding(.top, SleepSpacing.xl)
                 }
                 .padding(.horizontal, SleepSpacing.xxl)
                 .padding(.bottom, 120)
@@ -68,6 +76,29 @@ struct SleepPartnersScreen: View {
                 store.partnerInviteMessage = nil
                 inviteResultBanner = msg
             }
+        }
+        // Both code paths (show and enter) report through the same one-shot
+        // message the deep link uses, so every route into partnership
+        // confirms itself identically.
+        .onChange(of: store.partnerInviteMessage) { _, msg in
+            guard let msg else { return }
+            store.partnerInviteMessage = nil
+            errorMessage = nil
+            withAnimation { inviteResultBanner = msg }
+        }
+        // One `sheet(item:)`, not two `sheet(isPresented:)`. Stacking two
+        // presentation modifiers on the same view is unreliable — SwiftUI
+        // honors one and still *builds* the other's content, which fired the
+        // code mint on appear, before anyone had asked for a code.
+        .sheet(item: $activeSheet) { sheet in
+            Group {
+                switch sheet {
+                case .showCode: PartnerCodeSheet(store: store)
+                case .enterCode: PartnerCodeEntrySheet(store: store)
+                }
+            }
+            .presentationDetents([.medium])
+            .presentationBackground(SleepColor.background)
         }
         .task { await store.refreshReferral() }
         .alert("Unlink partner?", isPresented: unlinkBinding, presenting: unlinkTarget) { partner in
@@ -127,39 +158,46 @@ struct SleepPartnersScreen: View {
         }
     }
 
-    /// Mints an invite link and copies it to the clipboard, then flips its own
-    /// label to "Link copied" for a beat. Copy (not a share sheet) because the
-    /// user pastes it wherever they're already talking to their friend; the
-    /// label change is the confirmation that the copy happened.
-    private var addButton: some View {
-        Button {
-            Haptics.heavy()
-            Task { await copyInvite() }
-        } label: {
-            HStack(spacing: SleepSpacing.sm) {
-                if isMintingInvite {
-                    ProgressView().tint(SleepColor.background)
-                } else {
-                    Image(systemName: justCopied ? "checkmark" : "link")
-                    Text(buttonTitle).font(SleepFont.label(16)).tracking(0.2)
+    /// Two ways in, and the code leads. A `sleepblock://` link only resolves
+    /// for someone who already has the app — there's no associated-domains
+    /// entitlement, so no Universal Link and no App Store fallback, and most
+    /// messengers won't even make the string tappable. A typed code needs
+    /// none of that to survive: the friend installs first and types it after.
+    /// It also works out loud, across a room, which is how sleep partners
+    /// usually pair. The link stays as a quiet third option for anyone
+    /// already mid-conversation with a friend who has the app.
+    private var actions: some View {
+        VStack(spacing: SleepSpacing.md) {
+            LiquidPrimaryButton(title: codeButtonTitle, systemImage: "person.badge.plus") {
+                activeSheet = .showCode
+            }
+            LiquidSecondaryButton(title: "Enter a friend's code", systemImage: "character.cursor.ibeam") {
+                activeSheet = .enterCode
+            }
+            Button {
+                Haptics.heavy()
+                Task { await copyInvite() }
+            } label: {
+                HStack(spacing: SleepSpacing.xs) {
+                    if isMintingInvite {
+                        ProgressView().tint(SleepColor.muted)
+                    } else {
+                        Image(systemName: justCopied ? "checkmark" : "link")
+                        Text(justCopied ? "Link copied" : "Copy an invite link instead")
+                    }
                 }
+                .font(SleepFont.label(13))
+                .foregroundStyle(SleepColor.muted)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .animation(.easeInOut(duration: 0.18), value: justCopied)
             }
-            .foregroundStyle(SleepColor.background)
-            .frame(maxWidth: .infinity, minHeight: 58)
-            .background {
-                Capsule(style: .continuous).fill(LinearGradient(
-                    colors: [SleepColor.gold, SleepColor.amber],
-                    startPoint: .topLeading, endPoint: .bottomTrailing))
-            }
-            .animation(.easeInOut(duration: 0.18), value: justCopied)
+            .buttonStyle(.plain)
+            .disabled(isMintingInvite)
         }
-        .buttonStyle(.plain)
-        .disabled(isMintingInvite)
     }
 
-    private var buttonTitle: String {
-        if justCopied { return "Link copied" }
-        return store.partners.isEmpty ? "Copy invite link" : "Copy a new invite link"
+    private var codeButtonTitle: String {
+        store.partners.isEmpty ? "Show my code" : "Show a code for someone else"
     }
 
     private var unlinkBinding: Binding<Bool> {
@@ -467,6 +505,228 @@ struct ReferralRedeemSheet: View {
         do {
             try await store.redeemReferral(code: code)
             Haptics.success()
+            dismiss()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+}
+
+// MARK: - Pairing code sheets
+
+/// The sender's half: one 6-character code, big enough to read across a
+/// room or down a phone line. Why a code at all, when there's already a
+/// link — see `SleepPartnersScreen.actions` and migration 008.
+///
+/// Deliberately a *temporary* code rather than a permanent per-user ID. A
+/// fixed handle is guessable and forever, which would force back the
+/// accept/decline step migration 006 removed — and what a partner sees is
+/// bed and wake times, i.e. when someone's home is empty. One use, 24 hours.
+///
+/// The sheet watches for its own code being claimed and confirms in place,
+/// so the sender doesn't have to ask "did it work?".
+struct PartnerCodeSheet: View {
+    var store: SleepStore
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var code: String?
+    @State private var errorMessage: String?
+    @State private var partnerCountAtOpen = 0
+
+    var body: some View {
+        ZStack {
+            SleepColor.background.ignoresSafeArea()
+            VStack(spacing: SleepSpacing.xl) {
+                VStack(spacing: SleepSpacing.xs) {
+                    Text("Your pairing code")
+                        .font(SleepFont.hero(22))
+                        .foregroundStyle(SleepColor.ink)
+                    Text("Read it to a friend, or send it. They enter it in the app.")
+                        .font(SleepFont.body(14))
+                        .foregroundStyle(SleepColor.dim)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.top, SleepSpacing.xxl)
+
+                if let code {
+                    Text(code)
+                        // Wide tracking so each character is picked out one at
+                        // a time — this string gets read aloud, not scanned.
+                        .font(SleepFont.hero(38))
+                        .tracking(8)
+                        .foregroundStyle(SleepColor.ink)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, SleepSpacing.lg)
+                        .liquidGlass(cornerRadius: SleepRadius.lg)
+                        .contextMenu {
+                            Button("Copy code") { UIPasteboard.general.string = code }
+                        }
+
+                    Text("Works once · expires in 24 hours")
+                        .font(SleepFont.body(12))
+                        .foregroundStyle(SleepColor.muted)
+
+                    ShareLink(item: shareMessage(code: code)) {
+                        Label("Send it", systemImage: "square.and.arrow.up")
+                            .font(SleepFont.label(16))
+                            .tracking(0.2)
+                            .foregroundStyle(SleepColor.background)
+                            .frame(maxWidth: .infinity, minHeight: 58)
+                            .background {
+                                Capsule(style: .continuous).fill(LinearGradient(
+                                    colors: [SleepColor.gold, SleepColor.amber],
+                                    startPoint: .topLeading, endPoint: .bottomTrailing))
+                            }
+                    }
+                } else if let errorMessage {
+                    Text(errorMessage)
+                        .font(SleepFont.body(14))
+                        .foregroundStyle(SleepColor.danger)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    ProgressView()
+                        .tint(SleepColor.amber)
+                        .frame(maxWidth: .infinity, minHeight: 96)
+                }
+
+                Spacer()
+            }
+            .padding(.horizontal, SleepSpacing.xxl)
+        }
+        .task {
+            partnerCountAtOpen = store.partners.count
+            await mint()
+            await watchForAcceptance()
+        }
+    }
+
+    /// The whole point of the code: this message works for a friend who
+    /// doesn't have SleepBlock yet. The App Store link is Apple's own, so
+    /// none of this needs a domain or a web page of ours.
+    private func shareMessage(code: String) -> String {
+        let pitch = "Be my sleep partner on SleepBlock — we'd see each other's streak and schedule. 🌙"
+        guard AppStoreLink.isConfigured else {
+            return "\(pitch) Enter code \(code) in the app."
+        }
+        return """
+        \(pitch)
+
+        Get the app: https://apps.apple.com/app/id\(AppStoreLink.appID)
+        Then enter code: \(code)
+        """
+    }
+
+    private func mint() async {
+        do {
+            code = try await store.createPartnerCode()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Polls while the sheet is up so the sender sees the moment it lands.
+    /// Cheap (the same refresh the screen already does on appear) and ends
+    /// with the sheet — `task` is cancelled on dismiss.
+    private func watchForAcceptance() async {
+        guard code != nil else { return }
+        while !Task.isCancelled {
+            try? await Task.sleep(for: .seconds(5))
+            if Task.isCancelled { return }
+            await store.refreshReferral()
+            if store.partners.count > partnerCountAtOpen {
+                let name = store.partners.last?.displayName ?? ""
+                Haptics.success()
+                store.partnerInviteMessage = name.isEmpty
+                    ? "You're now sleep partners."
+                    : "You're now sleep partners with \(name)."
+                dismiss()
+                return
+            }
+        }
+    }
+}
+
+/// The receiver's half — the twin of `ReferralRedeemSheet`, pointed at
+/// partnership instead of free nights. The server does every check and
+/// owns the error copy, including the rate limit that a live, typeable
+/// code space needs and a one-time link never did.
+struct PartnerCodeEntrySheet: View {
+    var store: SleepStore
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var code = ""
+    @State private var isRedeeming = false
+    @State private var errorMessage: String?
+    @FocusState private var fieldFocused: Bool
+
+    var body: some View {
+        ZStack {
+            SleepColor.background.ignoresSafeArea()
+            VStack(spacing: SleepSpacing.xl) {
+                VStack(spacing: SleepSpacing.xs) {
+                    Text("Enter their code")
+                        .font(SleepFont.hero(22))
+                        .foregroundStyle(SleepColor.ink)
+                    Text("The 6 characters your friend is showing you.")
+                        .font(SleepFont.body(14))
+                        .foregroundStyle(SleepColor.dim)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.top, SleepSpacing.xxl)
+
+                TextField("4KM9PX", text: $code)
+                    .font(SleepFont.hero(28))
+                    .tracking(6)
+                    .foregroundStyle(SleepColor.ink)
+                    .multilineTextAlignment(.center)
+                    .textInputAutocapitalization(.characters)
+                    .autocorrectionDisabled()
+                    .focused($fieldFocused)
+                    .padding(.vertical, SleepSpacing.lg)
+                    .liquidGlass(cornerRadius: SleepRadius.lg)
+                    .onChange(of: code) { _, value in
+                        // Mirrors the server's normalization so what the user
+                        // sees is exactly what gets checked. Capped at 6 so a
+                        // stray keystroke can't silently invalidate the code.
+                        let cleaned = String(value.uppercased()
+                            .filter { !$0.isWhitespace && $0 != "-" }
+                            .prefix(6))
+                        if cleaned != value { code = cleaned }
+                    }
+
+                if let errorMessage {
+                    Text(errorMessage)
+                        .font(SleepFont.body(14))
+                        .foregroundStyle(SleepColor.danger)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                LiquidPrimaryButton(title: "Connect", isLoading: isRedeeming) {
+                    Task { await redeem() }
+                }
+                .disabled(code.count < 6 || isRedeeming)
+
+                Spacer()
+            }
+            .padding(.horizontal, SleepSpacing.xxl)
+        }
+        .onAppear { fieldFocused = true }
+    }
+
+    private func redeem() async {
+        guard !isRedeeming else { return }
+        isRedeeming = true
+        errorMessage = nil
+        defer { isRedeeming = false }
+        do {
+            let name = try await store.redeemPartnerCode(code: code)
+            Haptics.success()
+            store.partnerInviteMessage = name.isEmpty
+                ? "You're now sleep partners."
+                : "You're now sleep partners with \(name)."
             dismiss()
         } catch {
             errorMessage = error.localizedDescription

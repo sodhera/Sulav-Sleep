@@ -1167,10 +1167,42 @@ top-trailing so it never disturbs the centered instrument). It opens
   stats. What's shown is *all* that's shared — derived numbers over the
   last seven nights, never raw sessions. Each row unlinks behind a confirm
   (unilateral, immediate, either side).
-- **Add a partner** — a full-width amber button that mints a one-time
-  invite link and hands it straight to the system share sheet ("Be my
-  sleep partner on SleepBlock…"). "Add another partner" once you have one.
+- **Adding someone** — three ways, in deliberate priority order:
+  1. **Show my code** (amber primary) — a 6-character pairing code on its
+     own `.medium` sheet, set at 38pt with wide tracking because this
+     string gets *read aloud*, not scanned. Alphabet is 005's, no
+     `0/O/1/I/L`. One use, 24 hours. The sheet polls while it's up and
+     confirms in place the moment someone claims it, so the sender never
+     has to ask "did it work?". A **Send it** share button carries the
+     App Store link *and* the code, which is the whole point: that message
+     works for a friend who doesn't have the app yet.
+  2. **Enter a friend's code** (glass secondary) — the twin of
+     `ReferralRedeemSheet`, pointed at partnership. Server owns every
+     check and all error copy.
+  3. **Copy an invite link instead** (quiet tertiary) — the original
+     `sleepblock://` link, demoted. It copies to the clipboard (never a
+     share sheet: the user pastes it into the conversation they're already
+     in) and the label flips to "Link copied" for a beat.
+
+  The code leads because the link only resolves for someone who *already
+  has the app* — there's no associated-domains entitlement, so no
+  Universal Link and no App Store fallback, and most messengers won't even
+  make a custom-scheme string tappable. A typed code needs none of that to
+  survive an install, and it works across a room, which is how sleep
+  partners usually pair.
+
+  Both sheets are one `sheet(item:)` on an enum, never two stacked
+  `sheet(isPresented:)` — SwiftUI honors only one and still *builds* the
+  other's content, which fired the code mint before anyone asked for a code.
 - **Empty state** — "Sleep better together", the accountability pitch.
+
+**No permanent per-user ID.** A fixed, guessable handle would force back
+the accept/decline step this design deleted, and it can't be taken back
+once it leaks — while what a partner sees (bed and wake time) is a
+schedule of when someone's home is empty. Pairing codes stay one-use and
+24-hour so auto-confirm remains honest. The one thing codes need that
+links never did is server-side rate limiting on redemption, since a live
+6-character space is guessable in a way a 96-bit token isn't.
 
 A tapped `sleepblock://partner/<token>` link routes through `AppDelegate`
 to the store, which accepts it (connecting both accounts directly — both

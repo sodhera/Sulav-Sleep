@@ -139,6 +139,12 @@ final class SleepStore {
             let variant = ProcessInfo.processInfo.arguments.dropFirst(index + 1).first ?? "many"
             partners = variant == "one" ? [Self.samplePartner] : Self.samplePartners
             myReferralCode = "SLPX7K"
+            // Dev builds have no RevenueCat entitlement, so the first-run
+            // paywall owns the route and the partners screen is unreachable.
+            // Skip it and raise the sheet directly — the point of this arg is
+            // to look at that screen.
+            paywallDismissed = true
+            showPartners = true
         }
 #endif
         reload()

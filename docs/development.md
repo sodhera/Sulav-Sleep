@@ -64,7 +64,18 @@ xcrun simctl launch booted com.sulav.sleepblock -review-partner many
 
 Variants: `many` (Maya/Jordan/Sam with summary numbers, the default),
 `one` (a single partner — the case the expiry headline and ending nudge
-name by name). Open the screen from Home's partner button.
+name by name).
+
+The arg also dismisses the first-run paywall and raises the sheet on
+launch: dev builds have no RevenueCat entitlement, so `needsPaywall` owns
+the route and the partners screen is otherwise unreachable. Once a real
+Supabase is configured and signed in, `refreshReferral()` replaces the
+injected samples with the account's actual partners — so the injection is
+for *screenshots on a dev-mode build*, not for staging a live account.
+
+The two pairing-code sheets need migration 008 applied to whichever
+Supabase the build points at; without it `create_partner_code` is missing
+from the schema cache and the sheet shows the server's error.
 
 ### Preview the free-nights expiry mechanics
 
@@ -1180,10 +1191,12 @@ nights on first launch after upgrading.
 - **Referral** — a growth code. A new friend redeems it for **30 free
   nights**; their **first paid payment** banks you a **free month**
   (a real App Store renewal extension). No relationship, no data shared.
-- **Sleep partner** — a mutual relationship built by a **partner invite
-  link** (`sleepblock://partner/<token>`), unrelated to any code and open
-  to anyone regardless of subscription. Both sides see each other's
-  streak/schedule/average. Multiple partners, capped at 10.
+- **Sleep partner** — a mutual relationship built by a **6-character
+  pairing code** (primary) or the older **invite link**
+  (`sleepblock://partner/<token>`, now a tertiary control), unrelated to
+  any referral code and open to anyone regardless of subscription. Both
+  sides see each other's streak/schedule/average. Multiple partners,
+  capped at 10.
 
 Redeeming a referral does **not** make you partners (migration 006
 severed that). Referring a coworker never shares your sleep.
@@ -1197,6 +1210,16 @@ Code map:
   `partner_invites` (one-time, 7-day tokens), `create_partner_invite()` /
   `accept_partner_invite()` (auto-confirm both sides, cap 10, copy names),
   and drops the old single-slot `confirm/decline` RPCs.
+- `supabase/migrations/008_partner_codes.sql` — pairing codes:
+  `create_partner_code()` (6 chars, 005's unambiguous alphabet, 24h,
+  re-shows a live code instead of minting a second) and
+  `redeem_partner_code()`, plus `partner_code_attempts` behind a 10-per-15
+  minutes limit. **`redeem_partner_code` returns `{ok,name,error}` and
+  never raises** — a raise would roll back the attempt row the limiter
+  counts. Codes exist because a `sleepblock://` link is a dead end for
+  anyone without the app (no associated-domains ⇒ no Universal Link, no
+  App Store fallback); a typed code survives the install. Deliberately
+  temporary, never a permanent per-user ID — see the roadmap's v3 note.
 - `supabase/functions/redeem-referral` — writes a redemption
   (server-dated `free_until`) and nothing else (no partnership).
 - `supabase/functions/revenuecat-webhook` — conversion → banked reward
@@ -1204,15 +1227,19 @@ Code map:
   extension (`extendSubscriptionRenewalDate`, ≤90d/call, 2/yr). No cron.
 - `SleepReferral.swift` — the protocol seam (`ReferralSyncing`): referral
   (`myCode`/`redeem`/`myStanding`) plus partners (`partners`,
-  `createPartnerInvite`, `acceptPartnerInvite`, `unlinkPartnership`). Dev
-  mode hides every surface.
+  `createPartnerInvite`, `acceptPartnerInvite`, `createPartnerCode`,
+  `redeemPartnerCode`, `unlinkPartnership`). Dev mode hides every surface.
 - `SleepStore` — `referralFreeUntil` (the lock's third exemption via
   `isWithinReferralNights`), `partners: [PartnerLink]`, `showPartners`,
   `handlePartnerInviteToken` (accept now / stash until sign-in),
   `pushPartnerSummary()` only while the user has partners.
 - `AppDelegate` — routes `sleepblock://partner/<token>` to the store.
-- `SleepPartnerView.swift` — `SleepPartnersScreen` (the list, add-partner
-  ShareLink, unlink), plus the pure-referral `InviteFriendScreen` and
+- `SleepPartnerView.swift` — `SleepPartnersScreen` (the list, the three
+  add paths, unlink), `PartnerCodeSheet` (shows the code, polls until it's
+  claimed, shares App Store link + code) and `PartnerCodeEntrySheet`.
+  Both hang off **one** `sheet(item:)` over a `PartnerSheet` enum: two
+  stacked `sheet(isPresented:)` left SwiftUI building the unshown sheet's
+  body, which fired the code mint on appear. Plus `InviteFriendScreen` and
   `ReferralRedeemSheet`. `HomeView` carries the partner button;
   `RootView` presents the partners sheet.
 

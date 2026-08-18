@@ -7,7 +7,57 @@ first; the v1 text is kept for the decision trail, not as current behavior.
 `docs/development.md` and DESIGN.md carry the current maintenance and screen
 rules.
 
-## v2 — referral and partnership decoupled (current)
+## v3 — pairing codes (current, August 2026)
+
+v2's partner invite link had a hole that only shows up in the field: a
+`sleepblock://` URL resolves for nobody who doesn't already have the app.
+There's no associated-domains entitlement, so no Universal Link and no App
+Store fallback; most messengers won't even linkify a custom scheme, so it
+often arrives as dead grey text. The sender gets no signal that any of this
+happened.
+
+v3 adds a **6-character pairing code** (migration 008) and makes it the
+lead affordance, with the link demoted to a tertiary "copy a link instead".
+
+Why a code fixes it: nothing has to survive the install. "Get SleepBlock,
+then enter 4KM9PX" works whether or not the app is there yet, and it works
+*spoken* — across a kitchen table, over a phone call — which is the common
+case for sleep partners (roommates, couples, the friend you're actually
+accountable to). The share message bundles Apple's own App Store URL with
+the code, so none of this needs a domain or a web page of ours.
+
+**Explicitly rejected: a permanent per-user ID / username.** It was the
+first idea, and it's the wrong shape here:
+
+- A fixed handle is guessable and forever, so anyone could type it at you.
+  That forces back the pending/confirm step v2 deliberately deleted, and
+  hands every user a request queue to triage.
+- What a partner sees is bed and wake time — a schedule of when a home is
+  unattended. Not something to gate behind a guessable, permanent name.
+- It drags in uniqueness at signup, squatting, renames, moderation of
+  offensive handles, and a lookup RPC that becomes an enumeration oracle
+  over the user base.
+
+Temporary codes keep v2's auto-confirm honest instead: one use, 24 hours
+(not 10 minutes — the recipient may need to install and sign up first),
+plus the one thing links never needed, **server-side rate limiting**, since
+a live 6-character space is brute-forceable in a way a 96-bit token isn't.
+
+One structural consequence worth knowing before editing 008:
+`redeem_partner_code` **returns** `{ok, name, error}` rather than raising.
+A raise aborts the transaction, which would roll back the very attempt row
+the rate limiter counts — a raising function cannot rate-limit itself.
+`accept_partner_invite` (the link path) is untouched and still raises.
+
+QR was considered and cut. It would have worked — scanned from *inside*
+the app it can carry any payload, no domain needed — but it's a second
+in-person mechanism next to a code that already covers in-person, and it
+costs a camera permission and a scanner view.
+
+Everything below is v2, still accurate except that the invite link is no
+longer the primary way in.
+
+## v2 — referral and partnership decoupled
 
 v1 fused the two: the only way to get a sleep partner was to redeem
 someone's referral code. Two problems surfaced immediately:
