@@ -237,9 +237,12 @@ final class SleepStore {
     /// wall of identical bars. Debug-only, for `-review-record`.
     private static func sampleGoodWeekSessions() -> [SleepSession] {
         // (wake hour, wake minute, minutes slept), newest night last.
+        // The seven durations sum to 3360 (56h), so the summary band reads
+        // exactly "8h 00m" — and since the average window is the average wake
+        // minus the average duration, 7:00 AM lands it on a clean 11:00 PM.
         let nights: [(Int, Int, Int)] = [
-            (6, 55, 470), (7, 10, 455), (6, 45, 490), (7, 5, 460),
-            (6, 50, 480), (7, 15, 445), (7, 0, 485),
+            (6, 55, 470), (7, 10, 455), (6, 45, 490), (7, 5, 480),
+            (6, 50, 495), (7, 15, 470), (7, 0, 500),
         ]
         let cal = Calendar.current
         let today = Date()
