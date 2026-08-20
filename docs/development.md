@@ -52,6 +52,45 @@ xcrun simctl launch booted com.sulav.sleepblock -review-subscription
 Like `-review-paywall`, the arg is compiled only under `DEBUG`. Against a real
 RevenueCat key the status is live, so the arg is ignored (dev mode only).
 
+### Capture the Profile sleep record (marketing)
+
+Marketing shots of the Profile tab need a *full, healthy* week on screen —
+seven filled bars and a real average — which a fresh Simulator install has no
+way to produce. A DEBUG-only launch argument seeds one:
+
+```sh
+xcrun simctl launch booted com.sulav.sleepblock -review-record
+```
+
+`-review-record` does four things, all compiled out of Release builds:
+
+- Seeds seven consecutive nights ending this morning, ~7.4–8.2h each and
+  varied on purpose, so the chart reads as a record rather than a flat wall
+  (`SleepStore.sampleGoodWeekSessions`). They are persisted, because every
+  foreground calls `reload()` and would otherwise drop them.
+- Stubs a signed-in account and an onboarded profile (and persists the account
+  for the same `reload()` reason). `restoreSession()` returns early under the
+  flag, or the real — empty — auth state would sign the stub straight out.
+  This is what makes Profile reachable on a dev build with no Supabase session.
+- Suppresses the App Store rating prompt (`shouldRequestReview`). The seeded
+  record trips every condition for it on first launch, and the system sheet
+  would sit over the capture.
+- Hides the Blocked apps row on Profile. On the Simulator it can only ever read
+  "Blocking needs a real iPhone", which is a capture artifact in a shot whose
+  subject is the sleep record. The seeded profile also has the Apple Health
+  invite pre-dismissed, for the same framing reason.
+
+Then switch to the Profile tab and capture:
+
+```sh
+xcrun simctl io booted screenshot marketing/profile-good-week/profile-good-week.png
+```
+
+The date range in the caption and the weekday initials follow the capture
+date, so re-shoot rather than reusing a stale file when the week matters.
+The flag is a *screenshot* tool, not a way to stage a live account — anything
+it writes lands in that Simulator's store until the app is reinstalled.
+
 ### Preview the Sleep Partners screen
 
 The partners list (Home top-right `person.2` button) needs real

@@ -177,6 +177,36 @@ final class SleepStore {
             myReferralCode = "SLPX7K"
         }
 #endif
+#if DEBUG
+        // `-review-record`: a full, healthy week of nights for the marketing
+        // capture of Profile — seven consecutive ~8h nights, so the summary
+        // band reads a real average and the chart shows every slot filled.
+        // Same persist-after-`reload()` reasoning as the referral args above.
+        if ProcessInfo.processInfo.arguments.contains("-review-record") {
+            // Stand in for the signed-in, onboarded user too: a dev build has
+            // no Supabase session, and the Profile tab is unreachable without
+            // one. `restoreSession()` returns early under the same flag so the
+            // real (empty) auth state can't overwrite this.
+            let stub = AppAccount(id: "review-record", email: nil, provider: .email)
+            account = stub
+            // Persisted, not just held: every foreground calls `reload()`,
+            // which re-reads the account from disk and would sign the stub out.
+            persistence.saveAccount(stub)
+            profile = Profile(
+                name: "Sulav", bedtime: 23 * 60, wakeTime: 7 * 60, onboarded: true,
+                // The Health invite is a first-run card, not part of the
+                // record — it would sit between the average and the chart.
+                healthPromptDismissed: true
+            )
+            sessions = Self.sampleGoodWeekSessions()
+            persistence.save(SleepSnapshot(
+                profile: profile, sessions: sessions,
+                activeSession: activeSession, reachNights: reachNights
+            ))
+            paywallDismissed = true
+            isAuthReady = true
+        }
+#endif
         startSubscriptionTracking()
         Task { [weak self] in await self?.restoreSession() }
     }
@@ -201,6 +231,29 @@ final class SleepStore {
                 avgBedMinutes: 22 * 60 + 45, avgWakeMinutes: 6 * 60 + 30,
                 avgDurationMinutes: 7 * 60 + 45, nights: 7, updatedAt: Date())),
     ]
+
+    /// Seven consecutive nights of good sleep ending this morning, varied
+    /// enough that the weekly chart reads as a real record rather than a flat
+    /// wall of identical bars. Debug-only, for `-review-record`.
+    private static func sampleGoodWeekSessions() -> [SleepSession] {
+        // (wake hour, wake minute, minutes slept), newest night last.
+        let nights: [(Int, Int, Int)] = [
+            (6, 55, 470), (7, 10, 455), (6, 45, 490), (7, 5, 460),
+            (6, 50, 480), (7, 15, 445), (7, 0, 485),
+        ]
+        let cal = Calendar.current
+        let today = Date()
+        return nights.enumerated().map { offset, night in
+            let (hour, minute, duration) = night
+            let day = cal.date(byAdding: .day, value: offset - (nights.count - 1), to: today) ?? today
+            let end = cal.date(bySettingHour: hour, minute: minute, second: 0, of: day) ?? day
+            return SleepSession(
+                id: "good-week-\(offset)",
+                start: end.addingTimeInterval(-Double(duration) * 60),
+                end: end, durationMinutes: duration, source: .local
+            )
+        }
+    }
 
     /// A run of `nights` consecutive ~7.5h nights ending this morning, so the
     /// streak rule counts them. Debug-only, for the referral review args.
@@ -841,6 +894,11 @@ final class SleepStore {
     /// Checks for a Keychain-restored Supabase session at launch. Runs once.
     @MainActor
     func restoreSession() async {
+#if DEBUG
+        // `-review-record` stubs the account and profile in `init`; a real
+        // restore here would find no session and sign that stub straight out.
+        if ProcessInfo.processInfo.arguments.contains("-review-record") { return }
+#endif
         // Reinstall gotcha: deleting the app wipes our container (the profile,
         // and this launch marker) but iOS keeps Keychain items — so a stale
         // Supabase session would silently sign the user back in on what looks
@@ -1332,7 +1390,22 @@ final class SleepStore {
     /// caps the prompt at three appearances per year whatever we request.
     /// `maxAsks` matches that cap so we never burn a request the OS would
     /// have swallowed anyway.
+    /// Whether this launch is the `-review-record` marketing capture: a
+    /// seeded week of good nights on a stubbed signed-in account, so Profile
+    /// can be photographed without a live Supabase session. Always false in
+    /// release builds. See `sampleGoodWeekSessions`.
+    static var isRecordCapture: Bool {
+#if DEBUG
+        ProcessInfo.processInfo.arguments.contains("-review-record")
+#else
+        false
+#endif
+    }
+
     var shouldRequestReview: Bool {
+        // The seeded record trips every condition below on first launch, and
+        // the system prompt would sit over the capture.
+        if Self.isRecordCapture { return false }
         // Two logged nights is the earliest point the app has actually done
         // its job. Asking before that is asking a stranger for a favour.
         guard displaySessions.count >= Self.reviewMinimumNights else { return false }

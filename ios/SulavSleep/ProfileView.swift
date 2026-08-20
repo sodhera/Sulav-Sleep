@@ -159,14 +159,19 @@ private struct ProfileRootScreen: View {
                 .padding(.top, SleepSpacing.xxl)
             }
 
-            NavigationLink(value: ProfileDestination.blockedApps) {
-                BlockedAppsPreview(store: store)
-            }
-            .buttonStyle(.plain)
+            // Hidden under `-review-record`: on the Simulator this row can only
+            // ever read "Blocking needs a real iPhone", which is a capture
+            // artifact in a shot whose subject is the sleep record.
+            if !SleepStore.isRecordCapture {
+                NavigationLink(value: ProfileDestination.blockedApps) {
+                    BlockedAppsPreview(store: store)
+                }
+                .buttonStyle(.plain)
             // NavigationLinks are buttons to the finger, so they knock like
             // one; simultaneous so it never steals the tap from the push.
-            .simultaneousGesture(TapGesture().onEnded { Haptics.heavy() })
-            .padding(.top, SleepSpacing.huge)
+                .simultaneousGesture(TapGesture().onEnded { Haptics.heavy() })
+                .padding(.top, SleepSpacing.huge)
+            }
 
             sleepSection
         }
