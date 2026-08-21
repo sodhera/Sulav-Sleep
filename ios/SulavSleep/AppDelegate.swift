@@ -42,6 +42,11 @@ class SleepAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCente
         // launch events off initialization. A no-op on builds without TikTok
         // keys. See SleepTikTok.swift.
         SleepTikTok.start()
+#if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-review-tiktok-events") {
+            SleepTikTok.fireReviewEvents()
+        }
+#endif
         return true
     }
 

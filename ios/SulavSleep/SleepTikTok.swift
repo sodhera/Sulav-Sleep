@@ -107,6 +107,24 @@ enum SleepTikTok {
         report(event: .subscribe, properties: money)
     }
 
+#if DEBUG
+    /// Fires one of each reported event so the integration can be verified
+    /// without a real sign-up and a real purchase — `-review-tiktok-events`,
+    /// alongside the other `-review-*` args in docs/development.md. DEBUG
+    /// builds set the SDK's debug mode, so these land in Events Manager's
+    /// **test** feed, never in production reporting.
+    ///
+    /// Delayed because `initializeSdk` completes asynchronously (it fetches
+    /// remote config first) and events reported before it lands are dropped
+    /// rather than queued.
+    static func fireReviewEvents() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+            reportRegistration()
+            reportPurchase(priceValue: 59.99, currencyCode: "USD", trialDays: 7)
+        }
+    }
+#endif
+
     private static func report(event: TTEventName, properties: [String: Any]? = nil) {
         guard isConfigured else { return }
         let payload = TikTokBaseEvent(eventName: event.rawValue)

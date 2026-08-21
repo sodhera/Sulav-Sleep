@@ -248,6 +248,32 @@ at launch; a configured one logs `TikTok SDK initialized`. DEBUG builds set the
 SDK's `debugModeEnabled`, so their events land in Events Manager's **test**
 feed rather than production reporting.
 
+### Verify the integration
+
+`-review-tiktok-events` (DEBUG only, like the other `-review-*` args) fires one
+Registration, one StartTrial, and one Subscribe four seconds after launch —
+enough to prove the whole path without a real sign-up and a real purchase:
+
+```sh
+xcrun simctl launch booted com.sulav.sleepblock -review-tiktok-events
+```
+
+Watch it with the `log stream` command above. A working integration prints, in
+order: `TikTok SDK initialized` (ours), `TikTok SDK Initialized Successfully!`
+(the SDK, after it fetches remote config — this is the line that proves the
+credentials are good), the three `TikTok event:` lines, and finally
+`[TikTokRequestHandler] Request response: {"code":0,...,"message":"OK"}`, which
+is TikTok accepting the batch. Anything other than `code:0` there means the
+events left the device and were refused — usually a bad access token.
+
+`[TikTok]i: Tracking is disabled` is **expected and not a failure**: it is the
+SDK reporting that ATT is not authorized, which is permanent here by design
+(see DESIGN.md → "Ad attribution"). Events still send; only the IDFA is absent.
+
+Since DEBUG sets the SDK's debug mode, these land in Events Manager's **test**
+feed. Check them there under the app connection's test events view rather than
+in campaign reporting.
+
 **Before shipping a build with these keys set**, update the App Privacy answers
 in App Store Connect — an advertising SDK collects data the current answers do
 not declare — and check the privacy policy says the app shares measurement data
