@@ -397,7 +397,7 @@ struct PaywallView: View {
         message = nil
         defer { isPurchasing = false }
         do {
-            guard let entitled = try await store.purchase(planID: plan.id) else { return } // cancelled
+            guard let entitled = try await store.purchase(plan: plan) else { return } // cancelled
             if entitled {
                 Haptics.success()
                 // The first-run route disappears on its own as `needsPaywall`

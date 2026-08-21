@@ -38,6 +38,10 @@ class SleepAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCente
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        // First thing in launch: the TikTok SDK times its own install and
+        // launch events off initialization. A no-op on builds without TikTok
+        // keys. See SleepTikTok.swift.
+        SleepTikTok.start()
         return true
     }
 

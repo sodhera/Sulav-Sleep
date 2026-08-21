@@ -180,8 +180,8 @@ xcodebuild \
 
 ## Swift package dependencies
 
-The app links Supabase's `Auth` product and RevenueCat's `RevenueCat` product
-through Swift Package Manager. The Xcode project is the source of truth for
+The app links Supabase's `Auth` product, RevenueCat's `RevenueCat` product, and
+TikTok's `TikTokBusinessSDK` product through Swift Package Manager. The Xcode project is the source of truth for
 both package declarations. The project and the compatibility workspace each
 have a checked-in `Package.resolved`; keep the two lockfiles identical so the
 same dependency graph is used whether a developer opens
@@ -201,7 +201,57 @@ xcodebuild \
 
 This refreshes an incomplete local checkout and updates the workspace lockfile
 from the package references declared by the project. A successful resolution
-must list both `Supabase` and `RevenueCat` under `Resolved source packages`.
+must list `Supabase`, `RevenueCat`, and `TikTokBusinessSDK` under `Resolved
+source packages`.
+
+> The TikTok SDK is pinned `upToNextMinorVersion` from 1.7.1, tighter than the
+> other two. It is an advertising SDK whose releases change what leaves the
+> device, so a minor bump should be a decision someone makes, not something a
+> resolve does quietly.
+
+## TikTok ad attribution
+
+`SleepTikTok.swift` wraps the TikTok Business SDK. It reports **registration**
+(new accounts only), **start trial**, and **subscribe** (with the plan's price
+and currency, so TikTok can optimize on value); install and launch are the
+SDK's own. Init happens in `SleepAppDelegate.application(_:didFinishLaunching…)`
+— first thing, because the SDK timestamps install and launch off
+initialization.
+
+**There is no ATT prompt and no IDFA** — attribution is SKAdNetwork only. See
+DESIGN.md ("Ad attribution") for why. If that is ever revisited, the SDK will
+not raise the dialog itself: call
+`TikTokBusiness.requestTrackingAuthorization(completionHandler:)`, and add
+`NSUserTrackingUsageDescription` to `Info.plist` in the same change or the app
+crashes on the request.
+
+Three values feed it, through the same `Config.xcconfig` → `Info.plist` path as
+the Supabase and RevenueCat keys (see `docs/auth-setup.md`):
+
+| Key | Where it comes from |
+|---|---|
+| `APPLE_APP_ID` | the numeric App Store id (App Store Connect → App Information) |
+| `TIKTOK_APP_ID` | the app's id in TikTok Events Manager |
+| `TIKTOK_ACCESS_TOKEN` | Events Manager → the app connection's access token |
+
+Any of them missing makes `SleepTikTok.isConfigured` false and the whole
+integration a silent no-op — which is what every dev build and the simulator
+should be, since they are not installs. Confirm with:
+
+```sh
+xcrun simctl spawn booted log stream --level info \
+  --predicate 'subsystem == "com.sulav.sleepblock"' --style compact
+```
+
+An unconfigured build logs `TikTok SDK not configured — ad reporting disabled`
+at launch; a configured one logs `TikTok SDK initialized`. DEBUG builds set the
+SDK's `debugModeEnabled`, so their events land in Events Manager's **test**
+feed rather than production reporting.
+
+**Before shipping a build with these keys set**, update the App Privacy answers
+in App Store Connect — an advertising SDK collects data the current answers do
+not declare — and check the privacy policy says the app shares measurement data
+with TikTok.
 
 ## Shipping a release
 

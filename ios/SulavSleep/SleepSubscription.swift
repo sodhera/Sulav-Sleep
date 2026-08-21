@@ -58,6 +58,11 @@ struct SleepPlan: Identifiable, Equatable {
     var perMonthString: String?  // annual plans: localized monthly equivalent
     var trialDays: Int           // 0 when the product carries no intro trial
     var isAnnual: Bool
+    /// ISO code for `priceValue`'s currency ("USD"). Never displayed —
+    /// display strings are always the product's own localized ones — but ad
+    /// reporting needs the value and its currency together to mean anything
+    /// (`SleepTikTok.reportPurchase`).
+    var currencyCode: String?
     /// Raw price in the product's own currency — arithmetic only (the
     /// annual-vs-monthly savings percentage), never displayed directly.
     /// Every display string comes from the product's own localized
@@ -142,6 +147,7 @@ private final class ReviewPaywallSubscriptionService: SubscriptionProviding {
                 perMonthString: "$5.00",
                 trialDays: 7,
                 isAnnual: true,
+                currencyCode: "USD",
                 priceValue: 59.99
             ),
             SleepPlan(
@@ -152,6 +158,7 @@ private final class ReviewPaywallSubscriptionService: SubscriptionProviding {
                 perMonthString: nil,
                 trialDays: 0,
                 isAnnual: false,
+                currencyCode: "USD",
                 priceValue: 5.99
             )
         ]
@@ -372,6 +379,7 @@ final class RevenueCatSubscriptionService: SubscriptionProviding {
             perMonthString: perMonth,
             trialDays: trialDays,
             isAnnual: isAnnual,
+            currencyCode: product.currencyCode,
             priceValue: product.price
         )
     }

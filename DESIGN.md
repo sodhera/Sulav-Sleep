@@ -1888,6 +1888,30 @@ that has lost its fill says "going out" without warning copy, and without
 `danger`, which stays reserved for things that are actually wrong. VoiceOver
 carries the full sentence. Home and the large widget make the identical swap.
 
+## Ad attribution
+
+The app runs TikTok App Promotion campaigns, and the TikTok Business SDK
+(`SleepTikTok.swift`) reports the funnel back so the campaign can bid for
+subscribers instead of tappers: install and launch come free with the SDK, and
+the app adds **registration**, **start trial**, and **subscribe** (the last two
+carrying the plan's real price and currency).
+
+**The app never asks for tracking permission.** There is no ATT prompt, so
+there is no IDFA, and nothing the SDK sends links a person across other apps or
+websites; attribution runs on Apple's SKAdNetwork, which needs no consent.
+This is a deliberate trade, and the reasoning is the same one the rest of this
+document keeps making: the prompt buys a modest lift in attribution accuracy
+and costs a permission dialog planted in the middle of a first run that is
+otherwise about sleep, plus a second App Review surface (Guideline 5.1.2) on
+an app that has already been rejected once. A sleep app that opens by asking to
+follow you around the internet is not the app this document describes.
+Measurement is a business need; it does not get to be the user's problem.
+
+The same "never fake it" rule the paywall follows applies here: a build with no
+TikTok keys reports **nothing**, silently. Dev builds and the simulator are
+therefore invisible to Events Manager, which is correct — they are not
+installs.
+
 ## What to avoid
 
 - Purple, neon, cyberpunk or blue-heavy identity.

@@ -590,9 +590,21 @@ final class SleepStore {
     /// entitled afterwards; `nil` when they cancelled. Throws
     /// `SubscriptionError` with a user-facing message on real failures.
     @MainActor
-    func purchase(planID: String) async throws -> Bool? {
-        guard let state = try await subscription.purchase(planID: planID) else { return nil }
+    /// Takes the whole plan rather than its id because a successful purchase
+    /// is also the app's most valuable ad event, and TikTok needs the price
+    /// and currency to bid on value (`SleepTikTok.reportPurchase`). Nil means
+    /// the user backed out of the App Store sheet — not a purchase, and not
+    /// an event.
+    func purchase(plan: SleepPlan) async throws -> Bool? {
+        guard let state = try await subscription.purchase(planID: plan.id) else { return nil }
         entitlement = state
+        if state == .entitled {
+            SleepTikTok.reportPurchase(
+                priceValue: plan.priceValue,
+                currencyCode: plan.currencyCode,
+                trialDays: plan.trialDays
+            )
+        }
         return state == .entitled
     }
 
@@ -1104,6 +1116,9 @@ final class SleepStore {
             // change or Main flashes up before the notice replaces it.
             showsExistingAccountWelcome = (intent == .signUp && !result.isNewAccount)
             await adoptSignedInAccount(result.account, remoteProfile: result.remoteProfile)
+            // A returning user signing in on a new device is not a
+            // registration — only a genuinely new account is.
+            if result.isNewAccount { SleepTikTok.reportRegistration() }
             AppLog.store.info("Signed in (provider=\(result.account.provider.rawValue), new=\(result.isNewAccount))")
         } catch let error as AuthError {
             // Cancellation is a deliberate user action — show nothing.
