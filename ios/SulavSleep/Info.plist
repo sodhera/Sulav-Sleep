@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>APPLE_APP_ID</key>
+	<string>$(APPLE_APP_ID)</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
@@ -38,7 +40,7 @@
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>2</string>
+	<string>3</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSMinimumSystemVersion</key>
@@ -58,18 +60,16 @@
 	<string>SleepBlock saves the nights you log to Apple Health so all your sleep data stays in one place.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
-	<key>APPLE_APP_ID</key>
-	<string>$(APPLE_APP_ID)</string>
 	<key>REVENUECAT_API_KEY</key>
 	<string>$(REVENUECAT_API_KEY)</string>
-	<key>TIKTOK_ACCESS_TOKEN</key>
-	<string>$(TIKTOK_ACCESS_TOKEN)</string>
-	<key>TIKTOK_APP_ID</key>
-	<string>$(TIKTOK_APP_ID)</string>
 	<key>SUPABASE_ANON_KEY</key>
 	<string>$(SUPABASE_ANON_KEY)</string>
 	<key>SUPABASE_URL</key>
 	<string>$(SUPABASE_URL)</string>
+	<key>TIKTOK_ACCESS_TOKEN</key>
+	<string>$(TIKTOK_ACCESS_TOKEN)</string>
+	<key>TIKTOK_APP_ID</key>
+	<string>$(TIKTOK_APP_ID)</string>
 	<key>UILaunchStoryboardName</key>
 	<string>SplashScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>
