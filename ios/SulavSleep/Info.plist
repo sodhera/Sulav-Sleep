@@ -64,6 +64,13 @@
 	<string>$(REVENUECAT_API_KEY)</string>
 	<key>SUPABASE_ANON_KEY</key>
 	<string>$(SUPABASE_ANON_KEY)</string>
+	<key>SKAdNetworkItems</key>
+	<array>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>mj797d8u6f.skadnetwork</string>
+		</dict>
+	</array>
 	<key>SUPABASE_URL</key>
 	<string>$(SUPABASE_URL)</string>
 	<key>TIKTOK_ACCESS_TOKEN</key>
