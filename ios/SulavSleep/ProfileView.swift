@@ -163,14 +163,25 @@ private struct ProfileRootScreen: View {
             // ever read "Blocking needs a real iPhone", which is a capture
             // artifact in a shot whose subject is the sleep record.
             if !SleepStore.isRecordCapture {
-                NavigationLink(value: ProfileDestination.blockedApps) {
-                    BlockedAppsPreview(store: store)
+                // While tonight's lock is in force the card still shows what's
+                // blocked — that's the reassurance it exists for — but it
+                // stops being a door: no push, no chevron, no interactive
+                // glass, and the caption says when it opens again. Editing the
+                // lockdown from inside the lockdown *was* the way out of it.
+                if store.lockdownSettingsLocked {
+                    BlockedAppsPreview(store: store, isLocked: true)
+                        .padding(.top, SleepSpacing.huge)
+                } else {
+                    NavigationLink(value: ProfileDestination.blockedApps) {
+                        BlockedAppsPreview(store: store)
+                    }
+                    .buttonStyle(.plain)
+                    // NavigationLinks are buttons to the finger, so they knock
+                    // like one; simultaneous so it never steals the tap from
+                    // the push.
+                    .simultaneousGesture(TapGesture().onEnded { Haptics.heavy() })
+                    .padding(.top, SleepSpacing.huge)
                 }
-                .buttonStyle(.plain)
-            // NavigationLinks are buttons to the finger, so they knock like
-            // one; simultaneous so it never steals the tap from the push.
-                .simultaneousGesture(TapGesture().onEnded { Haptics.heavy() })
-                .padding(.top, SleepSpacing.huge)
             }
 
             sleepSection
@@ -612,16 +623,27 @@ struct SettingsModal: View {
 
                 GlassRowDivider()
 
-                NavigationLink(value: SettingsDestination.blockedApps) {
+                // Closed for the duration of tonight's lock — chevron-less and
+                // untappable, the same shape an unavailable Health row takes,
+                // so it reads as "not now" rather than a broken control.
+                if store.lockdownSettingsLocked {
                     GlassRow(
                         icon: "lock.fill",
                         title: "Blocked apps",
-                        value: store.lockdownSelectionSummary,
-                        showsChevron: true
+                        value: SleepScreenTime.lockedSettingsValue
                     )
+                } else {
+                    NavigationLink(value: SettingsDestination.blockedApps) {
+                        GlassRow(
+                            icon: "lock.fill",
+                            title: "Blocked apps",
+                            value: store.lockdownSelectionSummary,
+                            showsChevron: true
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .simultaneousGesture(TapGesture().onEnded { Haptics.heavy() })
                 }
-                .buttonStyle(.plain)
-                .simultaneousGesture(TapGesture().onEnded { Haptics.heavy() })
 
                 GlassRowDivider()
 

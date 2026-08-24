@@ -50,23 +50,29 @@ capability.
 - Request the Family Controls capability from Apple for the dev account (needed
   for real enforcement on device; everything else is code-complete).
 
-- **Staged edits ("only tightens")** — the remaining half of the mid-window
-  escape fix. `rescheduleLockdown` now holds schedule changes until the window
-  closes (see `docs/development.md`), but two doors are still open: the "Block
-  while you sleep" toggle and clearing the app selection both call
-  `endLockdown()` on the spot. One toggle and the night's shield is gone.
+- ~~**Staged edits ("only tightens")**~~ — **closed by gating instead.** The two
+  doors this item tracked (the "Block while you sleep" toggle and clearing the
+  app selection, both of which called `endLockdown()` on the spot) are shut:
+  the Blocked apps surface is closed for as long as the lock holds —
+  `SleepStore.lockdownSettingsLocked`, i.e. a running session or a live shield
+  phase. Neither entry point pushes, the screen itself renders a locked panel if
+  it was already open, and the store refuses both writes. See
+  "The lockdown settings close while the lockdown holds" in
+  `docs/development.md`.
 
-  Intended rule, while a window is live: an edit that **tightens** applies
-  immediately (earlier bedtime, later wake, more apps, blocking on);
-  an edit that **loosens** is staged and takes effect when the window next
-  closes, with the UI saying so ("Saved — takes effect tomorrow night").
+  Gating won over staging on cost and honesty. Staging needed a
+  `pendingLockdownEdit` blob on `Profile`, a merge rule per field, and UI copy
+  for "saved, takes effect tomorrow" — a lot of machinery whose best case is
+  a change the user made and cannot see. A closed screen with a date on it says
+  the same thing in one line and cannot silently evaporate.
 
-  Shape: a `pendingLockdownEdit` blob on `Profile`, applied on foreground when
-  no window is running — the same self-deferring hook `rescheduleLockdown`
-  already uses. Two constraints worth writing down: the slow door stays the
-  single sanctioned exit and no staged edit may interfere with a running
-  session; and when anything is ambiguous, fail toward *unlocking* — a change
-  that silently evaporates costs more trust than the hack it prevents.
+  What staging would still buy, if it's ever wanted: **tightening** mid-window
+  (adding apps, a later wake) currently waits for the window to close along
+  with everything else. That direction is always safe to apply immediately, so
+  it stays a legitimate follow-up — with the same two constraints as before:
+  the slow door stays the single sanctioned exit, no staged edit may interfere
+  with a running session, and when anything is ambiguous, fail toward
+  *unlocking*.
 
   Known next exploit, tracked separately: moving the **device clock** past wake
   time ends the window. Mitigation is a monotonic reference (boot uptime) taken

@@ -93,6 +93,23 @@ enum SleepScreenTime {
         return "\(subject) blocked while you sleep"
     }
 
+    // MARK: - Locked-for-the-night copy
+    //
+    // Three surfaces say the same thing when the lockdown settings are closed
+    // (Profile's card caption, the Settings row's value, the screen itself if
+    // the shield comes up while it's open), so the sentence lives once. It
+    // names *when it opens again* rather than what's forbidden: the answer to
+    // "why can't I tap this" is a time, not a rule.
+    //
+    // "until morning" covers both phases honestly — the pre-sleep shield is
+    // cleared by the monitor at wake time whether or not a session was ever
+    // started, and an active session ends when the user wakes.
+
+    /// Caption under the Profile card's icon row while the lock holds.
+    static let lockedCaption = "Locked until morning"
+    /// Trailing value on the Settings row while the lock holds.
+    static let lockedSettingsValue = "Locked until morning"
+
     /// The Blocked apps detail row's trailing value.
     static func selectionSummary(apps: Int, categories: Int) -> String {
         switch (apps, categories) {
@@ -479,6 +496,11 @@ private struct MockPermissionDialog: View {
 /// sentence the kicker used to shout.
 struct BlockedAppsPreview: View {
     var store: SleepStore
+    /// Rendered while tonight's lock is in force: the caller shows the card
+    /// outside a NavigationLink, and the card drops the affordances that
+    /// promise a destination — the chevron and the interactive glass — while
+    /// keeping the icons, which are the one thing still worth reading.
+    var isLocked = false
 
     private var selection: FamilyActivitySelection {
         SleepScreenTime.decodeSelection(store.appSelectionData())
@@ -492,14 +514,20 @@ struct BlockedAppsPreview: View {
         return HStack(spacing: SleepSpacing.lg) {
             content(appTokens: appTokens, catTokens: catTokens, hasSelection: hasSelection)
             Spacer(minLength: SleepSpacing.sm)
-            Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(SleepColor.faint)
+            if isLocked {
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(SleepColor.faint)
+            } else {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(SleepColor.faint)
+            }
         }
         .padding(SleepSpacing.lg)
         .contentShape(RoundedRectangle(cornerRadius: SleepRadius.lg, style: .continuous))
         // The glass draws its own edge; no manual border on top of it.
-        .liquidGlass(cornerRadius: SleepRadius.lg, interactive: true)
+        .liquidGlass(cornerRadius: SleepRadius.lg, interactive: !isLocked)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -559,7 +587,11 @@ struct BlockedAppsPreview: View {
                     }
                 }
 
-                Text(SleepScreenTime.selectionCaption(apps: appTokens.count, categories: catTokens.count))
+                Text(
+                    isLocked
+                        ? SleepScreenTime.lockedCaption
+                        : SleepScreenTime.selectionCaption(apps: appTokens.count, categories: catTokens.count)
+                )
                     .font(SleepFont.body(13))
                     .foregroundStyle(SleepColor.muted)
             }
@@ -600,9 +632,73 @@ struct BlockedAppsScreen: View {
         SceneScreen {
             SubpageHeader(
                 title: "Blocked apps",
-                subtitle: "Locked from Sleep Now until you wake. Calls always work."
+                subtitle: store.lockdownSettingsLocked
+                    ? "Tonight's block is running. What it covers can change in the morning."
+                    : "Locked from Sleep Now until you wake. Calls always work."
             )
 
+            if store.lockdownSettingsLocked {
+                // Both entry points refuse to push here while the lock holds,
+                // so reaching this normally is impossible; what this branch
+                // actually covers is the screen being *already open* when the
+                // monitor raises the pre-sleep shield at bedtime. The controls
+                // are removed rather than disabled — a greyed-out toggle is
+                // still an invitation to keep trying, and this one has no
+                // legitimate use until morning.
+                lockedPanel
+            } else {
+                controls
+            }
+        }
+        .familyActivityPicker(isPresented: $showPicker, selection: $selection)
+        .onChange(of: selection) { _, newValue in
+            // The store refuses a mid-lockdown save too; this keeps the view's
+            // own copy from drifting away from what is actually shielded.
+            guard !store.lockdownSettingsLocked else { return }
+            if let data = SleepScreenTime.encodeSelection(newValue) {
+                store.saveAppSelection(data)
+            }
+        }
+        .onChange(of: store.lockdownSettingsLocked) { _, locked in
+            // Bedtime arriving with the system picker open: take it down with
+            // the rest of the controls.
+            if locked { showPicker = false }
+        }
+        .onAppear {
+            // The foreground hook can't see a phase the monitor writes while
+            // the app is already open, and this screen is exactly where that
+            // matters.
+            store.refreshLockdownPhase()
+            selection = SleepScreenTime.decodeSelection(store.appSelectionData())
+            blockOn = store.blockingEnabled
+            hardMode = store.profile?.hardMode ?? false
+        }
+    }
+
+    /// What the screen says for as long as the lock holds. One line of why,
+    /// one of when — the same "it opens in the morning" answer the Profile
+    /// card and the Settings row give.
+    private var lockedPanel: some View {
+        VStack(alignment: .leading, spacing: SleepSpacing.md) {
+            HStack(spacing: SleepSpacing.md) {
+                GlassRowIcon(icon: "lock.fill")
+                Text(SleepScreenTime.lockedCaption)
+                    .font(SleepFont.title(16))
+                    .foregroundStyle(SleepColor.ink)
+            }
+            Text("Your apps are blocked right now, so this screen is closed — changing it mid-night would just be the way out. It opens again once the night ends.")
+                .font(SleepFont.body(14))
+                .foregroundStyle(SleepColor.muted)
+                .lineSpacing(4)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.top, SleepSpacing.huge)
+    }
+
+    /// Everything the screen offers when it is open for business. Split out
+    /// of `body` so the locked branch above reads as one line.
+    private var controls: some View {
+        Group {
             switch store.screenTimeState {
             case .unavailable:
                 HStack(spacing: SleepSpacing.md) {
@@ -651,8 +747,6 @@ struct BlockedAppsScreen: View {
                         )
                     }
                     .buttonStyle(.plain)
-
-                    GlassRowDivider()
 
                     GlassRowDivider()
 
@@ -732,17 +826,6 @@ struct BlockedAppsScreen: View {
                     .padding(.top, SleepSpacing.xl)
                 }
             }
-        }
-        .familyActivityPicker(isPresented: $showPicker, selection: $selection)
-        .onChange(of: selection) { _, newValue in
-            if let data = SleepScreenTime.encodeSelection(newValue) {
-                store.saveAppSelection(data)
-            }
-        }
-        .onAppear {
-            selection = SleepScreenTime.decodeSelection(store.appSelectionData())
-            blockOn = store.blockingEnabled
-            hardMode = store.profile?.hardMode ?? false
         }
     }
 

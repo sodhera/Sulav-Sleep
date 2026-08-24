@@ -84,6 +84,14 @@ final class SleepStore {
     /// Views that read `appSelectionData()` also read this, which creates an
     /// `@Observable` tracking dependency so SwiftUI re-renders on changes.
     private(set) var appSelectionRevision = 0
+    /// Mirror of the App Group lockdown phase (`SleepLockdownSelection.phaseKey`).
+    /// The phase itself is written by two processes — this app and the
+    /// `SulavSleepMonitor` extension — and a bare `UserDefaults` read is
+    /// invisible to `@Observable`, so views can't gate on it directly. This
+    /// stored copy is refreshed on every foreground (`reload`) and immediately
+    /// after the app applies or clears a shield itself; `refreshLockdownPhase()`
+    /// is the one place that writes it.
+    private(set) var lockdownPhase: LockdownPhase?
     /// What RevenueCat knows about the `pro` entitlement. Starts `.unknown`;
     /// the customer-info stream (which replays the cache immediately, so a
     /// subscriber resolves offline too) keeps it current. On an unconfigured
@@ -360,6 +368,27 @@ final class SleepStore {
         blockingEnabled && screenTimeState == .authorized && lockdownSelectionCount > 0
     }
 
+    /// Whether tonight's lock is in force, and so the settings that govern it
+    /// are closed: a running session, or a live shield phase (the pre-sleep
+    /// shield the monitor raises at bedtime, before Sleep Now is tapped).
+    ///
+    /// The settings that govern the lock must not be editable while the lock
+    /// holds — that was the way out of it. "Block while you sleep" off and
+    /// clearing the app selection both tear the shield down on the spot, so
+    /// the whole Blocked apps surface closes for the duration rather than
+    /// each control learning to defend itself.
+    ///
+    /// Deliberately **not** keyed off `isInsideLockdownWindow`. Waking early
+    /// clears the phase while the clock is still inside the window, and the
+    /// night is over at that point — locking settings there would trap someone
+    /// who is already awake. Same for a user who never authorized Screen Time:
+    /// the clock passes through their window nightly with no shield, and the
+    /// screen they'd need to fix that must stay open. When it's ambiguous,
+    /// fail toward *unlocking* — see docs/roadmap-lockdown-and-widget.md.
+    var lockdownSettingsLocked: Bool {
+        activeSession != nil || lockdownPhase != nil
+    }
+
     // MARK: - Lifecycle
 
     func reload(refreshWidget: Bool = false) {
@@ -382,6 +411,10 @@ final class SleepStore {
         // while the timed re-arm didn't fire, restore the block now. Cheap and
         // a no-op unless a snooze is actually outstanding.
         screenTime.reapplyShieldIfSnoozeExpired()
+        // Pick up a phase the monitor extension wrote while we were away —
+        // this is what closes the Blocked apps screen for a shield that came
+        // up at bedtime with the app in the background.
+        refreshLockdownPhase()
         // Lands any schedule change that was made while the shield was up:
         // `rescheduleLockdown` holds those rather than re-registering
         // mid-window, and this is where the held change gets registered once
@@ -1296,6 +1329,7 @@ final class SleepStore {
         performAfterStateChange { [weak self] in
             guard let self else { return }
             if shouldStartLockdown { self.screenTime.startLockdown() }
+            self.refreshLockdownPhase()
             Task { SleepLiveActivity.start(startDate: start) }
         }
         AppLog.store.info("Sleep session started")
@@ -1310,6 +1344,7 @@ final class SleepStore {
         performAfterStateChange { [weak self] in
             guard let self else { return }
             self.screenTime.endLockdown()
+            self.refreshLockdownPhase()
             SleepLiveActivity.end()
         }
         AppLog.store.info("Sleep session canceled (not logged)")
@@ -1332,6 +1367,7 @@ final class SleepStore {
         performAfterStateChange { [weak self] in
             guard let self else { return }
             self.screenTime.endLockdown()
+            self.refreshLockdownPhase()
             SleepLiveActivity.end()
         }
         AppLog.store.info("Logged night: \(minutes)m")
@@ -1533,6 +1569,15 @@ final class SleepStore {
     /// The "Block while you sleep" toggle. Off tears down any active shield
     /// and the scheduled safety-net window; the app selection is kept.
     func setBlockingEnabled(_ on: Bool) {
+        // Backstop for the door the UI now closes: switching blocking off ends
+        // the shield on the spot, so while the lock holds this is simply not a
+        // thing that can happen. `BlockedAppsScreen` is unreachable then and
+        // renders no toggle if it is somehow on screen when the shield comes
+        // up — this makes the rule true of the model too, not just the views.
+        guard !lockdownSettingsLocked else {
+            AppLog.store.info("Blocking toggle ignored — lockdown in force")
+            return
+        }
         guard var profile, profile.blockDuringSleep != on else { return }
         profile.blockDuringSleep = on
         self.profile = profile
@@ -1554,6 +1599,15 @@ final class SleepStore {
         return screenTime.selectionData()
     }
     func saveAppSelection(_ data: Data) {
+        // Same backstop as `setBlockingEnabled`: clearing the selection calls
+        // `endLockdown()` below, so a save landing mid-lockdown was the second
+        // way out of the night. Refused whole rather than partially applied —
+        // a selection stored while the shield holds different tokens is a
+        // state neither the app nor the shield extensions can explain.
+        guard !lockdownSettingsLocked else {
+            AppLog.store.info("App selection save ignored — lockdown in force")
+            return
+        }
         screenTime.saveSelection(data: data)
         appSelectionRevision += 1
         // With nothing left to block tonight (selection cleared, or blocking
@@ -1565,6 +1619,20 @@ final class SleepStore {
             screenTime.endLockdown()
             screenTime.cancelScheduledLockdown()
         }
+    }
+
+    /// Re-reads the App Group lockdown phase into the tracked `lockdownPhase`.
+    ///
+    /// Called on every foreground and right after this app applies or clears a
+    /// shield. Views that gate on `lockdownSettingsLocked` also call it in
+    /// `onAppear`, for the one case the foreground hook misses: the monitor
+    /// extension raising the pre-sleep shield at bedtime while the app is
+    /// already open and in the foreground.
+    func refreshLockdownPhase() {
+        let phase = SleepLockdownSelection.currentPhase()
+        guard phase != lockdownPhase else { return }
+        lockdownPhase = phase
+        AppLog.store.info("Lockdown phase now \(phase?.rawValue ?? "none", privacy: .public)")
     }
 
     /// Re-registers the scheduled bedtime->wake DeviceActivityMonitor window so

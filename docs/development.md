@@ -1674,9 +1674,56 @@ rejected, capped at 10, and unlinkable instantly by either side.
   night yields one anchor from either side of 00:00. With no mirrored bedtime to
   identify a window it falls back to resetting — the forgiving direction.
 
-  Not yet closed, and deliberately out of scope here: `setBlockingEnabled(false)`
-  and clearing the app selection still call `endLockdown()` outright. Closing
-  those is the staged-edit ("only tightens") work — see the roadmap.
+  The other two doors on the same corridor — `setBlockingEnabled(false)` and
+  clearing the app selection, both of which call `endLockdown()` outright — are
+  closed by the gate below rather than by staging.
+
+- **The lockdown settings close while the lockdown holds**
+  (`SleepStore.lockdownSettingsLocked`). Deferring *schedule* edits fixed one
+  exploit and left two: one toggle of "Block while you sleep", or one emptied
+  picker, and the night's shield was gone on the spot. Rather than teach each
+  control to defend itself, the whole Blocked apps surface closes for the
+  duration.
+
+  The gate is `activeSession != nil || lockdownPhase != nil` — a running
+  session, or a live shield phase (which is what covers the pre-sleep window,
+  the phase where `RootView` still hands the user the full app). It is
+  deliberately **not** keyed off `isInsideLockdownWindow`: waking early clears
+  the phase while the clock is still inside the window, and someone who never
+  authorized Screen Time has the clock pass through their window nightly with
+  no shield at all — locking either of them out of the screen they'd need would
+  be a trap. When it's ambiguous, fail toward *unlocking*.
+
+  `lockdownPhase` is a stored, `@Observable`-tracked mirror of the App Group
+  key, not a live read: the phase has two writers (this app and
+  `SulavSleepMonitor`), and a bare `UserDefaults` read is invisible to
+  observation, so a view gating on it would never re-render.
+  `refreshLockdownPhase()` is the only writer of the mirror, called from
+  `reload()` (every foreground), right after the app itself applies or clears a
+  shield, and from `BlockedAppsScreen.onAppear` — that last one for the case
+  the foreground hook misses, the monitor raising the pre-sleep shield while the
+  app is already open.
+
+  Three layers, outside in:
+  1. **Both entry points refuse to push.** Profile's card renders outside its
+     `NavigationLink` (icons kept, chevron and interactive glass dropped), and
+     the Settings row becomes a plain chevron-less `GlassRow`.
+  2. **The screen renders `lockedPanel` instead of `controls`** if it is
+     already open when the shield comes up, and takes down the system picker
+     with it (`onChange(of: lockdownSettingsLocked)`). The controls are removed,
+     not disabled: a greyed-out toggle is still an invitation to keep trying.
+  3. **The store refuses both writes.** `setBlockingEnabled` and
+     `saveAppSelection` return early while the gate is closed, so the rule holds
+     for the model and not just for the views. `saveAppSelection` refuses the
+     save *whole* — a stored selection that disagrees with the tokens the shield
+     is actually holding is a state neither the app nor the shield extensions
+     can explain.
+
+  Copy lives once, in `SleepScreenTime.lockedCaption` /
+  `lockedSettingsValue` ("Locked until morning"), because three surfaces say it.
+  It names when the screen opens again rather than what is forbidden — "until
+  morning" is honest in both phases, since the monitor clears the pre-sleep
+  shield at wake time whether or not a session was ever started.
 
 - **The slow door** (`SleepLockdownSelection.doorRequestedKey`). An
   always-available exit that costs 60 seconds (180 in hard mode) rather than

@@ -558,7 +558,14 @@ Two tabs, each with exactly one job:
   captioned "Blocked while you sleep" (the retired kicker's sentence, now
   spoken quietly inside the card); with a selection but blocking toggled off
   it shows a muted open lock and "App blocking is off"; on the simulator,
-  "Blocking needs a real iPhone". Empty
+  "Blocking needs a real iPhone". **While tonight's block is actually
+  running** — a session, or the pre-sleep shield — the card keeps the icons
+  (what's blocked is the reassurance it exists for) but stops being a door:
+  the chevron becomes a small lock, the interactive glass goes flat, there is
+  no push, and the caption reads "Locked until morning". Editing the lockdown
+  from inside the lockdown was the way out of it; the settings close for as
+  long as the lock holds, and the line names when they open rather than what
+  is forbidden. Empty
   states across Profile use that same glyph-row pattern (the sleep record
   opens with a moon-and-stars glyph and "No nights yet / Your record starts
   tonight.") — composed and warm, but never ghost charts or sample numbers:
@@ -589,7 +596,9 @@ title, supporting line). The body is four kicker-titled `GlassGroup`s —
 **Profile** (editable Name: tap → rename alert; read-only account Email, no
 chevron, middle-truncated — both live here, never on the Profile body),
 **Subscription** (the plan status, see below), **Sleep** (Schedule, Blocked
-apps, the Apple Health toggle — no explainer sublines), and **Account** (Sign
+apps — chevron-less and untappable while the block is running, reading
+"Locked until morning", the same shape an unavailable Apple Health row takes —
+and the Apple Health toggle, no explainer sublines), and **Account** (Sign
 out in dim, alone in its group and confirmed by an alert before anything
 happens), plus **Feedback** ("Request a feature", and "Rate SleepBlock" once
 an App Store id is configured) sitting between
@@ -723,6 +732,20 @@ deliberately **no "unlock anyway after N hours" stepper** — see
 [The block ends with the session](#the-block-ends-with-the-session). The
 selection renders below the group as a system-drawn **icon grid** (tokens are opaque, Apple draws them) — the user
 sees exactly what locks, without a text list.
+
+**The page closes while the block is running.** Both routes to it (the Profile
+card, the Settings row) stop pushing, and if the pre-sleep shield comes up while
+the page is already open the whole `GlassGroup` is replaced by a lock glyph,
+"Locked until morning", and one sentence of why — the system picker, if it is
+up, comes down with it. The controls are *removed*, not greyed out: a disabled
+toggle is still an invitation to keep trying, and this one has no legitimate
+use before morning. The supporting line under the title changes with it
+("Tonight's block is running. What it covers can change in the morning."). This
+is the same principle as the retired hours stepper — a block that can be edited
+from inside the block is not a block, and the toggle plus an emptied picker were
+a two-tap way out of the night. Changes made in daylight are ordinary settings;
+the way out *during* a lock is the slow door, a wait the user chooses, never a
+switch.
 
 Choosing apps is still the commitment — a fresh selection blocks tonight with
 no extra step, because the toggle defaults to on. The toggle exists as the
