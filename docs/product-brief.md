@@ -12,8 +12,8 @@ review the rhythm of recent nights — using **real data only**.
   phone keeps you up after you're in bed, how you wake up, the bedtime and
   wake time you want (the schedule the app then holds you to) — closing with
   a **plan reveal** ("Building your sleep plan…" resolving into a
-  personalized summary: your sleep window, the weekly hours to win back from
-  the named apps, the stated goals, under an "I'm ready" commitment button)
+  three-line summary: nightly sleep, weekly phone time to recover, and selected
+  goal count, under an "I'm ready" commitment button)
   and, as the final step, account creation framed as saving that plan. Questions come first because invested users sign up at
   a higher rate; every question feeds the plan/paywall personalization, and
   the account step carries the same progress bar and back button as the rest

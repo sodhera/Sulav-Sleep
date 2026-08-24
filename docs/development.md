@@ -492,10 +492,13 @@ target can inject fakes without new hooks.
   The **plan step** (`PlanStep`) runs a ~1.8s "Building your sleep plan…"
   beat (`startPlanBuild`, cancelled if the user backs out mid-build, sticky
   once revealed), with the sloth and status text centered in the full flexible
-  content region, before crossfading to the personalized summary; its "I'm
-  ready" CTA advances to the account step (or commits directly on the
-  quick-setup path, where the plan step is the final one). All answers travel
-  as one `OnboardingAnswers` value into `store.completeOnboarding`.
+  content region, before crossfading to three one-line outcomes: nightly sleep,
+  weekly phone time to recover, and selected-goal count. `PlanRow` deliberately
+  has no detail field; the reveal does not repeat the exact clocks, app names,
+  or goal names answered moments earlier. Its "I'm ready" CTA advances to the
+  account step (or commits directly on the quick-setup path, where the plan
+  step is the final one). All answers travel as one `OnboardingAnswers` value
+  into `store.completeOnboarding`.
   `OnboardingQuestionsView` builds its step list dynamically: the account
   step is appended only when the user is not already signed in (captured once
   via `includesAccount`), so it appears on the sign-up path but is dropped on
@@ -509,11 +512,11 @@ target can inject fakes without new hooks.
   top-anchors the prompt 32pt below that header, vertically centers the answer
   controls in the remaining flexible region, and keeps the action pinned at
   the bottom. The centering spacers collapse when a tall answer group needs
-  room. The questionnaire also owns the shared `TimeAdjuster`: a native wheel
-  inside a dark glass well, with a clear selected-time readout and an amber
-  focus rail behind the active row. The same control is reused by the schedule
-  editor. DEBUG routes `-review-onboarding-goals` and
-  `-review-onboarding-bedtime` open those steps directly for simulator review.
+  room. The questionnaire also owns the shared `TimeAdjuster`, which wraps the
+  native wheel directly with no extra card or duplicate time readout. The same
+  control is reused by the schedule editor. DEBUG routes
+  `-review-onboarding-goals`, `-review-onboarding-bedtime`, and
+  `-review-onboarding-plan` open those steps directly for simulator review.
   The keyboard is pre-warmed in two stages: a flash-free framework load while
   the onboarding gate idles (`Keyboard.warmFrameworks()` — become + resign
   first responder in the same runloop turn, so nothing presents), then the

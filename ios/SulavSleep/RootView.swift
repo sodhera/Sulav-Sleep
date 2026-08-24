@@ -95,13 +95,14 @@ struct RootView: View {
 #endif
     }
 
-    /// DEBUG-only routes to the two onboarding controls that need direct
+    /// DEBUG-only routes to onboarding states that need direct
     /// visual review without tapping through the complete questionnaire.
     private var showsOnboardingQuestionPreview: Bool {
 #if DEBUG
         let arguments = ProcessInfo.processInfo.arguments
         return arguments.contains("-review-onboarding-goals")
             || arguments.contains("-review-onboarding-bedtime")
+            || arguments.contains("-review-onboarding-plan")
 #else
         false
 #endif

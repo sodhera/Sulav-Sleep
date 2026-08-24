@@ -912,10 +912,10 @@ target is the operative schedule: `profile.bedtime`/`wakeTime`, what the Home
 countdown, the lockdown window, and the widgets all key off. (An earlier
 revision asked ideal *and* current on each screen to manufacture a gap; it
 was cut — the second wheel made the screen busy, and the plan reveal already
-carries the motivation.) The native wheel now sits inside one deep-navy glass
-well with the selected time repeated in clear type above it and a thin amber
-focus rail behind the active row. The wheel retains native scrolling and
-locale behavior, but no longer dissolves into the brighter day skyline.
+carries the motivation.) The native wheel stays bare and direct over the
+scene. A glass well, repeated time readout, and custom focus rail were tried
+and reverted: they turned one simple choice into a second dashboard and
+duplicated the wheel's selected value.
 
 Selection grammar splits by meaning. The **goal is a required multi-select**:
 several outcomes can be true at once, and Next enables after the first choice.
@@ -938,16 +938,17 @@ The **plan reveal** is the questionnaire's closing beat before the account
 step: ~1.8s of "Building your sleep plan…" — the brand sloth and status text
 centered together in the full flexible region between the progress header and
 the reserved bottom action, its rising z's the only motion, deliberately never
-a spinner — resolving with a success haptic into a personalized summary in the editorial question chrome:
-a `GlassGroup` of three facts (sleep window + nightly duration; **time to win
-back each week**, computed from the phone-time answer × 7 and naming the
-user's own apps; the stated goal). The build beat is sticky — backing in from
-the account step shows the summary instantly; the pause is a first-arrival
-moment, not a toll. Its CTA is **"I'm ready"** — the flow's one
-micro-commitment, landing right before the account step asks to save the plan
-and the paywall asks to unlock it. The summary rows are a data readout, not
-settings rows, so they may carry a dim detail line (the one exception to
-"rows never explain").
+a spinner — resolving with a success haptic into a personalized summary in the
+editorial question chrome. Its `GlassGroup` is three compact one-line outcomes:
+nightly sleep, weekly phone time to recover, and the number of selected goals.
+Each row carries one quiet category and one short value. Exact clocks, app
+names, goal names, and explanatory sentences are not repeated; the user chose
+them seconds ago, and this moment should confirm the plan at a glance rather
+than test their reading stamina. The build beat is sticky — backing in from the
+account step shows the summary instantly; the pause is a first-arrival moment,
+not a toll. Its CTA is **"I'm ready"** — the flow's one micro-commitment,
+landing right before the account step asks to save the plan and the paywall
+asks to unlock it.
 
 The **time-sink question** ("Which apps keep you up?") is the struggles
 question pointed at the phone itself: eight usual suspects (Instagram,

@@ -329,6 +329,12 @@ struct OnboardingQuestionsView: View {
             _goals = State(initialValue: [.wakeUpRested, .lessPhoneAtNight])
         } else if arguments.contains("-review-onboarding-bedtime") {
             _step = State(initialValue: .bedtime)
+        } else if arguments.contains("-review-onboarding-plan") {
+            _step = State(initialValue: .plan)
+            _name = State(initialValue: "Sulav")
+            _goals = State(initialValue: [.wakeUpRested, .lessPhoneAtNight])
+            _phoneTime = State(initialValue: .twoPlus)
+            _planBuilt = State(initialValue: true)
         }
 #endif
     }
@@ -591,8 +597,7 @@ struct OnboardingQuestionsView: View {
                 bedtime: bedtime,
                 wakeTime: wakeTime,
                 goals: goals,
-                phoneTime: phoneTime,
-                timeSinks: timeSinks
+                phoneTime: phoneTime
             )
         case .account:
             // Rendered by AuthMethodsView in the body, outside this scaffold.
@@ -985,11 +990,11 @@ private struct TimeSinkChip: View {
 /// The questionnaire's closing beat before the account step: a short
 /// "Building your sleep plan…" pause — the brand sloth at work, its rising
 /// z's the only motion — resolving into a personalized summary assembled
-/// from the answers just given (the sleep window, the weekly hours the phone
-/// is eating and which apps eat them, the stated goal). The reveal is what
-/// makes the paywall that follows read as unlocking a plan the user built,
-/// not buying a cold product; the "I'm ready" CTA beneath it is the flow's
-/// one micro-commitment.
+/// from the answers just given. Each of its three rows carries one takeaway,
+/// with no explanatory line: nightly sleep, weekly phone time to recover, and
+/// selected-goal count. The reveal is what makes the paywall that follows read
+/// as unlocking a plan the user built, not buying a cold product; the "I'm
+/// ready" CTA beneath it is the flow's one micro-commitment.
 private struct PlanStep: View {
     let built: Bool
     let name: String
@@ -997,7 +1002,6 @@ private struct PlanStep: View {
     let wakeTime: Int
     let goals: Set<SleepGoal>
     let phoneTime: LateNightPhoneTime?
-    let timeSinks: Set<TimeSinkApp>
 
     var body: some View {
         ZStack {
@@ -1030,26 +1034,23 @@ private struct PlanStep: View {
             GlassGroup {
                 PlanRow(
                     icon: "moon.zzz",
-                    label: "Sleep window",
-                    value: "\(SleepFormatting.clock(bedtime)) – \(SleepFormatting.clock(wakeTime))",
-                    detail: "\(SleepFormatting.duration(SleepMath.windowMinutes(bedtime: bedtime, wakeTime: wakeTime))) of sleep a night"
+                    label: "Sleep",
+                    value: "\(compactDuration(SleepMath.windowMinutes(bedtime: bedtime, wakeTime: wakeTime))) each night"
                 )
                 if let phoneTime {
                     GlassRowDivider()
                     PlanRow(
                         icon: "hourglass",
-                        label: "Time to win back",
-                        value: "\(SleepFormatting.duration(phoneTime.weeklyMinutes)) a week",
-                        detail: sinksLine
+                        label: "Phone time",
+                        value: "\(compactDuration(phoneTime.weeklyMinutes)) back each week"
                     )
                 }
-                if let firstGoal = orderedGoals.first {
+                if !goals.isEmpty {
                     GlassRowDivider()
                     PlanRow(
-                        icon: orderedGoals.count == 1 ? firstGoal.systemImage : "checklist",
-                        label: orderedGoals.count == 1 ? "Your goal" : "Your goals",
-                        value: orderedGoals.count == 1 ? firstGoal.title : "\(orderedGoals.count) goals",
-                        detail: orderedGoals.count == 1 ? nil : orderedGoals.map(\.title).joined(separator: " · ")
+                        icon: "checklist",
+                        label: "Goals",
+                        value: "\(goals.count) selected"
                     )
                 }
             }
@@ -1061,51 +1062,37 @@ private struct PlanStep: View {
             .components(separatedBy: " ").first ?? ""
     }
 
-    /// Sets have no presentation order. Reapply the enum's authored order so
-    /// the reveal and persisted payload remain stable across launches.
-    private var orderedGoals: [SleepGoal] {
-        SleepGoal.allCases.filter(goals.contains)
-    }
-
-    /// Names the user's own apps back to them — the sharpest line in the
-    /// summary. Falls back to a generic read when none were picked.
-    private var sinksLine: String {
-        let names = TimeSinkApp.allCases.filter(timeSinks.contains).prefix(2).map(\.title)
-        switch names.count {
-        case 0: return "Back from your phone, into your night."
-        case 1: return "Mostly \(names[0])."
-        default: return "Mostly \(names[0]) & \(names[1])."
-        }
+    /// The plan needs glanceable magnitude, not timer precision. Zero-minute
+    /// suffixes are removed; non-round answers keep their minutes.
+    private func compactDuration(_ minutes: Int) -> String {
+        let hours = minutes / 60
+        let remainder = minutes % 60
+        if hours == 0 { return "\(remainder)m" }
+        if remainder == 0 { return "\(hours)h" }
+        return "\(hours)h \(remainder)m"
     }
 }
 
-/// One fact of the plan summary: icon chip, quiet label, ink value, and an
-/// optional dim detail line. Deliberately *not* a `GlassRow` — settings rows
-/// name controls and never explain them, but this is a data readout whose
-/// detail line carries the personalization payload (the user's own apps).
+/// One fact of the plan summary, kept to one line: icon, quiet category, then
+/// the answer. The user just supplied the inputs, so this screen confirms the
+/// shape of the plan instead of repeating every clock, app, and goal name.
 private struct PlanRow: View {
     let icon: String
     let label: String
     let value: String
-    var detail: String?
 
     var body: some View {
         HStack(alignment: .center, spacing: SleepSpacing.md) {
             GlassRowIcon(icon: icon)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(label)
-                    .font(SleepFont.body(13))
-                    .foregroundStyle(SleepColor.muted)
-                Text(value)
-                    .font(SleepFont.title(17))
-                    .foregroundStyle(SleepColor.ink)
-                if let detail {
-                    Text(detail)
-                        .font(SleepFont.body(13))
-                        .foregroundStyle(SleepColor.dim)
-                }
-            }
-            Spacer(minLength: 0)
+            Text(label)
+                .font(SleepFont.body(15))
+                .foregroundStyle(SleepColor.dim)
+            Spacer(minLength: SleepSpacing.sm)
+            Text(value)
+                .font(SleepFont.title(16))
+                .foregroundStyle(SleepColor.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
         }
         .padding(.vertical, SleepSpacing.md)
         .accessibilityElement(children: .combine)
@@ -1122,51 +1109,16 @@ struct TimeAdjuster: View {
     }()
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: SleepSpacing.sm) {
-                Image(systemName: "clock.fill")
-                    .font(.system(size: 15, weight: .medium))
-                Text(SleepFormatting.clock(minutes))
-                    .font(SleepFont.title(26))
-                    .monospacedDigit()
-            }
-            .foregroundStyle(SleepColor.ink)
-            .padding(.top, SleepSpacing.lg)
-            .accessibilityHidden(true)
-
-            ZStack {
-                // A warm focus rail sits *behind* the native wheel text. The
-                // wheel keeps its platform behavior while its active row can
-                // no longer disappear into the moving skyline.
-                RoundedRectangle(cornerRadius: SleepRadius.md, style: .continuous)
-                    .fill(SleepColor.amber.opacity(0.10))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: SleepRadius.md, style: .continuous)
-                            .stroke(SleepColor.amber.opacity(0.42), lineWidth: 1)
-                    }
-                    .frame(height: 44)
-                    .padding(.horizontal, SleepSpacing.md)
-                    .allowsHitTesting(false)
-
-                DatePicker(
-                    "Time",
-                    selection: dateBinding,
-                    displayedComponents: .hourAndMinute
-                )
-                .datePickerStyle(.wheel)
-                .labelsHidden()
-                .tint(SleepColor.amber)
-                .environment(\.colorScheme, .dark)
-                .frame(maxWidth: .infinity)
-                .frame(height: 154)
-            }
-        }
-        .padding(.horizontal, SleepSpacing.sm)
-        .padding(.bottom, SleepSpacing.sm)
-        .liquidGlass(
-            cornerRadius: SleepRadius.xl,
-            tint: SleepColor.navy.opacity(0.42)
+        DatePicker(
+            "Time",
+            selection: dateBinding,
+            displayedComponents: .hourAndMinute
         )
+        .datePickerStyle(.wheel)
+        .labelsHidden()
+        .tint(SleepColor.amber)
+        .frame(maxWidth: .infinity)
+        .frame(height: 160)
         .accessibilityLabel("Select time")
     }
 
