@@ -65,7 +65,7 @@ struct Profile: Codable, Equatable {
     var primaryGoal: String
     /// How long they said the phone keeps them up after they're already in
     /// bed (raw value of `LateNightPhoneTime`). The plan summary turns this
-    /// into the "time to win back each week" number. Empty when unanswered.
+    /// into the "time to win back" amount per week. Empty when unanswered.
     var lateNightPhone: String
     /// How they said they usually wake up (raw value of `WakeFeeling`).
     /// Captured for future personalization; the question itself is the

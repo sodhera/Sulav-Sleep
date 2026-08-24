@@ -938,11 +938,13 @@ step: ~1.8s of "Building your sleep plan…" — the brand sloth and status text
 centered together in the full flexible region between the progress header and
 the reserved bottom action, its rising z's the only motion, deliberately never
 a spinner — resolving with a success haptic into a personalized summary in the
-editorial question chrome. Its `GlassGroup` is three compact one-line outcomes:
-nightly sleep, weekly phone time to recover, and the chosen goal.
-Each row carries one quiet category and one short value. Exact clocks, app
-names, and explanatory sentences are not repeated; the sole chosen goal is
-echoed as the personalized outcome. This moment should confirm the plan at a
+editorial question chrome. Its `GlassGroup` is three compact outcomes: nightly
+sleep, **time to win back** per week, and the chosen goal. Each row carries one
+quiet category and one short value. Rows stay horizontal when the copy fits and
+stack only the label and value when needed, preserving readable type without
+adding another explanation. Exact clocks, app names, and explanatory sentences
+are not repeated; the sole chosen goal is echoed as the personalized outcome.
+This moment should confirm the plan at a
 glance rather than test the user's reading stamina. The build beat is sticky —
 backing in from the account step shows the summary instantly; the pause is a
 first-arrival moment, not a toll. Its CTA is **"I'm ready"** — the flow's one

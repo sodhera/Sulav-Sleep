@@ -333,7 +333,7 @@ struct OnboardingQuestionsView: View {
             _step = State(initialValue: .plan)
             _name = State(initialValue: "Sulav")
             _goal = State(initialValue: .lessPhoneAtNight)
-            _phoneTime = State(initialValue: .twoPlus)
+            _phoneTime = State(initialValue: .quarterHour)
             _planBuilt = State(initialValue: true)
         }
 #endif
@@ -987,7 +987,7 @@ private struct TimeSinkChip: View {
 /// "Building your sleep plan…" pause — the brand sloth at work, its rising
 /// z's the only motion — resolving into a personalized summary assembled
 /// from the answers just given. Each of its three rows carries one takeaway,
-/// with no explanatory line: nightly sleep, weekly phone time to recover, and
+/// with no explanatory line: nightly sleep, time to win back per week, and the
 /// chosen goal. The reveal is what makes the paywall that follows read
 /// as unlocking a plan the user built, not buying a cold product; the "I'm
 /// ready" CTA beneath it is the flow's one micro-commitment.
@@ -1037,8 +1037,8 @@ private struct PlanStep: View {
                     GlassRowDivider()
                     PlanRow(
                         icon: "hourglass",
-                        label: "Phone time",
-                        value: "\(compactDuration(phoneTime.weeklyMinutes)) back each week"
+                        label: "Time to win back",
+                        value: "\(compactDuration(phoneTime.weeklyMinutes)) per week"
                     )
                 }
                 if let goal {
@@ -1059,19 +1059,20 @@ private struct PlanStep: View {
     }
 
     /// The plan needs glanceable magnitude, not timer precision. Zero-minute
-    /// suffixes are removed; non-round answers keep their minutes.
+    /// suffixes are removed; non-round answers keep readable `min` units.
     private func compactDuration(_ minutes: Int) -> String {
         let hours = minutes / 60
         let remainder = minutes % 60
-        if hours == 0 { return "\(remainder)m" }
+        if hours == 0 { return "\(remainder)min" }
         if remainder == 0 { return "\(hours)h" }
-        return "\(hours)h \(remainder)m"
+        return "\(hours)h \(remainder)min"
     }
 }
 
-/// One fact of the plan summary, kept to one line: icon, quiet category, then
-/// the answer. The user just supplied the inputs, so this screen confirms the
-/// shape of the plan instead of repeating every clock, app, and goal name.
+/// One fact of the plan summary: icon, quiet category, then the answer. It
+/// prefers one line but stacks the two text fields when the copy cannot fit at
+/// a readable size. The user just supplied the inputs, so this screen confirms
+/// the shape of the plan instead of repeating every clock and app name.
 private struct PlanRow: View {
     let icon: String
     let label: String
@@ -1080,18 +1081,34 @@ private struct PlanRow: View {
     var body: some View {
         HStack(alignment: .center, spacing: SleepSpacing.md) {
             GlassRowIcon(icon: icon)
-            Text(label)
-                .font(SleepFont.body(15))
-                .foregroundStyle(SleepColor.dim)
-            Spacer(minLength: SleepSpacing.sm)
-            Text(value)
-                .font(SleepFont.title(16))
-                .foregroundStyle(SleepColor.ink)
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: SleepSpacing.sm) {
+                    labelText.fixedSize(horizontal: true, vertical: false)
+                    Spacer(minLength: SleepSpacing.sm)
+                    valueText.fixedSize(horizontal: true, vertical: false)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    labelText
+                    valueText
+                }
+            }
         }
         .padding(.vertical, SleepSpacing.md)
         .accessibilityElement(children: .combine)
+    }
+
+    private var labelText: some View {
+        Text(label)
+            .font(SleepFont.body(15))
+            .foregroundStyle(SleepColor.dim)
+    }
+
+    private var valueText: some View {
+        Text(value)
+            .font(SleepFont.title(16))
+            .foregroundStyle(SleepColor.ink)
+            .lineLimit(1)
+            .minimumScaleFactor(0.85)
     }
 }
 

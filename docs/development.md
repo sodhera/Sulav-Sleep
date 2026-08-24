@@ -491,11 +491,13 @@ target can inject fakes without new hooks.
   The **plan step** (`PlanStep`) runs a ~1.8s "Building your sleep plan…"
   beat (`startPlanBuild`, cancelled if the user backs out mid-build, sticky
   once revealed), with the sloth and status text centered in the full flexible
-  content region, before crossfading to three one-line outcomes: nightly sleep,
-  weekly phone time to recover, and the chosen goal. `PlanRow` deliberately
-  has no detail field; the reveal echoes the single goal but does not repeat
-  the exact clocks, app names, or explanatory copy from prior steps. Its "I'm
-  ready" CTA advances to the account step (or commits directly on the
+  content region, before crossfading to three compact outcomes: nightly sleep,
+  time to win back per week, and the chosen goal. `PlanRow` prefers a horizontal
+  label/value pair and uses `ViewThatFits` to stack only those two fields when
+  needed; it deliberately has no detail field. Weekly durations use compact
+  copy such as `1h 45min per week`. The reveal echoes the single goal but does
+  not repeat the exact clocks, app names, or explanatory copy from prior steps.
+  Its "I'm ready" CTA advances to the account step (or commits directly on the
   quick-setup path, where the plan step is the final one). All answers travel
   as one `OnboardingAnswers` value into `store.completeOnboarding`.
   `OnboardingQuestionsView` builds its step list dynamically: the account
