@@ -60,10 +60,8 @@ struct Profile: Codable, Equatable {
     /// later, in-app, and this stops that prompt from reappearing once waved
     /// off. Connecting via the Profile toggle still works regardless.
     var healthPromptDismissed: Bool
-    /// The outcomes selected during sign-up, encoded by `SleepGoal` into this
-    /// legacy string field. A single old raw value and a comma-delimited set
-    /// both decode, so the goal question can be multi-select without breaking
-    /// the existing local/cloud schema. Feeds future personalization.
+    /// The outcome selected during sign-up, stored as a `SleepGoal` raw value.
+    /// Feeds future personalization.
     var primaryGoal: String
     /// How long they said the phone keeps them up after they're already in
     /// bed (raw value of `LateNightPhoneTime`). The plan summary turns this
@@ -160,7 +158,7 @@ struct OnboardingAnswers {
     var wakeTime: Int
     var struggles: [String] = []
     var timeSinks: [String] = []
-    var goals: String = ""
+    var goal: String = ""
     var lateNightPhone: String = ""
     var wakeFeeling: String = ""
 }
@@ -243,9 +241,9 @@ enum TimeSinkApp: String, CaseIterable, Identifiable {
     }
 }
 
-/// The onboarding outcomes. The screen is multi-select; storage stays a single
-/// string for compatibility with the existing Supabase `goal` text column.
-enum SleepGoal: String, CaseIterable, Identifiable, Hashable {
+/// The onboarding outcomes. The user chooses the one that matters most and its
+/// raw value travels through the existing Supabase `goal` text column.
+enum SleepGoal: String, CaseIterable, Identifiable {
     case fallAsleepEarlier
     case wakeUpRested
     case lessPhoneAtNight
@@ -269,17 +267,6 @@ enum SleepGoal: String, CaseIterable, Identifiable, Hashable {
         case .lessPhoneAtNight: "iphone.slash"
         case .consistentSchedule: "calendar"
         }
-    }
-
-    /// Stable, backward-compatible representation for the existing string
-    /// field. Earlier profiles contain one raw value; newer ones contain the
-    /// authored selection order joined by commas.
-    static func storageValue(for goals: Set<SleepGoal>) -> String {
-        allCases.filter(goals.contains).map(\.rawValue).joined(separator: ",")
-    }
-
-    static func values(from storageValue: String) -> [SleepGoal] {
-        storageValue.split(separator: ",").compactMap { SleepGoal(rawValue: String($0)) }
     }
 }
 

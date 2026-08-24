@@ -931,7 +931,7 @@ final class SleepStore {
         updated.onboarded = true
         updated.sleepStruggles = answers.struggles
         updated.timeSinkApps = answers.timeSinks
-        updated.primaryGoal = answers.goals
+        updated.primaryGoal = answers.goal
         updated.lateNightPhone = answers.lateNightPhone
         updated.wakeFeeling = answers.wakeFeeling
         profile = updated

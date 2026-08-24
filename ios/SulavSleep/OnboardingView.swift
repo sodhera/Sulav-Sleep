@@ -296,7 +296,7 @@ struct OnboardingQuestionsView: View {
     @State private var step: Step = .name
     @State private var movingForward = true
     @State private var name = ""
-    @State private var goals: Set<SleepGoal> = []
+    @State private var goal: SleepGoal?
     @State private var struggles: Set<SleepStruggle> = []
     @State private var timeSinks: Set<TimeSinkApp> = []
     @State private var phoneTime: LateNightPhoneTime?
@@ -326,13 +326,13 @@ struct OnboardingQuestionsView: View {
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("-review-onboarding-goals") {
             _step = State(initialValue: .goal)
-            _goals = State(initialValue: [.wakeUpRested, .lessPhoneAtNight])
+            _goal = State(initialValue: .wakeUpRested)
         } else if arguments.contains("-review-onboarding-bedtime") {
             _step = State(initialValue: .bedtime)
         } else if arguments.contains("-review-onboarding-plan") {
             _step = State(initialValue: .plan)
             _name = State(initialValue: "Sulav")
-            _goals = State(initialValue: [.wakeUpRested, .lessPhoneAtNight])
+            _goal = State(initialValue: .lessPhoneAtNight)
             _phoneTime = State(initialValue: .twoPlus)
             _planBuilt = State(initialValue: true)
         }
@@ -461,7 +461,7 @@ struct OnboardingQuestionsView: View {
         case .goal:
             QuestionLayout(
                 title: "What would you like to achieve?",
-                subtitle: "Choose all that matter. We'll build your plan around them."
+                subtitle: "Pick the one that matters most. We'll build your plan around it."
             ) {
                 LiquidGlassContainer(spacing: SleepSpacing.md) {
                     VStack(spacing: SleepSpacing.md) {
@@ -469,14 +469,10 @@ struct OnboardingQuestionsView: View {
                             OptionRow(
                                 icon: option.systemImage,
                                 title: option.title,
-                                isSelected: goals.contains(option)
+                                isSelected: goal == option
                             ) {
                                 Haptics.heavy()
-                                if goals.contains(option) {
-                                    goals.remove(option)
-                                } else {
-                                    goals.insert(option)
-                                }
+                                goal = option
                             }
                         }
                     }
@@ -596,7 +592,7 @@ struct OnboardingQuestionsView: View {
                 name: name,
                 bedtime: bedtime,
                 wakeTime: wakeTime,
-                goals: goals,
+                goal: goal,
                 phoneTime: phoneTime
             )
         case .account:
@@ -643,10 +639,10 @@ struct OnboardingQuestionsView: View {
     private var isStepValid: Bool {
         switch step {
         case .name: !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        // The goal multi-select requires at least one answer because the plan
-        // speaks back to those choices. The struggles and app multi-selects
-        // remain skippable: an empty set is an honest answer there.
-        case .goal: !goals.isEmpty
+        // Single-select questions require an answer because the plan speaks
+        // back to the choice. The struggles and app multi-selects remain
+        // skippable: an empty set is an honest answer there.
+        case .goal: goal != nil
         case .phoneTime: phoneTime != nil
         case .feeling: feeling != nil
         default: true
@@ -696,7 +692,7 @@ struct OnboardingQuestionsView: View {
             wakeTime: wakeTime,
             struggles: struggles.map(\.rawValue),
             timeSinks: timeSinks.map(\.rawValue),
-            goals: SleepGoal.storageValue(for: goals),
+            goal: goal?.rawValue ?? "",
             lateNightPhone: phoneTime?.rawValue ?? "",
             wakeFeeling: feeling?.rawValue ?? ""
         ))
@@ -850,7 +846,7 @@ private struct NameField: View {
 }
 
 /// One full-width answer capsule, shared by every list question — the
-/// multi-select goal/struggles and the single-select phone-time/feeling steps
+/// multi-select struggles and the single-select goal/phone-time/feeling steps
 /// (selection semantics live in the caller; the row just shows state).
 private struct OptionRow: View {
     let icon: String
@@ -992,7 +988,7 @@ private struct TimeSinkChip: View {
 /// z's the only motion — resolving into a personalized summary assembled
 /// from the answers just given. Each of its three rows carries one takeaway,
 /// with no explanatory line: nightly sleep, weekly phone time to recover, and
-/// selected-goal count. The reveal is what makes the paywall that follows read
+/// chosen goal. The reveal is what makes the paywall that follows read
 /// as unlocking a plan the user built, not buying a cold product; the "I'm
 /// ready" CTA beneath it is the flow's one micro-commitment.
 private struct PlanStep: View {
@@ -1000,7 +996,7 @@ private struct PlanStep: View {
     let name: String
     let bedtime: Int
     let wakeTime: Int
-    let goals: Set<SleepGoal>
+    let goal: SleepGoal?
     let phoneTime: LateNightPhoneTime?
 
     var body: some View {
@@ -1045,12 +1041,12 @@ private struct PlanStep: View {
                         value: "\(compactDuration(phoneTime.weeklyMinutes)) back each week"
                     )
                 }
-                if !goals.isEmpty {
+                if let goal {
                     GlassRowDivider()
                     PlanRow(
-                        icon: "checklist",
-                        label: "Goals",
-                        value: "\(goals.count) selected"
+                        icon: goal.systemImage,
+                        label: "Goal",
+                        value: goal.title
                     )
                 }
             }

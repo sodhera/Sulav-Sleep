@@ -917,14 +917,13 @@ scene. A glass well, repeated time readout, and custom focus rail were tried
 and reverted: they turned one simple choice into a second dashboard and
 duplicated the wheel's selected value.
 
-Selection grammar splits by meaning. The **goal is a required multi-select**:
-several outcomes can be true at once, and Next enables after the first choice.
-The struggle and time-sink multi-selects allow zero because an empty set is an
-honest answer. The phone-time and wake-feeling single-selects require a choice
-because the plan speaks to the answer and there is no meaningful skipped
-reading. Goal IDs keep the existing `goal` string schema by using a stable,
-comma-delimited raw-value representation; an older single raw value remains a
-valid one-item selection.
+Selection grammar splits by meaning. The **goal is a required single-select**:
+this step asks for the one outcome that matters most, and choosing another row
+replaces the previous choice. The struggle and time-sink multi-selects allow
+zero because an empty set is an honest answer. The phone-time and wake-feeling
+single-selects also require a choice because the plan speaks to the answer and
+there is no meaningful skipped reading. The chosen goal keeps the existing
+`goal` string schema as one stable raw value.
 
 > Android revision (July 2026): on Android, **every** questionnaire step
 > holds Next until the user actually interacts — multi-selects require at
@@ -940,15 +939,15 @@ centered together in the full flexible region between the progress header and
 the reserved bottom action, its rising z's the only motion, deliberately never
 a spinner — resolving with a success haptic into a personalized summary in the
 editorial question chrome. Its `GlassGroup` is three compact one-line outcomes:
-nightly sleep, weekly phone time to recover, and the number of selected goals.
+nightly sleep, weekly phone time to recover, and the chosen goal.
 Each row carries one quiet category and one short value. Exact clocks, app
-names, goal names, and explanatory sentences are not repeated; the user chose
-them seconds ago, and this moment should confirm the plan at a glance rather
-than test their reading stamina. The build beat is sticky — backing in from the
-account step shows the summary instantly; the pause is a first-arrival moment,
-not a toll. Its CTA is **"I'm ready"** — the flow's one micro-commitment,
-landing right before the account step asks to save the plan and the paywall
-asks to unlock it.
+names, and explanatory sentences are not repeated; the sole chosen goal is
+echoed as the personalized outcome. This moment should confirm the plan at a
+glance rather than test the user's reading stamina. The build beat is sticky —
+backing in from the account step shows the summary instantly; the pause is a
+first-arrival moment, not a toll. Its CTA is **"I'm ready"** — the flow's one
+micro-commitment, landing right before the account step asks to save the plan
+and the paywall asks to unlock it.
 
 The **time-sink question** ("Which apps keep you up?") is the struggles
 question pointed at the phone itself: eight usual suspects (Instagram,
