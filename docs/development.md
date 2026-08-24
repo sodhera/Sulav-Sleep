@@ -1455,7 +1455,7 @@ rejected, capped at 10, and unlinkable instantly by either side.
   via App Group `group.com.sulav.sleepblock`. `SleepWidgetShared.swift`
   (the summary types + read/write) is a member of both targets.
 - Families: home-screen small (tonight: bedtime countdown → past-bedtime →
-  asleep), medium (last night's duration + 7-night bars), large (bars +
+  asleep), medium (recent average + 7-night bars), large (average + bars +
   tonight footer), and lock-screen accessories (circular/rectangular/inline). The sloth mascot
   carries tonight's state on every home-screen family (awake / drowsy /
   ember-asleep), and while a session runs all three families switch to one
@@ -1469,6 +1469,58 @@ rejected, capped at 10, and unlinkable instantly by either side.
   `scripts/generate-app-icon.py` so the catalogs stay in sync. The app's
   `Images.xcassets` is deliberately *not* a member of the widget target
   (it would compile the whole pixel-art city into the appex).
+- The stats families lead with `SleepWidgetSummary.averageMinutes` — the mean
+  over the (at most seven) nights the summary carries — not
+  `latestDurationMinutes`. `latestDurationMinutes` comes from
+  `SleepStore.lastNightSession`, which is nil unless the newest night ended
+  today or yesterday, so a hero built on it went blank whenever a night was
+  skipped while the chart still showed a full week. `averageMinutes` exists
+  whenever `nights` does, which is exactly when the tile isn't in its empty
+  state. `nights` is `displaySessions.suffix(7)` — the same last-N-*logged*-
+  nights window as `SleepStats.averages` behind Profile's summary band, so the
+  widget and the app can't quote different averages — and `AverageHero` labels
+  it with the real count ("AVG · 4 NIGHTS", or "LAST NIGHT" when there is one).
+  The lock-screen rectangular/inline accessories fall back to the average on
+  their record line for the same reason; the circular gauge stays last-night-
+  only (an average on the same ring would be indistinguishable from a night).
+- Empty-state copy for medium and large lives in one place, `StatsEmptyCopy`
+  (signed out vs. nothing-logged), so the two families can't drift.
+  `SleepKicker` (the moon glyph + "SLEEP") is likewise an **empty-state mark**:
+  it renders only in those two states and in small's no-schedule state, never
+  over a tile that has a hero numeral. On large that removed the header row, so
+  the streak flame now sits in the tile's top-right corner on the hero
+  caption's baseline (`LargeSleepView.streakBadge`, `.lastTextBaseline`) — in
+  flow, not an overlay, so a wider numeral pushes it instead of sliding under
+  it, and baseline-aligned rather than offset by a constant so it holds at any
+  type size.
+- **The widget derives the streak; it does not trust `summary.streak`.**
+  `SleepWidgetSummary.liveStreak(at:)` (in `SulavSleepWidget.swift`) re-runs
+  `SleepStreakRule` over the nights the summary carries, using the timeline
+  entry's date. The stored count is a number the app baked in at write time and
+  is the one field that goes stale on its own — a streak decays with the
+  calendar, and if it is ever written while the app's history is incomplete the
+  widget had no way to notice: it drew no flame while its own chart plainly
+  showed last night logged. Stored count wins only when it is *larger* (the
+  summary holds seven nights, so a longer run can't be re-derived); when the
+  visible nights support no run, the stored number is ignored rather than
+  trusted, since any live run must include a night inside that window.
+  `SleepStreak.swift` is a member of the app and widget targets (it is
+  Foundation-only by design, which is also why `scripts/test-streak.sh` can
+  compile it standalone) — one rule, no second copy. It is deliberately *not*
+  in the monitor extension, which is why `liveStreak` lives in the widget's own
+  file rather than in `SleepWidgetShared.swift`.
+- Large's `SleepBars` height comes from a `GeometryReader`, not a constant: the
+  chart takes the space its fixed siblings (hero row, hairline, footer) leave,
+  minus 18pt for SleepBars' own weekday row, **capped at
+  `LargeSleepView.maxBarHeight` (130pt)** with the remainder left as air
+  *above* the chart, so the bars sit on their own hairline. The large family spans ~311pt to ~382pt tall across devices,
+  so any constant tuned to fill the tall tiles clips the footer on the short
+  ones — and uncapped growth makes 40pt columns ~190pt tall, which reads as
+  towers rather than a week. Medium keeps a fixed 58pt — it sits
+  beside the hero rather than under it, so it has no slack to absorb.
+  `SleepSpeech.duration` renders durations for VoiceOver ("7 hours 12
+  minutes"); `SleepFormatting.duration` is display-only and reads out as
+  letters.
 - `SleepWidgetSummary` carries `bedtimeMinutes`/`wakeMinutes`/`asleepSince`/
   `isSignedIn` on top of the history fields; all are optionals, so summaries
   written before they existed still decode (key stays `v1`; readers treat a

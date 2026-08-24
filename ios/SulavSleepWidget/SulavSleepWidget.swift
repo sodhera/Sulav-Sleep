@@ -15,10 +15,13 @@ import SwiftUI
 //    countdown, wind-down nudge, or set-a-schedule invitation. No surface
 //    prints the bedtime clock time — it is a setting the user chose, so the
 //    interval to it is the only figure that earns space.
-//  - Medium is the *morning stats glance*: last night's sleep, streak, and
-//    the 7-night bars, with the sloth lounging under the numbers as the
-//    brand-and-state figure. Duration is the app's only metric — the 0–100
-//    score is retired everywhere.
+//  - Medium is the *morning stats glance*: how long you've been sleeping
+//    lately — the average over the nights on record — and the 7-night bars,
+//    with the sloth lounging under the numbers as the brand-and-state
+//    figure. Duration is the app's only metric — the 0–100 score is retired
+//    everywhere. The hero is the average rather than last night because last
+//    night is missing on exactly the mornings someone forgets to log, and a
+//    stats tile must never go blank (see `AverageHero`).
 //  - Large combines both: stats + bars on top, a mini-Home footer (sloth +
 //    tonight line + Sleep Now) at the bottom.
 //  - While a session runs, every system family wears the same *sleep face*:
@@ -539,15 +542,9 @@ private struct TonightView: View {
 
     private var noScheduleBody: some View {
         VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 5) {
-                Image(systemName: "moon.fill")
-                    .font(.system(size: 11))
-                    .foregroundStyle(SleepColor.amber)
-                    .widgetAccentable()
-                Text("SLEEP")
-                    .font(SleepFont.label(11)).tracking(1.4)
-                    .foregroundStyle(SleepColor.muted)
-            }
+            // Same rule as the stats families' empty state: with no countdown
+            // to label, the glyph is what identifies the tile.
+            SleepKicker()
             Spacer(minLength: 4)
             Text("Set a schedule to see your bedtime here.")
                 .font(SleepFont.body(12))
@@ -580,33 +577,30 @@ private struct MediumSleepView: View {
             VStack(spacing: 4) {
             HStack(alignment: .top, spacing: SleepSpacing.lg) {
                 VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 5) {
-                        Image(systemName: "moon.fill")
-                            .font(.system(size: 11))
-                            .foregroundStyle(SleepColor.amber)
-                            .widgetAccentable()
-                        Text("SLEEP")
-                            .font(SleepFont.label(11)).tracking(1.4)
-                            .foregroundStyle(SleepColor.muted)
+                    // No "SLEEP" kicker here. It labelled nothing — the hero's
+                    // own caption says what the number is, the chart says what
+                    // the tile is about, and the sloth is the brand mark
+                    // (DESIGN.md: recognizably SleepBlock *without a logo
+                    // badge*). All it did was repeat the app's name in the one
+                    // corner where the numeral wanted to start. It survives in
+                    // the empty state, which has no numeral to label.
+
+                    // The recent average is the hero — see AverageHero for
+                    // why it replaced last night's figure. Non-nil here: this
+                    // branch already ruled out an empty summary.
+                    if let average = summary.averageMinutes {
+                        AverageHero(
+                            minutes: average,
+                            nights: summary.nights.count,
+                            size: 30,
+                            layout: .stacked
+                        )
                     }
 
-                    // Last night's duration is the hero — the one number the
-                    // morning glance answers. No "last night" label: the
-                    // rightmost full-strength bar is the same night.
-                    if let mins = summary.latestDurationMinutes {
-                        Text(SleepFormatting.duration(mins))
-                            .font(SleepFont.hero(30))
-                            .foregroundStyle(SleepColor.ink)
-                            .monospacedDigit()
-                            .widgetAccentable()
-                            .minimumScaleFactor(0.7)
-                            .lineLimit(1)
-                    }
-
-                    // No streak or average line. Medium already carries six
-                    // things; the streak was the least load-bearing of them,
-                    // and dropping it lets the hero and the chart breathe.
-                    // Large still shows it — it has the room.
+                    // Still no streak line. Medium already carries six things;
+                    // the streak was the least load-bearing of them, and
+                    // dropping it lets the hero and the chart breathe. Large
+                    // still shows it — it has the room.
                     Spacer(minLength: 0)
                 }
                 .frame(maxHeight: .infinity, alignment: .top)
@@ -685,22 +679,17 @@ private struct EmptyStatsView: View {
     var body: some View {
         HStack(alignment: .bottom, spacing: SleepSpacing.lg) {
             VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 5) {
-                    Image(systemName: "moon.fill")
-                        .font(.system(size: 11))
-                        .foregroundStyle(SleepColor.amber)
-                        .widgetAccentable()
-                    Text("SLEEP")
-                        .font(SleepFont.label(11)).tracking(1.4)
-                        .foregroundStyle(SleepColor.muted)
-                }
+                SleepKicker()
                 Spacer(minLength: 0)
-                Text("No nights yet")
+                Text(StatsEmptyCopy.title(signedIn: signedIn))
                     .font(SleepFont.title(17))
                     .foregroundStyle(SleepColor.ink)
-                Text("Log a night to see your rhythm.")
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+                Text(StatsEmptyCopy.message(signedIn: signedIn))
                     .font(SleepFont.body(12))
                     .foregroundStyle(SleepColor.muted)
+                    .lineLimit(3)
                 if showButton {
                     Spacer(minLength: 4)
                     WidgetActionCapsule(signedIn: signedIn)
@@ -719,61 +708,44 @@ private struct EmptyStatsView: View {
 // MARK: - Large: stats + tonight
 
 private struct LargeSleepView: View {
+    /// Ceiling for the bars. The chart is ~332pt wide over 7 columns, so a
+    /// column is ~43pt: at 150 the bars ran 3:1, which still read as towers,
+    /// and measuring the render put the uncapped height at ~171 rather than
+    /// the ~190 I first estimated — so that first cap was trimming ~12% and
+    /// was invisible. 130 puts the tallest bar near 2.5:1, the proportion the
+    /// chart had when it was a fixed 118 and looked right.
+    private static let maxBarHeight: CGFloat = 130
+
     let summary: SleepWidgetSummary
     let tonight: TonightState
     let now: Date
 
     var body: some View {
         VStack(alignment: .leading, spacing: SleepSpacing.sm) {
-            // Kicker and hero belong to each other, so they sit tight; the
-            // chart and the footer get the air instead.
-            HStack {
-                HStack(spacing: 5) {
-                    Image(systemName: "moon.fill")
-                        .font(.system(size: 11))
-                        .foregroundStyle(SleepColor.amber)
-                        .widgetAccentable()
-                    Text("SLEEP")
-                        .font(SleepFont.label(11)).tracking(1.4)
-                        .foregroundStyle(SleepColor.muted)
-                }
-                Spacer()
-                if summary.streak > 0 {
-                    // Flame + the count, nothing else. "on track" was the
-                    // longest string in the header for the least information —
-                    // a flame beside a number already reads as a streak, and
-                    // the words only crowded the kicker's opposite corner.
-                    //
-                    // A dying streak hollows the flame and drops it to muted,
-                    // the same swap Home makes. Nothing else moves, so the
-                    // header doesn't reflow on the day it happens.
-                    let dying = summary.streakIsDying == true
-                    HStack(spacing: 4) {
-                        Image(systemName: dying ? "flame" : "flame.fill")
-                            .font(.system(size: 10))
-                            .foregroundStyle(dying ? SleepColor.muted : SleepColor.gold)
-                        Text("\(summary.streak)")
-                            .font(SleepFont.body(12))
-                            .foregroundStyle(dying ? SleepColor.muted : SleepColor.dim)
-                            .monospacedDigit()
-                    }
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel(
-                        dying
-                            ? "\(summary.streak) night streak, ending tonight unless you log sleep"
-                            : "\(summary.streak) night streak"
-                    )
-                }
-            }
-
             if summary.isEmpty {
-                Spacer(minLength: 0)
-                Text("No nights yet")
+                // The kicker survives *only* here. With data the hero and its
+                // caption name the tile's content, and the sloth carries the
+                // brand — but an empty tile has no numeral to label and no
+                // chart to read, so the moon glyph is the one mark that says
+                // whose widget this is before the copy does.
+                SleepKicker()
+
+                // Top-aligned under it, not floating in the middle of the
+                // tile: the copy is the headline this state has instead of a
+                // numeral, so it sits exactly where the numeral would. The
+                // room below it is the chart's, and reading as
+                // empty-and-waiting is the point.
+                let signedIn = summary.isSignedIn ?? true
+                Text(StatsEmptyCopy.title(signedIn: signedIn))
                     .font(SleepFont.title(18))
                     .foregroundStyle(SleepColor.ink)
-                Text("Log a night to see your rhythm.")
+                Text(StatsEmptyCopy.message(signedIn: signedIn))
                     .font(SleepFont.body(13))
                     .foregroundStyle(SleepColor.muted)
+
+                // Only this branch needs a spacer to hold the footer down; the
+                // chart branch fills the same room with the chart itself.
+                Spacer(minLength: SleepSpacing.sm)
             } else {
                 // Large used to open straight onto the bars, on the reasoning
                 // that the rightmost full-strength bar *was* last night so a
@@ -784,32 +756,84 @@ private struct LargeSleepView: View {
                 // does — it should be a superset of the smaller tile, not a
                 // differently-shaped peer — and it left the top-left of the
                 // biggest widget carrying nothing but an 11pt kicker.
-                if let mins = summary.latestDurationMinutes {
-                    HStack(alignment: .firstTextBaseline, spacing: 7) {
-                        Text(SleepFormatting.duration(mins))
-                            .font(SleepFont.hero(34))
-                            .foregroundStyle(SleepColor.ink)
-                            .monospacedDigit()
-                            .widgetAccentable()
-                            .minimumScaleFactor(0.7)
-                            .lineLimit(1)
-                        Text("LAST NIGHT")
-                            .font(SleepFont.label(10)).tracking(1.2)
-                            .foregroundStyle(SleepColor.muted)
+                //
+                // The header row that used to sit above this — a moon-glyph
+                // "SLEEP" kicker with the streak on its far side — is gone
+                // with data on the tile: the caption beside the numeral says
+                // what the number is, and a kicker that only repeats the app's
+                // name was spending the top of the biggest widget on nothing.
+                // The streak moves onto the hero's baseline, where it reads as
+                // a fact about the record rather than a lone badge in an empty
+                // rule of its own.
+                //
+                // Caption *under* the numeral, the same stack medium uses —
+                // large should be a superset of the smaller tile, not a
+                // differently-shaped peer, and beside the numeral the caption
+                // was pushing the streak out to the far edge of a very wide
+                // row.
+                //
+                // The streak shares the **caption's baseline**, which is what
+                // makes the corner sit still. Aligned to the top of the row it
+                // was aligned to a *line box*, not to a letter: a 34pt numeral
+                // carries ascender space above its cap, so the flame floated
+                // a few points higher than the "8" beside it and read as stuck
+                // to the ceiling with a two-line block hanging off the other
+                // corner. On the caption's baseline the two small figures pair
+                // off — kicker left, streak right — and the hero owns the line
+                // above them alone. Baseline alignment, not a magic offset, so
+                // it holds at any type size.
+                HStack(alignment: .lastTextBaseline, spacing: SleepSpacing.sm) {
+                    if let average = summary.averageMinutes {
+                        AverageHero(
+                            minutes: average,
+                            nights: summary.nights.count,
+                            size: 34,
+                            layout: .stacked
+                        )
                     }
+                    Spacer(minLength: 0)
+                    streakBadge
                 }
 
-                SleepBars(
-                    nights: summary.nights,
-                    target: summary.targetMinutes,
-                    height: 118,
-                    anchorDay: SleepDay.key(for: now),
-                    showWeekdays: true
-                )
+                // The chart takes the space its fixed siblings leave — but
+                // **not more than a chart's worth of it.**
+                //
+                // A constant was wrong in both directions: the large family
+                // runs from ~311pt tall (4.7" phones) to ~382pt (Max), so a
+                // number tuned to fill the tall tile clips the footer on the
+                // short one, and the old 118pt left a hand's width of dead
+                // space above the footer. But letting it fill everything was
+                // worse in a way only the render shows: at ~190pt tall over
+                // 40pt columns the bars became 4:1 pills — a bar chart reads
+                // as a *rhythm* you compare across, and past about half its
+                // own width it starts reading as seven tall objects instead.
+                // Sparse weeks make it louder: three hairline stubs beside
+                // four towers is a lot of vertical drama for "you missed
+                // Tuesday".
+                //
+                // So: grow with the tile, cap at `maxBarHeight`, and put the
+                // leftover **above** the chart. Centring it split the slack in
+                // two and left a gap above the footer again — the exact thing
+                // that started this. Air under a header reads as spacing; air
+                // over a footer reads as a hole. Bottom-anchored, the chart
+                // sits on its own hairline and the week hangs from the header.
+                // The 18pt allowance is SleepBars' own weekday row (4pt
+                // spacing + a 10pt line), which sits below `height`.
+                GeometryReader { proxy in
+                    VStack(spacing: 0) {
+                        Spacer(minLength: 0)
+                        SleepBars(
+                            nights: summary.nights,
+                            target: summary.targetMinutes,
+                            height: min(max(80, proxy.size.height - 18), Self.maxBarHeight),
+                            anchorDay: SleepDay.key(for: now),
+                            showWeekdays: true
+                        )
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
                 .padding(.top, SleepSpacing.xs)
             }
-
-            Spacer(minLength: SleepSpacing.sm)
 
             Rectangle()
                 .fill(SleepColor.hairline)
@@ -825,6 +849,52 @@ private struct LargeSleepView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    /// Flame + the count, nothing else. "on track" was the longest string on
+    /// the row for the least information — a flame beside a number already
+    /// reads as a streak, and the words only crowded the numerals opposite.
+    ///
+    /// A dying streak hollows the flame and drops it to muted, the same swap
+    /// Home makes. Nothing else moves, so the row doesn't reflow on the day it
+    /// happens.
+    ///
+    /// The run comes from `liveStreak(at:)`, re-derived here from the nights
+    /// on the tile, not from the count the app baked into the summary — see
+    /// that method for why the widget no longer takes the stored number's word
+    /// for it. `now` is the timeline entry's date, so the flame ages with the
+    /// entries WidgetKit is already rendering rather than with the last write.
+    @ViewBuilder
+    private var streakBadge: some View {
+        let streak = summary.liveStreak(at: now)
+        if streak.count > 0 {
+            let dying = streak.isDying
+            // Sized to Home's chip (15pt) rather than to a footnote: on the
+            // biggest tile this is the second figure on the face, and at
+            // 10/12pt it read as a mark in the corner instead of a number
+            // worth keeping. The count carries the weight — `label`, matching
+            // Home — and stays a clear step below the 34pt hero, which is
+            // still the thing the tile is about.
+            HStack(spacing: 5) {
+                Image(systemName: dying ? "flame" : "flame.fill")
+                    .font(.system(size: 15))
+                    .foregroundStyle(dying ? SleepColor.muted : SleepColor.gold)
+                Text("\(streak.count)")
+                    .font(SleepFont.label(17))
+                    // Gold, like Home's chip — not ink. At this size a white
+                    // numeral starts competing with the hero it sits beside;
+                    // gold reads as the streak's own colour and keeps the
+                    // glyph and the count one object.
+                    .foregroundStyle(dying ? SleepColor.muted : SleepColor.gold)
+                    .monospacedDigit()
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(
+                dying
+                    ? "\(streak.count) night streak, ending tonight unless you log sleep"
+                    : "\(streak.count) night streak"
+            )
+        }
     }
 }
 
@@ -868,14 +938,21 @@ private struct TonightFooter: View {
                 EmptyView() // large wears the sleep face instead
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        // Centred in the band the sloth and the capsule leave behind — the
+        // same placement medium gives its countdown, so the two tiles read
+        // alike. Leading-aligned it sat hard against the sloth with all the
+        // slack pooled on the capsule side, which read as a layout accident
+        // rather than as the middle element of figure → instrument → action.
+        .frame(maxWidth: .infinity, alignment: .center)
     }
 
     /// The two-line tonight block: quiet label, then the interval in the
-    /// state's tint. Merged into one accessibility element so VoiceOver says
-    /// "Bedtime in 9h 12m" rather than reading the halves as separate labels.
+    /// state's tint. Centre-aligned to itself as well as in the band, so the
+    /// shorter line sits under the middle of the longer one. Merged into one
+    /// accessibility element so VoiceOver says "Bedtime in 9h 12m" rather
+    /// than reading the halves as separate labels.
     private func block(label: String, interval: String, tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 1) {
+        VStack(alignment: .center, spacing: 1) {
             Text(label)
                 .font(SleepFont.body(12))
                 .foregroundStyle(SleepColor.dim)
@@ -987,7 +1064,7 @@ private struct RectangularAccessoryView: View {
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
                     .lineLimit(1)
-                lastNightLine
+                recordLine
             case .pastBedtime:
                 HStack(spacing: 4) {
                     Image(systemName: "moon.zzz.fill").font(.system(size: 11))
@@ -997,7 +1074,7 @@ private struct RectangularAccessoryView: View {
                 Text("Wind down and sleep")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
-                lastNightLine
+                recordLine
             case .noSchedule:
                 HStack(spacing: 4) {
                     Image(systemName: "moon.fill").font(.system(size: 11))
@@ -1012,12 +1089,21 @@ private struct RectangularAccessoryView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    /// The record line under tonight's state: last night when there is one,
+    /// otherwise the recent average — the same fallback the home-screen
+    /// stats families make, so a missed night never blanks the line out.
     @ViewBuilder
-    private var lastNightLine: some View {
+    private var recordLine: some View {
         if let mins = summary.latestDurationMinutes {
             Text("Slept \(SleepFormatting.duration(mins))")
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
+        } else if let average = summary.averageMinutes {
+            Text("\(summary.nights.count)-night avg \(SleepFormatting.duration(average))")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
         }
     }
 }
@@ -1039,6 +1125,8 @@ private struct InlineAccessoryView: View {
         case .noSchedule:
             if let mins = summary.latestDurationMinutes {
                 (Text(Image(systemName: "moon.fill")) + Text(" Slept \(SleepFormatting.duration(mins))"))
+            } else if let average = summary.averageMinutes {
+                (Text(Image(systemName: "moon.fill")) + Text(" Avg \(SleepFormatting.duration(average))"))
             } else {
                 (Text(Image(systemName: "moon.fill")) + Text(" Sleep"))
             }
@@ -1047,6 +1135,138 @@ private struct InlineAccessoryView: View {
 }
 
 // MARK: - Shared pieces
+
+/// The stats families' headline: **how long you've been sleeping lately.**
+///
+/// This used to be last night's duration, and it blanked out. The app only
+/// calls a night "last night" when it ended today or yesterday
+/// (`SleepStore.lastNightSession`), so any morning you forgot to log — or any
+/// afternoon two days after your last night — the medium tile lost its hero
+/// and showed a lone "SLEEP" kicker beside a chart still full of bars. A tile
+/// whose main number can vanish while it still has data to show is broken.
+///
+/// The average can't: it exists whenever any night does. It also describes
+/// the same stretch of time as the chart it sits beside, which last night's
+/// single figure never did.
+///
+/// The label **names its own sample size** — "AVG · 4 NIGHTS", not a flat
+/// "7-DAY AVG" over a week that only holds four. That's the same honesty rule
+/// (and the same last-N-*logged*-nights window) as Profile's summary band,
+/// which reads "Avg sleep · last 4 nights"; with one night on record both
+/// surfaces drop the average language entirely and say "LAST NIGHT", because
+/// an average of one is a claim about a week that isn't there.
+private struct AverageHero: View {
+    enum Layout {
+        /// Numeral over label — medium, where the left column is narrow.
+        case stacked
+        /// Numeral then label on one baseline — large, which has the width.
+        case inline
+    }
+
+    let minutes: Int
+    let nights: Int
+    let size: CGFloat
+    var layout: Layout = .stacked
+
+    private var label: String {
+        nights == 1 ? "LAST NIGHT" : "AVG · \(nights) NIGHTS"
+    }
+
+    var body: some View {
+        Group {
+            switch layout {
+            case .stacked:
+                VStack(alignment: .leading, spacing: 0) {
+                    numeral
+                    caption
+                }
+            case .inline:
+                HStack(alignment: .firstTextBaseline, spacing: 7) {
+                    numeral
+                    caption
+                }
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            nights == 1
+                ? "Last night, \(SleepSpeech.duration(minutes))"
+                : "Average over \(nights) nights, \(SleepSpeech.duration(minutes))"
+        )
+    }
+
+    private var numeral: some View {
+        Text(SleepFormatting.duration(minutes))
+            .font(SleepFont.hero(size))
+            .foregroundStyle(SleepColor.ink)
+            .monospacedDigit()
+            .widgetAccentable()
+            .minimumScaleFactor(0.7)
+            .lineLimit(1)
+    }
+
+    private var caption: some View {
+        Text(label)
+            .font(SleepFont.label(10)).tracking(1.2)
+            .foregroundStyle(SleepColor.muted)
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+    }
+}
+
+/// The moon glyph and the app's name in caps — now an **empty-state mark**,
+/// not a header the stats tiles always wear.
+///
+/// It used to sit on top of medium and large in every state, and with data on
+/// the tile it labelled nothing: the hero carries its own caption, the chart
+/// carries the subject, and DESIGN.md's whole position is that the sloth makes
+/// a widget recognizably SleepBlock without a logo badge. iOS prints the app
+/// name under the tile in the gallery and in edit mode anyway. What's left is
+/// the empty state, where there is no numeral to label and no chart to read —
+/// there the glyph is the one mark identifying the tile before the copy does.
+private struct SleepKicker: View {
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "moon.fill")
+                .font(.system(size: 11))
+                .foregroundStyle(SleepColor.amber)
+                .widgetAccentable()
+            Text("SLEEP")
+                .font(SleepFont.label(11)).tracking(1.4)
+                .foregroundStyle(SleepColor.muted)
+        }
+    }
+}
+
+/// The one place the stats families' empty copy lives, so medium and large
+/// can't drift into telling two different stories about the same nothing.
+/// Both states name the thing that will appear here once there is data —
+/// an empty tile should read as a promise, not a dead end.
+enum StatsEmptyCopy {
+    static func title(signedIn: Bool) -> String {
+        signedIn ? "No nights yet" : "Sign in to start"
+    }
+
+    static func message(signedIn: Bool) -> String {
+        signedIn
+            ? "Log tonight and your average lands here."
+            : "Your nights and averages live here."
+    }
+}
+
+/// Durations as VoiceOver should say them. `SleepFormatting.duration` is a
+/// display string — "7h 12m" is read out as letters — so anything carrying a
+/// duration into an accessibility label goes through here instead.
+enum SleepSpeech {
+    static func duration(_ minutes: Int) -> String {
+        let hours = minutes / 60
+        let rest = minutes % 60
+        let hourPart = hours == 1 ? "1 hour" : "\(hours) hours"
+        if rest == 0 { return hourPart }
+        let minutePart = rest == 1 ? "1 minute" : "\(rest) minutes"
+        return hours == 0 ? minutePart : "\(hourPart) \(minutePart)"
+    }
+}
 
 /// The widget's one action, in the app's primary-button style. Signed in:
 /// "Sleep Now" rides `sleepblock://sleep` (same path as the shield action
@@ -1271,6 +1491,49 @@ private struct SleepBars: View {
         return rounded == rounded.rounded()
             ? "\(Int(rounded))h"
             : String(format: "%.1fh", rounded)
+    }
+}
+
+// MARK: - Derived streak
+
+// Lives here rather than in `SleepWidgetShared.swift` because that file is
+// also a member of the monitor extension, which has no reason to carry the
+// streak rule. Widgets are the only surface that draws the flame.
+extension SleepWidgetSummary {
+    /// The flame the widget can **prove**, rather than the one it was told.
+    ///
+    /// `streak` is a number the app computed at write time and baked in. It is
+    /// the only field here that goes stale on its own — the nights don't
+    /// change once written, but a streak decays with the calendar — and if it
+    /// is ever wrong or written in a moment the app's history was incomplete,
+    /// the widget had no way to notice: it would draw no flame while its own
+    /// chart plainly showed last night and the night before logged.
+    ///
+    /// So the widget re-derives the run from the nights it carries, through
+    /// the same `SleepStreakRule` the app uses (that file is Foundation-only
+    /// by design and is now a member of both targets, exactly like this one) —
+    /// no second copy of the rule, no drift.
+    ///
+    /// Two subtleties:
+    ///  - The summary holds at most seven nights, so a longer run can't be
+    ///    re-derived in full. The stored count wins when it's larger: the app
+    ///    is the authority on how long the run is, the widget on whether one
+    ///    is alive right now.
+    ///  - When the visible nights support no run at all, the stored count is
+    ///    *ignored* rather than trusted. Any live run necessarily includes a
+    ///    night inside this window, so "nothing here supports a streak" means
+    ///    the stored number is stale, not that the run is invisible.
+    func liveStreak(at now: Date, calendar: Calendar = .current) -> SleepStreak {
+        let days = Set(
+            nights
+                .filter { SleepStreakRule.qualifies(durationMinutes: $0.durationMinutes) }
+                .map { SleepDay.key(for: $0.end, calendar: calendar) }
+        )
+        let derived = SleepStreakRule.streak(
+            days: days, now: now, wakeMinutes: wakeMinutes, calendar: calendar
+        )
+        guard derived.count > 0 else { return .none }
+        return SleepStreak(count: max(derived.count, streak), state: derived.state)
     }
 }
 

@@ -1373,32 +1373,60 @@ The surfaces split one job:
   earlier revisions.
   Small is tonight-only: the quiet last-night line of earlier revisions is
   retired — the record lives on medium/large, and the sloth earns the room.
-- **Medium — the morning glance.** Last night's duration as the hero
-  numeral under a moon-glyph "SLEEP" kicker, and the 7-night bar rhythm on
-  the right. Along the bottom runs a band reading left→right as **figure,
+- **Medium — the morning glance.** The **recent average** as the hero
+  numeral in the top-left corner, with its own caps caption naming the sample ("AVG · 7 NIGHTS", "AVG · 4 NIGHTS", or "LAST NIGHT"
+  when one night is all there is), and the 7-night bar rhythm on the right. Along the bottom runs a band reading left→right as **figure,
   instrument, action**: the sloth anchoring the corner, the bedtime countdown
   centred where the eye crosses between them, and the Sleep Now capsule
   closing it. The countdown earns the middle because it is the only live
   thing on an otherwise retrospective tile.
-  Deliberately no "Last night" label: the hero *is* last night. And
-  deliberately **no streak or average line** — medium was carrying six things
-  at once and the streak was the least load-bearing of them; dropping it lets
-  the hero and the chart breathe. The streak still shows on large.
-- **Large — the record + tonight.** The moon-glyph "SLEEP" header with the
-  streak on its trailing side (**flame glyph + the bare count**, no "on
+  The hero **used to be last night's duration, and it blanked out.** The app
+  only calls a night "last night" when it ended today or yesterday, so on any
+  morning you forgot to log — or any afternoon two days on — the tile lost its
+  number and showed a lone 11pt kicker beside a chart still full of bars. A
+  stats tile whose headline can vanish while it still has data to show is
+  broken, and no copy fixes it: the honest repair is a figure that exists
+  whenever any night does. The average also describes the *same stretch of
+  time* as the chart beside it, which a single night never did.
+  The caption **names its own sample size** rather than claiming a flat
+  "7-day average" over a week holding four nights — the same honesty rule and
+  the same last-N-*logged*-nights window as Profile's summary band ("Avg
+  sleep · last 4 nights"), so the two surfaces can't quote different numbers.
+  With exactly one night on record both drop the average language and say
+  "last night", because an average of one is a claim about a week that isn't
+  there.
+  Last night keeps its place on the tile without a numeral: the newest logged
+  bar is the only one at full strength. And still **no streak line** — medium
+  was carrying six things at once and the streak was the least load-bearing of
+  them; dropping it lets the hero and the chart breathe. The streak shows on
+  large.
+- **Large — the record + tonight.** The same recent-average hero at the top,
+  with the streak in the tile's **top-right corner** (**flame glyph + the bare count**, no "on
   track" — a flame beside a number already reads as a streak, and the words
   were the longest string in the header for the least information; the
   spelled-out phrasing survives as the VoiceOver label, and the flame hollows
   to muted grey when the streak is dying, per [The streak](#the-streak)),
-  then last night's
-  duration as a hero numeral tagged "LAST NIGHT", tall full-width bars with
-  weekday initials and in-bar hour labels, then a hairline and a **mini-Home
+  with the same sample
+  caption stacked under the numeral medium stacks it under, then full-width
+  bars that **grow with the tile up to a ceiling, with the slack left as air
+  above the chart so the bars sit on their own hairline** — a fixed chart height left a hand's width of dead space
+  above the footer on tall phones and would clip the footer on short ones (the
+  large family runs ~311pt to ~382pt tall), but letting the chart eat every
+  spare point was worse: past about half its own width a bar chart stops
+  reading as a week's rhythm and starts reading as seven towers, and a sparse
+  week turns into a lot of vertical drama for "you missed Tuesday" — with weekday initials and
+  in-bar hour labels (so last night's own figure is still printed, on its
+  bar), then a hairline and a **mini-Home
   footer** anchored to the bottom edge: the sloth as tonight's figure, the
   tonight block, and the Sleep Now capsule on the trailing side — the same
   figure→instrument→action order medium reads in. The block is **label over
-  numerals**, matching medium's countdown so the two tiles read alike: a
+  numerals, centred in the band** the sloth and the capsule leave behind —
+  exactly where medium sets its countdown, so the two tiles read alike: a
   quiet "Bedtime in" (or "Past bedtime") with the interval on its own line
-  beneath, ink before bedtime and amber after. As one running line the label
+  beneath, ink before bedtime and amber after. Leading-aligned it sat hard
+  against the sloth with all the slack pooled on the capsule side, which read
+  as a layout accident rather than as the middle element of figure →
+  instrument → action. As one running line the label
   and the value fought for a width the footer doesn't have — the sloth and
   the capsule take theirs first — and the figure truncated mid-glyph; split,
   the interval owns a line and can be larger than it was when it had to
@@ -1408,6 +1436,8 @@ The surfaces split one job:
   place.
   Large previously opened straight onto the bars, on the reasoning that the
   rightmost full-strength bar *was* last night so a numeral would repeat it.
+  (It then led with last night's numeral, and inherited the blanking problem
+  described under medium.)
   Anchoring the grid to today broke that — the last column is empty whenever
   last night wasn't logged — and it left the top-left of the biggest widget
   carrying nothing but an 11pt kicker. Large should be a superset of medium,
@@ -1436,12 +1466,48 @@ The surfaces split one job:
   can't fix that — the reservation *is* the Text's width. Small and medium set
   the instrument beside the figure and stay leading, where the reservation
   never shows.
+- **The moon-glyph "SLEEP" kicker is an empty-state mark, not a header.**
+  It used to sit on top of medium and large in every state, and with data on
+  the tile it labelled nothing: the hero carries its own caption, the chart
+  carries the subject, and the whole position above is that the sloth makes a
+  widget recognizably SleepBlock *without a logo badge* — so the kicker was
+  spending the one corner the numeral wants on a repeat of the app's name
+  (which iOS prints under the tile in the gallery and in edit mode anyway).
+  It now appears only where there is no numeral to label and no chart to read:
+  the stats families' empty state, and small's no-schedule state. On large,
+  losing the header row moved the streak flame up into the tile's top-right
+  corner, on the **hero caption's baseline**: it belongs to the record as a
+  whole rather than annotating the average it sits beside, and it no longer
+  needs a rule of its own to hold it. Aligned to the *top* of that row instead
+  it aligned to a line box rather than to a letter — a 34pt numeral carries
+  ascender space above its cap, so the flame floated higher than the figure
+  beside it and read as stuck to the ceiling. On the caption's baseline the two
+  small figures pair off, kicker left and streak right, and the hero owns the
+  line above them alone. The flame itself is **re-derived on the
+  tile** from the nights it draws, rather than read from a count the app stored
+  at write time: a widget showing no streak while its own chart plainly shows
+  last night logged is telling two stories at once, and the chart is the one
+  the eye believes.
+- **Empty is a promise, never a blank.** The stats families have exactly two
+  no-data faces, and both name the thing that will appear once there is data:
+  signed out, "Sign in to start / Your nights and averages live here." beside
+  the Sign in capsule; signed in with nothing logged, "No nights yet / Log
+  tonight and your average lands here." The copy lives in one place
+  (`StatsEmptyCopy`) so medium and large can't tell two stories about the same
+  nothing, and it sits **where the hero numeral would**, top-aligned under the
+  kicker that only this state wears — the room below it is the chart's, and reading as empty-and-waiting
+  is the point.
 - **Lock-screen accessories** (circular / rectangular / inline) render in the
   system's vibrant material at tiny sizes, so they use default foregrounds
   and SF symbols — no app palette, no sloth (at 20pt the figure would blur
   into mush). Circular is a duration-vs-target gauge with last night's hours
-  in the middle (or a moon when asleep / no data); rectangular and inline
-  lead with tonight's state — "Bedtime" over "in 1h 44m", "Bed in 1h 44m".
+  in the middle (or a moon when asleep / no data — it stays last-night-only,
+  because an average drawn against the same ring would look identical to a
+  night with no way to tell them apart); rectangular and inline lead with
+  tonight's state — "Bedtime" over "in 1h 44m", "Bed in 1h 44m" — and their
+  supporting record line falls back from "Slept 7h 20m" to "4-night avg
+  7h 05m" when last night is missing, the same never-blank rule the
+  home-screen families follow.
 - The **Live Activity** lock-screen banner leads with the ember night sloth
   beside the elapsed timer, so the lock screen is recognizably SleepBlock
   before a single word is read; the Dynamic Island stays SF-symbol-led at

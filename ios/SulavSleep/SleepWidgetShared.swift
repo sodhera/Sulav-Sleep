@@ -50,6 +50,25 @@ struct SleepWidgetSummary: Codable {
 
     var isEmpty: Bool { nights.isEmpty }
 
+    /// Mean duration across the nights this summary carries.
+    ///
+    /// The stats widgets lead with this rather than last night's figure.
+    /// `latestDurationMinutes` is nil whenever the most recent night isn't
+    /// today's or yesterday's, so a hero built on it blanked out on exactly
+    /// the mornings someone forgot to log — the tile went empty while the
+    /// chart beside it still showed a week of bars. An average is present
+    /// whenever any history is.
+    ///
+    /// Deliberately the last N *logged nights*, not the last N calendar days:
+    /// `nights` is `displaySessions.suffix(7)`, the same window and the same
+    /// rule as `SleepStats.averages` behind Profile's summary band, so the
+    /// widget and the app can never quote two different averages. Callers
+    /// name the sample size (`nights.count`) rather than claiming seven.
+    var averageMinutes: Int? {
+        guard !nights.isEmpty else { return nil }
+        return nights.reduce(0) { $0 + $1.durationMinutes } / nights.count
+    }
+
     /// Empty state used before any real night exists (honest — no fake data).
     /// `isSignedIn: false` because this only renders when the app has never
     /// written a summary — i.e. nobody has signed in on this install.
