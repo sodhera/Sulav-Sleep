@@ -1325,9 +1325,11 @@ The mock is deliberately **not Liquid Glass** — it depicts iOS chrome, not
 one of the app's own controls — a plain navy rounded-rect alert with an
 hourglass glyph, the real request title, greeked body lines (rounded bars,
 never fake legalese), and a Continue / Not now button row. Continue is the
-left-hand affirmative action; Not now is quiet and completes the primer just
-like the former skip beneath the card. Both controls are accessible and own
-44pt-class tap targets. The real Apple-owned sheet that follows still says
+left-hand affirmative action; Not now uses the preview's system blue, as the
+declining action did before, and completes the primer like the former skip
+beneath the card. This remains the one sanctioned exception to the app's
+no-blue identity rule. Both controls are accessible and own 44pt-class tap
+targets. The real Apple-owned sheet that follows still says
 "Continue" / "Don't Allow" — its labels cannot be customized — and denial
 completes the primer the same way as Not now. The arrow breathes a few points
 vertically (stilled under Reduce Motion) — a guide, not a decoration.

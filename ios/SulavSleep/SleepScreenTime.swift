@@ -442,7 +442,7 @@ private struct MockPermissionDialog: View {
                     } label: {
                         Text("Not now")
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(SleepColor.dim)
+                            .foregroundStyle(Color(red: 0.04, green: 0.52, blue: 1.0))
                             .frame(maxWidth: .infinity, minHeight: 46)
                             .contentShape(Rectangle())
                     }
