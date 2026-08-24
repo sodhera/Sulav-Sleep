@@ -92,7 +92,9 @@ same diagonal, swells a touch, and fades before the next follows, staying
 (under Reduce Motion it freezes into the icon's static diagonal). Beneath
 the sloth sit the "ASLEEP" kicker, the elapsed timer, and a small
 sunrise-glyph wake target. The sloth is the *state* — the app visibly doing
-its job — and the numbers are the *instrument*.
+its job — and the numbers are the *instrument*. `RootView` hides persistent
+system overlays while this surface owns the screen, so bright status-bar ink
+and the home indicator cannot become accidental bedside lights.
 
 > Note on history: earlier iterations centered a 270° **ember night ring**
 > (the night-side sibling of Home's since-retired bedtime ring) that filled
@@ -102,20 +104,24 @@ its job — and the numbers are the *instrument*.
 > daytime-dashboard value, and dropping ~270° of lit stroke leaves fewer
 > ember pixels on the OLED.
 
-The screen opens straight into this collapsed state; the "Tap to wake" hint
-breathes very slowly at the bottom, and tapping the dark toggles the
-controls in and out.
+The screen opens straight into this collapsed state; an explicit **Wake
+controls** prompt breathes very slowly at the bottom, and tapping it or the
+dark reveals the controls. "Tap to wake" was retired because it sounded like
+the tap itself would end the session. When the controls rise, the sloth scales
+down from 292pt to 232pt so the timer and the thumb-low actions all keep real
+breathing room instead of compressing into a small-screen stack.
 
-Sleep-mode controls follow one grammar: **deliberate exits are held,
-harmless returns are taps.** Entering sleep took a deliberate slide, so
+Sleep-mode controls follow one grammar: **consequential exits require a
+deliberate confirmation; harmless returns are taps.** Entering sleep took a deliberate slide, so
 ending the night is *Hold to wake* — a 1.2s press-and-hold capsule that
 needs zero precision from a half-asleep hand and cannot fire from a stray
 tap: a rigid tap answers the press, heavy ticks ratchet up while a deep
 ember fill sweeps the capsule, and a double heavy knock + success lands at
 completion (released early, the fill sighs back with a soft tap). *Back to
-sleep* is a plain tap — it costs nothing. *Hold to cancel* (drops the
-lockdown, logs no night) is the same hold mechanic, quieter and shorter
-(0.8s). There is no single-tap way out of a night.
+sleep* is a plain tap — it costs nothing. *Cancel this sleep* is a chromeless
+text action that opens a destructive system confirmation stating both effects:
+the session is not saved and app blocking ends. It never makes the user type a
+punitive pledge. There is no single-tap action that exits a night.
 
 *Hold to wake* and *Back to sleep* share one footprint (58pt, the app's
 standard action height) so they read as two ways to leave the same screen —
@@ -127,7 +133,7 @@ hold gesture rather than a `Button`, its press feedback comes from the
 existing ratchet-driven scale, with the glass adding the real material morph
 on top; Back to sleep is untinted, cool glass with dimmer ember text, so it
 reads as the free option at a glance, without needing to read either label.
-*Hold to cancel* stays deliberately chromeless — no glass, no fill — so it
+*Cancel this sleep* stays deliberately chromeless — no glass, no fill — so it
 reads as a quiet text link that all but disappears until pressed, matching
 its role as a rare, irreversible exit (see "What to avoid").
 
@@ -1890,9 +1896,13 @@ people stop running at. This is the finish line.
 - **Only the good news.** The flame appears when a run is live and is silent
   when it's dying or absent. Warnings have a home on Home; a warning handed to
   someone who just did the thing right is noise.
-- **Light, not confetti.** The one celebratory effect is a warm bloom swelling
-  behind the sloth over 0.9s — a sunrise, in the same amber that lights the
-  rest of the app. No badges, no score, no burst. The reader is thirty seconds
+- **A sunrise, not confetti.** The warm bloom swells behind the sloth over
+  0.9s while ten hard-pixel flecks in amber, gold, and warm cream move outward
+  and slightly up, then disappear before the duration has finished landing. A
+  human-number streak milestone adds six flecks, not a different layout or
+  copy. The effect runs once, never falls over the text, never loops, and lands
+  with one success haptic. Reduce Motion keeps the static bloom and haptic but
+  suppresses every particle. No badges or score; the reader is thirty seconds
   awake.
 - **One exit, and it's a button.** No ✕ and no tap-anywhere: a half-awake hand
   shouldn't be able to lose the screen by brushing it. Equally, no auto-

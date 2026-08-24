@@ -52,6 +52,26 @@ struct RootView: View {
 #endif
     }
 
+    /// DEBUG-only route to the expanded active-sleep controls. A real route
+    /// needs an onboarded profile and a running session; this one keeps the
+    /// timer and wake target deterministic enough for layout review.
+    private var showsSleepModePreview: Bool {
+#if DEBUG
+        ProcessInfo.processInfo.arguments.contains("-review-sleep-mode")
+            || ProcessInfo.processInfo.arguments.contains("-review-sleep-mode-collapsed")
+#else
+        false
+#endif
+    }
+
+    private var sleepModePreviewShowsControls: Bool {
+#if DEBUG
+        !ProcessInfo.processInfo.arguments.contains("-review-sleep-mode-collapsed")
+#else
+        false
+#endif
+    }
+
     /// DEBUG-only preview of the forced update gate, which otherwise needs a
     /// server-side `min_supported_version` bump to appear.
     private var showsUpdateGatePreview: Bool {
@@ -144,6 +164,13 @@ struct RootView: View {
                 SleepBackground(showsMoon: false)
                 SceneReadabilityScrim()
                 ExistingAccountWelcomeView(store: store)
+            } else if showsSleepModePreview {
+                SleepModeView(
+                    store: store,
+                    activeSession: .sample,
+                    initiallyShowsControls: sleepModePreviewShowsControls,
+                    wakeClockOverride: "7:00 AM"
+                )
             } else if showsWakeSummaryPreview {
                 SleepBackground(showsMoon: false)
                 SceneReadabilityScrim()
@@ -247,6 +274,17 @@ struct RootView: View {
         }
         .animation(.easeInOut(duration: 0.35), value: store.activeSession != nil)
         .animation(.easeInOut(duration: 0.32), value: screen)
+        // Status-bar ownership has to live at the root presentation boundary;
+        // applying it only inside SleepModeView was ignored by the root ZStack
+        // on iOS 26 and left bright system ink over the OLED instrument.
+        .statusBarHidden(
+            showsSleepModePreview || (store.isOnboarded && store.activeSession != nil)
+        )
+        .persistentSystemOverlays(
+            showsSleepModePreview || (store.isOnboarded && store.activeSession != nil)
+                ? .hidden
+                : .automatic
+        )
         .task {
             try? await Task.sleep(for: Self.splashHold)
             splashHoldDone = true

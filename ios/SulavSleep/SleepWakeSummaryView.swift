@@ -14,15 +14,17 @@ import SwiftUI
 // finish line to be visible, and "the app quietly logged a row" is not a
 // finish line.
 //
-// Why it is restrained anyway (no confetti, no score, no streak fireworks):
+// Why it is restrained anyway (no looping confetti, no score, no badge wall):
 // the reader is thirty seconds awake. The grammar is the same instrument
 // grammar as the rest of the app — a small label, one large number, quiet
-// supporting facts, and one way out. See DESIGN.md, "The morning card".
+// supporting facts, one brief sunrise sparkle, and one way out. See DESIGN.md,
+// "The morning card".
 struct WakeSummaryView: View {
     var store: SleepStore
     let summary: WakeSummary
 
     @State private var risen = false
+    @State private var didCelebrate = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var session: SleepSession { summary.session }
@@ -33,6 +35,14 @@ struct WakeSummaryView: View {
     /// which is honest about what's outside.
     private var slothImage: String {
         "HomeSloth\(CityPhase.current().rawValue)Awake"
+    }
+
+    /// Ordinary mornings get a small warm bloom. Human-number streaks earn a
+    /// few more pixels, never different copy or a louder layout.
+    private var isStreakMilestone: Bool {
+        let count = summary.streak.count
+        return [7, 14, 30, 50, 100, 200, 365].contains(count)
+            || (count > 0 && count.isMultiple(of: 100))
     }
 
     var body: some View {
@@ -69,6 +79,11 @@ struct WakeSummaryView: View {
                         .scaleEffect(risen ? 1 : 0.82)
                         .opacity(risen ? 1 : 0)
                         .blur(radius: 8)
+                }
+                .overlay {
+                    SunriseSparkles(isMilestone: isStreakMilestone)
+                        .frame(width: 360, height: 250)
+                        .offset(y: -4)
                 }
                 .accessibilityHidden(true)
 
@@ -114,7 +129,128 @@ struct WakeSummaryView: View {
             // quick reads as a flash to eyes that have been shut for hours.
             withAnimation(.easeOut(duration: 0.9)) { risen = true }
         }
+        .task {
+            guard !didCelebrate else { return }
+            didCelebrate = true
+            // Let the black-to-morning lift begin before the success lands.
+            // Reduce Motion still gets the tactile finish, just no particles.
+            if !reduceMotion {
+                try? await Task.sleep(for: .milliseconds(260))
+            }
+            guard !Task.isCancelled else { return }
+            Haptics.success()
+        }
     }
+}
+
+// MARK: - Sunrise sparkles
+
+/// A one-shot, pixel-edged morning bloom. These are warm window-light flecks,
+/// not falling confetti: they start close to the sloth, move out and slightly
+/// upward, then disappear before the user starts reading the duration.
+private struct SunriseSparkles: View {
+    let isMilestone: Bool
+
+    private var seeds: [WakeSparkleSeed] {
+        WakeSparkleSeed.ordinary + (isMilestone ? WakeSparkleSeed.milestoneExtra : [])
+    }
+
+    var body: some View {
+        ZStack {
+            ForEach(seeds) { seed in
+                WakeSparkle(seed: seed)
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+private struct WakeSparkle: View {
+    let seed: WakeSparkleSeed
+
+    @State private var phase = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        WakeSparkleGlyph(kind: seed.kind, size: seed.size)
+            .foregroundStyle(seed.color)
+            .shadow(color: seed.color.opacity(0.55), radius: 5)
+            .scaleEffect(phase == 0 ? 0.15 : phase == 1 ? 1 : 0.35)
+            .opacity(phase == 1 ? 0.95 : 0)
+            .offset(phase == 2 ? seed.end : seed.start)
+            .task {
+                guard !reduceMotion else { return }
+                do {
+                    try await Task.sleep(for: .seconds(seed.delay))
+                } catch { return }
+                withAnimation(.spring(response: 0.22, dampingFraction: 0.58)) {
+                    phase = 1
+                }
+                do {
+                    try await Task.sleep(for: .milliseconds(170))
+                } catch { return }
+                withAnimation(.easeOut(duration: 0.68)) {
+                    phase = 2
+                }
+            }
+    }
+}
+
+private struct WakeSparkleGlyph: View {
+    let kind: WakeSparkleKind
+    let size: CGFloat
+
+    var body: some View {
+        switch kind {
+        case .cross:
+            ZStack {
+                Rectangle().frame(width: size, height: max(2, size * 0.24))
+                Rectangle().frame(width: max(2, size * 0.24), height: size)
+            }
+        case .diamond:
+            Rectangle()
+                .frame(width: size * 0.62, height: size * 0.62)
+                .rotationEffect(.degrees(45))
+        }
+    }
+}
+
+private enum WakeSparkleKind {
+    case cross
+    case diamond
+}
+
+private struct WakeSparkleSeed: Identifiable {
+    let id: Int
+    let start: CGSize
+    let end: CGSize
+    let size: CGFloat
+    let delay: Double
+    let kind: WakeSparkleKind
+    let color: Color
+
+    static let ordinary: [WakeSparkleSeed] = [
+        .init(id: 0, start: .init(width: -108, height: -45), end: .init(width: -148, height: -88), size: 10, delay: 0.18, kind: .cross, color: SleepColor.gold),
+        .init(id: 1, start: .init(width: 110, height: -42), end: .init(width: 151, height: -79), size: 8, delay: 0.24, kind: .diamond, color: SleepColor.amber),
+        .init(id: 2, start: .init(width: -129, height: 8), end: .init(width: -169, height: -10), size: 7, delay: 0.31, kind: .diamond, color: SleepColor.moon),
+        .init(id: 3, start: .init(width: 130, height: 17), end: .init(width: 169, height: -5), size: 11, delay: 0.37, kind: .cross, color: SleepColor.gold),
+        .init(id: 4, start: .init(width: -83, height: 62), end: .init(width: -118, height: 83), size: 8, delay: 0.43, kind: .cross, color: SleepColor.amber),
+        .init(id: 5, start: .init(width: 82, height: 64), end: .init(width: 116, height: 88), size: 7, delay: 0.49, kind: .diamond, color: SleepColor.moon),
+        .init(id: 6, start: .init(width: -47, height: -76), end: .init(width: -62, height: -119), size: 6, delay: 0.29, kind: .diamond, color: SleepColor.gold),
+        .init(id: 7, start: .init(width: 49, height: -79), end: .init(width: 66, height: -123), size: 9, delay: 0.35, kind: .cross, color: SleepColor.moon),
+        .init(id: 8, start: .init(width: -143, height: -22), end: .init(width: -180, height: -52), size: 6, delay: 0.54, kind: .diamond, color: SleepColor.amber),
+        .init(id: 9, start: .init(width: 145, height: -14), end: .init(width: 182, height: -43), size: 7, delay: 0.58, kind: .cross, color: SleepColor.gold),
+    ]
+
+    static let milestoneExtra: [WakeSparkleSeed] = [
+        .init(id: 10, start: .init(width: -22, height: -92), end: .init(width: -27, height: -142), size: 8, delay: 0.20, kind: .cross, color: SleepColor.amber),
+        .init(id: 11, start: .init(width: 18, height: 82), end: .init(width: 23, height: 121), size: 6, delay: 0.46, kind: .diamond, color: SleepColor.gold),
+        .init(id: 12, start: .init(width: -151, height: 39), end: .init(width: -192, height: 48), size: 9, delay: 0.33, kind: .cross, color: SleepColor.moon),
+        .init(id: 13, start: .init(width: 151, height: 45), end: .init(width: 191, height: 54), size: 7, delay: 0.40, kind: .diamond, color: SleepColor.amber),
+        .init(id: 14, start: .init(width: -74, height: -70), end: .init(width: -105, height: -112), size: 6, delay: 0.51, kind: .diamond, color: SleepColor.gold),
+        .init(id: 15, start: .init(width: 76, height: -67), end: .init(width: 108, height: -109), size: 10, delay: 0.55, kind: .cross, color: SleepColor.moon),
+    ]
 }
 
 // MARK: - The night capsule

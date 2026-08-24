@@ -52,11 +52,15 @@ review the rhythm of recent nights — using **real data only**.
   sleeping well: any night of 30+ minutes keeps it, one missed night leaves it
   dying (a hollow flame), two in a row resets it. Whether you slept *enough*
   is the job of the duration hero, the chart, and the target chip.
-- Active sleep mode hides navigation, shows elapsed time, and offers a single
-  `Wake up` action. A qualifying night closes on a restrained morning summary:
+- Active sleep mode hides navigation on true OLED black and leads with the
+  sleeping sloth, elapsed time, and wake target. A quiet **Wake controls**
+  prompt reveals three deliberately weighted choices: hold to wake and save,
+  tap to return to sleep, or cancel without saving through an honest system
+  confirmation. A qualifying night closes on a restrained morning summary:
   the sleep duration is the dominant value inside one glass surface, with the
   actual sleep window and live streak as supporting facts, then one **Start the
-  day** action. It reports the night without adding congratulatory copy.
+  day** action. A one-shot warm pixel sunrise supplies the celebration without
+  adding congratulatory copy or looping confetti.
 - Profile is everything about the user: editable name and account email, a
   seven-night chart, average duration/score, and a history list where each
   night is tagged by source (in-app vs. Apple Health; empty until there is real

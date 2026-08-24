@@ -1,9 +1,8 @@
 import SwiftUI
 
-/// Shared height for the sleep screen's two visually-equal actions — Hold to
-/// wake (the primary hold) and Back to sleep (the quiet tap). Equal size says
-/// "these are two ways to end this screen"; fill, glow, and color say which
-/// one actually commits to something.
+/// Shared height for the sleep screen's two main actions — Hold to wake (the
+/// deliberate exit) and Back to sleep (the harmless return). Equal footprint,
+/// radically different light.
 private let sleepControlHeight: CGFloat = 58
 
 // Immersive sleep mode. True OLED black; everything lit is ember — the day's
@@ -13,32 +12,51 @@ private let sleepControlHeight: CGFloat = 58
 // asleep on its pillow with z's rising off its head — over the elapsed
 // timer and the wake target. The sloth is the state ("the app is doing its
 // job"); the numbers are the instrument. It opens straight into this
-// collapsed screen — the same state "Back to sleep" leaves you in — and
-// tapping the screen brings the controls up (tapping the dark collapses
-// them again).
+// collapsed screen — the same state "Back to sleep" leaves you in — and an
+// explicit "Wake controls" prompt brings the actions up. The dark still
+// toggles them for a zero-precision half-asleep hand, but the copy never
+// suggests that one tap will end the night.
 //
-// Control grammar: deliberate exits are *held*, harmless returns are taps.
+// Control grammar: consequential exits take a deliberate confirmation;
+// harmless returns are taps.
 // Entering sleep took a deliberate slide, so ending the night takes a
 // deliberate hold — but one that needs zero precision from a half-asleep
 // hand. "Back to sleep" is a plain tap because it costs nothing. Cancel
-// (which drops the lockdown without logging a night) is a quieter, shorter
-// hold.
+// (which drops the lockdown without logging a night) is a quiet text action
+// followed by an honest destructive confirmation — deliberate without
+// making the user type a shaming sentence.
 
 struct SleepModeView: View {
     var store: SleepStore
     let activeSession: ActiveSleepSession
 
     @State private var now = Date()
-    @State private var showControls = false
+    @State private var showControls: Bool
     @State private var showingCancelConfirmation = false
-    @State private var cancelConfirmationText = ""
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Used only by the deterministic DEBUG route; production always reads
+    /// the live profile schedule from the store.
+    private let wakeClockOverride: String?
+
+    init(
+        store: SleepStore,
+        activeSession: ActiveSleepSession,
+        initiallyShowsControls: Bool = false,
+        wakeClockOverride: String? = nil
+    ) {
+        self.store = store
+        self.activeSession = activeSession
+        self.wakeClockOverride = wakeClockOverride
+        _showControls = State(initialValue: initiallyShowsControls)
+    }
 
     private var elapsedMinutes: Int {
         max(0, Int(now.timeIntervalSince(activeSession.start) / 60))
     }
 
     private var wakeClock: String? {
-        store.profile.map { SleepFormatting.clock($0.wakeTime) }
+        wakeClockOverride ?? store.profile.map { SleepFormatting.clock($0.wakeTime) }
     }
 
     var body: some View {
@@ -48,7 +66,7 @@ struct SleepModeView: View {
             Color.black.ignoresSafeArea()
 
             VStack(spacing: 0) {
-                Spacer()
+                Spacer(minLength: showControls ? SleepSpacing.xl : SleepSpacing.huge)
 
                 // The night sloth: the app icon's sloth banked down to
                 // ember coals, asleep on its pillow — the sleep state made
@@ -57,10 +75,13 @@ struct SleepModeView: View {
                 Image("NightSloth")
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 300)
+                    .frame(width: showControls ? 232 : 292)
                     .overlay(alignment: .topLeading) {
-                        RisingZs()
-                            .offset(x: 66, y: -2)
+                        RisingZs(scale: showControls ? 0.8 : 1)
+                            .offset(
+                                x: showControls ? 51 : 64,
+                                y: showControls ? 0 : -2
+                            )
                     }
                     .accessibilityHidden(true)
 
@@ -83,19 +104,25 @@ struct SleepModeView: View {
                         HStack(spacing: SleepSpacing.xs) {
                             Image(systemName: "sunrise.fill")
                                 .font(.system(size: 11, weight: .medium))
-                            Text(wakeClock)
+                            Text("Wake at \(wakeClock)")
                                 .font(SleepFont.body(14))
                                 .monospacedDigit()
                         }
                         .foregroundStyle(SleepColor.emberDim)
                     }
                 }
-                .padding(.top, SleepSpacing.xl)
+                .padding(.top, showControls ? SleepSpacing.md : SleepSpacing.xl)
 
-                Spacer()
+                Spacer(minLength: showControls ? SleepSpacing.xl : SleepSpacing.huge)
 
                 if showControls {
                     VStack(spacing: SleepSpacing.md) {
+                        Text("Wake controls")
+                            .font(SleepFont.label(11))
+                            .tracking(1.5)
+                            .textCase(.uppercase)
+                            .foregroundStyle(SleepColor.emberDim.opacity(0.72))
+
                         EmberHoldButton(
                             title: "Hold to wake",
                             systemImage: "sunrise.fill",
@@ -120,7 +147,7 @@ struct SleepModeView: View {
                             if #available(iOS 26.0, *) {
                                 Button {
                                     Haptics.heavy()
-                                    withAnimation(.easeInOut(duration: 0.4)) { showControls = false }
+                                    setControls(false)
                                 } label: {
                                     backToSleepLabel
                                 }
@@ -128,7 +155,7 @@ struct SleepModeView: View {
                             } else {
                                 Button {
                                     Haptics.heavy()
-                                    withAnimation(.easeInOut(duration: 0.4)) { showControls = false }
+                                    setControls(false)
                                 } label: {
                                     backToSleepLabel
                                         .frame(maxWidth: .infinity, minHeight: sleepControlHeight, maxHeight: sleepControlHeight)
@@ -151,33 +178,42 @@ struct SleepModeView: View {
                             }
                         }
 
-                        EmberHoldButton(
-                            title: "Hold to cancel",
-                            prominent: false,
-                            duration: 0.8
-                        ) {
-                            Haptics.rigid()
-                            cancelConfirmationText = ""
+                        Button {
+                            Haptics.heavy()
                             showingCancelConfirmation = true
+                        } label: {
+                            Text("Cancel this sleep")
+                                .font(SleepFont.body(13))
+                                .foregroundStyle(SleepColor.emberDim.opacity(0.72))
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                                .contentShape(Rectangle())
                         }
-                        .padding(.top, SleepSpacing.sm)
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Ends this session without saving after confirmation")
                     }
                     .padding(.horizontal, SleepSpacing.xxl)
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
                 } else {
-                    BreathingHint(text: "Tap to wake")
+                    WakeControlsPrompt {
+                        Haptics.soft()
+                        setControls(true)
+                    }
                         .transition(.opacity)
-                        .padding(.bottom, SleepSpacing.huge)
                 }
+
+                Spacer().frame(height: showControls ? SleepSpacing.xl : SleepSpacing.huge)
             }
-            .padding(.bottom, SleepSpacing.huge)
+            .animation(
+                reduceMotion ? nil : .spring(response: 0.48, dampingFraction: 0.86),
+                value: showControls
+            )
         }
         .contentShape(Rectangle())
         .onTapGesture {
             // The dark itself toggles the controls: tap to reveal, tap again
             // to tuck them away. The buttons consume their own touches.
             Haptics.soft()
-            withAnimation(.easeInOut(duration: 0.4)) { showControls.toggle() }
+            setControls(!showControls)
         }
         .task(id: activeSession.start) {
             while !Task.isCancelled {
@@ -186,18 +222,24 @@ struct SleepModeView: View {
             }
         }
         .statusBarHidden(true)
-        .alert("Cancel Sleep?", isPresented: $showingCancelConfirmation) {
-            TextField("Type \"I don't care about my sleep\"", text: $cancelConfirmationText)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-            Button("Nevermind", role: .cancel) { Haptics.heavy() }
-            Button("Cancel Sleep", role: .destructive) {
+        .alert("Cancel this sleep?", isPresented: $showingCancelConfirmation) {
+            Button("Keep sleeping", role: .cancel) { Haptics.heavy() }
+            Button("Cancel without saving", role: .destructive) {
                 Haptics.heavy()
                 store.cancelSleep()
             }
-            .disabled(cancelConfirmationText.trimmingCharacters(in: .whitespaces).lowercased() != "i don't care about my sleep")
         } message: {
-            Text("This will end your sleep session without saving. Type \"I don't care about my sleep\" to confirm.")
+            Text("This ends the session without saving the night and turns off app blocking.")
+        }
+    }
+
+    private func setControls(_ visible: Bool) {
+        if reduceMotion {
+            showControls = visible
+        } else {
+            withAnimation(.spring(response: 0.48, dampingFraction: 0.86)) {
+                showControls = visible
+            }
         }
     }
 
@@ -213,22 +255,39 @@ struct SleepModeView: View {
     }
 }
 
-// MARK: - Hint
+// MARK: - Wake-controls prompt
 
-/// The wake hint breathes very slowly — a barely-there invitation that never
-/// demands attention from someone half-asleep.
-private struct BreathingHint: View {
-    let text: String
+/// A real, accessible button with the visual volume of a hint. "Tap to wake"
+/// used to sound like the tap itself would end the night; this names the panel
+/// it reveals while staying dim enough not to become a bedside light source.
+private struct WakeControlsPrompt: View {
+    let action: () -> Void
 
     @State private var bright = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        Text(text)
-            .font(SleepFont.body(13))
+        Button(action: action) {
+            HStack(spacing: SleepSpacing.sm) {
+                Image(systemName: "sunrise.fill")
+                    .font(.system(size: 11, weight: .medium))
+                Text("Wake controls")
+                    .font(SleepFont.body(13))
+                Image(systemName: "chevron.up")
+                    .font(.system(size: 9, weight: .semibold))
+            }
             .foregroundStyle(SleepColor.emberDim)
-            .opacity(bright ? 0.85 : 0.4)
-            .animation(.easeInOut(duration: 2.6).repeatForever(autoreverses: true), value: bright)
-            .onAppear { bright = true }
+            .frame(minWidth: 170, minHeight: 44)
+            .contentShape(Capsule(style: .continuous))
+            .opacity(bright ? 0.88 : 0.46)
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Shows actions to wake, keep sleeping, or cancel")
+        .animation(
+            reduceMotion ? nil : .easeInOut(duration: 2.6).repeatForever(autoreverses: true),
+            value: bright
+        )
+        .onAppear { if !reduceMotion { bright = true } }
     }
 }
 
@@ -395,3 +454,15 @@ private struct EmberHoldButton: View {
         }
     }
 }
+
+// MARK: - Preview data
+
+#if DEBUG
+extension ActiveSleepSession {
+    /// The active night rendered by `-review-sleep-mode`: far enough into a
+    /// normal night for the timer to carry real visual weight.
+    static var sample: ActiveSleepSession {
+        ActiveSleepSession(start: Date().addingTimeInterval(-(6 * 60 + 18) * 60))
+    }
+}
+#endif

@@ -151,6 +151,28 @@ Its **Start the day** button is inert under the flag — nothing set the store's
 `wakeSummary` for it to clear. To exercise the real path instead, drive a
 session end to end. The sample is the card's ordinary shape: duration first
 inside the glass, actual sleep window second, and a quiet live-streak count.
+On arrival, ten warm pixel sparkles bloom once around the sloth; milestone
+streaks add six. Reduce Motion suppresses the particles.
+
+### Preview active sleep mode
+
+The real screen requires an onboarded profile and active session. Two
+DEBUG-only routes render a 6h18m sample with a 7:00 AM wake target:
+
+```sh
+# Expanded, for reviewing all three actions.
+xcrun simctl launch booted com.sulav.sleepblock -review-sleep-mode
+
+# Collapsed, for reviewing the bedside instrument and wake-controls prompt.
+xcrun simctl launch booted com.sulav.sleepblock -review-sleep-mode-collapsed
+```
+
+The actions are presentation-only under these routes because the store has no
+matching active session to end. `RootView`, not the nested view, owns both
+`.statusBarHidden` and `.persistentSystemOverlays(.hidden)` while sleep mode is
+presented. `UIViewControllerBasedStatusBarAppearance` must remain enabled in
+`Info.plist`; the original app-wide override prevented SwiftUI from honoring
+either preference and left bright system ink over the OLED surface.
 
 ### Preview the Screen Time primer
 
@@ -385,7 +407,9 @@ target can inject fakes without new hooks.
   (FamilyActivityPicker). Device-only; `.unavailable` no-op on Simulator.
 - `SleepWidgetShared.swift`: App Group summary types + read/write, shared with
   the widget target.
-- `SleepModeView.swift`: immersive black/red sleep-mode takeover.
+- `SleepModeView.swift`: immersive OLED-black/ember sleep-mode takeover. The
+  collapsed bedside instrument reveals a thumb-low wake-control stack without
+  giving up the elapsed timer.
 - `SleepWakeSummaryView.swift`: the morning card — the screen between the night
   and the day, mounted by `RootView` straight out of sleep mode whenever
   `store.wakeSummary` is set. It presents the duration, actual start→wake
@@ -1486,10 +1510,10 @@ rejected, capped at 10, and unlinkable instantly by either side.
   above) — only sibling glass shapes benefit.
 - `GlassIconButton`'s glass region is the full `size` circle (no content
   inset math). Sizes: 56pt gear/close, 44pt back chevron.
-- `EmberHoldButton`'s non-prominent case ("Hold to cancel") is deliberately
-  chromeless — no glass, no fill — so it reads as a quiet text link. Don't
-  add glass there; it would fight the "rare, irreversible exit" language in
-  DESIGN.md.
+- Sleep mode's "Cancel this sleep" is deliberately chromeless — no glass, no
+  fill — so it reads as a quiet text link. It opens a destructive system
+  confirmation; the user never has to type a punitive pledge. Don't add glass
+  there; it would fight the "rare, irreversible exit" language in DESIGN.md.
 
 ## Widget & App Group
 
