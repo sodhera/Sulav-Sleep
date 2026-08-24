@@ -1314,25 +1314,23 @@ is where blocking gets its teeth — asked at peak commitment, right after
 the user paid, never mid-sign-up (the Health rule). A locked user skips it
 entirely. Family Controls is the most alarming permission the app asks
 for, and spending it on someone who cannot start a night yet asks them to
-hand over their phone for a feature they can't reach. The centerpiece is a
-**mock of the iOS permission dialog** with an amber arrow and "Tap Continue"
-beneath its affirmative button — the primer pattern: the user decides to tap
-Continue on *our* screen, so the real system sheet (fired by the primary
-"Turn on app blocking" CTA) is a formality they've already rehearsed.
+hand over their phone for a feature they can't reach. The screen has no
+eyebrow and leads with the concise **"Block apps while you sleep"**, followed
+by **"Choose what stays locked until morning. Calls always work."** The
+centerpiece is an **interactive preview of the iOS permission dialog** with an
+amber arrow and "Tap Continue" beneath its affirmative button. Continue fires
+the real system request directly; there is no duplicate primary CTA below it.
 
 The mock is deliberately **not Liquid Glass** — it depicts iOS chrome, not
 one of the app's own controls — a plain navy rounded-rect alert with an
 hourglass glyph, the real request title, greeked body lines (rounded bars,
-never fake legalese), and a Continue / Don't Allow button row. iOS makes
-"Don't Allow" the highlighted default, so the affirmative "Continue" sits on
-the **left** (grey) and the mock keeps the **system's blue** on the
-right-hand "Don't Allow" — the amber arrow points to Continue. The primer's
-whole job is pattern-matching against the sheet iOS is about to show, and
-that blue is the one sanctioned exception to the no-blue-identity rule. The mock is decorative and hidden
-from accessibility; the editorial headline above it ("Let SleepBlock put
-your apps to sleep", with a one-line explainer ending in "Calls always
-work.") carries the meaning. The arrow breathes a few points vertically
-(stilled under Reduce Motion) — a guide, not a decoration.
+never fake legalese), and a Continue / Not now button row. Continue is the
+left-hand affirmative action; Not now is quiet and completes the primer just
+like the former skip beneath the card. Both controls are accessible and own
+44pt-class tap targets. The real Apple-owned sheet that follows still says
+"Continue" / "Don't Allow" — its labels cannot be customized — and denial
+completes the primer the same way as Not now. The arrow breathes a few points
+vertically (stilled under Reduce Motion) — a guide, not a decoration.
 
 Granting flows straight into the system `FamilyActivityPicker` while the
 intent is hot — authorization alone shields nothing. The primer is

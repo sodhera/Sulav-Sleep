@@ -618,13 +618,15 @@ target can inject fakes without new hooks.
   "Subscription (RevenueCat)") closes the questionnaire. Its ✕ leads into the
   app; starting a night is what stays locked.
 - **The Screen Time primer** (`ScreenTimePrimerView`, SleepScreenTime.swift)
-  is the last gate before Main for a *subscribed* user: a mock of the
-  iOS permission dialog with an amber "Tap Allow" arrow, whose CTA fires the
-  real `AuthorizationCenter` request and, when granted, chains straight into
-  the `FamilyActivityPicker`. One-shot **per install** — the seen-marker
-  (`sulav.screenTimePrimer.v1`) lives in the wiped-on-delete container, so a
-  reinstall (where iOS dropped the authorization) primes again. It completes
-  on grant, deny, or "Not now"; the Blocked apps screen stays the fixup path.
+  is the last gate before Main for a *subscribed* user: an interactive preview
+  of the iOS permission dialog with an amber “Tap Continue” arrow. Continue
+  fires the real `AuthorizationCenter` request directly, Not now takes the
+  skip path, and there is no second CTA below the preview. A grant chains
+  straight into the `FamilyActivityPicker`. One-shot **per install** — the
+  seen-marker (`sulav.screenTimePrimer.v1`) lives in the wiped-on-delete
+  container, so a reinstall (where iOS dropped the authorization) primes
+  again. It completes on grant, deny, or "Not now"; the Blocked apps screen
+  stays the fixup path.
   `SleepStore.needsScreenTimePrimer` gates it in `RootView` (the store also
   mirrors the marker observably, since live `authorizationStatus` reads are
   invisible to `@Observable` tracking).

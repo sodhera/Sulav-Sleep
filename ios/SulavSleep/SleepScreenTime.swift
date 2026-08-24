@@ -301,11 +301,10 @@ extension SleepStore {
 
 /// The full-screen ask that stands between the paywall and Main: SleepBlock
 /// is an app-blocking app, and this is where the blocking gets its teeth.
-/// The centerpiece is a *mock* of the iOS permission dialog with an amber
-/// arrow pointing at Allow — the primer pattern: the user decides to tap
-/// Allow on our screen, so the real system sheet (fired by the CTA) is a
-/// formality they've already rehearsed. Granting flows straight into the
-/// system app picker, so blocking is actually armed — authorization alone
+/// The centerpiece is an interactive preview of the iOS permission dialog:
+/// its Continue button fires the real system request, while Not now skips the
+/// primer. There is no duplicate CTA below it. Granting flows straight into
+/// the system app picker, so blocking is actually armed — authorization alone
 /// shields nothing.
 ///
 /// One-shot per install, never per account: the seen-marker lives in the app
@@ -325,13 +324,12 @@ struct ScreenTimePrimerView: View {
         VStack(spacing: 0) {
             Spacer()
 
-            VStack(alignment: .leading, spacing: SleepSpacing.md) {
-                Text("One last step").sectionLabel()
-                Text("Let SleepBlock put your apps to sleep")
+            VStack(alignment: .leading, spacing: SleepSpacing.sm) {
+                Text("Block apps while you sleep")
                     .font(SleepFont.title(28))
                     .foregroundStyle(SleepColor.ink)
                     .fixedSize(horizontal: false, vertical: true)
-                Text("iOS will ask for Screen Time access — that's what locks your apps from Sleep Now until you wake. Calls always work.")
+                Text("Choose what stays locked until morning. Calls always work.")
                     .font(SleepFont.body(15))
                     .foregroundStyle(SleepColor.dim)
                     .lineSpacing(4)
@@ -340,23 +338,13 @@ struct ScreenTimePrimerView: View {
 
             Spacer()
 
-            MockPermissionDialog()
+            MockPermissionDialog(
+                isRequesting: isRequesting,
+                onContinue: requestAccess,
+                onNotNow: { store.completeScreenTimePrimer() }
+            )
 
             Spacer()
-            Spacer()
-
-            VStack(spacing: SleepSpacing.md) {
-                LiquidPrimaryButton(title: "Turn on app blocking", isLoading: isRequesting) {
-                    requestAccess()
-                }
-                Button("Not now") {
-                    Haptics.heavy()
-                    store.completeScreenTimePrimer()
-                }
-                .font(SleepFont.body(15))
-                .foregroundStyle(SleepColor.dim)
-                .frame(maxWidth: .infinity, minHeight: 44)
-            }
         }
         .padding(.horizontal, SleepSpacing.xxl)
         .padding(.bottom, SleepSpacing.xxl)
@@ -391,17 +379,17 @@ struct ScreenTimePrimerView: View {
     }
 }
 
-/// A stylized miniature of the system permission dialog, so the real one is
+/// An interactive preview of the system permission dialog, so the real one is
 /// recognized on sight. Deliberately *not* Liquid Glass — it depicts iOS
-/// chrome, not one of the app's own controls. The real sheet's affirmative is
-/// "Continue" (left); iOS makes "Don't Allow" (right) the blue default, and the
-/// mock keeps that blue on "Don't Allow": the primer's whole job is
-/// pattern-matching against the sheet iOS is about to show (the one sanctioned
-/// exception to the no-blue-identity rule; see DESIGN.md). Decorative only,
-/// hidden from accessibility — the headline above carries the meaning.
+/// chrome, not one of the app's glass controls. Continue fires the real system
+/// request; Not now completes the one-shot primer without asking. Apple owns
+/// the subsequent real dialog and labels its declining action "Don't Allow".
 private struct MockPermissionDialog: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var arrowLift = false
+    let isRequesting: Bool
+    let onContinue: () -> Void
+    let onNotNow: () -> Void
 
     var body: some View {
         VStack(spacing: SleepSpacing.lg) {
@@ -410,6 +398,7 @@ private struct MockPermissionDialog: View {
                     Image(systemName: "hourglass")
                         .font(.system(size: 26, weight: .medium))
                         .foregroundStyle(SleepColor.dim)
+                        .accessibilityHidden(true)
                     Text("\u{201C}SleepBlock\u{201D} Would Like to Access Screen Time")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(SleepColor.ink)
@@ -421,21 +410,44 @@ private struct MockPermissionDialog: View {
                         Capsule().fill(SleepColor.hairline).frame(width: 128, height: 6)
                     }
                     .padding(.top, 2)
+                    .accessibilityHidden(true)
                 }
                 .padding(SleepSpacing.xl)
 
                 Rectangle().fill(SleepColor.hairline).frame(height: 1)
 
                 HStack(spacing: 0) {
-                    Text("Continue")
+                    Button {
+                        Haptics.heavy()
+                        onContinue()
+                    } label: {
+                        Group {
+                            if isRequesting {
+                                ProgressView().tint(SleepColor.ink)
+                            } else {
+                                Text("Continue")
+                            }
+                        }
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(SleepColor.ink)
                         .frame(maxWidth: .infinity, minHeight: 46)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isRequesting)
                     Rectangle().fill(SleepColor.hairline).frame(width: 1, height: 46)
-                    Text("Don't Allow")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Color(red: 0.04, green: 0.52, blue: 1.0))
-                        .frame(maxWidth: .infinity, minHeight: 46)
+                    Button {
+                        Haptics.heavy()
+                        onNotNow()
+                    } label: {
+                        Text("Not now")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(SleepColor.dim)
+                            .frame(maxWidth: .infinity, minHeight: 46)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isRequesting)
                 }
             }
             .frame(maxWidth: 300)
@@ -448,9 +460,8 @@ private struct MockPermissionDialog: View {
                     .stroke(SleepColor.border, lineWidth: 1)
             }
 
-            // The amber arrow under the Continue half — the one instruction.
-            // iOS makes "Don't Allow" the blue default here, so the affirmative
-            // is the grey "Continue" on the left; the guidance must point there.
+            // The amber arrow under the Continue half is the one instruction;
+            // that same control now opens the real system request directly.
             HStack(spacing: 0) {
                 VStack(spacing: SleepSpacing.sm) {
                     Image(systemName: "arrow.up")
@@ -465,8 +476,8 @@ private struct MockPermissionDialog: View {
                 Color.clear.frame(maxWidth: .infinity, maxHeight: 0)
             }
             .frame(maxWidth: 300)
+            .accessibilityHidden(true)
         }
-        .accessibilityHidden(true)
         .onAppear {
             guard !reduceMotion else { return }
             withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) {

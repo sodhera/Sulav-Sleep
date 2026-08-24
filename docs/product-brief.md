@@ -37,12 +37,13 @@ review the rhythm of recent nights — using **real data only**.
   instead of 7, and their first paid payment gives you a month free (a real
   App Store renewal extension, capped at six earned months a year). The ask
   is a relationship, not a coupon.
-- After the paywall, a one-time **Screen Time primer** (a mock of the iOS
-  permission dialog with an arrow pointing at Allow) asks for the Family
-  Controls authorization that powers app blocking, flowing straight into the
-  system app picker when granted. It is per-install: deleting the app and
-  signing back in — which drops the authorization — shows it again; "Not now"
-  skips it and the Blocked apps screen remains the fixup path.
+- After the paywall, a one-time **Screen Time primer** uses an interactive
+  preview of the iOS permission dialog. Its Continue action requests the
+  Family Controls authorization directly; Not now skips it, with no duplicate
+  app CTA below the card. A grant flows straight into the system app picker.
+  It is per-install: deleting the app and signing back in — which drops the
+  authorization — shows it again, and the Blocked apps screen remains the
+  fixup path.
 - Apple Health is offered *after* onboarding, via a dismissable prompt card at
   the top of Profile (which also keeps the toggle), rather than interrupting
   sign-up with a permission sheet.
