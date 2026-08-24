@@ -136,6 +136,22 @@ expiry line. Both set `entitlement = .notEntitled` for the run and make
 `reload()` would otherwise wipe them) — delete the app from the sim to
 clear them afterward.
 
+### Preview the morning card
+
+The card shown after a night is logged (`SleepWakeSummaryView`) otherwise needs
+a real session: start a night, wait past the 30-minute qualifying floor, hold
+to wake. A DEBUG-only launch argument renders it against a sample night
+(`WakeSummary.sample` — 7h32m, a live 4-night run, no reaches):
+
+```sh
+xcrun simctl launch booted com.sulav.sleepblock -review-wake-summary
+```
+
+Its **Start the day** button is inert under the flag — nothing set the store's
+`wakeSummary` for it to clear. To exercise the real path instead, drive a
+session end to end; the copy tier that fires depends on the night, so see
+`WakeCelebration` for what each one needs.
+
 ### Preview the Screen Time primer
 
 The permission primer (`ScreenTimePrimerView` — the mock-dialog gate between
@@ -370,6 +386,13 @@ target can inject fakes without new hooks.
 - `SleepWidgetShared.swift`: App Group summary types + read/write, shared with
   the widget target.
 - `SleepModeView.swift`: immersive black/red sleep-mode takeover.
+- `SleepWakeSummaryView.swift`: the morning card — the screen between the night
+  and the day, mounted by `RootView` straight out of sleep mode whenever
+  `store.wakeSummary` is set. Pure presentation; every fact on it is decided in
+  the store.
+- `SleepWakeCelebration.swift`: `WakeNight` (what the card knows about the
+  night) and `WakeCelebration` (the one line of copy it earns). Deliberately
+  dependency-free, like `SleepStreak.swift` — see "The morning card" below.
 - `RootView.swift`: single `RootScreen` enum (`authLoading` / `onboarding` /
   `auth` / `main`) drives which top-level screen shows, with one animation
   trigger for the crossfade between them. Auth readiness is checked first so
@@ -569,7 +592,8 @@ target can inject fakes without new hooks.
 - **No seeding.** History is empty until the user logs a real night or Apple
   Health has real sleep to import.
 - `Sleep Now` writes an active session; `Wake up` logs the duration, clears
-  active, and (if Health is connected) writes the night to Apple Health.
+  active, raises the morning card, and (if Health is connected) writes the
+  night to Apple Health.
   Duration is the app's only metric — the 0–100 sleep score is retired
   (old records' `score` keys are ignored on decode).
 - Profile/Home show a deduplicated merge of local + Health nights.
@@ -591,6 +615,51 @@ target can inject fakes without new hooks.
   two genuinely different events, and it failed when the night was local and
   the nap came from Health. Every display surface inherits this invariant —
   none of them dedupe again.
+
+### The morning card (`SleepWakeCelebration.swift`)
+
+`SleepStore.wakeUp()` builds a `WakeSummary` for the night it just logged and
+puts it on `store.wakeSummary`; `RootView` mounts `SleepWakeSummaryView` over
+everything but a running session, and **Start the day**
+(`dismissWakeSummary()`) clears it. See [DESIGN.md](../DESIGN.md#the-morning-card)
+for what the screen is for.
+
+Three rules carry the feature, and all three are about not lying:
+
+- **The card only appears for a night that counts** —
+  `SleepStreakRule.qualifies` (30 minutes), the streak's own floor. Below it
+  the store returns `nil` and the user lands on Home.
+- **A clean night has to have been guarded.** `WakeNight.reaches` is `nil`
+  when no shield was up and a count when one was, and only `0` earns the
+  "you didn't reach once" line. Two traps here, both already sprung once in
+  design:
+  - Whether apps were blocked can't be recovered at wake — the lockdown is
+    torn down by then, and the preferences describe *tonight*, not last night.
+    So it is recorded on the session at start (`ActiveSleepSession.lockedApps`,
+    decode-safe for sessions already running across an update).
+  - The count comes straight from `SleepLockdownSelection.reachLog()`, **not**
+    from `reachNights`. `harvestReachLog()` deliberately holds back attempts
+    belonging to a still-open window, and at wake the clock is normally still
+    inside tonight's — going through it would report a clean night to someone
+    who reached six times.
+- **The card is never persisted.** `WakeSummary` is in-memory only, so a
+  relaunch lands on Home rather than re-greeting a night the user has moved on
+  from.
+
+The copy rule is a pure function of the night — tiers, most specific first,
+with `variant` (the day of the year) choosing between wordings so a tier isn't
+identical every morning but is stable across redraws. `WakeCelebration` is
+dependency-free (Foundation only) for the same reason `SleepStreak` is, and
+its tests run the same way — 113 assertions in ~2s, no simulator:
+
+```bash
+./scripts/test-wake-celebration.sh
+```
+
+The assertions are written against the *claim* each line makes, not its
+wording, so the copy can be rewritten freely; what they guard is that an
+unguarded night never claims a clean one, that a short night is never scolded,
+and that a milestone outranks a good duration.
 
 ### The streak (`SleepStreak.swift`)
 

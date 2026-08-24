@@ -36,6 +36,12 @@ final class SleepStore {
     /// store because every entry point that raises it lives somewhere else —
     /// Home's Sleep Now, Settings, and the widget/shield/Siri deep links.
     var showPaywall = false
+    /// The morning card: set by `wakeUp()` for a night worth marking, cleared
+    /// by `dismissWakeSummary()`. `RootView` mounts it over everything else,
+    /// which is why it lives here and not on Home — the night ends on the
+    /// sleep screen, and the card is what that screen hands the morning to.
+    /// Never persisted (see `WakeSummary`).
+    var wakeSummary: WakeSummary?
     var isImportingHealth = false
     // MARK: App update gate state (all logic in SleepUpdateGate.swift —
     // extensions can't add storage, so only the stored slots live here).
@@ -1318,14 +1324,17 @@ final class SleepStore {
             return
         }
         let start = Date()
-        activeSession = ActiveSleepSession(start: start)
+        let shouldStartLockdown = willLockDuringSleep
+        // Whether apps are actually shielded tonight is recorded *on the
+        // session*, because by wake time the answer is gone — see
+        // `ActiveSleepSession.lockedApps`.
+        activeSession = ActiveSleepSession(start: start, lockedApps: shouldStartLockdown)
         selectedTab = .home
         // The confirmation did its job; without this, Home would reopen on
         // the panel after waking (the flag lives on the store, not the view).
         showSleepConfirmation = false
         // Refresh the widget so it flips into the asleep state immediately.
         persist()
-        let shouldStartLockdown = willLockDuringSleep
         performAfterStateChange { [weak self] in
             guard let self else { return }
             if shouldStartLockdown { self.screenTime.startLockdown() }
@@ -1363,6 +1372,9 @@ final class SleepStore {
         )
         sessions.append(session)
         self.activeSession = nil
+        // The morning card, built before `persist()` so the state the view
+        // reads is already settled when RootView swaps to it.
+        wakeSummary = summary(for: session, wasLocked: activeSession.lockedApps)
         persist()
         performAfterStateChange { [weak self] in
             guard let self else { return }
@@ -1385,6 +1397,57 @@ final class SleepStore {
                 await refreshHealth()
             }
         }
+    }
+
+    // MARK: - The morning card
+
+    /// Assemble the card for the night just logged, or `nil` to send the user
+    /// straight to Home.
+    ///
+    /// **Only a night that counts gets a morning.** The bar is the streak's
+    /// own 30-minute floor (`SleepStreakRule.qualifies`), and for the same
+    /// reason: a four-minute session is a mis-tap or someone peeking at the
+    /// screen, and "Good morning" over it is the app congratulating itself for
+    /// nothing. Short nights that *are* real still get the card — the copy
+    /// rule has a kind line for those (see `WakeCelebration`); this only
+    /// filters out the junk.
+    private func summary(for session: SleepSession, wasLocked: Bool) -> WakeSummary? {
+        guard SleepStreakRule.qualifies(durationMinutes: session.durationMinutes) else {
+            AppLog.store.info("No morning card — night below the qualifying floor")
+            return nil
+        }
+        let calendar = Calendar.current
+        let night = WakeNight(
+            durationMinutes: session.durationMinutes,
+            targetMinutes: targetMinutes,
+            // `sessions` already holds tonight, so this is the streak Home is
+            // about to draw — the card and the flame can't disagree.
+            streak: streak.count,
+            isFirstNight: displaySessions.count <= 1,
+            reaches: reaches(during: session, wasLocked: wasLocked),
+            // Stable for the whole morning, different tomorrow.
+            variant: calendar.ordinality(of: .day, in: .year, for: session.end) ?? 0
+        )
+        return WakeSummary(session: session, streak: streak, night: night)
+    }
+
+    /// Reaches for a blocked app *during* the session, or `nil` when there was
+    /// no shield to reach past.
+    ///
+    /// Read straight out of the App Group log rather than from `reachNights`,
+    /// which is the wrong source at exactly this moment: `harvestReachLog()`
+    /// deliberately holds back attempts belonging to a window that is still
+    /// open, and at wake the clock is normally still inside tonight's window.
+    /// Going through it would report a clean night to someone who reached six
+    /// times — the one mistake this surface must never make.
+    private func reaches(during session: SleepSession, wasLocked: Bool) -> Int? {
+        guard wasLocked else { return nil }
+        return SleepLockdownSelection.reachLog().filter { $0 >= session.start }.count
+    }
+
+    /// "Start the day" — the card's only exit.
+    func dismissWakeSummary() {
+        wakeSummary = nil
     }
 
     // MARK: - Health sync

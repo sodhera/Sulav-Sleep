@@ -1858,11 +1858,52 @@ during the blocking window.
 
 ## Commitment surfaces
 
-Four in-app screens that exist to make people *want* to keep the plan, rather
+Five in-app screens that exist to make people *want* to keep the plan, rather
 than adding another lock. The governing belief: **deleting the app is the one
 escape hatch that can't be taken away**, so past a certain point extra
 restriction stops buying compliance and starts buying uninstalls. These are the
 cheaper lever.
+
+### The morning card
+
+The screen between the night and the day. Hold to wake, and instead of the app
+dropping you on Home with a row quietly added to a list, the OLED black lifts
+into the morning scene and the night you just slept is on screen: the awake
+sloth over **GOOD MORNING**, the duration in the same numerals the sleep
+screen was counting a second ago, the window you actually slept
+(*11:20 PM → 6:52 AM*), the flame if a run is live, one warm line, and **Start
+the day**.
+
+Every other surface in this app spends itself on the moment someone is trying
+to break the plan — the shield, the slow door, the wind-down. Nothing marked
+the moment they kept it, and a habit whose finish line is invisible is one
+people stop running at. This is the finish line.
+
+- **The line is earned, never issued.** `WakeCelebration` picks it from what
+  is actually true of *this* night, most specific first: a first night ever, a
+  streak that hit a round number, a guarded night nobody reached past, a
+  window slept end to end, a long night, a run worth naming — and for a short
+  night, a kind sentence that points at tonight. There is no "Great job", and
+  a night the shield was never up cannot be called a clean one. A morning
+  surface that flatters is one people stop believing, and the reach mirror's
+  rule holds here too: mirror, never judge.
+- **Only a real night gets a morning.** Under the streak's own 30-minute floor
+  the card doesn't appear at all — "Good morning" over a four-minute mis-tap
+  is the app congratulating itself.
+- **Only the good news.** The flame appears when a run is live and is silent
+  when it's dying or absent. Warnings have a home on Home; a warning handed to
+  someone who just did the thing right is noise.
+- **Light, not confetti.** The one celebratory effect is a warm bloom swelling
+  behind the sloth over 0.9s — a sunrise, in the same amber that lights the
+  rest of the app. No badges, no score, no burst. The reader is thirty seconds
+  awake.
+- **One exit, and it's a button.** No ✕ and no tap-anywhere: a half-awake hand
+  shouldn't be able to lose the screen by brushing it. Equally, no auto-
+  dismiss — a card that vanishes mid-sentence is worse than one tap.
+- **A moment, not a record.** Never persisted. Kill the app with the card up
+  and you land on Home, because "Good morning" three hours later is the app
+  talking about a night you've moved on from. The night itself is already on
+  Home's last-night strip and the Profile chart.
 
 ### The morning mirror
 

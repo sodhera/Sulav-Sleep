@@ -382,6 +382,45 @@ struct SleepSession: Identifiable, Codable, Equatable {
 
 struct ActiveSleepSession: Codable, Equatable {
     var start: Date
+    /// Whether the shield actually went up when this night started. Recorded
+    /// at the start because it can't be recovered at wake — the lockdown is
+    /// torn down by then, and the preferences behind it say what *would*
+    /// happen tonight, not what happened last night. The morning card reads
+    /// it to decide whether "you didn't reach once" is a claim this night
+    /// earned or one it was never in a position to make (see `WakeNight`).
+    var lockedApps: Bool
+
+    init(start: Date, lockedApps: Bool = false) {
+        self.start = start
+        self.lockedApps = lockedApps
+    }
+
+    // Decode-safe: a session already running when the app updated has no
+    // `lockedApps` key, and defaults to false — the morning card then stays
+    // quiet about the block rather than guessing about it.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        start = try c.decode(Date.self, forKey: .start)
+        lockedApps = try c.decodeIfPresent(Bool.self, forKey: .lockedApps) ?? false
+    }
+}
+
+/// The morning card's whole payload, assembled by `SleepStore.wakeUp()` the
+/// moment a night is logged and cleared when the card is dismissed.
+///
+/// Deliberately **never persisted**: this is a moment, not a record. Killing
+/// the app with the card up and relaunching lands on Home, which is the right
+/// answer — "Good morning" three hours later, or after a cold boot, would be
+/// the app talking about a night the user has already moved on from. The
+/// record itself lives in `sessions` and is on Home's last-night strip and
+/// the Profile chart the second the card is gone.
+struct WakeSummary: Equatable {
+    /// The night just logged — its `start`/`end` are the card's window line.
+    var session: SleepSession
+    /// The streak *including* this night, i.e. the one Home is about to show.
+    var streak: SleepStreak
+    /// Everything the copy rule needs. See `WakeCelebration`.
+    var night: WakeNight
 }
 
 /// Authorization state for the Apple Health connection, surfaced to the UI.

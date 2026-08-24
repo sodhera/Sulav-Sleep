@@ -39,6 +39,19 @@ struct RootView: View {
 #endif
     }
 
+    /// DEBUG-only route to the morning card, which otherwise needs a real
+    /// logged night to see — you have to start a session, wait past the
+    /// 30-minute qualifying floor, and hold to wake. Renders the sample night
+    /// in `WakeSummary.sample`; its button is inert, since nothing set the
+    /// store's `wakeSummary` for it to clear.
+    private var showsWakeSummaryPreview: Bool {
+#if DEBUG
+        ProcessInfo.processInfo.arguments.contains("-review-wake-summary")
+#else
+        false
+#endif
+    }
+
     /// DEBUG-only preview of the forced update gate, which otherwise needs a
     /// server-side `min_supported_version` bump to appear.
     private var showsUpdateGatePreview: Bool {
@@ -131,11 +144,29 @@ struct RootView: View {
                 SleepBackground(showsMoon: false)
                 SceneReadabilityScrim()
                 ExistingAccountWelcomeView(store: store)
+            } else if showsWakeSummaryPreview {
+                SleepBackground(showsMoon: false)
+                SceneReadabilityScrim()
+                WakeSummaryView(store: store, summary: .sample)
             } else if store.isOnboarded, let active = store.activeSession {
                 // Immersive, pitch-black sleep mode takes over the whole screen.
                 SleepModeView(store: store, activeSession: active)
                     .transition(.opacity)
                     .zIndex(2)
+            } else if let summary = store.wakeSummary {
+                // The morning card, straight out of sleep mode: the black
+                // lifts into the day scene and the night just logged is on
+                // screen. Placed here — above every gate, below only the
+                // running session — because it is the tail of the sleep
+                // screen rather than a screen of its own, and because it is
+                // one tap and gone. Nothing can route *into* it: only
+                // `wakeUp()` sets it, and it is never persisted, so a relaunch
+                // lands on Home. See SleepWakeSummaryView.
+                SleepBackground(showsMoon: false)
+                SceneReadabilityScrim()
+                WakeSummaryView(store: store, summary: summary)
+                    .transition(.opacity)
+                    .zIndex(1)
             } else if showsUpdateGatePreview || store.updateRequired {
                 // The forced update gate: this install is below the server's
                 // minimum supported version, i.e. actually broken. Placed
