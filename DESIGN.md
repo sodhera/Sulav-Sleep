@@ -940,16 +940,16 @@ the reserved bottom action, its rising z's the only motion, deliberately never
 a spinner — resolving with a success haptic into a personalized summary in the
 editorial question chrome. Its `GlassGroup` is three compact outcomes: nightly
 sleep, **time to win back** per week, and the chosen goal. Each row carries one
-quiet category and one short value. Rows stay horizontal when the copy fits and
-stack only the label and value when needed, preserving readable type without
-adding another explanation. Exact clocks, app names, and explanatory sentences
-are not repeated; the sole chosen goal is echoed as the personalized outcome.
-This moment should confirm the plan at a
-glance rather than test the user's reading stamina. The build beat is sticky —
-backing in from the account step shows the summary instantly; the pause is a
-first-arrival moment, not a toll. Its CTA is **"I'm ready"** — the flow's one
-micro-commitment, landing right before the account step asks to save the plan
-and the paywall asks to unlock it.
+quiet category on the left and one short value anchored to the right. A long
+value, such as the chosen goal, may wrap to a second right-aligned line while
+the category stays in place; it never drops into a left-aligned stack. Exact
+clocks, app names, and explanatory sentences are not repeated; the sole chosen
+goal is echoed as the personalized outcome. This moment should confirm the plan
+at a glance rather than test the user's reading stamina. The build beat is
+sticky — backing in from the account step shows the summary instantly; the
+pause is a first-arrival moment, not a toll. Its CTA is **"I'm ready"** — the
+flow's one micro-commitment, landing right before the account step asks to save
+the plan and the paywall asks to unlock it.
 
 The **time-sink question** ("Which apps keep you up?") is the struggles
 question pointed at the phone itself: eight usual suspects (Instagram,

@@ -1069,10 +1069,11 @@ private struct PlanStep: View {
     }
 }
 
-/// One fact of the plan summary: icon, quiet category, then the answer. It
-/// prefers one line but stacks the two text fields when the copy cannot fit at
-/// a readable size. The user just supplied the inputs, so this screen confirms
-/// the shape of the plan instead of repeating every clock and app name.
+/// One fact of the plan summary: icon, quiet category on the left, then the
+/// answer anchored to the trailing edge. Long values may wrap to a second
+/// right-aligned line instead of dropping beneath the label or shrinking into
+/// noise. The user just supplied the inputs, so this screen confirms the shape
+/// of the plan instead of repeating every clock and app name.
 private struct PlanRow: View {
     let icon: String
     let label: String
@@ -1081,16 +1082,11 @@ private struct PlanRow: View {
     var body: some View {
         HStack(alignment: .center, spacing: SleepSpacing.md) {
             GlassRowIcon(icon: icon)
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: SleepSpacing.sm) {
-                    labelText.fixedSize(horizontal: true, vertical: false)
-                    Spacer(minLength: SleepSpacing.sm)
-                    valueText.fixedSize(horizontal: true, vertical: false)
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    labelText
-                    valueText
-                }
+            HStack(alignment: .firstTextBaseline, spacing: SleepSpacing.sm) {
+                labelText.fixedSize(horizontal: true, vertical: false)
+                Spacer(minLength: SleepSpacing.sm)
+                valueText
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
         }
         .padding(.vertical, SleepSpacing.md)
@@ -1107,7 +1103,8 @@ private struct PlanRow: View {
         Text(value)
             .font(SleepFont.title(16))
             .foregroundStyle(SleepColor.ink)
-            .lineLimit(1)
+            .multilineTextAlignment(.trailing)
+            .lineLimit(2)
             .minimumScaleFactor(0.85)
     }
 }
