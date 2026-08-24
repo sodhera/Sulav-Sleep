@@ -38,6 +38,18 @@ the launch configuration ($59.99 annual / $5.99 monthly) and should be updated
 before capture if App Store Connect pricing changes. The screenshot is review
 evidence only and must not be used as a public App Store marketing screenshot.
 
+For the short-screen footer regression, combine the paywall with injected
+referral availability and the longer localized price strings seen in production:
+
+```sh
+xcrun simctl launch booted com.sulav.sleepblock \
+  -review-paywall -review-paywall-localized -review-partner one
+```
+
+This stages `USD 69.99` / `US$5.83` formatting and keeps “Have a referral
+code?” above the legal links. It is the stress case for verifying that the
+flowing footer adds scroll distance instead of overlapping the purchase copy.
+
 ### Preview the Settings subscription status
 
 The **Subscription** group in Settings is fed by `store.subscriptionStatus`,
@@ -1279,7 +1291,11 @@ Code map (all behind the app's usual protocol seam):
   `onClose` closure, because the two presentations close differently: the
   first-run route records the dismissal, the cover over Main just lowers
   itself. A successful purchase or restore calls it too — otherwise the
-  cover stays parked over the app the user just paid for.
+  cover stays parked over the app the user just paid for. Its referral door
+  and legal-link row are one stack at the end of the `ScrollView`, separated
+  by 8pt. Do not turn either row into an independent floating layer: localized
+  price strings can add a card line, and the regular document flow is what
+  converts that extra height into safe scroll distance instead of overlap.
 - `ProfileView.swift` — the **Subscription** group in `SettingsModal`
   (`SubscriptionStatusRow` + Manage subscription), replaced by an "Unlock
   SleepBlock" row while `isLocked`, and hidden entirely when

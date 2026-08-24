@@ -138,28 +138,33 @@ private final class ReviewPaywallSubscriptionService: SubscriptionProviding {
     func manageSubscriptions() async {}
 
     func fetchPlans() async -> [SleepPlan] {
-        [
+        // The localized variant mirrors the longer strings seen on a device
+        // whose storefront renders the screenshot's `USD 69.99` / `US$5.83`
+        // forms. Combine it with the referral preview to regression-test the
+        // bottom of the paywall on a short screen.
+        let localized = ProcessInfo.processInfo.arguments.contains("-review-paywall-localized")
+        return [
             SleepPlan(
                 id: "$rc_annual",
                 title: "Yearly",
-                priceString: "$59.99",
+                priceString: localized ? "USD 69.99" : "$59.99",
                 periodUnit: "year",
-                perMonthString: "$5.00",
+                perMonthString: localized ? "US$5.83" : "$5.00",
                 trialDays: 7,
                 isAnnual: true,
                 currencyCode: "USD",
-                priceValue: 59.99
+                priceValue: localized ? 69.99 : 59.99
             ),
             SleepPlan(
                 id: "$rc_monthly",
                 title: "Monthly",
-                priceString: "$5.99",
+                priceString: localized ? "USD 6.99" : "$5.99",
                 periodUnit: "month",
                 perMonthString: nil,
                 trialDays: 0,
                 isAnnual: false,
                 currencyCode: "USD",
-                priceValue: 5.99
+                priceValue: localized ? 6.99 : 5.99
             )
         ]
     }

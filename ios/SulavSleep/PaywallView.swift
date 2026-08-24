@@ -40,12 +40,17 @@ struct PaywallView: View {
     private static let termsURL = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
     private static let privacyURL = URL(string: "https://www.orecci.com/sleepblock/privacy-policy.html")!
 
-    /// Height of the floating `footer`, reserved at the bottom of the scroll
-    /// content so nothing is laid out beneath it.
-    private static let footerClearance: CGFloat = 44 + SleepSpacing.md * 2
+    /// The referral door and legal links live together at the end of the
+    /// scroll. Keeping the row height explicit preserves a comfortable tap
+    /// target without turning the quiet tertiary action into another CTA.
+    private static let referralDoorHeight: CGFloat = 34
 
     private var selectedPlan: SleepPlan? {
         plans.first { $0.id == selectedPlanID }
+    }
+
+    private var showsReferralDoor: Bool {
+        !plans.isEmpty && store.referralAvailable && store.referralStanding == nil
     }
 
     var body: some View {
@@ -70,23 +75,19 @@ struct PaywallView: View {
                             purchaseBlock
                         }
                     }
+                    footer
                 }
                 .padding(.horizontal, SleepSpacing.xxl)
                 .padding(.top, SleepSpacing.xl)
                 .padding(.bottom, SleepSpacing.lg)
-                // The footer is a `safeAreaInset`, but this GeometryReader
-                // sits *outside* it and still measures the full height — so
-                // a plain `minHeight: proxy.size.height` stretches the
-                // flexible spacers until the last row (the referral door)
-                // lands underneath the footer links. Bottom padding can't fix
-                // that: it's inside the stretched frame, so the spacers just
-                // give the space back. The footer's own height comes off the
-                // minimum instead.
-                .frame(minHeight: proxy.size.height - Self.footerClearance, alignment: .top)
+                // Every row, including referral and legal actions, belongs to
+                // this single flow. Localized prices are therefore free to
+                // make a card taller: the footer moves down and the scroll
+                // gains distance instead of one text layer covering another.
+                .frame(minHeight: proxy.size.height, alignment: .top)
             }
             .scrollBounceBehavior(.basedOnSize)
         }
-        .safeAreaInset(edge: .bottom) { footer }
         // Floated over the scroll rather than placed in it: the header is a
         // centered brand lockup, and giving the ✕ a row of its own would
         // push the whole pitch down a line on every device. Top-*trailing*
@@ -237,34 +238,6 @@ struct PaywallView: View {
                 termsLine(for: plan)
             }
 
-            // The referred user's door, directly under the money: a friend's
-            // code beats every plan on this screen, so it must be findable
-            // here — but quietly, in the footer's type, because for most
-            // people it's an answer to a question they weren't asked. Hidden
-            // once this account has redeemed (one code each) and in dev mode.
-            if store.referralAvailable && store.referralStanding == nil {
-                Button {
-                    Haptics.heavy()
-                    showsRedeemSheet = true
-                } label: {
-                    Text("Have a referral code?")
-                        .font(SleepFont.body(13))
-                        .foregroundStyle(SleepColor.dim)
-                        .frame(minHeight: 34)
-                }
-                .buttonStyle(.plain)
-                .sheet(isPresented: $showsRedeemSheet) {
-                    // On success the lock recomputes and the paywall route
-                    // falls through to Main on its own; the cover variant is
-                    // closed explicitly for the same reason as purchase.
-                    ReferralRedeemSheet(store: store)
-                        .presentationDetents([.medium])
-                        .presentationDragIndicator(.visible)
-                        .onDisappear {
-                            if store.isWithinReferralNights { onClose() }
-                        }
-                }
-            }
         }
     }
 
@@ -334,26 +307,53 @@ struct PaywallView: View {
     // MARK: - Footer
 
     private var footer: some View {
-        HStack(spacing: SleepSpacing.sm) {
-            footerButton(isRestoring ? "Restoring…" : "Restore purchases") {
-                Task { await restore() }
+        VStack(spacing: showsReferralDoor ? SleepSpacing.sm : 0) {
+            if showsReferralDoor {
+                referralDoor
             }
-            .disabled(isRestoring || isPurchasing)
-            footerDot
-            Link(destination: Self.termsURL) { footerLabel("Terms") }
-            footerDot
-            Link(destination: Self.privacyURL) { footerLabel("Privacy") }
+
+            HStack(spacing: SleepSpacing.sm) {
+                footerButton(isRestoring ? "Restoring…" : "Restore purchases") {
+                    Task { await restore() }
+                }
+                .disabled(isRestoring || isPurchasing)
+                footerDot
+                Link(destination: Self.termsURL) { footerLabel("Terms") }
+                footerDot
+                Link(destination: Self.privacyURL) { footerLabel("Privacy") }
+            }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, SleepSpacing.md)
-        .background {
-            // The footer rides over the scrolling content; a soft floor of
-            // the scene's own navy keeps it legible without reading as a bar.
-            LinearGradient(
-                colors: [SleepColor.background.opacity(0), SleepColor.background.opacity(0.85)],
-                startPoint: .top, endPoint: .bottom
-            )
-            .ignoresSafeArea()
+        .padding(.bottom, SleepSpacing.md)
+    }
+
+    /// The referred user's door, directly above the legal links in the same
+    /// footer stack at the end of the scroll. A friend's code beats every
+    /// plan on this screen, so it must be findable — but quietly, because for
+    /// most people it answers a question they were never asked. Keeping both
+    /// footer rows under one layout owner prevents localized price copy from
+    /// making them overlap.
+    private var referralDoor: some View {
+        Button {
+            Haptics.heavy()
+            showsRedeemSheet = true
+        } label: {
+            Text("Have a referral code?")
+                .font(SleepFont.body(13))
+                .foregroundStyle(SleepColor.dim)
+                .frame(minHeight: Self.referralDoorHeight)
+        }
+        .buttonStyle(.plain)
+        .sheet(isPresented: $showsRedeemSheet) {
+            // On success the lock recomputes and the paywall route falls
+            // through to Main on its own; the cover variant is closed
+            // explicitly for the same reason as purchase.
+            ReferralRedeemSheet(store: store)
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+                .onDisappear {
+                    if store.isWithinReferralNights { onClose() }
+                }
         }
     }
 

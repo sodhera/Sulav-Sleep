@@ -1162,7 +1162,11 @@ code?"** in the footer's type, opening the shared redeem sheet (see "Sleep
 partner & referral"). It is deliberately the least prominent thing on the
 screen — for the person holding a friend's code it beats every plan above
 it, but for everyone else it answers a question they weren't asked. It
-hides once the account has redeemed (one code each) and in dev mode.
+hides once the account has redeemed (one code each) and in dev mode. The door
+and the legal links share one stack at the end of the scroll, with an 8pt gap.
+They remain in the document flow rather than floating over the purchase copy;
+localized prices may make the cards taller, but can only add scroll distance,
+never push one text layer behind another.
 
 One structural rule: the sleep-mode overlay always outranks the paywall.
 An active night keeps *Hold to wake* / cancel — and with them the Screen
