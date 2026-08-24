@@ -1070,10 +1070,10 @@ private struct PlanStep: View {
 }
 
 /// One fact of the plan summary: icon, quiet category on the left, then the
-/// answer anchored to the trailing edge. Long values may wrap to a second
-/// right-aligned line instead of dropping beneath the label or shrinking into
-/// noise. The user just supplied the inputs, so this screen confirms the shape
-/// of the plan instead of repeating every clock and app name.
+/// answer anchored to the trailing edge. Label and value remain vertically
+/// centered as one line; the value tightens slightly when needed rather than
+/// wrapping early. The user just supplied the inputs, so this screen confirms
+/// the shape of the plan instead of repeating every clock and app name.
 private struct PlanRow: View {
     let icon: String
     let label: String
@@ -1082,7 +1082,7 @@ private struct PlanRow: View {
     var body: some View {
         HStack(alignment: .center, spacing: SleepSpacing.md) {
             GlassRowIcon(icon: icon)
-            HStack(alignment: .firstTextBaseline, spacing: SleepSpacing.sm) {
+            HStack(alignment: .center, spacing: SleepSpacing.sm) {
                 labelText.fixedSize(horizontal: true, vertical: false)
                 Spacer(minLength: SleepSpacing.sm)
                 valueText
@@ -1104,8 +1104,9 @@ private struct PlanRow: View {
             .font(SleepFont.title(16))
             .foregroundStyle(SleepColor.ink)
             .multilineTextAlignment(.trailing)
-            .lineLimit(2)
+            .lineLimit(1)
             .minimumScaleFactor(0.85)
+            .allowsTightening(true)
     }
 }
 

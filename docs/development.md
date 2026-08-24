@@ -493,8 +493,9 @@ target can inject fakes without new hooks.
   once revealed), with the sloth and status text centered in the full flexible
   content region, before crossfading to three compact outcomes: nightly sleep,
   time to win back per week, and the chosen goal. `PlanRow` keeps its label on
-  the left and anchors the value to the trailing edge; longer values may wrap
-  to a second right-aligned line. It deliberately has no detail field. Weekly
+  the left and anchors the value to the trailing edge. Both are vertically
+  centered, and the value stays on one line with a `0.85` minimum scale plus
+  tightening for longer goal copy. It deliberately has no detail field. Weekly
   durations use compact copy such as `1h 45min per week`. The reveal echoes the
   single goal but does not repeat the exact clocks, app names, or explanatory
   copy from prior steps. Its "I'm ready" CTA advances to the account step (or

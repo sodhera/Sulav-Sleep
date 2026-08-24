@@ -941,11 +941,12 @@ a spinner — resolving with a success haptic into a personalized summary in the
 editorial question chrome. Its `GlassGroup` is three compact outcomes: nightly
 sleep, **time to win back** per week, and the chosen goal. Each row carries one
 quiet category on the left and one short value anchored to the right. A long
-value, such as the chosen goal, may wrap to a second right-aligned line while
-the category stays in place; it never drops into a left-aligned stack. Exact
-clocks, app names, and explanatory sentences are not repeated; the sole chosen
-goal is echoed as the personalized outcome. This moment should confirm the plan
-at a glance rather than test the user's reading stamina. The build beat is
+value, such as the chosen goal, stays on one line whenever the row can preserve
+readable type, tightening slightly when needed. Label and value remain
+vertically centered as one row. Exact clocks, app names, and explanatory
+sentences are not repeated; the sole chosen goal is echoed as the personalized
+outcome. This moment should confirm the plan at a glance rather than test the
+user's reading stamina. The build beat is
 sticky — backing in from the account step shows the summary instantly; the
 pause is a first-arrival moment, not a toll. Its CTA is **"I'm ready"** — the
 flow's one micro-commitment, landing right before the account step asks to save
