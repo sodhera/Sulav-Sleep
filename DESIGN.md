@@ -1869,24 +1869,21 @@ cheaper lever.
 The screen between the night and the day. Hold to wake, and instead of the app
 dropping you on Home with a row quietly added to a list, the OLED black lifts
 into the morning scene and the night you just slept is on screen: the awake
-sloth over **GOOD MORNING**, the duration in the same numerals the sleep
-screen was counting a second ago, the window you actually slept
-(*11:20 PM → 6:52 AM*), the flame if a run is live, one warm line, and **Start
-the day**.
+sloth over **GOOD MORNING**, then one glass capsule led by the duration in the
+same numerals the sleep screen was counting a second ago. The window actually
+slept (*11:20 PM → 6:52 AM*) and the flame count, when a run is live, sit
+beneath it as quiet context. **Start the day** is the only action.
 
 Every other surface in this app spends itself on the moment someone is trying
 to break the plan — the shield, the slow door, the wind-down. Nothing marked
 the moment they kept it, and a habit whose finish line is invisible is one
 people stop running at. This is the finish line.
 
-- **The line is earned, never issued.** `WakeCelebration` picks it from what
-  is actually true of *this* night, most specific first: a first night ever, a
-  streak that hit a round number, a guarded night nobody reached past, a
-  window slept end to end, a long night, a run worth naming — and for a short
-  night, a kind sentence that points at tonight. There is no "Great job", and
-  a night the shield was never up cannot be called a clean one. A morning
-  surface that flatters is one people stop believing, and the reach mirror's
-  rule holds here too: mirror, never judge.
+- **Duration owns the glass.** The user is half awake and the first question
+  is simply how long they slept. That number is the capsule's large,
+  high-contrast hero; the actual start→wake window is secondary, and a live
+  streak is tertiary. There is no generated congratulatory sentence competing
+  with those facts. The card mirrors the night instead of interpreting it.
 - **Only a real night gets a morning.** Under the streak's own 30-minute floor
   the card doesn't appear at all — "Good morning" over a four-minute mis-tap
   is the app congratulating itself.
@@ -1899,7 +1896,7 @@ people stop running at. This is the finish line.
   awake.
 - **One exit, and it's a button.** No ✕ and no tap-anywhere: a half-awake hand
   shouldn't be able to lose the screen by brushing it. Equally, no auto-
-  dismiss — a card that vanishes mid-sentence is worse than one tap.
+  dismiss — a card that vanishes mid-glance is worse than one tap.
 - **A moment, not a record.** Never persisted. Kill the app with the card up
   and you land on Home, because "Good morning" three hours later is the app
   talking about a night you've moved on from. The night itself is already on

@@ -5,8 +5,8 @@ import SwiftUI
 // Sleep mode is pitch black and ember; Home is the lit city. This sits
 // between them and is where the night gets *closed*: hold to wake, and
 // instead of the app silently dropping you on Home, the black lifts into the
-// morning scene and the night you just slept is on screen with a line that
-// says something true about it.
+// morning scene and the night you just slept is on screen in one clear
+// reading surface.
 //
 // Why it exists. Everything else in this app spends its effort on the moment
 // someone is trying to break the plan — the shield, the slow door, the
@@ -16,9 +16,8 @@ import SwiftUI
 //
 // Why it is restrained anyway (no confetti, no score, no streak fireworks):
 // the reader is thirty seconds awake. The grammar is the same instrument
-// grammar as the rest of the app — a small label, one large number, a quiet
-// caption — with exactly one warm sentence and one way out. See DESIGN.md,
-// "The morning card".
+// grammar as the rest of the app — a small label, one large number, quiet
+// supporting facts, and one way out. See DESIGN.md, "The morning card".
 struct WakeSummaryView: View {
     var store: SleepStore
     let summary: WakeSummary
@@ -73,42 +72,22 @@ struct WakeSummaryView: View {
                 }
                 .accessibilityHidden(true)
 
-            VStack(spacing: SleepSpacing.sm) {
+            VStack(spacing: SleepSpacing.md) {
                 Text("Good morning").sectionLabel()
 
-                // The night, in the same numerals the sleep screen was
-                // counting up a moment ago — the timer's last reading, kept.
-                Text(SleepFormatting.duration(session.durationMinutes))
-                    .font(SleepFont.hero(44))
-                    .foregroundStyle(SleepColor.ink)
-                    .monospacedDigit()
-                    .accessibilityLabel(
-                        "You slept \(session.durationMinutes / 60) hours \(session.durationMinutes % 60) minutes"
-                    )
-
-                WokeWindowLine(start: session.start, end: session.end)
-                    .padding(.top, SleepSpacing.xs)
+                // One glance, in order: how long, when, then the run it joins.
+                // The duration stays inside the glass because it is the one
+                // fact this screen exists to land.
+                NightSummaryCapsule(
+                    durationMinutes: session.durationMinutes,
+                    start: session.start,
+                    end: session.end,
+                    streak: (summary.streak.isVisible && !summary.streak.isDying)
+                        ? summary.streak.count
+                        : nil
+                )
             }
             .padding(.top, SleepSpacing.xl)
-
-            // The flame, only when there is a live run behind it. A dying or
-            // absent streak says nothing here: this screen is the one place
-            // in the app that is purely for the good news, and a warning
-            // delivered to someone who just did the thing right is noise.
-            if summary.streak.isVisible && !summary.streak.isDying {
-                StreakBadge(count: summary.streak.count)
-                    .padding(.top, SleepSpacing.xl)
-            }
-
-            // The line. Earned by this night specifically — see
-            // `WakeCelebration` for the tiers and why none of them inflate.
-            Text(WakeCelebration.line(for: summary.night))
-                .font(SleepFont.body(15))
-                .foregroundStyle(SleepColor.dim)
-                .multilineTextAlignment(.center)
-                .lineSpacing(3)
-                .padding(.horizontal, SleepSpacing.md)
-                .padding(.top, SleepSpacing.xl)
 
             Spacer(minLength: SleepSpacing.xxxl)
 
@@ -138,21 +117,70 @@ struct WakeSummaryView: View {
     }
 }
 
-// MARK: - Window line
+// MARK: - The night capsule
 
-/// When the night ran: moon + the hour they started → sun + the hour they
-/// woke. The same moon→sun grammar as Home's schedule capsule, so "the window
-/// you planned" and "the window you slept" are visibly the same kind of fact.
-private struct WokeWindowLine: View {
-    private let startText: String
-    private let endText: String
+/// The whole night in one glass surface, deliberately ordered by importance:
+/// duration first, the actual clock window second, and the streak last.
+///
+/// The moon→sun grammar is Home's schedule capsule, deliberately — "the window
+/// you planned" and "the window you slept" should read as the same kind of
+/// fact in the same kind of container. Not a button: there is one action on
+/// this screen.
+private struct NightSummaryCapsule: View {
+    let durationMinutes: Int
+    let start: Date
+    let end: Date
+    /// Nights in a row, or `nil` to show the clock alone.
+    let streak: Int?
 
-    init(start: Date, end: Date) {
-        startText = SleepFormatting.shortTime.string(from: start)
-        endText = SleepFormatting.shortTime.string(from: end)
-    }
+    private var startText: String { SleepFormatting.shortTime.string(from: start) }
+    private var endText: String { SleepFormatting.shortTime.string(from: end) }
 
     var body: some View {
+        VStack(spacing: SleepSpacing.lg) {
+            // The timer's last reading, kept in the same hero numerals and
+            // given the capsule's only high-contrast position.
+            Text(SleepFormatting.duration(durationMinutes))
+                .font(SleepFont.hero(50))
+                .foregroundStyle(SleepColor.ink)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+
+            details
+        }
+        .padding(.horizontal, SleepSpacing.xl)
+        .padding(.vertical, SleepSpacing.xl)
+        .frame(maxWidth: .infinity)
+        .liquidGlass(cornerRadius: SleepRadius.xl)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityText)
+    }
+
+    /// Keep the ordinary case on one calm line. Larger text sizes and narrow
+    /// widths fall back to a vertical reading instead of compressing the two
+    /// supporting facts into an unreadable row.
+    @ViewBuilder
+    private var details: some View {
+        if let streak {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: SleepSpacing.md) {
+                    window
+                    detailDivider
+                    streakLabel(streak)
+                }
+
+                VStack(spacing: SleepSpacing.md) {
+                    window
+                    streakLabel(streak)
+                }
+            }
+        } else {
+            window
+        }
+    }
+
+    private var window: some View {
         HStack(spacing: SleepSpacing.sm) {
             endpoint(icon: "moon.fill", time: startText)
             Image(systemName: "arrow.right")
@@ -160,40 +188,40 @@ private struct WokeWindowLine: View {
                 .foregroundStyle(SleepColor.muted)
             endpoint(icon: "sun.max.fill", time: endText)
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Asleep \(startText), awake \(endText)")
+    }
+
+    private var detailDivider: some View {
+        Rectangle()
+            .fill(SleepColor.hairline)
+            .frame(width: 1, height: 18)
+    }
+
+    private func streakLabel(_ count: Int) -> some View {
+        Label("\(count) \(count == 1 ? "night" : "nights")", systemImage: "flame.fill")
+            .font(SleepFont.label(13))
+            .foregroundStyle(SleepColor.gold)
+            .monospacedDigit()
+            .lineLimit(1)
     }
 
     private func endpoint(icon: String, time: String) -> some View {
         HStack(spacing: SleepSpacing.xs) {
             Image(systemName: icon)
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(SleepColor.amber.opacity(0.85))
+                .foregroundStyle(SleepColor.amber.opacity(0.9))
             Text(time)
                 .font(SleepFont.label(13))
-                .foregroundStyle(SleepColor.muted)
+                .foregroundStyle(SleepColor.dim)
                 .monospacedDigit()
+                .lineLimit(1)
         }
     }
-}
 
-// MARK: - Streak badge
-
-/// The run, worn as a glass capsule — the same flame and the same filled gold
-/// as Home's corner chip, so the number the user is about to see there is
-/// already familiar. Not a button: there is one action on this screen.
-private struct StreakBadge: View {
-    let count: Int
-
-    var body: some View {
-        Label("\(count) \(count == 1 ? "night" : "nights") in a row", systemImage: "flame.fill")
-            .font(SleepFont.label(14))
-            .foregroundStyle(SleepColor.gold)
-            .monospacedDigit()
-            .padding(.horizontal, SleepSpacing.lg)
-            .frame(minHeight: 40)
-            .liquidGlass(cornerRadius: SleepRadius.pill)
-            .accessibilityLabel("\(count) night streak")
+    private var accessibilityText: String {
+        let duration = "You slept \(durationMinutes / 60) hours \(durationMinutes % 60) minutes."
+        let window = "Asleep \(startText), awake \(endText)."
+        guard let streak else { return "\(duration) \(window)" }
+        return "\(duration) \(window) \(streak) night streak."
     }
 }
 
@@ -216,15 +244,7 @@ extension WakeSummary {
                 durationMinutes: minutes,
                 source: .local
             ),
-            streak: SleepStreak(count: 4, state: .alive),
-            night: WakeNight(
-                durationMinutes: minutes,
-                targetMinutes: 8 * 60,
-                streak: 4,
-                isFirstNight: false,
-                reaches: 0,
-                variant: 0
-            )
+            streak: SleepStreak(count: 4, state: .alive)
         )
     }
 }
