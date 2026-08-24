@@ -912,12 +912,19 @@ target is the operative schedule: `profile.bedtime`/`wakeTime`, what the Home
 countdown, the lockdown window, and the widgets all key off. (An earlier
 revision asked ideal *and* current on each screen to manufacture a gap; it
 was cut — the second wheel made the screen busy, and the plan reveal already
-carries the motivation.)
+carries the motivation.) The native wheel now sits inside one deep-navy glass
+well with the selected time repeated in clear type above it and a thin amber
+focus rail behind the active row. The wheel retains native scrolling and
+locale behavior, but no longer dissolves into the brighter day skyline.
 
-Selection grammar splits by meaning: **multi-selects** (struggles, time-sink
-apps) allow zero — an empty set is an honest answer — while **single-selects**
-(goal, phone time, wake feeling) require a choice before Next enables, because
-the plan speaks to the answer and there is no meaningful "skipped" reading.
+Selection grammar splits by meaning. The **goal is a required multi-select**:
+several outcomes can be true at once, and Next enables after the first choice.
+The struggle and time-sink multi-selects allow zero because an empty set is an
+honest answer. The phone-time and wake-feeling single-selects require a choice
+because the plan speaks to the answer and there is no meaningful skipped
+reading. Goal IDs keep the existing `goal` string schema by using a stable,
+comma-delimited raw-value representation; an older single raw value remains a
+valid one-item selection.
 
 > Android revision (July 2026): on Android, **every** questionnaire step
 > holds Next until the user actually interacts — multi-selects require at

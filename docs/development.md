@@ -483,9 +483,12 @@ target can inject fakes without new hooks.
   straight to a standalone `AuthView` (`.signIn`), followed by the same
   questions as a quick setup when the device has no profile. The two paths are
   never linked. Apple Health is not part of onboarding — it's offered later on
-  Profile (see `HealthConnectCard`). Single-select questions (goal, phone
-  time, feeling — `SleepGoal`/`LateNightPhoneTime`/`WakeFeeling` in
-  `SleepModels.swift`) gate Next until answered; multi-selects allow zero.
+  Profile (see `HealthConnectCard`). Goal is a required multi-select;
+  phone time and feeling remain required single-selects. Struggles and app
+  choices allow zero. `SleepGoal.storageValue(for:)` writes selected goal raw
+  values in authored order into the existing comma-delimited `goal` string;
+  `values(from:)` accepts both that form and legacy single values, avoiding a
+  local or Supabase schema migration.
   The **plan step** (`PlanStep`) runs a ~1.8s "Building your sleep plan…"
   beat (`startPlanBuild`, cancelled if the user backs out mid-build, sticky
   once revealed), with the sloth and status text centered in the full flexible
@@ -506,9 +509,11 @@ target can inject fakes without new hooks.
   top-anchors the prompt 32pt below that header, vertically centers the answer
   controls in the remaining flexible region, and keeps the action pinned at
   the bottom. The centering spacers collapse when a tall answer group needs
-  room. The questionnaire also owns the shared lightweight `TimeAdjuster`,
-  used instead of UIKit
-  `DatePicker`/wheel controls to avoid first-use hitches during transitions.
+  room. The questionnaire also owns the shared `TimeAdjuster`: a native wheel
+  inside a dark glass well, with a clear selected-time readout and an amber
+  focus rail behind the active row. The same control is reused by the schedule
+  editor. DEBUG routes `-review-onboarding-goals` and
+  `-review-onboarding-bedtime` open those steps directly for simulator review.
   The keyboard is pre-warmed in two stages: a flash-free framework load while
   the onboarding gate idles (`Keyboard.warmFrameworks()` — become + resign
   first responder in the same runloop turn, so nothing presents), then the

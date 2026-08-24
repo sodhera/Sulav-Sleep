@@ -296,7 +296,7 @@ struct OnboardingQuestionsView: View {
     @State private var step: Step = .name
     @State private var movingForward = true
     @State private var name = ""
-    @State private var goal: SleepGoal?
+    @State private var goals: Set<SleepGoal> = []
     @State private var struggles: Set<SleepStruggle> = []
     @State private var timeSinks: Set<TimeSinkApp> = []
     @State private var phoneTime: LateNightPhoneTime?
@@ -322,6 +322,15 @@ struct OnboardingQuestionsView: View {
         self.onBack = onBack
         self.onDone = onDone
         _includesAccount = State(initialValue: !store.isAuthenticated)
+#if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("-review-onboarding-goals") {
+            _step = State(initialValue: .goal)
+            _goals = State(initialValue: [.wakeUpRested, .lessPhoneAtNight])
+        } else if arguments.contains("-review-onboarding-bedtime") {
+            _step = State(initialValue: .bedtime)
+        }
+#endif
     }
 
     /// The investment arc: who you are → what you want → what's in the way →
@@ -446,7 +455,7 @@ struct OnboardingQuestionsView: View {
         case .goal:
             QuestionLayout(
                 title: "What would you like to achieve?",
-                subtitle: "Pick the one that matters most — we'll build your plan around it."
+                subtitle: "Choose all that matter. We'll build your plan around them."
             ) {
                 LiquidGlassContainer(spacing: SleepSpacing.md) {
                     VStack(spacing: SleepSpacing.md) {
@@ -454,10 +463,14 @@ struct OnboardingQuestionsView: View {
                             OptionRow(
                                 icon: option.systemImage,
                                 title: option.title,
-                                isSelected: goal == option
+                                isSelected: goals.contains(option)
                             ) {
                                 Haptics.heavy()
-                                goal = option
+                                if goals.contains(option) {
+                                    goals.remove(option)
+                                } else {
+                                    goals.insert(option)
+                                }
                             }
                         }
                     }
@@ -577,7 +590,7 @@ struct OnboardingQuestionsView: View {
                 name: name,
                 bedtime: bedtime,
                 wakeTime: wakeTime,
-                goal: goal,
+                goals: goals,
                 phoneTime: phoneTime,
                 timeSinks: timeSinks
             )
@@ -625,10 +638,10 @@ struct OnboardingQuestionsView: View {
     private var isStepValid: Bool {
         switch step {
         case .name: !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        // Single-select questions require an answer: the plan speaks to the
-        // choice, so there is no meaningful "skipped" reading. Multi-selects
-        // stay skippable — an empty set is an honest answer there.
-        case .goal: goal != nil
+        // The goal multi-select requires at least one answer because the plan
+        // speaks back to those choices. The struggles and app multi-selects
+        // remain skippable: an empty set is an honest answer there.
+        case .goal: !goals.isEmpty
         case .phoneTime: phoneTime != nil
         case .feeling: feeling != nil
         default: true
@@ -678,7 +691,7 @@ struct OnboardingQuestionsView: View {
             wakeTime: wakeTime,
             struggles: struggles.map(\.rawValue),
             timeSinks: timeSinks.map(\.rawValue),
-            goal: goal?.rawValue ?? "",
+            goals: SleepGoal.storageValue(for: goals),
             lateNightPhone: phoneTime?.rawValue ?? "",
             wakeFeeling: feeling?.rawValue ?? ""
         ))
@@ -832,8 +845,8 @@ private struct NameField: View {
 }
 
 /// One full-width answer capsule, shared by every list question — the
-/// multi-select struggles and the single-select goal/phone-time/feeling
-/// steps (selection semantics live in the caller; the row just shows state).
+/// multi-select goal/struggles and the single-select phone-time/feeling steps
+/// (selection semantics live in the caller; the row just shows state).
 private struct OptionRow: View {
     let icon: String
     let title: String
@@ -982,7 +995,7 @@ private struct PlanStep: View {
     let name: String
     let bedtime: Int
     let wakeTime: Int
-    let goal: SleepGoal?
+    let goals: Set<SleepGoal>
     let phoneTime: LateNightPhoneTime?
     let timeSinks: Set<TimeSinkApp>
 
@@ -1030,9 +1043,14 @@ private struct PlanStep: View {
                         detail: sinksLine
                     )
                 }
-                if let goal {
+                if let firstGoal = orderedGoals.first {
                     GlassRowDivider()
-                    PlanRow(icon: goal.systemImage, label: "Your goal", value: goal.title)
+                    PlanRow(
+                        icon: orderedGoals.count == 1 ? firstGoal.systemImage : "checklist",
+                        label: orderedGoals.count == 1 ? "Your goal" : "Your goals",
+                        value: orderedGoals.count == 1 ? firstGoal.title : "\(orderedGoals.count) goals",
+                        detail: orderedGoals.count == 1 ? nil : orderedGoals.map(\.title).joined(separator: " · ")
+                    )
                 }
             }
         }
@@ -1041,6 +1059,12 @@ private struct PlanStep: View {
     private var firstName: String {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
             .components(separatedBy: " ").first ?? ""
+    }
+
+    /// Sets have no presentation order. Reapply the enum's authored order so
+    /// the reveal and persisted payload remain stable across launches.
+    private var orderedGoals: [SleepGoal] {
+        SleepGoal.allCases.filter(goals.contains)
     }
 
     /// Names the user's own apps back to them — the sharpest line in the
@@ -1098,16 +1122,51 @@ struct TimeAdjuster: View {
     }()
 
     var body: some View {
-        DatePicker(
-            "Time",
-            selection: dateBinding,
-            displayedComponents: .hourAndMinute
+        VStack(spacing: 0) {
+            HStack(spacing: SleepSpacing.sm) {
+                Image(systemName: "clock.fill")
+                    .font(.system(size: 15, weight: .medium))
+                Text(SleepFormatting.clock(minutes))
+                    .font(SleepFont.title(26))
+                    .monospacedDigit()
+            }
+            .foregroundStyle(SleepColor.ink)
+            .padding(.top, SleepSpacing.lg)
+            .accessibilityHidden(true)
+
+            ZStack {
+                // A warm focus rail sits *behind* the native wheel text. The
+                // wheel keeps its platform behavior while its active row can
+                // no longer disappear into the moving skyline.
+                RoundedRectangle(cornerRadius: SleepRadius.md, style: .continuous)
+                    .fill(SleepColor.amber.opacity(0.10))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: SleepRadius.md, style: .continuous)
+                            .stroke(SleepColor.amber.opacity(0.42), lineWidth: 1)
+                    }
+                    .frame(height: 44)
+                    .padding(.horizontal, SleepSpacing.md)
+                    .allowsHitTesting(false)
+
+                DatePicker(
+                    "Time",
+                    selection: dateBinding,
+                    displayedComponents: .hourAndMinute
+                )
+                .datePickerStyle(.wheel)
+                .labelsHidden()
+                .tint(SleepColor.amber)
+                .environment(\.colorScheme, .dark)
+                .frame(maxWidth: .infinity)
+                .frame(height: 154)
+            }
+        }
+        .padding(.horizontal, SleepSpacing.sm)
+        .padding(.bottom, SleepSpacing.sm)
+        .liquidGlass(
+            cornerRadius: SleepRadius.xl,
+            tint: SleepColor.navy.opacity(0.42)
         )
-        .datePickerStyle(.wheel)
-        .labelsHidden()
-        .tint(SleepColor.amber)
-        .frame(maxWidth: .infinity)
-        .frame(height: 160)
         .accessibilityLabel("Select time")
     }
 

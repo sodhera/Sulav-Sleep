@@ -95,6 +95,18 @@ struct RootView: View {
 #endif
     }
 
+    /// DEBUG-only routes to the two onboarding controls that need direct
+    /// visual review without tapping through the complete questionnaire.
+    private var showsOnboardingQuestionPreview: Bool {
+#if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        return arguments.contains("-review-onboarding-goals")
+            || arguments.contains("-review-onboarding-bedtime")
+#else
+        false
+#endif
+    }
+
     /// The in-app splash (`LaunchSplashView`) is held up for a beat past auth
     /// readiness so the brand mark's rising z's are actually *seen* animating
     /// — the Keychain restore usually resolves in well under a second, which
@@ -164,6 +176,10 @@ struct RootView: View {
                 SleepBackground(showsMoon: false)
                 SceneReadabilityScrim()
                 ExistingAccountWelcomeView(store: store)
+            } else if showsOnboardingQuestionPreview {
+                SleepBackground(showsMoon: false)
+                SceneReadabilityScrim()
+                OnboardingQuestionsView(store: store, onDone: { _ in })
             } else if showsSleepModePreview {
                 SleepModeView(
                     store: store,
