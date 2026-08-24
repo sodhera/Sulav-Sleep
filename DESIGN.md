@@ -274,10 +274,13 @@ Two tabs, each with exactly one job:
   > progress is dashboard precision nobody reads at 11pm, and the sloth
   > tells the state warmer — while keeping the same one-glance answer.
 
-  Under the sloth, one small non-interactive glass capsule states tonight's
+  Under the sloth, one small glass capsule states tonight's
   window as the single fact it is — moon + bedtime → sun + wake — rather
-  than two disconnected chips; read-only, the schedule is edited in
-  Settings. The Sleep Now capsule anchors low where a thumb rests — a touch
+  than two disconnected chips. Tapping it opens the schedule editor as a
+  sheet (the same page Settings pushes). **While tonight's block is running
+  it goes read-only** — still the caption to the countdown, no longer a door
+  — because the window behind the shield can't move mid-night; see
+  *The lockdown settings close with the lockdown*. The Sleep Now capsule anchors low where a thumb rests — a touch
   lower than the free space alone would put it, deeper into reach — with
   last night as one quiet centered strip *beneath* it (`Last night 7h 30m`,
   duration only). Under the button, not above: the recap is the footnote to
@@ -595,8 +598,8 @@ with the onboarding chrome (round glass back chevron, left-aligned editorial
 title, supporting line). The body is four kicker-titled `GlassGroup`s —
 **Profile** (editable Name: tap → rename alert; read-only account Email, no
 chevron, middle-truncated — both live here, never on the Profile body),
-**Subscription** (the plan status, see below), **Sleep** (Schedule, Blocked
-apps — chevron-less and untappable while the block is running, reading
+**Subscription** (the plan status, see below), **Sleep** (Schedule and Blocked
+apps — both chevron-less and untappable while the block is running, reading
 "Locked until morning", the same shape an unavailable Apple Health row takes —
 and the Apple Health toggle, no explainer sublines), and **Account** (Sign
 out in dim, alone in its group and confirmed by an alert before anything
@@ -733,17 +736,28 @@ deliberately **no "unlock anyway after N hours" stepper** — see
 selection renders below the group as a system-drawn **icon grid** (tokens are opaque, Apple draws them) — the user
 sees exactly what locks, without a text list.
 
-**The page closes while the block is running.** Both routes to it (the Profile
-card, the Settings row) stop pushing, and if the pre-sleep shield comes up while
-the page is already open the whole `GlassGroup` is replaced by a lock glyph,
-"Locked until morning", and one sentence of why — the system picker, if it is
-up, comes down with it. The controls are *removed*, not greyed out: a disabled
-toggle is still an invitation to keep trying, and this one has no legitimate
-use before morning. The supporting line under the title changes with it
-("Tonight's block is running. What it covers can change in the morning."). This
-is the same principle as the retired hours stepper — a block that can be edited
-from inside the block is not a block, and the toggle plus an emptied picker were
-a two-tap way out of the night. Changes made in daylight are ordinary settings;
+#### The lockdown settings close with the lockdown
+
+**Every surface that governs the block closes while the block is running** —
+this page, Sleep schedule, and the reasons — for a session or for the pre-sleep
+shield alike. No route pushes: the Profile card, both Settings rows, Home's
+schedule capsule, and Home's morning-mirror line all stop opening. If a page is
+already open when the shield comes up, its controls are replaced by one shared
+panel — a lock glyph, "Locked until morning", and a sentence of why — and the
+system picker, if it is up, comes down with it. Each page's supporting line
+under the title changes to say the night is running.
+
+The controls are *removed*, not greyed out: a disabled toggle is still an
+invitation to keep trying, and none of these has a legitimate use before
+morning. The shared line names **when it opens again** rather than what is
+forbidden — the answer to "why can't I tap this" is a time, not a rule.
+
+Only this page was ever an escape (the toggle plus an emptied picker were a
+two-tap way out of the night, the same principle as the retired hours stepper).
+The schedule joins it for honesty — its edits are held until the window closes,
+so a save that looked like it worked was a lie — and the reasons because they
+are the block's whole argument at 1am, and the self that wants them deleted is
+the one they were written for. Changes made in daylight are ordinary settings;
 the way out *during* a lock is the slow door, a wait the user chooses, never a
 switch.
 
@@ -1798,7 +1812,11 @@ they do it.
   beside it because it is the same kind of fact.
 - **Silent on a clean night.** No hairline, no empty state — matching the strip
   above it. A triumphant "0 attempts!" would cheapen the nights that mattered.
-- Tapping it opens the reason editor.
+- Tapping it opens the reason editor — **except while the block is
+  running**, when the line stays as a report and the amber "Write why you're
+  doing this" invitation is withheld. The reasons are what the shield is
+  quoting back tonight, so they close with the rest of the lockdown settings,
+  and inviting a sentence that can't be saved is worse than staying quiet.
 
 ### The reason editor
 

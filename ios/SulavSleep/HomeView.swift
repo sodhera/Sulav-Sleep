@@ -126,16 +126,29 @@ struct HomeView: View {
                 VStack(spacing: SleepSpacing.xxl) {
                     HomeSloth(profile: profile, now: timeline.date)
 
-                    Button {
-                        Haptics.heavy()
-                        showingScheduleEditor = true
-                    } label: {
+                    // Home is only visible in the pre-sleep phase (a running
+                    // session takes the whole screen), which is exactly the
+                    // phase where the shield is up and the schedule behind it
+                    // must not move. The capsule still states tonight's times
+                    // — it's the countdown's caption — but stops opening the
+                    // editor. Settings' Schedule row closes with it.
+                    if store.lockdownSettingsLocked {
                         ScheduleCapsule(
                             bedtime: SleepFormatting.clock(profile.bedtime),
                             wake: SleepFormatting.clock(profile.wakeTime)
                         )
+                    } else {
+                        Button {
+                            Haptics.heavy()
+                            showingScheduleEditor = true
+                        } label: {
+                            ScheduleCapsule(
+                                bedtime: SleepFormatting.clock(profile.bedtime),
+                                wake: SleepFormatting.clock(profile.wakeTime)
+                            )
+                        }
+                        .buttonStyle(ScheduleCapsuleButtonStyle())
                     }
-                    .buttonStyle(ScheduleCapsuleButtonStyle())
                 }
             }
 
@@ -167,7 +180,11 @@ struct HomeView: View {
             // "how was last night" — same question, the part the duration can't
             // say. Absent entirely on a night with no reaches.
             if let night = store.lastNightReaches {
-                ReachMirrorLine(night: night, invitesReason: store.shouldPromptForReason) {
+                ReachMirrorLine(
+                    night: night,
+                    invitesReason: store.shouldPromptForReason,
+                    isInteractive: !store.lockdownSettingsLocked
+                ) {
                     showingReasons = true
                 }
                 .padding(.top, SleepSpacing.sm)

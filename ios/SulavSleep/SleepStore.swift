@@ -1808,6 +1808,14 @@ final class SleepStore {
     /// Replaces the user's reasons and mirrors them to the App Group where the
     /// shield can read them. Trimmed, length-capped, blanks dropped.
     func saveLockReasons(_ reasons: [String]) {
+        // The reasons are the shield's entire argument at 1am, mirrored to the
+        // App Group the moment they're saved — so clearing them mid-night
+        // disarmed tonight's block in the one way that didn't need to touch the
+        // shield at all. They're part of the lock, not a preference about it.
+        guard !lockdownSettingsLocked else {
+            AppLog.store.info("Reasons save ignored — lockdown in force")
+            return
+        }
         guard var profile else { return }
         let cleaned = reasons
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -1877,6 +1885,18 @@ final class SleepStore {
     // MARK: - Profile edits
 
     func saveSchedule(bedtime: Int, wakeTime: Int) {
+        // Held, not applied, has been `rescheduleLockdown`'s rule for a while:
+        // the registered DeviceActivity window can't be re-registered
+        // mid-flight, so tonight's shield keeps its original start and end
+        // whatever this writes. What that left behind was a save which looked
+        // like it worked — Home's countdown, Profile, the widget and the cloud
+        // profile all moved to the new times while the shield ran on the old
+        // ones. The schedule surfaces now close with the rest of the lockdown
+        // settings, and this is the matching model-side refusal.
+        guard !lockdownSettingsLocked else {
+            AppLog.store.info("Schedule save ignored — lockdown in force")
+            return
+        }
         guard var profile else { return }
         guard profile.bedtime != bedtime || profile.wakeTime != wakeTime else { return }
         profile.bedtime = bedtime

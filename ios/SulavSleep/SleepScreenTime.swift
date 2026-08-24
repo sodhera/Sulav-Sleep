@@ -618,6 +618,40 @@ struct BlockedAppsPreview: View {
     }
 }
 
+// MARK: - The closed-for-the-night panel
+
+/// What a lockdown settings screen shows for as long as the lock holds: a lock
+/// glyph, the shared "Locked until morning" line, and one sentence of why.
+///
+/// Three screens use it — Blocked apps, Sleep schedule, and the reasons — so
+/// the shape and the promise ("it opens again once the night ends") can't drift
+/// between them. Each passes its own `explanation`, because *why* a screen is
+/// closed differs even though *when it opens* doesn't.
+///
+/// It replaces the controls rather than disabling them. A greyed-out toggle is
+/// still an invitation to keep trying, and none of these controls has a
+/// legitimate use before morning.
+struct LockdownClosedPanel: View {
+    let explanation: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: SleepSpacing.md) {
+            HStack(spacing: SleepSpacing.md) {
+                GlassRowIcon(icon: "lock.fill")
+                Text(SleepScreenTime.lockedCaption)
+                    .font(SleepFont.title(16))
+                    .foregroundStyle(SleepColor.ink)
+            }
+            Text(explanation)
+                .font(SleepFont.body(14))
+                .foregroundStyle(SleepColor.muted)
+                .lineSpacing(4)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.top, SleepSpacing.huge)
+    }
+}
+
 // MARK: - Blocked apps screen (pushed from Profile)
 
 struct BlockedAppsScreen: View {
@@ -675,24 +709,10 @@ struct BlockedAppsScreen: View {
         }
     }
 
-    /// What the screen says for as long as the lock holds. One line of why,
-    /// one of when — the same "it opens in the morning" answer the Profile
-    /// card and the Settings row give.
     private var lockedPanel: some View {
-        VStack(alignment: .leading, spacing: SleepSpacing.md) {
-            HStack(spacing: SleepSpacing.md) {
-                GlassRowIcon(icon: "lock.fill")
-                Text(SleepScreenTime.lockedCaption)
-                    .font(SleepFont.title(16))
-                    .foregroundStyle(SleepColor.ink)
-            }
-            Text("Your apps are blocked right now, so this screen is closed — changing it mid-night would just be the way out. It opens again once the night ends.")
-                .font(SleepFont.body(14))
-                .foregroundStyle(SleepColor.muted)
-                .lineSpacing(4)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(.top, SleepSpacing.huge)
+        LockdownClosedPanel(
+            explanation: "Your apps are blocked right now, so this screen is closed — changing it mid-night would just be the way out. It opens again once the night ends."
+        )
     }
 
     /// Everything the screen offers when it is open for business. Split out

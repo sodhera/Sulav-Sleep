@@ -66,6 +66,11 @@ capability.
   a change the user made and cannot see. A closed screen with a date on it says
   the same thing in one line and cannot silently evaporate.
 
+  The same gate now covers **Sleep schedule** and **the reasons** as well — the
+  schedule because a held edit that reports success is its own kind of lie, the
+  reasons because clearing them mid-night disarms the shield's argument without
+  touching the shield.
+
   What staging would still buy, if it's ever wanted: **tightening** mid-window
   (adding apps, a later wake) currently waits for the window to close along
   with everything else. That direction is always safe to apply immediately, so

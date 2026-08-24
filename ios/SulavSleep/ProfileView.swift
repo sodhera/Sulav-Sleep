@@ -610,16 +610,30 @@ struct SettingsModal: View {
             Text("Sleep").sectionLabel()
 
             GlassGroup {
-                NavigationLink(value: SettingsDestination.schedule) {
+                // Closed for the night alongside Blocked apps. The schedule
+                // can't shorten a window that is already registered — mid-window
+                // edits are held by `rescheduleLockdown` — but a save that
+                // silently takes effect tomorrow is its own kind of lie, and
+                // the two halves of the lockdown's settings should not answer
+                // a 2am tap differently.
+                if store.lockdownSettingsLocked {
                     GlassRow(
                         icon: "moon.fill",
                         title: "Schedule",
-                        value: "\(SleepFormatting.clock(profile.bedtime)) – \(SleepFormatting.clock(profile.wakeTime))",
-                        showsChevron: true
+                        value: SleepScreenTime.lockedSettingsValue
                     )
+                } else {
+                    NavigationLink(value: SettingsDestination.schedule) {
+                        GlassRow(
+                            icon: "moon.fill",
+                            title: "Schedule",
+                            value: "\(SleepFormatting.clock(profile.bedtime)) – \(SleepFormatting.clock(profile.wakeTime))",
+                            showsChevron: true
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .simultaneousGesture(TapGesture().onEnded { Haptics.heavy() })
                 }
-                .buttonStyle(.plain)
-                .simultaneousGesture(TapGesture().onEnded { Haptics.heavy() })
 
                 GlassRowDivider()
 
@@ -853,9 +867,28 @@ struct ScheduleScreen: View {
         SceneScreen {
             SubpageHeader(
                 title: "Sleep schedule",
-                subtitle: "Your bedtime countdown and lockdown window follow this."
+                subtitle: store.lockdownSettingsLocked
+                    ? "Tonight's window is already running. These times set the next one."
+                    : "Your bedtime countdown and lockdown window follow this."
             )
 
+            if store.lockdownSettingsLocked {
+                // Reached only by being open when the shield came up — Home's
+                // capsule and the Settings row both stop opening it.
+                LockdownClosedPanel(
+                    explanation: "Tonight's window is already running, so the times that set it are closed. They open again once the night ends."
+                )
+            } else {
+                editor
+            }
+        }
+        .onAppear { store.refreshLockdownPhase() }
+    }
+
+    /// The pickers and the save button — everything the screen offers while it
+    /// is open for business.
+    private var editor: some View {
+        Group {
             Picker("Schedule field", selection: $selectedMode) {
                 Text("Bedtime · \(SleepFormatting.clock(draftBedtime))").tag(ScheduleMode.bed)
                 Text("Wake · \(SleepFormatting.clock(draftWakeTime))").tag(ScheduleMode.wake)

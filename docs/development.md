@@ -1682,8 +1682,33 @@ rejected, capped at 10, and unlinkable instantly by either side.
   (`SleepStore.lockdownSettingsLocked`). Deferring *schedule* edits fixed one
   exploit and left two: one toggle of "Block while you sleep", or one emptied
   picker, and the night's shield was gone on the spot. Rather than teach each
-  control to defend itself, the whole Blocked apps surface closes for the
-  duration.
+  control to defend itself, every surface that governs the lock closes for the
+  duration — **Blocked apps** (with Hard mode and the Apps picker inside it),
+  **Sleep schedule**, and **the reasons**.
+
+  Only Blocked apps was an escape hatch. The other two joined it for different
+  reasons, and it's worth keeping them straight:
+
+  - *Schedule* can't move a window that is already registered — that's
+    `rescheduleLockdown`'s deferral, above, and it still is what guarantees
+    enforcement. What the gate fixes is honesty: the save used to look like it
+    worked, with Home's countdown, Profile, the widget and the cloud profile all
+    jumping to the new times while the shield ran on the old ones. It also shuts
+    the one mirror that *did* leak mid-window — `mirrorLockdownPreferences`
+    writes `setWakeMinutes` on every foreground (unlike bedtime, which only
+    `scheduleLockdown` writes), so a mid-lock wake edit reached the shield's
+    "Xh until your alarm" line while the enforced window was unchanged. With the
+    schedule unable to change mid-lock, the mirror can't disagree with it.
+  - *Reasons* are not enforcement at all — they're the sentences the shield
+    quotes back. Clearing them mid-night disarmed the block's whole argument
+    without touching the block, and the self that wants them gone at 1am is
+    exactly the self they were written for. `saveLockReasons` mirrors to the App
+    Group immediately, with no deferral to fall back on, so the gate is the only
+    thing standing there.
+
+  Hard mode needed no separate work — it lives on the Blocked apps screen — but
+  it is the sharpest of the three: hard mode off mid-lock restores the snooze
+  button and cuts the slow door from 180s to 60s.
 
   The gate is `activeSession != nil || lockdownPhase != nil` — a running
   session, or a live shield phase (which is what covers the pre-sleep window,
@@ -1705,22 +1730,32 @@ rejected, capped at 10, and unlinkable instantly by either side.
   app is already open.
 
   Three layers, outside in:
-  1. **Both entry points refuse to push.** Profile's card renders outside its
-     `NavigationLink` (icons kept, chevron and interactive glass dropped), and
-     the Settings row becomes a plain chevron-less `GlassRow`.
-  2. **The screen renders `lockedPanel` instead of `controls`** if it is
-     already open when the shield comes up, and takes down the system picker
-     with it (`onChange(of: lockdownSettingsLocked)`). The controls are removed,
-     not disabled: a greyed-out toggle is still an invitation to keep trying.
-  3. **The store refuses both writes.** `setBlockingEnabled` and
-     `saveAppSelection` return early while the gate is closed, so the rule holds
-     for the model and not just for the views. `saveAppSelection` refuses the
-     save *whole* — a stored selection that disagrees with the tokens the shield
-     is actually holding is a state neither the app nor the shield extensions
-     can explain.
+  1. **Every entry point refuses to push.** Profile's card renders outside its
+     `NavigationLink` (icons kept, chevron and interactive glass dropped); the
+     Settings rows for Blocked apps and Schedule become plain chevron-less
+     `GlassRow`s; Home's schedule capsule renders bare instead of wrapped in its
+     button; and Home's morning mirror (`ReachMirrorLine.isInteractive`) stops
+     opening the reasons — and drops its "Write why you're doing this"
+     invitation with it, since inviting a sentence that can't be saved is worse
+     than staying quiet. Note that Home has its **own** sheets for schedule and
+     reasons, so gating the Settings rows alone would have left both open.
+  2. **Each screen renders `LockdownClosedPanel` instead of its editor** if it
+     is already open when the shield comes up; Blocked apps also takes down the
+     system picker (`onChange(of: lockdownSettingsLocked)`). The controls are
+     removed, not disabled: a greyed-out toggle is still an invitation to keep
+     trying. Each screen calls `refreshLockdownPhase()` in `onAppear`, and each
+     swaps its `SubpageHeader` subtitle for one that says the night is running.
+  3. **The store refuses the writes.** `setBlockingEnabled`, `saveAppSelection`,
+     `saveSchedule` and `saveLockReasons` all return early while the gate is
+     closed, so the rule holds for the model and not just for the views.
+     `saveAppSelection` refuses the save *whole* — a stored selection that
+     disagrees with the tokens the shield is actually holding is a state neither
+     the app nor the shield extensions can explain.
 
-  Copy lives once, in `SleepScreenTime.lockedCaption` /
-  `lockedSettingsValue` ("Locked until morning"), because three surfaces say it.
+  Copy and shape live once — `SleepScreenTime.lockedCaption` /
+  `lockedSettingsValue` ("Locked until morning") and the `LockdownClosedPanel`
+  view — because several surfaces say it. Each screen passes its own
+  `explanation`: *why* a screen is closed differs, *when it opens* doesn't.
   It names when the screen opens again rather than what is forbidden — "until
   morning" is honest in both phases, since the monitor clears the pre-sleep
   shield at wake time whether or not a session was ever started.

@@ -26,27 +26,40 @@ struct ReachMirrorLine: View {
     /// the invitation. This is the honest moment to ask: the feeling is still
     /// available, which is exactly what sign-up can't offer.
     var invitesReason: Bool = false
+    /// False while the lockdown settings are closed: the line still reports
+    /// last night, but it stops being a door into the reasons — and the
+    /// invitation goes with it, since inviting someone to write a sentence
+    /// they can't save is worse than staying quiet.
+    var isInteractive: Bool = true
     var action: () -> Void
 
     var body: some View {
-        Button(action: {
-            Haptics.heavy()
-            action()
-        }) {
-            VStack(spacing: SleepSpacing.xs) {
-                Text(summary)
-                    .font(SleepFont.body(13))
-                    .foregroundStyle(SleepColor.muted)
-                if invitesReason {
-                    Text("Write why you're doing this")
-                        .font(SleepFont.label(13))
-                        .foregroundStyle(SleepColor.amber)
-                }
+        if isInteractive {
+            Button(action: {
+                Haptics.heavy()
+                action()
+            }) {
+                line
             }
-            .frame(maxWidth: .infinity)
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+        } else {
+            line
         }
-        .buttonStyle(.plain)
+    }
+
+    private var line: some View {
+        VStack(spacing: SleepSpacing.xs) {
+            Text(summary)
+                .font(SleepFont.body(13))
+                .foregroundStyle(SleepColor.muted)
+            if invitesReason && isInteractive {
+                Text("Write why you're doing this")
+                    .font(SleepFont.label(13))
+                    .foregroundStyle(SleepColor.amber)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .contentShape(Rectangle())
     }
 
     /// "Reached 6 times · 12:40 – 1:10". The span is the insight — the count
@@ -102,9 +115,35 @@ struct ReasonsScreen: View {
         SceneScreen {
             SubpageHeader(
                 title: "Why you're doing this",
-                subtitle: "Shown on the lock screen when you reach for a blocked app. Your words, not ours."
+                subtitle: store.lockdownSettingsLocked
+                    ? "Tonight's block is quoting these back at you. They can change in the morning."
+                    : "Shown on the lock screen when you reach for a blocked app. Your words, not ours."
             )
 
+            if store.lockdownSettingsLocked {
+                // These sentences are part of the lock, not a preference about
+                // it — the shield's whole argument at 1am is the user's own
+                // words, and the self who wants to delete them is exactly the
+                // self they were written for.
+                LockdownClosedPanel(
+                    explanation: "The block is quoting these back at you tonight, so they're closed while it runs. They open again once the night ends."
+                )
+            } else {
+                editor
+            }
+        }
+        .onAppear {
+            store.refreshLockdownPhase()
+            let existing = store.lockReasons
+            drafts = (0..<SleepLockdownSelection.reasonLimit).map {
+                $0 < existing.count ? existing[$0] : ""
+            }
+        }
+    }
+
+    /// The three fields and the save button.
+    private var editor: some View {
+        Group {
             GlassGroup {
                 ForEach(0..<SleepLockdownSelection.reasonLimit, id: \.self) { index in
                     if index > 0 { GlassRowDivider() }
@@ -124,12 +163,6 @@ struct ReasonsScreen: View {
                 dismiss()
             }
             .padding(.top, SleepSpacing.huge)
-        }
-        .onAppear {
-            let existing = store.lockReasons
-            drafts = (0..<SleepLockdownSelection.reasonLimit).map {
-                $0 < existing.count ? existing[$0] : ""
-            }
         }
     }
 
