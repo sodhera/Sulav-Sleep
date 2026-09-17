@@ -320,6 +320,30 @@ Deno.serve(async (req) => {
     return json({ skipped: "no attributable user" }, 200);
   }
 
+  // Server-confirmed payment ledger. RevenueCat retries deliveries, so its
+  // event id is the primary key. Client-side trial/purchase taps remain
+  // separate from this source of truth for collected money.
+  const eventID = String(event.id ?? "");
+  if (eventID && eventID.length <= 128) {
+    const { error: ledgerError } = await admin.from("subscription_events").upsert({
+      id: eventID,
+      user_id: uid,
+      event_type: String(event.type ?? "").slice(0, 40),
+      period_type: String(event.period_type ?? "").slice(0, 40) || null,
+      product_id: String(event.product_id ?? "").slice(0, 128) || null,
+      price: typeof event.price_in_purchased_currency === "number"
+        ? event.price_in_purchased_currency : null,
+      currency: /^[A-Z]{3}$/.test(String(event.currency ?? ""))
+        ? String(event.currency) : null,
+      occurred_at: typeof event.event_timestamp_ms === "number"
+        ? new Date(event.event_timestamp_ms).toISOString() : new Date().toISOString(),
+    }, { onConflict: "id" });
+    if (ledgerError) {
+      console.error("subscription event ledger failed:", ledgerError.message);
+      return json({ error: "Event ledger unavailable" }, 500);
+    }
+  }
+
   const type = String(event.type ?? "");
   const periodType = String(event.period_type ?? "").toUpperCase();
   const isPaid = periodType === "NORMAL" &&
