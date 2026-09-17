@@ -2087,3 +2087,9 @@ stage counts by app version and joins confirmed paid events from the webhook.
 The numerator is opted-in installs, not App Store downloads. A single install
 may have multiple accounts; investigate those cases before using the query for
 financial reporting. The second query can inspect one opted-in screen/tap path.
+
+`PrivacyInfo.xcprivacy` declares the random install identifier, linked product
+interaction events after sign-in, and the corresponding analytics purpose. The
+published privacy policy and App Store Connect privacy answers must be updated
+and reviewed before release; the manifest alone does not change those external
+records.

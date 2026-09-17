@@ -15,9 +15,11 @@ create table if not exists public.product_events (
     'app_open', 'welcome_viewed', 'get_started_tapped', 'sign_in_tapped',
     'onboarding_step_viewed', 'onboarding_option_tapped', 'onboarding_next_tapped',
     'onboarding_back_tapped', 'onboarding_finished', 'auth_started',
-    'auth_succeeded', 'auth_failed', 'auth_cancelled', 'paywall_viewed', 'plans_loaded',
+    'auth_succeeded', 'auth_failed', 'auth_cancelled', 'auth_email_opened',
+    'auth_back_tapped', 'paywall_viewed', 'plans_loaded',
     'plans_failed', 'plan_selected', 'purchase_tapped', 'purchase_cancelled',
     'purchase_failed', 'entitlement_granted', 'paywall_closed',
+    'paywall_restore_tapped', 'paywall_referral_opened',
     'screen_time_primer_viewed', 'screen_time_permission_result',
     'app_picker_opened', 'app_picker_closed', 'apps_configured',
     'sleep_started', 'sleep_completed'

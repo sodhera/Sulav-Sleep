@@ -319,6 +319,7 @@ struct PaywallView: View {
 
             HStack(spacing: SleepSpacing.sm) {
                 footerButton(isRestoring ? "Restoring…" : "Restore purchases") {
+                    SleepAnalytics.record("paywall_restore_tapped", screen: "paywall", control: "restore")
                     Task { await restore() }
                 }
                 .disabled(isRestoring || isPurchasing)
@@ -341,6 +342,7 @@ struct PaywallView: View {
     private var referralDoor: some View {
         Button {
             Haptics.heavy()
+            SleepAnalytics.record("paywall_referral_opened", screen: "paywall", control: "referral")
             showsRedeemSheet = true
         } label: {
             Text("Have a referral code?")

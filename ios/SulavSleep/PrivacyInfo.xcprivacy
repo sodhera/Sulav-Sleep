@@ -13,54 +13,65 @@
 			</array>
 		</dict>
 	</array>
-	<!-- Everything below exists because of the TikTok Business SDK
-	     (SleepTikTok.swift). Before it, this array was empty and honestly so:
-	     sleep data is local-first and the account lives in the user's own
-	     Supabase row. Ad measurement is the first thing this app sends
-	     anywhere for a reason that isn't running the app for the user, so it
-	     gets declared. Keep this file, the App Store Connect privacy answers,
-	     and the published privacy policy saying the same thing — a reviewer
-	     compares them, and so does anyone who reads all three. -->
+	<!-- TikTok attribution and optional first-party product analytics. The
+	     analytics event row stores a random install ID and, after sign-in,
+	     the authenticated user ID. Keep App Store privacy answers and the
+	     published policy consistent before release. -->
 	<key>NSPrivacyCollectedDataTypes</key>
 	<array>
 		<dict>
-			<!-- The SDK's payload carries IDFV and its own anonymous id
-			     (never IDFA: no ATT prompt means the request omits it). -->
+			<!-- TikTok sends IDFV; first-party analytics uses a random install ID. -->
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeDeviceID</string>
 			<key>NSPrivacyCollectedDataTypeLinked</key>
-			<false/>
+			<true/>
 			<key>NSPrivacyCollectedDataTypeTracking</key>
 			<false/>
 			<key>NSPrivacyCollectedDataTypePurposes</key>
 			<array>
 				<string>NSPrivacyCollectedDataTypePurposeDeveloperAdvertising</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
 			</array>
 		</dict>
 		<dict>
-			<!-- Registration and StartTrial. -->
+			<!-- Named screen/control events, registration and StartTrial. -->
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeProductInteraction</string>
 			<key>NSPrivacyCollectedDataTypeLinked</key>
-			<false/>
+			<true/>
 			<key>NSPrivacyCollectedDataTypeTracking</key>
 			<false/>
 			<key>NSPrivacyCollectedDataTypePurposes</key>
 			<array>
 				<string>NSPrivacyCollectedDataTypePurposeDeveloperAdvertising</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
 			</array>
 		</dict>
 		<dict>
-			<!-- Subscribe, which carries the plan's price and currency. -->
+			<!-- Confirmed paid Subscribe events carry price and currency. -->
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypePurchaseHistory</string>
 			<key>NSPrivacyCollectedDataTypeLinked</key>
-			<false/>
+			<true/>
 			<key>NSPrivacyCollectedDataTypeTracking</key>
 			<false/>
 			<key>NSPrivacyCollectedDataTypePurposes</key>
 			<array>
 				<string>NSPrivacyCollectedDataTypePurposeDeveloperAdvertising</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+		<dict>
+			<!-- The first-party event row is linked to auth.uid after sign-in. -->
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeUserID</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
 			</array>
 		</dict>
 	</array>

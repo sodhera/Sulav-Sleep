@@ -1173,10 +1173,11 @@ final class SleepStore {
                 SleepAnalytics.record("auth_cancelled", screen: intent == .signUp ? "sign_up" : "sign_in")
                 return
             }
-            SleepAnalytics.record("auth_failed", screen: intent == .signUp ? "sign_up" : "sign_in")
+            SleepAnalytics.record("auth_failed", screen: intent == .signUp ? "sign_up" : "sign_in", control: provider)
             authErrorMessage = error.message
             authMessageIsNotice = error.isNotice
         } catch {
+            SleepAnalytics.record("auth_failed", screen: intent == .signUp ? "sign_up" : "sign_in", control: provider)
             authErrorMessage = AuthError.unknown(error.localizedDescription).message
         }
     }

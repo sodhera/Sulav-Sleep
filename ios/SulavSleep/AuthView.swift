@@ -227,6 +227,7 @@ struct AuthMethodsView: View {
             } action: {
                 Haptics.heavy()
                 store.authErrorMessage = nil
+                SleepAnalytics.record("auth_email_opened", screen: intent == .signUp ? "sign_up" : "sign_in", control: "email")
                 withAnimation(.easeInOut(duration: 0.22)) { showEmailForm = true }
             }
             .disabled(store.isAuthenticating)
@@ -284,6 +285,7 @@ struct AuthMethodsView: View {
 
             Button("Back") {
                 Haptics.heavy()
+                SleepAnalytics.record("auth_back_tapped", screen: "email_form", control: "back")
                 closeEmailForm()
             }
             .font(SleepFont.body(15))
