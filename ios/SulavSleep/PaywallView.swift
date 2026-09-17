@@ -95,7 +95,10 @@ struct PaywallView: View {
         // keeps the corner opposite the back chevron of onboarding, which
         // this screen follows.
         .overlay(alignment: .topTrailing) { closeButton }
-        .task { await loadPlans() }
+        .task {
+            SleepAnalytics.record("paywall_viewed", screen: "paywall")
+            await loadPlans()
+        }
     }
 
     /// The way out. Quiet on purpose — smaller and dimmer than the app's
@@ -105,6 +108,7 @@ struct PaywallView: View {
     /// as a trap to the user long before it reads as a conversion tactic.
     private var closeButton: some View {
         GlassIconButton(systemImage: "xmark", size: 40, iconSize: 15, tint: SleepColor.muted) {
+            SleepAnalytics.record("paywall_closed", screen: "paywall", control: "close")
             onClose()
         }
         .padding(.trailing, SleepSpacing.lg)
@@ -176,6 +180,7 @@ struct PaywallView: View {
                     ) {
                         Haptics.heavy()
                         selectedPlanID = plan.id
+                        SleepAnalytics.record("plan_selected", screen: "paywall", control: plan.id)
                     }
                 }
             }
@@ -384,6 +389,7 @@ struct PaywallView: View {
         let fetched = await store.fetchPlans()
         plans = fetched
         loadFailed = fetched.isEmpty
+        SleepAnalytics.record(fetched.isEmpty ? "plans_failed" : "plans_loaded", screen: "paywall")
         // Annual (with its trial) is the default choice; keep any existing
         // selection across a retry.
         if selectedPlan == nil {
@@ -394,10 +400,14 @@ struct PaywallView: View {
     private func purchase() async {
         guard let plan = selectedPlan, !isPurchasing else { return }
         isPurchasing = true
+        SleepAnalytics.record("purchase_tapped", screen: "paywall", control: plan.id)
         message = nil
         defer { isPurchasing = false }
         do {
-            guard let entitled = try await store.purchase(plan: plan) else { return } // cancelled
+            guard let entitled = try await store.purchase(plan: plan) else {
+                SleepAnalytics.record("purchase_cancelled", screen: "paywall")
+                return
+            }
             if entitled {
                 Haptics.success()
                 // The first-run route disappears on its own as `needsPaywall`
@@ -411,6 +421,7 @@ struct PaywallView: View {
                 messageIsNotice = true
             }
         } catch {
+            SleepAnalytics.record("purchase_failed", screen: "paywall")
             message = error.localizedDescription
             messageIsNotice = false
         }

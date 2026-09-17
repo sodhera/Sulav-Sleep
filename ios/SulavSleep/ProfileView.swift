@@ -359,6 +359,7 @@ struct SettingsModal: View {
     @State private var deleteFailedMessage: String?
     @State private var isRenaming = false
     @State private var draftName = ""
+    @State private var analyticsEnabled = SleepAnalytics.isEnabled
 
     var body: some View {
         NavigationStack {
@@ -370,6 +371,7 @@ struct SettingsModal: View {
                 referralSection
                 configSection
                 feedbackSection
+                analyticsSection
                 accountSection
 
                 Text("Pixel art by CraftPix.net · OGA-BY 3.0")
@@ -738,6 +740,29 @@ struct SettingsModal: View {
                     .buttonStyle(.plain)
                 }
             }
+        }
+        .padding(.top, SleepSpacing.xxl)
+    }
+
+    private var analyticsSection: some View {
+        VStack(alignment: .leading, spacing: SleepSpacing.md) {
+            Text("Privacy").sectionLabel()
+            GlassGroup {
+                Toggle(isOn: $analyticsEnabled) {
+                    Text("Anonymous usage analytics")
+                        .font(SleepFont.body(16))
+                        .foregroundStyle(SleepColor.ink)
+                }
+                .tint(SleepColor.amber)
+                .padding(.vertical, SleepSpacing.md)
+                .frame(minHeight: 52)
+                .onChange(of: analyticsEnabled) { _, enabled in
+                    SleepAnalytics.setEnabled(enabled)
+                }
+            }
+            Text("Records screens and taps, never your answers or sleep data.")
+                .font(SleepFont.body(13))
+                .foregroundStyle(SleepColor.dim)
         }
         .padding(.top, SleepSpacing.xxl)
     }

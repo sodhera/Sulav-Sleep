@@ -51,6 +51,23 @@ struct SleepBackground: View {
 /// supplies the dark stage the ink system was designed for, per phase. It is full-bleed with
 /// no edges or corners, so it reads as atmospheric haze rather than a card, and
 /// never intercepts touches. Layer it directly above `SleepBackground`.
+/// A richer dusk tint reserved for setup. The city stays recognizable while
+/// foreground copy rests on a dark, stable stage. Sleep mode remains black.
+struct OnboardingReadabilityScrim: View {
+    var body: some View {
+        LinearGradient(
+            stops: [
+                .init(color: Color(hex: 0x102B47).opacity(0.42), location: 0),
+                .init(color: SleepColor.background.opacity(0.48), location: 0.38),
+                .init(color: SleepColor.background.opacity(0.73), location: 1)
+            ],
+            startPoint: .top, endPoint: .bottom
+        )
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+    }
+}
+
 struct SceneReadabilityScrim: View {
     var body: some View {
         // The veil is phase-aware: the whole ink system (grey muted text,

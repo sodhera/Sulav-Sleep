@@ -18,6 +18,7 @@
 		7C0000000000000000000013 /* SleepSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C0000000000000000000012 /* SleepSubscription.swift */; };
 		7C0000000000000000000015 /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C0000000000000000000014 /* PaywallView.swift */; };
 		7D0000000000000000000015 /* SleepTikTok.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D0000000000000000000014 /* SleepTikTok.swift */; };
+		A10000000000000000000015 /* SleepAnalytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000014 /* SleepAnalytics.swift */; };
 		1E5168B98C242B90B04B7D9C /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE73361F00ABDB639ED1D41A /* AppDelegate.swift */; };
 		2C9E3A52E958468A363D1635 /* AuthModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C52EBB56370FEA8572A95B0A /* AuthModels.swift */; };
 		30ABD308DAB8167D795A2D9D /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0E16E05E315F1EE37C03F9C /* ProfileView.swift */; };
@@ -134,6 +135,7 @@
 		7C0000000000000000000012 /* SleepSubscription.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepSubscription.swift; path = SulavSleep/SleepSubscription.swift; sourceTree = "<group>"; };
 		7C0000000000000000000014 /* PaywallView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PaywallView.swift; path = SulavSleep/PaywallView.swift; sourceTree = "<group>"; };
 		7D0000000000000000000014 /* SleepTikTok.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepTikTok.swift; path = SulavSleep/SleepTikTok.swift; sourceTree = "<group>"; };
+		A10000000000000000000014 /* SleepAnalytics.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepAnalytics.swift; path = SulavSleep/SleepAnalytics.swift; sourceTree = "<group>"; };
 		314F2F155CF97AAF34DA0A4C /* HomeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeView.swift; path = SulavSleep/HomeView.swift; sourceTree = "<group>"; };
 		316EF63C74A39E0CE6D1D1BE /* SleepFormatting.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepFormatting.swift; path = SulavSleep/SleepFormatting.swift; sourceTree = "<group>"; };
 		512730D266670DD636BD803A /* LiquidGlass.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LiquidGlass.swift; path = SulavSleep/LiquidGlass.swift; sourceTree = "<group>"; };
@@ -260,6 +262,7 @@
 				7C0000000000000000000012 /* SleepSubscription.swift */,
 				7C0000000000000000000014 /* PaywallView.swift */,
 				7D0000000000000000000014 /* SleepTikTok.swift */,
+				A10000000000000000000014 /* SleepAnalytics.swift */,
 				F69F492AFB4609915E10F59C /* SleepTheme.swift */,
 				F5DB00420EA2535786E040A3 /* Secrets.xcconfig */,
 				907CE4E59D34D87F2C5A0321 /* AuthView.swift */,
@@ -621,6 +624,7 @@
 				7C0000000000000000000013 /* SleepSubscription.swift in Sources */,
 				7C0000000000000000000015 /* PaywallView.swift in Sources */,
 				7D0000000000000000000015 /* SleepTikTok.swift in Sources */,
+				A10000000000000000000015 /* SleepAnalytics.swift in Sources */,
 				9741BE20E4028E51160BDC75 /* SleepTheme.swift in Sources */,
 				60E68C3ACCC4786FCD348BFF /* AuthView.swift in Sources */,
 				2C9E3A52E958468A363D1635 /* AuthModels.swift in Sources */,

@@ -167,7 +167,7 @@ struct OnboardingAnswers {
 /// question exists both to tailor future features and because answering a few
 /// personal questions before the account step measurably improves sign-up
 /// completion.
-enum SleepStruggle: String, CaseIterable, Identifiable {
+enum SleepStruggle: String, CaseIterable, Identifiable, Codable {
     case phoneInBed
     case fallingAsleep
     case wakingAtNight
@@ -243,7 +243,7 @@ enum TimeSinkApp: String, CaseIterable, Identifiable {
 
 /// The onboarding outcomes. The user chooses the one that matters most and its
 /// raw value travels through the existing Supabase `goal` text column.
-enum SleepGoal: String, CaseIterable, Identifiable {
+enum SleepGoal: String, CaseIterable, Identifiable, Codable {
     case fallAsleepEarlier
     case wakeUpRested
     case lessPhoneAtNight
@@ -273,7 +273,7 @@ enum SleepGoal: String, CaseIterable, Identifiable {
 /// The onboarding "how long does your phone keep you up?" options. The point
 /// of the question is the *number*: `weeklyMinutes` is what the plan summary
 /// shows as time to win back, which is the app's whole pitch made personal.
-enum LateNightPhoneTime: String, CaseIterable, Identifiable {
+enum LateNightPhoneTime: String, CaseIterable, Identifiable, Codable {
     case quarterHour
     case halfHour
     case hour
@@ -315,7 +315,7 @@ enum LateNightPhoneTime: String, CaseIterable, Identifiable {
 /// The onboarding "how do you usually wake up?" options. Single-select.
 /// Stored for personalization, but the question earns its step by making the
 /// user *say* the mornings are rough right before the plan reveal.
-enum WakeFeeling: String, CaseIterable, Identifiable {
+enum WakeFeeling: String, CaseIterable, Identifiable, Codable {
     case groggy
     case tired
     case okay

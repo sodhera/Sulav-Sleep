@@ -488,15 +488,15 @@ target can inject fakes without new hooks.
   `Profile.healthPromptDismissed`).
 - `OnboardingView.swift`: `OnboardingGateView`, the whole pre-app gate. A
   welcome screen offers two independent paths — "Get started" runs the sign-up
-  flow (`OnboardingQuestionsView`: name, goal, sleep struggles, time-sink
-  apps, late-night phone time, wake feeling, bedtime, wake with a live
+  flow (`OnboardingQuestionsView`: blocking preview, name, goal, sleep
+  struggles, late-night phone time, wake feeling, bedtime, wake with a live
   sleep-window readout, the plan reveal, and — as the final step — the account
   creation, embedding `AuthMethodsView`); "I already have an account" goes
   straight to a standalone `AuthView` (`.signIn`), followed by the same
   questions as a quick setup when the device has no profile. The two paths are
   never linked. Apple Health is not part of onboarding — it's offered later on
   Profile (see `HealthConnectCard`). Goal, phone time, and feeling are required
-  single-selects; struggles and app choices allow zero. The selected
+  single-selects; struggles allow zero. The selected
   `SleepGoal.rawValue` travels through the existing `goal` string, so choosing
   another goal replaces the previous answer without a local or Supabase schema
   change.
@@ -509,7 +509,7 @@ target can inject fakes without new hooks.
   centered, and the value stays on one line with a `0.85` minimum scale plus
   tightening for longer goal copy. It deliberately has no detail field. Weekly
   durations use compact copy such as `1h 45min per week`. The reveal echoes the
-  single goal but does not repeat the exact clocks, app names, or explanatory
+  single goal but does not repeat the exact clocks or explanatory
   copy from prior steps. Its "I'm ready" CTA advances to the account step (or
   commits directly on the quick-setup path, where the plan step is the final
   one). All answers travel
@@ -597,7 +597,7 @@ target can inject fakes without new hooks.
 ## Product mechanics
 
 - First launch shows the welcome screen with two independent paths. Sign-up:
-  name, goal, sleep struggles, time-sink apps, late-night phone time, wake
+  blocking preview, name, goal, sleep struggles, late-night phone time, wake
   feeling, bedtime, wake, the plan reveal, then account creation as the final
   step of the same flow (progress bar + back throughout) — the questions come
   first deliberately, since users who have invested in a few answers complete
@@ -607,13 +607,10 @@ target can inject fakes without new hooks.
   Sign-in: a standalone screen, then the same questions as a quick setup if
   the device has no profile (see "Authentication"). The two paths do not
   cross-link; the choice is made on the welcome screen.
-- **The time-sink question** ("Which apps keep you up?") collects app *names*
-  (`TimeSinkApp` raw values on `Profile.timeSinkApps`), deliberately not a
-  `FamilyActivitySelection` — the system picker needs Screen Time
-  authorization, and a permission sheet mid-sign-up is friction (the same rule
-  that keeps Apple Health out of onboarding). The answer personalizes the
-  paywall's lock line; the real lockdown selection is still made on the
-  Blocked apps screen.
+- **Real app selection** is only in Apple's `FamilyActivityPicker`, reached
+  from the Screen Time primer after subscription or from Blocked apps in
+  Settings. The older name-only question is retired; historical
+  `Profile.timeSinkApps` values remain decodable and are not erased by setup.
 - **SleepBlock is a subscription app.** After onboarding, the paywall (see
   "Subscription (RevenueCat)") closes the questionnaire. Its ✕ leads into the
   app; starting a night is what stays locked.
@@ -2022,3 +2019,71 @@ launch-screen change doesn't show up, verify on a freshly booted simulator (or
 erase the simulator); real devices regenerate the snapshot on install. The
 bundle can be sanity-checked directly: `SplashScreen.storyboardc` should be in
 the app, and `assetutil --info <app>/Assets.car` should list `SplashSloth`.
+
+## Onboarding conversion and first-party analytics (September 2026)
+
+`OnboardingQuestionsView` saves a Codable draft under
+`sulav.onboardingDraft.v1` after each answer or step change. The draft contains
+only setup inputs and is cleared on successful onboarding. DEBUG review routes
+ignore it. The first question is an interactive `BlockingPreviewStep`; it
+shows generic art and explicitly labels itself a preview. The old list of
+app names is omitted because it never configured blocking. The preview never
+grants Screen Time authorization or silently creates a FamilyActivitySelection. The
+real app picker remains in `ScreenTimePrimerView` and `BlockedAppsScreen`.
+
+`SleepAnalytics` has explicit consent, off by default, on Welcome and in
+Settings. Turning it off clears queued events. It accepts only event name,
+named screen/control, install UUID, version, and timestamp. It sends no answer
+values, email, sleep data, or Screen Time tokens. A 500-event UserDefaults
+queue survives force quit/offline sessions. Each event has a UUID; duplicate
+server inserts are treated as delivered. A failed send keeps the queue for the
+next app open. The server populates `user_id` from the current JWT; clients
+cannot claim another account. For production, review the privacy policy and
+App Store privacy answers before distributing this build.
+
+Deployment order (consequential external actions):
+
+1. Apply migrations `009_product_events.sql`, `010_subscription_events.sql`,
+   then `011_onboarding_remote_variants.sql`. Verify their RLS policies and
+   default `app_config` rows.
+2. Deploy the updated `revenuecat-webhook` function. Its shared-secret auth
+   remains required; the webhook writes an idempotent payment ledger before
+   referral bookkeeping.
+3. Distribute the reviewed iOS build. Old builds have no analytics or variant
+   switching. `app_config` may then select only `concise`/`classic` copy and
+   `twilight`/`classic` scene variants.
+4. Verify an opted-in clean install sends `welcome_viewed`, each step view,
+   paywall view, purchase outcome, app picker outcome, and first sleep. Check
+   RevenueCat test events against `subscription_events`. The funnel must use
+   `period_type = 'NORMAL'` and an initial purchase or renewal for actual
+   payment; a trial start is not revenue.
+
+Basic funnel query (Supabase SQL editor, service-role access):
+
+```sql
+select event_name, count(distinct install_id) as installs
+from public.product_events
+where occurred_at >= now() - interval '7 days'
+group by event_name
+order by installs desc;
+```
+
+For paid conversion, join only confirmed webhook events, for example:
+
+```sql
+select count(distinct user_id) as paying_users
+from public.subscription_events
+where period_type = 'NORMAL'
+  and event_type in ('INITIAL_PURCHASE', 'RENEWAL')
+  and occurred_at >= now() - interval '7 days';
+```
+
+Avoid interpreting these queries as one ordered cohort: segment by install
+date, app version, and elapsed time before comparing steps. Consent is optional,
+so the client funnel describes opted-in users and cannot measure every download.
+
+The cohort query in [`docs/conversion-funnel.sql`](conversion-funnel.sql) shows
+stage counts by app version and joins confirmed paid events from the webhook.
+The numerator is opted-in installs, not App Store downloads. A single install
+may have multiple accounts; investigate those cases before using the query for
+financial reporting. The second query can inspect one opted-in screen/tap path.

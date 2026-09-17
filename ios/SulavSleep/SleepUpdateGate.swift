@@ -309,3 +309,40 @@ struct UpdateNudgeCard: View {
         .liquidGlass(cornerRadius: SleepRadius.lg, tint: SleepColor.glassWarm)
     }
 }
+
+// MARK: - Reviewed onboarding variants
+
+/// Only switches between variants compiled into this release. A server edit
+/// can change copy and tint for installed clients; it cannot ship new UI code.
+private struct OnboardingRemoteConfig: Decodable {
+    let onboardingCopyVariant: String
+    let onboardingSceneVariant: String
+
+    enum CodingKeys: String, CodingKey {
+        case onboardingCopyVariant = "onboarding_copy_variant"
+        case onboardingSceneVariant = "onboarding_scene_variant"
+    }
+}
+
+extension SleepStore {
+    @MainActor
+    func refreshOnboardingVariants() async {
+        guard let client = SulavAuth.sharedClient else { return }
+        do {
+            let rows: [OnboardingRemoteConfig] = try await client
+                .from("app_config")
+                .select("onboarding_copy_variant,onboarding_scene_variant")
+                .eq("platform", value: "ios")
+                .limit(1)
+                .execute()
+                .value
+            guard let config = rows.first else { return }
+            onboardingCopyVariant = config.onboardingCopyVariant == "classic" ? "classic" : "concise"
+            onboardingSceneVariant = config.onboardingSceneVariant == "classic" ? "classic" : "twilight"
+        } catch {
+            // Older deployments have no variant columns. Keep the local
+            // defaults so onboarding remains available offline and pre-migration.
+            AppLog.app.info("Onboarding variants unavailable; local defaults retained")
+        }
+    }
+}

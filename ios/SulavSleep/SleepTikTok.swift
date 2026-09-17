@@ -92,19 +92,18 @@ enum SleepTikTok {
         report(event: .registration)
     }
 
-    /// A subscription was purchased. Sends the trial start and the paid
-    /// conversion as separate events when the plan carries a free trial,
-    /// because they are different moments to bid on: `StartTrial` happens
-    /// now, `Subscribe` carries the money.
-    static func reportPurchase(priceValue: Decimal, currencyCode: String?, trialDays: Int) {
+    /// Report the actual outcome returned by RevenueCat. A free trial is
+    /// not a paid subscription; only paid purchases send Subscribe/value.
+    static func reportPurchase(priceValue: Decimal, currencyCode: String?, isTrial: Bool) {
         let value = NSDecimalNumber(decimal: priceValue).doubleValue
         // TikTok's value-based optimization needs both halves; without a
         // currency the value is meaningless, so send neither.
         let money: [String: Any]? = currencyCode.map { ["value": value, "currency": $0] }
-        if trialDays > 0 {
-            report(event: .startTrial, properties: money)
+        if isTrial {
+            report(event: .startTrial)
+        } else {
+            report(event: .subscribe, properties: money)
         }
-        report(event: .subscribe, properties: money)
     }
 
 #if DEBUG
@@ -120,7 +119,8 @@ enum SleepTikTok {
     static func fireReviewEvents() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
             reportRegistration()
-            reportPurchase(priceValue: 59.99, currencyCode: "USD", trialDays: 7)
+            reportPurchase(priceValue: 59.99, currencyCode: "USD", isTrial: true)
+            reportPurchase(priceValue: 59.99, currencyCode: "USD", isTrial: false)
         }
     }
 #endif

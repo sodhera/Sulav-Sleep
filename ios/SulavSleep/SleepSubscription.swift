@@ -70,6 +70,11 @@ struct SleepPlan: Identifiable, Equatable {
     var priceValue: Decimal
 }
 
+struct SubscriptionPurchaseResult {
+    var entitlement: EntitlementState
+    var isTrial: Bool
+}
+
 protocol SubscriptionProviding {
     /// False when no API key is present (dev mode) — the gate stands down.
     var isConfigured: Bool { get }
@@ -96,7 +101,7 @@ protocol SubscriptionProviding {
     func fetchPlans() async -> [SleepPlan]
     /// Runs the purchase flow. Returns the resolved state, `nil` when the
     /// user cancelled (not an error), or throws with a user-facing message.
-    func purchase(planID: String) async throws -> EntitlementState?
+    func purchase(planID: String) async throws -> SubscriptionPurchaseResult?
     func restore() async throws -> EntitlementState
     /// Present the system-managed subscription sheet (App Store) so the user
     /// can switch plans or cancel — the only sanctioned place to change
@@ -169,7 +174,7 @@ private final class ReviewPaywallSubscriptionService: SubscriptionProviding {
         ]
     }
 
-    func purchase(planID: String) async throws -> EntitlementState? { nil }
+    func purchase(planID: String) async throws -> SubscriptionPurchaseResult? { nil }
     func restore() async throws -> EntitlementState { .notEntitled }
 }
 #endif
@@ -263,8 +268,8 @@ final class RevenueCatSubscriptionService: SubscriptionProviding {
         }
     }
 
-    func purchase(planID: String) async throws -> EntitlementState? {
-        guard isConfigured else { return .entitled }
+    func purchase(planID: String) async throws -> SubscriptionPurchaseResult? {
+        guard isConfigured else { return SubscriptionPurchaseResult(entitlement: .entitled, isTrial: false) }
         guard let package = try? await Purchases.shared.offerings().current?
             .availablePackages.first(where: { $0.identifier == planID })
         else {
@@ -274,7 +279,11 @@ final class RevenueCatSubscriptionService: SubscriptionProviding {
             let result = try await Purchases.shared.purchase(package: package)
             if result.userCancelled { return nil }
             AppLog.paywall.info("Purchase completed (plan=\(planID, privacy: .public))")
-            return Self.state(of: result.customerInfo)
+            let entitlement = result.customerInfo.entitlements[SleepSubscription.entitlementID]
+            return SubscriptionPurchaseResult(
+                entitlement: Self.state(of: result.customerInfo),
+                isTrial: entitlement?.periodType == .trial
+            )
         } catch let error as ErrorCode where error == .purchaseCancelledError {
             return nil
         } catch {

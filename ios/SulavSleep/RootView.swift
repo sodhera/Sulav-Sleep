@@ -258,7 +258,11 @@ struct RootView: View {
                         // user lands, opening on the welcome screen. See
                         // OnboardingGateView.
                         SleepBackground(showsMoon: false)
-                        SceneReadabilityScrim()
+                        if store.onboardingSceneVariant == "classic" {
+                            SceneReadabilityScrim()
+                        } else {
+                            OnboardingReadabilityScrim()
+                        }
                         OnboardingGateView(store: store)
                     case .existingAccount:
                         // Same scene as the flow it interrupts — this is the
@@ -302,6 +306,11 @@ struct RootView: View {
                 ? .hidden
                 : .automatic
         )
+        .onAppear {
+            SleepAnalytics.record("app_open", screen: "root")
+            SleepAnalytics.flush()
+        }
+        .task { await store.refreshOnboardingVariants() }
         .task {
             try? await Task.sleep(for: Self.splashHold)
             splashHoldDone = true

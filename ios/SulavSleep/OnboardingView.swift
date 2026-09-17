@@ -32,8 +32,12 @@ struct OnboardingGateView: View {
             switch route {
             case .welcome:
                 WelcomeStep(
-                    onGetStarted: { setRoute(.questions) },
+                    onGetStarted: {
+                        SleepAnalytics.record("get_started_tapped", screen: "welcome", control: "get_started")
+                        setRoute(.questions)
+                    },
                     onSignIn: {
+                        SleepAnalytics.record("sign_in_tapped", screen: "welcome", control: "sign_in")
                         store.authErrorMessage = nil
                         setRoute(.signIn)
                     }
@@ -59,7 +63,10 @@ struct OnboardingGateView: View {
         // Load the input frameworks while the gate idles (flash-free), so
         // neither the Get-started prewarm nor a first field focus pays the
         // keyboard cold path at interaction time.
-        .onAppear { Keyboard.warmFrameworks() }
+        .onAppear {
+            Keyboard.warmFrameworks()
+            if route == .welcome { SleepAnalytics.record("welcome_viewed", screen: "welcome") }
+        }
         // Sign-in succeeded but there's no profile on this device yet (no
         // cloud copy to restore either): run the quick setup before entering
         // the app. When the sign-in *did* restore a cloud profile, RootView
@@ -201,6 +208,7 @@ struct SlothBrandMark: View {
 // MARK: - Welcome
 
 private struct WelcomeStep: View {
+    @State private var analyticsEnabled = SleepAnalytics.isEnabled
     let onGetStarted: () -> Void
     let onSignIn: () -> Void
 
@@ -229,7 +237,7 @@ private struct WelcomeStep: View {
                     Text("SleepBlock")
                         .font(SleepFont.hero(40))
                         .foregroundStyle(SleepColor.ink)
-                    Text("Block apps and Log your sleep")
+                    Text("Block distractions. Track your sleep.")
                         .font(SleepFont.body(16))
                         .foregroundStyle(SleepColor.dim)
                         .multilineTextAlignment(.center)
@@ -253,6 +261,17 @@ private struct WelcomeStep: View {
                 .font(SleepFont.body(15))
                 .foregroundStyle(SleepColor.dim)
                 .frame(maxWidth: .infinity, minHeight: 44)
+                Button {
+                    analyticsEnabled.toggle()
+                    SleepAnalytics.setEnabled(analyticsEnabled)
+                    if analyticsEnabled { SleepAnalytics.record("welcome_viewed", screen: "welcome") }
+                } label: {
+                    Text(analyticsEnabled ? "Anonymous usage analytics: On" : "Anonymous usage analytics: Off")
+                        .font(SleepFont.body(13))
+                        .foregroundStyle(SleepColor.dim)
+                        .frame(maxWidth: .infinity, minHeight: 40)
+                }
+                .accessibilityHint("Optional. Records setup steps and taps without your answers or sleep data. You can change this in Settings.")
             }
             // Bottom-aligned inside the sign-in provider stack's footprint,
             // per the BrandHeroGeometry contract.
@@ -293,12 +312,12 @@ struct OnboardingQuestionsView: View {
     var onBack: (() -> Void)?
     let onDone: (OnboardingAnswers) -> Void
 
-    @State private var step: Step = .name
+    @State private var step: Step = .preview
+    @State private var draftRestored = false
     @State private var movingForward = true
     @State private var name = ""
     @State private var goal: SleepGoal?
     @State private var struggles: Set<SleepStruggle> = []
-    @State private var timeSinks: Set<TimeSinkApp> = []
     @State private var phoneTime: LateNightPhoneTime?
     @State private var feeling: WakeFeeling?
     @State private var bedtime = 22 * 60 + 30
@@ -341,12 +360,25 @@ struct OnboardingQuestionsView: View {
 
     /// The investment arc: who you are → what you want → what's in the way →
     /// how bad it's gotten → your schedule → the plan built from all of it.
-    private enum Step {
-        case name, goal, struggles, timeSinks, phoneTime, feeling, bedtime, wake, plan, account
+    private enum Step: String, Codable {
+        case preview, name, goal, struggles, phoneTime, feeling, bedtime, wake, plan, account
     }
 
+    private struct Draft: Codable {
+        var step: Step
+        var name: String
+        var goal: SleepGoal?
+        var struggles: Set<SleepStruggle>
+        var phoneTime: LateNightPhoneTime?
+        var feeling: WakeFeeling?
+        var bedtime: Int
+        var wakeTime: Int
+    }
+
+    private static let draftKey = "sulav.onboardingDraft.v1"
+
     private var steps: [Step] {
-        var result: [Step] = [.name, .goal, .struggles, .timeSinks, .phoneTime, .feeling, .bedtime, .wake, .plan]
+        var result: [Step] = [.preview, .name, .goal, .struggles, .phoneTime, .feeling, .bedtime, .wake, .plan]
         if includesAccount { result.append(.account) }
         return result
     }
@@ -399,6 +431,35 @@ struct OnboardingQuestionsView: View {
         // that account already has — `RootView` has already taken the screen
         // with `ExistingAccountWelcomeView` by this point, which is where that
         // gets explained; all that's left here is to not call `finish()`.
+        .onAppear {
+            restoreDraft()
+            SleepAnalytics.record("onboarding_step_viewed", screen: step.rawValue)
+        }
+        .onChange(of: step) { _, next in
+            SleepAnalytics.record("onboarding_step_viewed", screen: next.rawValue)
+        }
+        .onChange(of: step) { _, _ in saveDraft() }
+        .onChange(of: name) { _, _ in saveDraft() }
+        .onChange(of: goal) { _, next in
+            saveDraft()
+            if let next { SleepAnalytics.record("onboarding_option_tapped", screen: "goal", control: next.rawValue) }
+        }
+        .onChange(of: struggles) { old, next in
+            saveDraft()
+            if draftRestored, let changed = old.symmetricDifference(next).first {
+                SleepAnalytics.record("onboarding_option_tapped", screen: "struggles", control: changed.rawValue)
+            }
+        }
+        .onChange(of: phoneTime) { _, next in
+            saveDraft()
+            if let next { SleepAnalytics.record("onboarding_option_tapped", screen: "phoneTime", control: next.rawValue) }
+        }
+        .onChange(of: feeling) { _, next in
+            saveDraft()
+            if let next { SleepAnalytics.record("onboarding_option_tapped", screen: "feeling", control: next.rawValue) }
+        }
+        .onChange(of: bedtime) { _, _ in saveDraft() }
+        .onChange(of: wakeTime) { _, _ in saveDraft() }
         .onChange(of: store.isAuthenticated) { _, authenticated in
             guard authenticated, step == .account else { return }
             if store.lastSignInWasNewAccount {
@@ -454,14 +515,16 @@ struct OnboardingQuestionsView: View {
     @ViewBuilder
     private var currentStep: some View {
         switch step {
+        case .preview:
+            BlockingPreviewStep()
         case .name:
             QuestionLayout(title: "What should we call you?") {
                 NameField(name: $name, onSubmit: advance)
             }
         case .goal:
             QuestionLayout(
-                title: "What would you like to achieve?",
-                subtitle: "Pick the one that matters most. We'll build your plan around it."
+                title: store.onboardingCopyVariant == "classic" ? "What would you like to achieve?" : "What would make your nights better?",
+                subtitle: store.onboardingCopyVariant == "classic" ? "Pick the one that matters most. We’ll build your plan around it." : nil
             ) {
                 LiquidGlassContainer(spacing: SleepSpacing.md) {
                     VStack(spacing: SleepSpacing.md) {
@@ -504,42 +567,10 @@ struct OnboardingQuestionsView: View {
                     }
                 }
             }
-        case .timeSinks:
-            QuestionLayout(
-                title: "Which apps keep you up?",
-                subtitle: "The ones you're still in when you meant to be asleep. Choose any."
-            ) {
-                // Short app names fit two per row, so this question compacts
-                // the struggle-row grammar into a 2-column grid of the same
-                // glass capsules — same selection ring, same icon warm-up.
-                LiquidGlassContainer(spacing: SleepSpacing.md) {
-                    LazyVGrid(
-                        columns: [
-                            GridItem(.flexible(), spacing: SleepSpacing.md),
-                            GridItem(.flexible(), spacing: SleepSpacing.md)
-                        ],
-                        spacing: SleepSpacing.md
-                    ) {
-                        ForEach(TimeSinkApp.allCases) { app in
-                            TimeSinkChip(
-                                app: app,
-                                isSelected: timeSinks.contains(app)
-                            ) {
-                                Haptics.heavy()
-                                if timeSinks.contains(app) {
-                                    timeSinks.remove(app)
-                                } else {
-                                    timeSinks.insert(app)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
         case .phoneTime:
             QuestionLayout(
                 title: "How long does your phone keep you up?",
-                subtitle: "After you're already in bed."
+                subtitle: nil
             ) {
                 LiquidGlassContainer(spacing: SleepSpacing.md) {
                     VStack(spacing: SleepSpacing.md) {
@@ -653,6 +684,7 @@ struct OnboardingQuestionsView: View {
     // on tap, and this also runs from the name field's return key.
     private func advance() {
         guard isStepValid else { return }
+        SleepAnalytics.record("onboarding_next_tapped", screen: step.rawValue, control: "next")
         let nextIndex = currentIndex + 1
         guard nextIndex < steps.count else { return }
         let next = steps[nextIndex]
@@ -671,6 +703,7 @@ struct OnboardingQuestionsView: View {
 
     // No haptic here: `GlassBackButton` already knocks on tap.
     private func goBack() {
+        SleepAnalytics.record("onboarding_back_tapped", screen: step.rawValue, control: "back")
         let previousIndex = currentIndex - 1
         if previousIndex >= 0 {
             Keyboard.dismiss()
@@ -686,12 +719,13 @@ struct OnboardingQuestionsView: View {
     private func finish() {
         Keyboard.dismiss()
         Haptics.success()
+        UserDefaults.standard.removeObject(forKey: Self.draftKey)
+        SleepAnalytics.record("onboarding_finished", screen: "plan")
         onDone(OnboardingAnswers(
             name: name,
             bedtime: bedtime,
             wakeTime: wakeTime,
             struggles: struggles.map(\.rawValue),
-            timeSinks: timeSinks.map(\.rawValue),
             goal: goal?.rawValue ?? "",
             lateNightPhone: phoneTime?.rawValue ?? "",
             wakeFeeling: feeling?.rawValue ?? ""
@@ -702,6 +736,39 @@ struct OnboardingQuestionsView: View {
         movingForward = forward
         withAnimation(.easeInOut(duration: 0.28)) { step = next }
         if next == .plan && !planBuilt { startPlanBuild() }
+    }
+
+    private func saveDraft() {
+        guard draftRestored else { return }
+        let draft = Draft(step: step, name: name, goal: goal, struggles: struggles,
+                          phoneTime: phoneTime, feeling: feeling,
+                          bedtime: bedtime, wakeTime: wakeTime)
+        if let data = try? JSONEncoder().encode(draft) {
+            UserDefaults.standard.set(data, forKey: Self.draftKey)
+        }
+    }
+
+    private func restoreDraft() {
+        guard !draftRestored else { return }
+#if DEBUG
+        let isPreviewRoute = ProcessInfo.processInfo.arguments.contains { $0.hasPrefix("-review-onboarding-") }
+        if isPreviewRoute { draftRestored = true; return }
+#endif
+        if let data = UserDefaults.standard.data(forKey: Self.draftKey),
+           let draft = try? JSONDecoder().decode(Draft.self, from: data) {
+            name = draft.name
+            goal = draft.goal
+            struggles = draft.struggles
+            phoneTime = draft.phoneTime
+            feeling = draft.feeling
+            bedtime = draft.bedtime
+            wakeTime = draft.wakeTime
+            // A resumed plan should show the completed reveal. The account
+            // screen keeps the answers but still requires authentication.
+            step = steps.contains(draft.step) ? draft.step : .preview
+            if step == .plan { planBuilt = true }
+        }
+        draftRestored = true
     }
 
     /// The "Building your sleep plan…" beat: a short, deliberate pause while
@@ -717,6 +784,122 @@ struct OnboardingQuestionsView: View {
             Haptics.success()
             withAnimation(.easeInOut(duration: 0.45)) { planBuilt = true }
         }
+    }
+}
+
+// A small, honest illustration. The card depicts a generic distraction and
+// the shield SleepBlock shows during a real lockdown; it never pretends the
+// user's apps are already selected or that permission has been granted.
+private struct BlockingPreviewStep: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var blocked = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: SleepSpacing.lg) {
+            Text("See what bedtime can feel like")
+                .font(SleepFont.title(28))
+                .foregroundStyle(SleepColor.ink)
+            Spacer(minLength: SleepSpacing.sm)
+            Button {
+                SleepAnalytics.record("onboarding_option_tapped", screen: "preview", control: blocked ? "replay" : "show_shield")
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.35)) { blocked.toggle() }
+            } label: {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .fill(SleepColor.navy.opacity(0.91))
+                    Circle()
+                        .fill(SleepColor.amber.opacity(blocked ? 0.20 : 0.08))
+                        .frame(width: 210, height: 210)
+                        .blur(radius: 44)
+                    phone
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 265)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .stroke(SleepColor.amber.opacity(blocked ? 0.55 : 0.20), lineWidth: 1)
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(blocked ? "Blocking preview. App paused until morning. Tap to replay." : "Blocking preview. Tap to see the bedtime shield.")
+            Text(blocked ? "Tap to replay · Choose real apps after setup" : "Tap to preview · Choose real apps after setup")
+                .font(SleepFont.body(14))
+                .foregroundStyle(SleepColor.dim)
+                .frame(maxWidth: .infinity)
+            Spacer(minLength: SleepSpacing.sm)
+        }
+        .frame(maxHeight: .infinity, alignment: .top)
+        .task {
+            guard !reduceMotion else { return }
+            try? await Task.sleep(for: .milliseconds(850))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeInOut(duration: 0.4)) { blocked = true }
+        }
+    }
+
+    private var phone: some View {
+        VStack(spacing: SleepSpacing.md) {
+            Capsule().fill(SleepColor.dim.opacity(0.5))
+                .frame(width: 38, height: 4)
+                .padding(.top, 9)
+            ZStack {
+                scrollingContent.opacity(blocked ? 0.12 : 1)
+                if blocked {
+                    VStack(spacing: SleepSpacing.md) {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 30, weight: .medium))
+                            .foregroundStyle(SleepColor.amber)
+                        Text("SleepBlock")
+                            .font(SleepFont.label(15))
+                            .foregroundStyle(SleepColor.ink)
+                        Text("App paused until morning")
+                            .font(SleepFont.body(12))
+                            .foregroundStyle(SleepColor.dim)
+                            .multilineTextAlignment(.center)
+                    }
+                    .transition(.scale(scale: 0.88).combined(with: .opacity))
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .frame(width: 155, height: 238)
+        .background {
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .fill(SleepColor.card)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .stroke(SleepColor.dim.opacity(0.48), lineWidth: 2)
+        }
+        .shadow(color: .black.opacity(0.38), radius: 16, y: 8)
+        .accessibilityHidden(true)
+    }
+
+    private var scrollingContent: some View {
+        VStack(alignment: .leading, spacing: SleepSpacing.md) {
+            HStack(spacing: 6) {
+                Circle().fill(SleepColor.amber).frame(width: 9, height: 9)
+                Text("Late-night feed")
+                    .font(SleepFont.label(11))
+                    .foregroundStyle(SleepColor.ink)
+            }
+            ForEach(0..<2) { index in
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(index == 1 ? SleepColor.amber.opacity(0.22) : SleepColor.dim.opacity(0.16))
+                    .frame(height: index == 1 ? 56 : 45)
+                    .overlay(alignment: .bottomLeading) {
+                        HStack(spacing: 5) {
+                            Image(systemName: "heart")
+                            Image(systemName: "bubble")
+                        }
+                        .font(.system(size: 9))
+                        .foregroundStyle(SleepColor.dim)
+                        .padding(7)
+                    }
+            }
+        }
+        .padding(.horizontal, SleepSpacing.md)
+        .padding(.bottom, SleepSpacing.md)
     }
 }
 
@@ -744,7 +927,7 @@ private struct QuestionLayout<Content: View>: View {
                 if let subtitle {
                     Text(subtitle)
                         .font(SleepFont.body(15))
-                        .foregroundStyle(SleepColor.dim)
+                        .foregroundStyle(SleepColor.ink.opacity(0.88))
                         .lineSpacing(4)
                         .contentTransition(.numericText())
                 }
@@ -909,68 +1092,6 @@ private struct OptionRow: View {
                         .font(.system(size: 20, weight: .light))
                 }
                 .padding(.horizontal, SleepSpacing.xl)
-            }
-            .foregroundStyle(SleepColor.amber)
-            .opacity(isSelected ? 1 : 0)
-            .allowsHitTesting(false)
-        }
-        .animation(.easeInOut(duration: 0.18), value: isSelected)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-    }
-}
-
-/// The time-sink question's compact sibling of `OptionRow`: same glass
-/// capsule, same amber selection ring/icon/checkmark grammar, halved to fit
-/// two app names per row (eight options would overflow the screen as
-/// full-width rows). The tint stays constant for the same reason as
-/// OptionRow's — toggling glass tint rebuilt the effect across all
-/// container siblings and visibly lagged the tap.
-private struct TimeSinkChip: View {
-    let app: TimeSinkApp
-    let isSelected: Bool
-    var action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            // Constant glass content; selection lives in the overlay — same
-            // structure as `OptionRow`, see the comments there.
-            HStack(spacing: SleepSpacing.sm) {
-                Image(systemName: app.systemImage)
-                    .font(.system(size: 15, weight: .regular))
-                    .foregroundStyle(SleepColor.muted)
-                    .frame(width: 20)
-                Text(app.title)
-                    .font(SleepFont.label(15))
-                    .foregroundStyle(SleepColor.ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.85)
-                Spacer(minLength: 0)
-                Image(systemName: "circle")
-                    .font(.system(size: 18, weight: .light))
-                    .foregroundStyle(SleepColor.faint)
-            }
-            .padding(.horizontal, SleepSpacing.lg)
-            .frame(maxWidth: .infinity, minHeight: 54)
-            .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .liquidGlass(
-            cornerRadius: SleepRadius.pill,
-            interactive: true
-        )
-        .overlay {
-            ZStack {
-                Capsule(style: .continuous)
-                    .stroke(SleepColor.amber.opacity(0.45), lineWidth: 1)
-                HStack(spacing: SleepSpacing.sm) {
-                    Image(systemName: app.systemImage)
-                        .font(.system(size: 15, weight: .regular))
-                        .frame(width: 20)
-                    Spacer(minLength: 0)
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 18, weight: .light))
-                }
-                .padding(.horizontal, SleepSpacing.lg)
             }
             .foregroundStyle(SleepColor.amber)
             .opacity(isSelected ? 1 : 0)

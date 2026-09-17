@@ -341,7 +341,10 @@ struct ScreenTimePrimerView: View {
             MockPermissionDialog(
                 isRequesting: isRequesting,
                 onContinue: requestAccess,
-                onNotNow: { store.completeScreenTimePrimer() }
+                onNotNow: {
+                    SleepAnalytics.record("screen_time_permission_result", screen: "screen_time_primer", control: "skipped")
+                    store.completeScreenTimePrimer()
+                }
             )
 
             Spacer()
@@ -351,15 +354,22 @@ struct ScreenTimePrimerView: View {
         .safeAreaPadding(.top)
         .safeAreaPadding(.bottom)
         .familyActivityPicker(isPresented: $showPicker, selection: $selection)
+        .onAppear { SleepAnalytics.record("screen_time_primer_viewed", screen: "screen_time_primer") }
         .onChange(of: selection) { _, newValue in
             if let data = SleepScreenTime.encodeSelection(newValue) {
                 store.saveAppSelection(data)
+                if !newValue.applicationTokens.isEmpty || !newValue.categoryTokens.isEmpty {
+                    SleepAnalytics.record("apps_configured", screen: "screen_time_primer")
+                }
             }
         }
         .onChange(of: showPicker) { _, shown in
             // Picker dismissed — apps chosen or not, the primer's work is
             // done and RootView moves on to Main.
-            if !shown { store.completeScreenTimePrimer() }
+            if !shown {
+                SleepAnalytics.record("app_picker_closed", screen: "screen_time_primer")
+                store.completeScreenTimePrimer()
+            }
         }
     }
 
@@ -369,7 +379,9 @@ struct ScreenTimePrimerView: View {
         Task { @MainActor in
             let granted = await store.requestScreenTimeAccess()
             isRequesting = false
+            SleepAnalytics.record("screen_time_permission_result", screen: "screen_time_primer", control: granted ? "granted" : "denied")
             if granted {
+                SleepAnalytics.record("app_picker_opened", screen: "screen_time_primer")
                 // Straight into choosing what locks, while the intent is hot.
                 showPicker = true
             } else {
@@ -702,6 +714,9 @@ struct BlockedAppsScreen: View {
             guard !store.lockdownSettingsLocked else { return }
             if let data = SleepScreenTime.encodeSelection(newValue) {
                 store.saveAppSelection(data)
+                if !newValue.applicationTokens.isEmpty || !newValue.categoryTokens.isEmpty {
+                    SleepAnalytics.record("apps_configured", screen: "blocked_apps")
+                }
             }
         }
         .onChange(of: store.lockdownSettingsLocked) { _, locked in

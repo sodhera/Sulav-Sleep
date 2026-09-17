@@ -164,6 +164,33 @@ Reasoning: the warm amber reads as indoor lighting against a cold night, which
 is calming rather than clinical. Colored states are always paired with text and
 position (never color alone) so the UI survives a red night-shift tint.
 
+## Setup conversion refresh (September 2026)
+
+Setup now begins with a small, interactive illustration: a generic scrolling
+app turns into the bedtime shield when tapped. It is explicitly marked as a
+preview; no real app is claimed to be blocked before Family Controls is granted
+and the system picker saves its opaque selection. The real picker remains in
+the post-paywall Screen Time primer and in Settings. The old app-name question
+is removed because choosing names could be mistaken for choosing actual apps.
+
+Setup uses the richer `OnboardingReadabilityScrim`: a cool twilight blue tint
+in the upper scene and a dark navy text stage below. Question subtitles use
+high-contrast ink instead of a low-opacity secondary color. The immersive
+sleep screen remains OLED black. The design decision is deliberate: setup must
+look alive and read clearly, while the bedtime instrument stays quiet.
+
+The 1.8-second sloth plan-building beat and the current paywall headline remain.
+The question copy is shorter by default. A reviewed build supports only the
+`concise`/`classic` copy and `twilight`/`classic` scene variants from `app_config`;
+server edits switch among those compiled variants, never load executable UI.
+Questionnaire answers and the current step are saved locally until completion.
+
+Anonymous product analytics are optional and off until the user turns them on.
+The welcome screen explains the choice and Settings allows withdrawal. Events
+use named screens and controls, with no answer text, sleep data, or Family
+Controls tokens. The on-device queue retries interrupted uploads; RevenueCat's
+webhook separately records server-confirmed subscription events.
+
 ## Liquid Glass
 
 Centralized in `LiquidGlass.swift`. Native `glassEffect` on iOS 26+, with a
@@ -894,14 +921,14 @@ line promises setup instead — never reassurance the next screen will
 contradict. The email path keeps its inline red message ("That email already
 has an account…") since it can still fail before any session exists.
 
-The questionnaire is an **investment arc**, not a form: who you are → what
+The questionnaire is an **investment arc**, not a form: a blocking preview → who you are → what
 you want → what's in the way → how bad it's gotten → your schedule → the plan
-built from all of it. Ten steps: name, goal, sleep struggles, time-sink apps,
+built from all of it. Ten steps including the preview: preview, name, goal, sleep struggles,
 late-night phone time, wake feeling, bedtime, wake, **plan reveal**, account.
-Every question either personalizes the plan summary/paywall or deepens the
-user's stake in finishing; none is padding — the Cal AI-style long onboarding
-works because each answer visibly *builds* something, and ten calm editorial
-steps is the ceiling for this app's bedside-instrument voice. Apple Health is
+Each question establishes motivation, a schedule, or a problem the app can
+address. The plan reveal reflects the answers that support a concrete summary.
+The interactive preview shows what blocking looks like before the paywall.
+Ten calm steps is the ceiling for this app's bedside-instrument voice. Apple Health is
 deliberately *not* asked here — a system permission sheet mid-sign-up is
 friction, and the ask lands better in context.
 
@@ -919,8 +946,7 @@ duplicated the wheel's selected value.
 
 Selection grammar splits by meaning. The **goal is a required single-select**:
 this step asks for the one outcome that matters most, and choosing another row
-replaces the previous choice. The struggle and time-sink multi-selects allow
-zero because an empty set is an honest answer. The phone-time and wake-feeling
+replaces the previous choice. The struggle multi-select allows zero because an empty set is an honest answer. The phone-time and wake-feeling
 single-selects also require a choice because the plan speaks to the answer and
 there is no meaningful skipped reading. The chosen goal keeps the existing
 `goal` string schema as one stable raw value.
@@ -930,8 +956,7 @@ there is no meaningful skipped reading. The chosen goal keeps the existing
 > least one choice, and the schedule wheels require a scroll. A deliberate
 > product call (nobody should be able to tap through blank); if it proves
 > out, iOS adopts the same rule and the paragraph above changes.
-All list questions share one full-width capsule row (`OptionRow`; the
-time-sink grid keeps its compact 2-column `TimeSinkChip` sibling).
+All list questions share one full-width capsule row (`OptionRow`).
 
 The **plan reveal** is the questionnaire's closing beat before the account
 step: ~1.8s of "Building your sleep plan…" — the brand sloth and status text
@@ -952,19 +977,11 @@ pause is a first-arrival moment, not a toll. Its CTA is **"I'm ready"** — the
 flow's one micro-commitment, landing right before the account step asks to save
 the plan and the paywall asks to unlock it.
 
-The **time-sink question** ("Which apps keep you up?") is the struggles
-question pointed at the phone itself: eight usual suspects (Instagram,
-TikTok, YouTube, X, Reddit, Snapchat, Streaming, Games) as a 2-column grid of
-the same glass capsules — short app names fit two per row, and eight
-full-width rows would overflow the screen — with the identical selection
-grammar (constant glass tint, amber ring + icon + filled circle when chosen).
-It asks for *names*, never the system `FamilyActivityPicker`: a Screen Time
-permission sheet mid-sign-up is the same friction the Health rule exists to
-avoid. The answers feed the paywall's lock line and later personalization;
-the real lockdown selection still happens on the Blocked apps screen. Instead a warm, dismissable
-glass card on Profile (`HealthConnectCard`) invites the connection where the
-sleep data actually lives; it persists until connected or waved off, and the
-Profile settings section still has the toggle.
+The real app selection happens only in Apple's `FamilyActivityPicker`, after
+the Screen Time primer. The earlier list of familiar app names is retired: a
+selection of names never configured blocking, so the list created a misleading
+sense of completion. Historical `timeSinkApps` profile data remains decodable.
+
 
 Questionnaire chrome: a 3pt amber-gradient progress capsule between a round
 glass back chevron and a hidden twin of it (so the bar stays centered at
@@ -2059,11 +2076,11 @@ carries the full sentence. Home and the large widget make the identical swap.
 
 ## Ad attribution
 
-The app runs TikTok App Promotion campaigns, and the TikTok Business SDK
-(`SleepTikTok.swift`) reports the funnel back so the campaign can bid for
-subscribers instead of tappers: install and launch come free with the SDK, and
-the app adds **registration**, **start trial**, and **subscribe** (the last two
-carrying the plan's real price and currency).
+The app runs TikTok App Promotion campaigns. The SDK reports installs and
+launches; client events report registration and the actual purchase outcome.
+A trial sends StartTrial without pretending its future price has been paid.
+A paid purchase sends Subscribe with the real price and currency. The
+RevenueCat webhook is the source of truth for renewals and first payment.
 
 **The app never asks for tracking permission.** There is no ATT prompt, so
 there is no IDFA, and nothing the SDK sends links a person across other apps or

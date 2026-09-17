@@ -16,6 +16,8 @@ final class SleepStore {
     /// Reach attempts per night, harvested out of the App Group log. See
     /// `harvestReachLog()`.
     var reachNights: [ReachNight] = []
+    var onboardingCopyVariant = "concise"
+    var onboardingSceneVariant = "twilight"
     var selectedTab: AppTab = .home
     /// Whether Home shows the slide-to-sleep confirmation panel. Lives on the
     /// store (not Home-local state) so the widget/shield `sleepblock://sleep`
@@ -629,22 +631,22 @@ final class SleepStore {
     /// entitled afterwards; `nil` when they cancelled. Throws
     /// `SubscriptionError` with a user-facing message on real failures.
     @MainActor
-    /// Takes the whole plan rather than its id because a successful purchase
-    /// is also the app's most valuable ad event, and TikTok needs the price
-    /// and currency to bid on value (`SleepTikTok.reportPurchase`). Nil means
-    /// the user backed out of the App Store sheet — not a purchase, and not
-    /// an event.
+    /// Takes the whole plan for value-based ad reporting. The subscription
+    /// service returns the actual trial/paid status from CustomerInfo; a plan
+    /// advertising a trial does not prove this buyer was eligible. Nil means
+    /// the user cancelled the App Store sheet.
     func purchase(plan: SleepPlan) async throws -> Bool? {
-        guard let state = try await subscription.purchase(planID: plan.id) else { return nil }
-        entitlement = state
-        if state == .entitled {
+        guard let purchase = try await subscription.purchase(planID: plan.id) else { return nil }
+        entitlement = purchase.entitlement
+        if purchase.entitlement == .entitled {
+            SleepAnalytics.record("entitlement_granted", screen: "paywall", control: plan.id)
             SleepTikTok.reportPurchase(
                 priceValue: plan.priceValue,
                 currencyCode: plan.currencyCode,
-                trialDays: plan.trialDays
+                isTrial: purchase.isTrial
             )
         }
-        return state == .entitled
+        return purchase.entitlement == .entitled
     }
 
     @MainActor
@@ -930,7 +932,6 @@ final class SleepStore {
         updated.wakeTime = answers.wakeTime
         updated.onboarded = true
         updated.sleepStruggles = answers.struggles
-        updated.timeSinkApps = answers.timeSinks
         updated.primaryGoal = answers.goal
         updated.lateNightPhone = answers.lateNightPhone
         updated.wakeFeeling = answers.wakeFeeling
@@ -1032,22 +1033,22 @@ final class SleepStore {
 
     @MainActor
     func signInWithApple(idToken: String, nonce: String, intent: AuthIntent) async {
-        await performAuth(intent: intent) { try await self.auth.signInWithApple(idToken: idToken, nonce: nonce) }
+        await performAuth(intent: intent, provider: "apple") { try await self.auth.signInWithApple(idToken: idToken, nonce: nonce) }
     }
 
     @MainActor
     func signInWithGoogle(intent: AuthIntent) async {
-        await performAuth(intent: intent) { try await self.auth.signInWithGoogle() }
+        await performAuth(intent: intent, provider: "google") { try await self.auth.signInWithGoogle() }
     }
 
     @MainActor
     func signUpEmail(email: String, password: String) async {
-        await performAuth(intent: .signUp) { try await self.auth.signUp(email: email, password: password) }
+        await performAuth(intent: .signUp, provider: "email") { try await self.auth.signUp(email: email, password: password) }
     }
 
     @MainActor
     func signInEmail(email: String, password: String) async {
-        await performAuth(intent: .signIn) { try await self.auth.signIn(email: email, password: password) }
+        await performAuth(intent: .signIn, provider: "email") { try await self.auth.signIn(email: email, password: password) }
     }
 
     /// Dismisses the "you already have an account" gate and lets `RootView`
@@ -1066,6 +1067,8 @@ final class SleepStore {
         authErrorMessage = nil
         authMessageIsNotice = false
         showsExistingAccountWelcome = false
+        SleepAnalytics.rotateInstallID()
+        UserDefaults.standard.removeObject(forKey: "sulav.onboardingDraft.v1")
         clearPersistedAccount()
         // The offline grace belongs to the account that earned it, not to the
         // device — otherwise the next person to sign in here inherits it. The
@@ -1132,6 +1135,8 @@ final class SleepStore {
         referrerStats = nil
         referralEndingNudgeDismissed = false
         persistence.reset()
+        SleepAnalytics.reset()
+        UserDefaults.standard.removeObject(forKey: "sulav.onboardingDraft.v1")
         Task { [subscription] in await subscription.logOut() }
         AppLog.store.info("Account deleted (local data wiped)")
     }
@@ -1139,9 +1144,11 @@ final class SleepStore {
     @MainActor
     private func performAuth(
         intent: AuthIntent,
+        provider: String,
         _ work: @escaping () async throws -> AuthResult
     ) async {
         isAuthenticating = true
+        SleepAnalytics.record("auth_started", screen: intent == .signUp ? "sign_up" : "sign_in", control: provider)
         authErrorMessage = nil
         authMessageIsNotice = false
         showsExistingAccountWelcome = false
@@ -1158,10 +1165,15 @@ final class SleepStore {
             // A returning user signing in on a new device is not a
             // registration — only a genuinely new account is.
             if result.isNewAccount { SleepTikTok.reportRegistration() }
+            SleepAnalytics.record("auth_succeeded", screen: intent == .signUp ? "sign_up" : "sign_in", control: result.account.provider.rawValue)
             AppLog.store.info("Signed in (provider=\(result.account.provider.rawValue), new=\(result.isNewAccount))")
         } catch let error as AuthError {
             // Cancellation is a deliberate user action — show nothing.
-            guard error != .cancelled else { return }
+            guard error != .cancelled else {
+                SleepAnalytics.record("auth_cancelled", screen: intent == .signUp ? "sign_up" : "sign_in")
+                return
+            }
+            SleepAnalytics.record("auth_failed", screen: intent == .signUp ? "sign_up" : "sign_in")
             authErrorMessage = error.message
             authMessageIsNotice = error.isNotice
         } catch {
@@ -1191,6 +1203,8 @@ final class SleepStore {
             sessions = []
             importedHealthSessions = []
             activeSession = nil
+            SleepAnalytics.rotateInstallID()
+            UserDefaults.standard.removeObject(forKey: "sulav.onboardingDraft.v1")
             AppLog.store.notice("Different account signed in — previous user's local data cleared")
         }
         if profile == nil, let remoteProfile {
@@ -1326,6 +1340,7 @@ final class SleepStore {
         let start = Date()
         let shouldStartLockdown = willLockDuringSleep
         activeSession = ActiveSleepSession(start: start)
+        Task { @MainActor in SleepAnalytics.record("sleep_started", screen: "sleep") }
         selectedTab = .home
         // The confirmation did its job; without this, Home would reopen on
         // the panel after waking (the flag lives on the store, not the view).
@@ -1368,6 +1383,7 @@ final class SleepStore {
             source: .local
         )
         sessions.append(session)
+        Task { @MainActor in SleepAnalytics.record("sleep_completed", screen: "sleep") }
         self.activeSession = nil
         // The morning card, built before `persist()` so the state the view
         // reads is already settled when RootView swaps to it.

@@ -7,15 +7,15 @@ review the rhythm of recent nights — using **real data only**.
 ## Current product
 
 - A welcome screen offers two independent paths. **Sign up**: a ten-step
-  questionnaire building an investment arc — name, the one goal that matters
-  most, what gets in the way of sleep, which apps keep you up, how long the
+  questionnaire building an investment arc — an interactive blocking preview,
+  name, the one goal that matters most, what gets in the way of sleep, how long the
   phone keeps you up after you're in bed, how you wake up, the bedtime and
   wake time you want (the schedule the app then holds you to) — closing with
   a **plan reveal** ("Building your sleep plan…" resolving into a
   three-part summary: nightly sleep, time to win back per week, and the
   chosen goal, under an "I'm ready" commitment button)
-  and, as the final step, account creation framed as saving that plan. Questions come first because invested users sign up at
-  a higher rate; every question feeds the plan/paywall personalization, and
+  and, as the final step, account creation framed as saving that plan. The
+  questions establish the desired bedtime and motivation, and
   the account step carries the same progress bar and back button as the rest
   of the flow. **Sign in**: a standalone screen (Apple, Google, or manual
   email/password), then the same questions as a quick setup on a device with
@@ -23,10 +23,8 @@ review the rhythm of recent nights — using **real data only**.
   screen.
 - **SleepBlock is a subscription.** Right after the questionnaire commits, the
   paywall (RevenueCat; annual with a free trial, or monthly) appears at the
-  moment of highest intent, when the user has just articulated what breaks
-  their sleep and which apps eat their night — the paywall answers with those
-  exact apps. It is a **soft** paywall: a ✕ closes it and the user gets the
-  whole app to look at. What they cannot do without subscribing is **start a
+  moment of highest intent, after the user sets their target schedule. It is
+  a **soft** paywall: a ✕ closes it and the user gets the whole app to look at. What they cannot do without subscribing is **start a
   night** — the one action the product exists to perform. Everything the app
   shows is free; everything it does is the subscription. (An unconfigured
   build — no RevenueCat key — runs unlocked for development.)
@@ -37,6 +35,9 @@ review the rhythm of recent nights — using **real data only**.
   instead of 7, and their first paid payment gives you a month free (a real
   App Store renewal extension, capped at six earned months a year). The ask
   is a relationship, not a coupon.
+- Setup saves an unfinished questionnaire locally, including the current step.
+  The retired app-name question has been removed. Real app selection occurs
+  in Apple’s system picker after permission.
 - After the paywall, a one-time **Screen Time primer** uses an interactive
   preview of the iOS permission dialog. Its Continue action requests the
   Family Controls authorization directly; Not now skips it, with no duplicate
@@ -118,3 +119,13 @@ The app should feel like a warm apartment window over a quiet city night (see
 Liquid Glass interface. Warm amber indoor light against deep navy; no purple, no
 neon. Low stimulation at night, sparse during active sleep, and legible under a
 red night tint.
+
+## Conversion measurement
+
+With explicit opt-in, the app records named setup screens and taps, authentication
+outcomes, paywall actions, purchase results, Screen Time activation, and first
+sleep use. The client never sends entered answers, selected app tokens, or sleep
+records to the product-events table. RevenueCat webhook events separately mark
+trials, payments, renewals, cancellations, and refunds for funnel analysis.
+Reviewed iOS builds can switch between approved onboarding copy and scene
+variants through `app_config`; entirely new screens still require App Review.
