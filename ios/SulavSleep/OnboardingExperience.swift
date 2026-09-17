@@ -85,12 +85,12 @@ struct NarrativePage: View {
     private var count: Int { lines.reduce(0) { $0 + $1.count } }
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
+            VStack(alignment: .leading, spacing: lines.count > 3 ? 20 : 28) {
                 ForEach(lines.indices, id: \.self) { index in
                     let preceding = lines.prefix(index).reduce(0) { $0 + $1.count }
                     let text = String(lines[index].prefix(max(0, visible - preceding)))
                     Text(text.isEmpty ? " " : text)
-                        .font(SleepFont.title(28))
+                        .font(SleepFont.title(lines.count > 3 ? 22 : 28))
                         .foregroundStyle(index == 0 ? SleepColor.ink : SleepColor.gold)
                         .lineSpacing(5)
                         .frame(maxWidth: .infinity, alignment: .leading)

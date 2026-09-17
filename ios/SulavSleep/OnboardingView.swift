@@ -435,7 +435,7 @@ struct OnboardingQuestionsView: View {
         .onChange(of: name) { _, _ in saveDraft() }
         .onChange(of: goal) { _, next in
             saveDraft()
-            if let next { SleepAnalytics.record("onboarding_option_tapped", screen: "goal", control: "option") }
+            if next != nil { SleepAnalytics.record("onboarding_option_tapped", screen: "goal", control: "option") }
         }
         .onChange(of: struggles) { old, next in
             saveDraft()
@@ -447,7 +447,7 @@ struct OnboardingQuestionsView: View {
         .onChange(of: phoneDialTouched) { _, _ in saveDraft() }
         .onChange(of: feeling) { _, next in
             saveDraft()
-            if let next { SleepAnalytics.record("onboarding_option_tapped", screen: "feeling", control: "option") }
+            if next != nil { SleepAnalytics.record("onboarding_option_tapped", screen: "feeling", control: "option") }
         }
         .onChange(of: bedtime) { _, _ in saveDraft() }
         .onChange(of: wakeTime) { _, _ in saveDraft() }
@@ -933,6 +933,7 @@ struct OptionRow: View {
             .foregroundStyle(SleepColor.amber)
             .opacity(isSelected ? 1 : 0)
             .allowsHitTesting(false)
+            .accessibilityHidden(true)
         }
         .animation(.easeInOut(duration: 0.18), value: isSelected)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
