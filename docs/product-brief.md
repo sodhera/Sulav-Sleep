@@ -6,21 +6,20 @@ review the rhythm of recent nights — using **real data only**.
 
 ## Current product
 
-- A welcome screen offers two independent paths. **Sign up**: a ten-step
-  questionnaire building an investment arc — an interactive blocking preview,
-  name, the one goal that matters most, what gets in the way of sleep, how long the
-  phone keeps you up after you're in bed, how you wake up, the bedtime and
-  wake time you want (the schedule the app then holds you to) — closing with
-  a **plan reveal** ("Building your sleep plan…" resolving into a
-  three-part summary: nightly sleep, time to win back per week, and the
-  chosen goal, under an "I'm ready" commitment button)
-  and, as the final step, account creation framed as saving that plan. The
-  questions establish the desired bedtime and motivation, and
-  the account step carries the same progress bar and back button as the rest
-  of the flow. **Sign in**: a standalone screen (Apple, Google, or manual
-  email/password), then the same questions as a quick setup on a device with
-  no profile. The two paths don't cross-link — you choose on the welcome
-  screen.
+- Welcome offers Get started and independent Sign in paths. The iOS setup is
+  now ten steps: name; a required 0–4+ hour bedtime-phone dial; four optional
+  symptom selections; a personalized attention story ending in a night goal;
+  desired morning; bedtime; wake time; encouragement; a looping "Protect your
+  attention" iPhone demo; and a two-second Hold to commit. Text chapters reveal
+  letter by letter with soft haptics and slide-to-unlock progression. Account
+  creation follows commitment for signed-out users. Already authenticated users
+  finish directly. The former "your plan is ready" summary is removed.
+- Setup always shows a starry midnight city with warm windows. Daily Home
+  lighting remains phase-aware. Time-cost figures use exact dial minutes;
+  lifetime days are explicitly an illustration at that daily rate over 80 years.
+- The demo is a simulator recreation of TikTok opening and a SleepBlock shield,
+  labeled illustrative. It is not evidence of real TikTok blocking. Real
+  permissions and app selection still happen through Apple's Screen Time flow.
 - **SleepBlock is a subscription.** Right after the questionnaire commits, the
   paywall (RevenueCat; annual with a free trial, or monthly) appears at the
   moment of highest intent, after the user sets their target schedule. It is
@@ -126,10 +125,13 @@ red night tint.
 
 ## Conversion measurement
 
-With explicit opt-in, the app records named setup screens and taps, authentication
+Named first-party analytics are always on in this local iOS revision, as requested
+on September 17. The app records named setup screens and taps, authentication
 outcomes, paywall actions, purchase results, Screen Time activation, and first
 sleep use. The client never sends entered answers, selected app tokens, or sleep
 records to the product-events table. RevenueCat webhook events separately mark
 trials, payments, renewals, cancellations, and refunds for funnel analysis.
-Reviewed iOS builds can switch between approved onboarding copy and scene
-variants through `app_config`; entirely new screens still require App Review.
+The new iOS setup has a fixed midnight design; the previous copy/scene variant
+settings do not override it. Before distribution, reconcile the published
+optional-analytics policy and App Store privacy answers. Simulator QA sends no
+product events. No live policy change is included in this implementation.

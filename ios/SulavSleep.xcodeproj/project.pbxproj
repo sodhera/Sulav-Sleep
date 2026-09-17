@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		B017B017B017B017B0170003 /* attention-demo.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = B017B017B017B017B0170004; };
+		B017B017B017B017B0170001 /* OnboardingExperience.swift in Sources */ = {isa = PBXBuildFile; fileRef = B017B017B017B017B0170002; };
 		05AC2F4B7D3F4F3896894861 /* SleepModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 740A33B6E6D4861DF61CFBB1 /* SleepModels.swift */; };
 		09AFEF368C3AA0418E7EE898 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 314F2F155CF97AAF34DA0A4C /* HomeView.swift */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
@@ -124,6 +126,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		B017B017B017B017B0170004 /* attention-demo.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = SulavSleep/Resources/attention-demo.mp4; sourceTree = "<group>"; };
+		B017B017B017B017B0170002 /* OnboardingExperience.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SulavSleep/OnboardingExperience.swift; sourceTree = "<group>"; };
 		116765E93C9E1F418AE0CB6A /* SleepIntents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepIntents.swift; path = SulavSleep/SleepIntents.swift; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* SulavSleep.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SulavSleep.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = SulavSleep/Images.xcassets; sourceTree = "<group>"; };
@@ -235,6 +239,8 @@
 				F100000000000000000000A1 /* Log.swift */,
 				F100000000000000000000B1 /* SleepHealthKit.swift */,
 				9234E0E1693C0FC11F33BD3A /* OnboardingView.swift */,
+				B017B017B017B017B0170002 /* OnboardingExperience.swift */,
+				B017B017B017B017B0170004 /* attention-demo.mp4 */,
 				F0E16E05E315F1EE37C03F9C /* ProfileView.swift */,
 				EBB2CED1004A6A08D5A70F24 /* RootView.swift */,
 				9F4311BA03CAD3F576F79BFC /* SleepBackground.swift */,
@@ -545,6 +551,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
+				B017B017B017B017B0170003 /* attention-demo.mp4 in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
 				83B718F7C4B4F234291D6F95 /* PrivacyInfo.xcprivacy in Resources */,
 			);
@@ -597,6 +604,7 @@
 				09AFEF368C3AA0418E7EE898 /* HomeView.swift in Sources */,
 				198E5870D78A269255C9D9C1 /* LiquidGlass.swift in Sources */,
 				47501ABFFD25AA9B7048E27C /* OnboardingView.swift in Sources */,
+				B017B017B017B017B0170001 /* OnboardingExperience.swift in Sources */,
 				30ABD308DAB8167D795A2D9D /* ProfileView.swift in Sources */,
 				93BACAE13B0502CF9AD5202A /* RootView.swift in Sources */,
 				77C469E0A58F15200C2E9F6E /* SleepBackground.swift in Sources */,

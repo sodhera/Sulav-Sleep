@@ -28,14 +28,14 @@ enum SleepAnalytics {
     private static let installKey = "sulav.analytics.install.v1"
     private static var sending = false
 
-    static var isEnabled: Bool { UserDefaults.standard.bool(forKey: "sulav.analytics.consent.v1") }
-
-    static func setEnabled(_ enabled: Bool) {
-        UserDefaults.standard.set(enabled, forKey: "sulav.analytics.consent.v1")
-        if enabled { flush() } else { UserDefaults.standard.removeObject(forKey: queueKey) }
-    }
+    // Product decision: named first-party usage events are always enabled.
+    // Never add setup answer values or health data to this payload.
+    static var isEnabled: Bool { true }
 
     static func record(_ name: String, screen: String? = nil, control: String? = nil) {
+#if targetEnvironment(simulator)
+        return // Simulator QA must never pollute production funnels.
+#else
         guard isEnabled, SulavAuth.sharedClient != nil else { return }
         let installID: UUID
         if let saved = UserDefaults.standard.string(forKey: installKey), let id = UUID(uuidString: saved) {
@@ -56,6 +56,7 @@ enum SleepAnalytics {
         if pending.count > 500 { pending.removeFirst(pending.count - 500) }
         save(pending)
         flush()
+#endif
     }
 
     static func clearPending() { UserDefaults.standard.removeObject(forKey: queueKey) }
@@ -71,6 +72,9 @@ enum SleepAnalytics {
     }
 
     static func flush() {
+#if targetEnvironment(simulator)
+        return
+#else
         guard isEnabled, !sending, SulavAuth.sharedClient != nil else { return }
         sending = true
         Task {
@@ -93,6 +97,7 @@ enum SleepAnalytics {
                 }
             }
         }
+    #endif
     }
 
     private static func queue() -> [Event] {

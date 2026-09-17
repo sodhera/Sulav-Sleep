@@ -35,10 +35,11 @@ struct SleepBackground: View {
     var showsMoon = true
     /// When false (e.g. an off-screen tab) Core Animation pauses all motion.
     var isActive = true
+    var midnight = false
 
     var body: some View {
         #if canImport(UIKit)
-        PixelNightLayeredView(isActive: isActive)
+        PixelNightLayeredView(isActive: isActive, midnight: midnight)
             .ignoresSafeArea()
         #else
         SleepColor.background.ignoresSafeArea()
@@ -57,9 +58,9 @@ struct OnboardingReadabilityScrim: View {
     var body: some View {
         LinearGradient(
             stops: [
-                .init(color: Color(hex: 0x102B47).opacity(0.42), location: 0),
-                .init(color: SleepColor.background.opacity(0.48), location: 0.38),
-                .init(color: SleepColor.background.opacity(0.73), location: 1)
+                .init(color: Color(hex: 0x071127).opacity(0.35), location: 0),
+                .init(color: SleepColor.background.opacity(0.28), location: 0.38),
+                .init(color: SleepColor.background.opacity(0.16), location: 1)
             ],
             startPoint: .top, endPoint: .bottom
         )
@@ -124,12 +125,14 @@ struct SceneReadabilityScrim: View {
 #if canImport(UIKit)
 private struct PixelNightLayeredView: UIViewRepresentable {
     var isActive: Bool
+    var midnight: Bool
 
     func makeUIView(context: Context) -> PixelNightUIView {
-        PixelNightUIView()
+        PixelNightUIView(midnight: midnight)
     }
 
     func updateUIView(_ uiView: PixelNightUIView, context: Context) {
+        uiView.setMidnight(midnight)
         uiView.setActive(isActive)
     }
 }
@@ -152,22 +155,27 @@ private final class PixelNightUIView: UIView {
     private let scrimLayer = CAGradientLayer()
     private var active = true
     private var phase = CityPhase.current()
+    private var midnight = false
+    private let starsLayer = CALayer()
     private var phaseTimer: Timer?
 
-    override init(frame: CGRect) {
-        super.init(frame: frame)
+    init(midnight: Bool) {
+        self.midnight = midnight
+        self.phase = midnight ? .night : CityPhase.current()
+        super.init(frame: .zero)
         // The scene is purely ambient: it never reacts to touch, so it can't
         // intercept taps meant for the UI above it. Depth still comes from the
         // device-tilt motion effect, not gestures.
         isUserInteractionEnabled = false
         setupCityLayers()
         setupOverlays()
+        layer.addSublayer(starsLayer)
         applyPhase(animated: false)
 
         // The scene checks the clock once a minute and crossfades at the
         // phase boundaries. Tolerance keeps the timer power-friendly.
         let timer = Timer(timeInterval: 60, repeats: true) { [weak self] _ in
-            guard let self, CityPhase.current() != self.phase else { return }
+            guard let self, !self.midnight, CityPhase.current() != self.phase else { return }
             self.phase = CityPhase.current()
             self.applyPhase(animated: true)
         }
@@ -197,7 +205,7 @@ private final class PixelNightUIView: UIView {
             // still guards the text band.
             let scrimAlphas: [CGFloat] = self.phase == .day
                 ? [0.42, 0.06, 0.62]
-                : [0.60, 0.18, 0.78]
+                : (self.midnight ? [0.62, 0.25, 0.08] : [0.60, 0.18, 0.78])
             self.scrimLayer.colors = scrimAlphas.map {
                 UIColor(SleepColor.background).withAlphaComponent($0).cgColor
             }
@@ -220,11 +228,47 @@ private final class PixelNightUIView: UIView {
         glowOverlay.frame = bounds
         warmOverlay.frame = bounds
         scrimLayer.frame = bounds
+        layoutStars()
     }
 
     override func didMoveToWindow() {
         super.didMoveToWindow()
         updateAnimationState()
+    }
+
+    func setMidnight(_ value: Bool) {
+        guard midnight != value else { return }
+        midnight = value
+        phase = value ? .night : CityPhase.current()
+        applyPhase(animated: false)
+        setNeedsLayout()
+    }
+
+    private func layoutStars() {
+        starsLayer.isHidden = !midnight
+        guard midnight, bounds.width > 0 else { return }
+        if starsLayer.sublayers?.isEmpty != false {
+            for index in 0..<44 {
+                let star = CALayer()
+                star.backgroundColor = UIColor(index % 5 == 0 ? SleepColor.gold : SleepColor.ink).cgColor
+                star.cornerRadius = index % 6 == 0 ? 0 : 1
+                starsLayer.addSublayer(star)
+                if !UIAccessibility.isReduceMotionEnabled {
+                    let pulse = CABasicAnimation(keyPath: "opacity")
+                    pulse.fromValue = 0.18; pulse.toValue = 0.85
+                    pulse.duration = 2.5 + Double(index % 7) * 0.6
+                    pulse.beginTime = CACurrentMediaTime() + Double(index % 9) * 0.3
+                    pulse.autoreverses = true; pulse.repeatCount = .infinity
+                    star.add(pulse, forKey: "twinkle")
+                }
+            }
+        }
+        for (index, star) in (starsLayer.sublayers ?? []).enumerated() {
+            let x = CGFloat((index * 73 + 19) % 997) / 997
+            let y = CGFloat((index * 137 + 41) % 991) / 991
+            let size: CGFloat = index % 6 == 0 ? 3 : 1.5
+            star.frame = CGRect(x: x * bounds.width, y: y * bounds.height * 0.48, width: size, height: size)
+        }
     }
 
     func setActive(_ isActive: Bool) {
@@ -307,7 +351,11 @@ private final class ScrollingCityLayerView: UIView {
     /// city never stutters while the light changes.
     func apply(phase: CityPhase, animated: Bool) {
         self.phase = phase
-        guard let image = SleepAssetCache.image(named: phase.rawValue + spec.assetName) else {
+        let name = phase.rawValue + spec.assetName
+        let sceneImage = phase == .night && spec.assetName.contains("Skyline")
+            ? SleepAssetCache.illuminatedNightImage(named: name)
+            : SleepAssetCache.image(named: name)
+        guard let image = sceneImage else {
             AppLog.scene.warning("Missing city layer asset: \(self.phase.rawValue + self.spec.assetName, privacy: .public)")
             return
         }
@@ -358,7 +406,11 @@ private final class ScrollingCityLayerView: UIView {
     }
 
     private func configureTiles() {
-        guard let image = SleepAssetCache.image(named: phase.rawValue + spec.assetName) else {
+        let name = phase.rawValue + spec.assetName
+        let sceneImage = phase == .night && spec.assetName.contains("Skyline")
+            ? SleepAssetCache.illuminatedNightImage(named: name)
+            : SleepAssetCache.image(named: name)
+        guard let image = sceneImage else {
             AppLog.scene.warning("Missing city layer asset: \(self.phase.rawValue + self.spec.assetName, privacy: .public)")
             return
         }

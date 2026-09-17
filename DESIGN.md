@@ -166,31 +166,43 @@ position (never color alone) so the UI survives a red night-shift tint.
 
 ## Setup conversion refresh (September 2026)
 
-Setup now begins with a small, interactive illustration: a generic scrolling
-app turns into the bedtime shield when tapped. It is explicitly marked as a
-preview; no real app is claimed to be blocked before Family Controls is granted
-and the system picker saves its opaque selection. The real picker remains in
-the post-paywall Screen Time primer and in Settings. The old app-name question
-is removed because choosing names could be mistaken for choosing actual apps.
+The ten-step iOS setup is: name → phone-time dial → symptoms → attention
+story and night goal → desired morning → bedtime → wake time → encouragement
+→ **Protect your attention** → **Hold to commit**. Account creation follows
+for signed-out users. The old plan summary and artificial building delay are removed.
 
-Setup uses the richer `OnboardingReadabilityScrim`: a cool twilight blue tint
-in the upper scene and a dark navy text stage below. Question subtitles use
-high-contrast ink instead of a low-opacity secondary color. The immersive
-sleep screen remains OLED black. The design decision is deliberate: setup must
-look alive and read clearly, while the bedtime instrument stays quiet.
+Setup always uses the original **night** skyline, warm illuminated windows,
+a lighter navy readability veil, and slow, sparse star twinkles. Existing warm
+window pixels receive a cached lamplight color treatment; building geometry
+and cool unlit windows retain their original artwork. It no longer
+inherits daylight or the remote twilight variant. Home retains its time-of-day
+lighting and sleep mode remains OLED black.
 
-The 1.8-second sloth plan-building beat and the current paywall headline remain.
-The question copy is shorter by default. A reviewed build supports only the
-`concise`/`classic` copy and `twilight`/`classic` scene variants from `app_config`;
-server edits switch among those compiled variants, never load executable UI.
-Questionnaire answers and the current step are saved locally until completion.
+The phone-time control is a 270-degree speedometer, 0–240 minutes in five-minute
+increments. The endpoint reads 4+ hours. Continue requires a deliberate nonzero
+setting. Story groups reveal letter by letter with soft haptics, then offer an
+iPhone-style **slide to unlock**. A blank beat separates groups. The final
+question moves to the top and reveals the goal choices. The lifetime figure
+explicitly assumes the entered daily rate for 80 years; it is an illustration,
+not a prediction. Symptom copy uses attention as a metaphor without diagnosing
+or asserting that a phone causes anxiety or night waking. Reduce Motion and
+VoiceOver expose complete text immediately; the slider has an accessible action.
 
-Product analytics are optional and off until the user turns them on. Events may
-be linked to an account after sign-in, so the UI does not call them anonymous.
-The welcome screen explains the choice and Settings allows withdrawal. Events
-use named screens and controls, with no answer text, sleep data, or Family
-Controls tokens. The on-device queue retries interrupted uploads; RevenueCat's
-webhook separately records server-confirmed subscription events.
+The portrait iPhone demo loops automatically: home-screen TikTok icon and tap,
+TikTok launch, a brief feed, then a SleepBlock shield. It is labeled an
+illustrative demo and does not configure or prove real app blocking. Real app
+selection remains in the post-paywall Screen Time primer and Settings.
+
+Commitment requires a two-second hold, cancels on release, drag-away, navigation,
+or backgrounding, and fires once. Account creation and subscription are separate
+from this gesture. Answers and the current step remain locally resumable.
+
+Named first-party usage analytics are always on per the September 17 product
+request. Welcome and Settings show a truthful status instead of an optional
+toggle. No answer values, sleep data, or Family Controls tokens enter events.
+Simulator QA sends no analytics. Public privacy disclosures must be reconciled
+with this policy before distributing this build; this local change does not
+publish a policy or modify App Store privacy answers.
 
 ## Liquid Glass
 
@@ -901,7 +913,7 @@ answered a few personal questions complete sign-up at a higher rate — and the
 account step is the *final step of that same flow*: it carries the same progress
 bar (now full) and back chevron as every other question, framed as saving the
 plan they just made. The profile is only committed once that step's auth
-succeeds, so "back" from it returns to the plan reveal like any other.
+succeeds, so "back" from it returns to the commitment page like any other.
 
 **Signing up with an account you already have** gets its own full screen
 (`ExistingAccountWelcomeView`) — hero mark, "You already have an account", one
@@ -922,16 +934,8 @@ line promises setup instead — never reassurance the next screen will
 contradict. The email path keeps its inline red message ("That email already
 has an account…") since it can still fail before any session exists.
 
-The questionnaire is an **investment arc**, not a form: a blocking preview → who you are → what
-you want → what's in the way → how bad it's gotten → your schedule → the plan
-built from all of it. Ten steps including the preview: preview, name, goal, sleep struggles,
-late-night phone time, wake feeling, bedtime, wake, **plan reveal**, account.
-Each question establishes motivation, a schedule, or a problem the app can
-address. The plan reveal reflects the answers that support a concrete summary.
-The interactive preview shows what blocking looks like before the paywall.
-Ten calm steps is the ceiling for this app's bedside-instrument voice. Apple Health is
-deliberately *not* asked here — a system permission sheet mid-sign-up is
-friction, and the ask lands better in context.
+The questionnaire follows the ten-step attention story specified in "Setup
+conversion refresh" above. Apple Health stays outside onboarding.
 
 The two **schedule steps** are single-wheel and framed as the target the app
 holds the user to — "When do you want to go to bed?" and "And when do you
@@ -939,7 +943,7 @@ want to wake up?" (the wake step carries a live sleep-window readout). That
 target is the operative schedule: `profile.bedtime`/`wakeTime`, what the Home
 countdown, the lockdown window, and the widgets all key off. (An earlier
 revision asked ideal *and* current on each screen to manufacture a gap; it
-was cut — the second wheel made the screen busy, and the plan reveal already
+was cut — the second wheel made the screen busy, and the narrative already
 carries the motivation.) The native wheel stays bare and direct over the
 scene. A glass well, repeated time readout, and custom focus rail were tried
 and reverted: they turned one simple choice into a second dashboard and
@@ -947,8 +951,8 @@ duplicated the wheel's selected value.
 
 Selection grammar splits by meaning. The **goal is a required single-select**:
 this step asks for the one outcome that matters most, and choosing another row
-replaces the previous choice. The struggle multi-select allows zero because an empty set is an honest answer. The phone-time and wake-feeling
-single-selects also require a choice because the plan speaks to the answer and
+replaces the previous choice. The struggle multi-select allows zero because an empty set is an honest answer. The phone-time dial requires a positive setting and desired wake-feeling
+requires a choice because the plan speaks to the answer and
 there is no meaningful skipped reading. The chosen goal keeps the existing
 `goal` string schema as one stable raw value.
 
@@ -959,24 +963,8 @@ there is no meaningful skipped reading. The chosen goal keeps the existing
 > out, iOS adopts the same rule and the paragraph above changes.
 All list questions share one full-width capsule row (`OptionRow`).
 
-The **plan reveal** is the questionnaire's closing beat before the account
-step: ~1.8s of "Building your sleep plan…" — the brand sloth and status text
-centered together in the full flexible region between the progress header and
-the reserved bottom action, its rising z's the only motion, deliberately never
-a spinner — resolving with a success haptic into a personalized summary in the
-editorial question chrome. Its `GlassGroup` is three compact outcomes: nightly
-sleep, **time to win back** per week, and the chosen goal. Each row carries one
-quiet category on the left and one short value anchored to the right. A long
-value, such as the chosen goal, stays on one line whenever the row can preserve
-readable type, tightening slightly when needed. Label and value remain
-vertically centered as one row. Exact clocks, app names, and explanatory
-sentences are not repeated; the sole chosen goal is echoed as the personalized
-outcome. This moment should confirm the plan at a glance rather than test the
-user's reading stamina. The build beat is
-sticky — backing in from the account step shows the summary instantly; the
-pause is a first-arrival moment, not a toll. Its CTA is **"I'm ready"** — the
-flow's one micro-commitment, landing right before the account step asks to save
-the plan and the paywall asks to unlock it.
+The former plan reveal is retired. Encouragement reflects the desired wake
+time and feeling, followed by the looping demo and deliberate commitment.
 
 The real app selection happens only in Apple's `FamilyActivityPicker`, after
 the Screen Time primer. The earlier list of familiar app names is retired: a

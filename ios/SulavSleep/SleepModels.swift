@@ -168,6 +168,7 @@ struct OnboardingAnswers {
 /// personal questions before the account step measurably improves sign-up
 /// completion.
 enum SleepStruggle: String, CaseIterable, Identifiable, Codable {
+    case negativeThoughts
     case phoneInBed
     case fallingAsleep
     case wakingAtNight
@@ -178,9 +179,10 @@ enum SleepStruggle: String, CaseIterable, Identifiable, Codable {
 
     var title: String {
         switch self {
+        case .negativeThoughts: "Noticing negative thoughts"
         case .phoneInBed: "Phone in bed"
-        case .fallingAsleep: "Trouble falling asleep"
-        case .wakingAtNight: "Waking up at night"
+        case .fallingAsleep: "Getting worried and anxious because you can’t sleep"
+        case .wakingAtNight: "Waking up in the middle of the night and staying awake"
         case .inconsistentSchedule: "Inconsistent schedule"
         case .wakingTired: "Waking up tired"
         }
@@ -188,6 +190,7 @@ enum SleepStruggle: String, CaseIterable, Identifiable, Codable {
 
     var systemImage: String {
         switch self {
+        case .negativeThoughts: "cloud"
         case .phoneInBed: "iphone.radiowaves.left.and.right"
         case .fallingAsleep: "moon.zzz"
         case .wakingAtNight: "eye"
@@ -316,6 +319,7 @@ enum LateNightPhoneTime: String, CaseIterable, Identifiable, Codable {
 /// Stored for personalization, but the question earns its step by making the
 /// user *say* the mornings are rough right before the plan reveal.
 enum WakeFeeling: String, CaseIterable, Identifiable, Codable {
+    case energized, calm, focused
     case groggy
     case tired
     case okay
@@ -325,6 +329,9 @@ enum WakeFeeling: String, CaseIterable, Identifiable, Codable {
 
     var title: String {
         switch self {
+        case .energized: "Energized"
+        case .calm: "Calm"
+        case .focused: "Focused"
         case .groggy: "Groggy"
         case .tired: "Still tired"
         case .okay: "Okay"
@@ -334,6 +341,9 @@ enum WakeFeeling: String, CaseIterable, Identifiable, Codable {
 
     var systemImage: String {
         switch self {
+        case .energized: "bolt"
+        case .calm: "leaf"
+        case .focused: "scope"
         case .groggy: "cloud.fog"
         case .tired: "battery.25percent"
         case .okay: "circle.lefthalf.filled"
@@ -402,4 +412,11 @@ enum HealthSyncState: Equatable {
     case unavailable   // HealthKit not present on this device
     case notConnected  // available but user hasn't connected
     case connected     // authorization granted / requested
+}
+
+/// Exact nightly minutes remain local/profile data; only named controls enter analytics.
+enum AttentionEstimate {
+    static func isValid(minutes: Int, touched: Bool) -> Bool { touched && (1...240).contains(minutes) }
+    static func yearlyMinutes(_ minutes: Int) -> Int { max(0, min(minutes, 240)) * 365 }
+    static func lifetimeDays(_ minutes: Int) -> Int { yearlyMinutes(minutes) * 80 / 1_440 }
 }

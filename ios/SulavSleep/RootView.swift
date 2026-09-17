@@ -120,7 +120,8 @@ struct RootView: View {
     private var showsOnboardingQuestionPreview: Bool {
 #if DEBUG
         let arguments = ProcessInfo.processInfo.arguments
-        return arguments.contains("-review-onboarding-goals")
+        return arguments.contains(where: { $0.hasPrefix("-review-onboarding-step=") })
+            || arguments.contains("-review-onboarding-goals")
             || arguments.contains("-review-onboarding-bedtime")
             || arguments.contains("-review-onboarding-plan")
 #else
@@ -181,9 +182,20 @@ struct RootView: View {
         return .main
     }
 
+    private var showsBlockingCapture: Bool {
+#if DEBUG
+        ProcessInfo.processInfo.arguments.contains("-capture-blocking-demo")
+#else
+        false
+#endif
+    }
+
     var body: some View {
         ZStack {
-            if showsReviewPaywall {
+            if showsBlockingCapture {
+                IPhoneBlockingDemo().ignoresSafeArea().statusBarHidden(true)
+                    .persistentSystemOverlays(.hidden)
+            } else if showsReviewPaywall {
                 // A deterministic, DEBUG-only route for the private screenshot
                 // App Store Connect asks for when reviewing a subscription.
                 SleepBackground(showsMoon: false)
@@ -198,8 +210,8 @@ struct RootView: View {
                 SceneReadabilityScrim()
                 ExistingAccountWelcomeView(store: store)
             } else if showsOnboardingQuestionPreview {
-                SleepBackground(showsMoon: false)
-                SceneReadabilityScrim()
+                SleepBackground(midnight: true)
+                OnboardingReadabilityScrim()
                 OnboardingQuestionsView(store: store, onDone: { _ in })
             } else if let previewSession = sleepModePreviewSession {
                 SleepModeView(
@@ -277,12 +289,8 @@ struct RootView: View {
                         // escape for returning users. Also where a signed-out
                         // user lands, opening on the welcome screen. See
                         // OnboardingGateView.
-                        SleepBackground(showsMoon: false)
-                        if store.onboardingSceneVariant == "classic" {
-                            SceneReadabilityScrim()
-                        } else {
-                            OnboardingReadabilityScrim()
-                        }
+                        SleepBackground(showsMoon: true, midnight: true)
+                        OnboardingReadabilityScrim()
                         OnboardingGateView(store: store)
                     case .existingAccount:
                         // Same scene as the flow it interrupts — this is the
@@ -319,10 +327,10 @@ struct RootView: View {
         // applying it only inside SleepModeView was ignored by the root ZStack
         // on iOS 26 and left bright system ink over the OLED instrument.
         .statusBarHidden(
-            showsSleepModePreview || (store.isOnboarded && store.activeSession != nil)
+            showsBlockingCapture || showsSleepModePreview || (store.isOnboarded && store.activeSession != nil)
         )
         .persistentSystemOverlays(
-            showsSleepModePreview || (store.isOnboarded && store.activeSession != nil)
+            showsBlockingCapture || showsSleepModePreview || (store.isOnboarded && store.activeSession != nil)
                 ? .hidden
                 : .automatic
         )

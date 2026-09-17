@@ -2022,24 +2022,43 @@ the app, and `assetutil --info <app>/Assets.car` should list `SplashSloth`.
 
 ## Onboarding conversion and first-party analytics (September 2026)
 
-`OnboardingQuestionsView` saves a Codable draft under
-`sulav.onboardingDraft.v1` after each answer or step change. The draft contains
-only setup inputs and is cleared on successful onboarding. DEBUG review routes
-ignore it. The first question is an interactive `BlockingPreviewStep`; it
-shows generic art and explicitly labels itself a preview. The old list of
-app names is omitted because it never configured blocking. The preview never
-grants Screen Time authorization or silently creates a FamilyActivitySelection. The
-real app picker remains in `ScreenTimePrimerView` and `BlockedAppsScreen`.
+`OnboardingQuestionsView` saves a Codable draft under `sulav.onboardingDraft.v1`.
+New optional draft fields `phoneMinutes` and `phoneDialTouched` preserve exact dial
+input; old drafts decode using the prior phone-time bucket's conservative minutes.
+Completed profiles carry `lateNightPhone = "minutes:N"` in the existing string
+field, which cloud sync already preserves. Old enum values remain decodable.
+The desired wake-feeling values add `energized`, `calm`, and `focused`; the new
+symptom adds `negativeThoughts`. No database migration is needed for these string
+fields. `OnboardingExperience.swift` owns dial, story, swipe, hold, and demo views.
 
-`SleepAnalytics` has explicit consent, off by default, on Welcome and in
-Settings. Turning it off clears queued events. It accepts only event name,
-named screen/control, install UUID, version, and timestamp. It sends no answer
-values, email, sleep data, or Screen Time tokens. A 500-event UserDefaults
-queue survives force quit/offline sessions. Each event has a UUID; duplicate
-server inserts are treated as delivered. A failed send keeps the queue for the
-next app open. The server populates `user_id` from the current JWT; clients
-cannot claim another account. For production, review the privacy policy and
-App Store privacy answers before distributing this build.
+Order: name, phoneTime, struggles, goal (story chapters + choices), feeling,
+bedtime, wake, plan (encouragement), preview, commit, then account when needed.
+The legacy internal `plan` identifier is retained for draft compatibility; no
+plan-summary screen remains. All transient animation state restarts on reentry.
+Successful setup clears the draft; existing-account auth never overwrites its
+restored profile. Review routes ignore drafts and do not save fixture answers.
+
+`AttentionEstimate` clamps to 0…240, multiplies by 365 for yearly minutes, and
+uses 80 years / 1,440 minutes for illustrative whole lifetime days. 240 represents
+a conservative lower bound for 4+ hours. VoiceOver/Reduce Motion reveal complete
+text; swipe has a named accessibility action. Hold completion requires two seconds
+and cancels with release, drag-away, inactive scene, or disappearance.
+
+`SleepBackground(midnight: true)` fixes setup to night layers, reduces the scene
+scrim so window lights survive, and adds Core Animation star opacity loops.
+Home's default phase behavior remains unchanged. Setup ignores legacy remote
+scene/copy variants. The portrait demo is an explicit recreation, never a real
+Family Controls authorization or app launch. Actual shielding must be verified
+on a physical device after permission and app selection.
+
+`SleepAnalytics` is now always enabled for first-party named events. The optional
+toggle is removed from Welcome/Settings and replaced with status/disclosure.
+Choice taps use a generic `option` control, never selected answers. Simulator
+record/flush are disabled to prevent QA from entering production cohorts. The
+queue remains bounded at 500, UUID-idempotent, and retries failed sends. Events
+can be account-linked after auth. **Release gate:** the currently published
+optional-analytics privacy policy and App Store answers must be reconciled before
+distribution; no external privacy-policy deployment is part of this change.
 
 Deployment order (consequential external actions):
 
@@ -2052,7 +2071,7 @@ Deployment order (consequential external actions):
 3. Distribute the reviewed iOS build. Old builds have no analytics or variant
    switching. `app_config` may then select only `concise`/`classic` copy and
    `twilight`/`classic` scene variants.
-4. Verify an opted-in clean install sends `welcome_viewed`, each step view,
+4. Verify a physical-device clean install sends `welcome_viewed`, each step view,
    paywall view, purchase outcome, app picker outcome, and first sleep. Check
    RevenueCat test events against `subscription_events`. The funnel must use
    `period_type = 'NORMAL'` and an initial purchase or renewal for actual
@@ -2079,14 +2098,16 @@ where period_type = 'NORMAL'
 ```
 
 Avoid interpreting these queries as one ordered cohort: segment by install
-date, app version, and elapsed time before comparing steps. Consent is optional,
-so the client funnel describes opted-in users and cannot measure every download.
+date, app version, and elapsed time before comparing steps. Historical versions
+were opt-in; this revision is always on. Never combine those cohorts without
+segmenting app versions, and never call client installs App Store downloads.
 
 The cohort query in [`docs/conversion-funnel.sql`](conversion-funnel.sql) shows
 stage counts by app version and joins confirmed paid events from the webhook.
-The numerator is opted-in installs, not App Store downloads. A single install
+The numerator is observed installs, not App Store downloads; older releases
+only include opted-in installs. A single install
 may have multiple accounts; investigate those cases before using the query for
-financial reporting. The second query can inspect one opted-in screen/tap path.
+financial reporting. The second query can inspect one recorded screen/tap path.
 
 `PrivacyInfo.xcprivacy` declares the random install identifier, linked product
 interaction events after sign-in, and the corresponding analytics purpose. The
@@ -2105,3 +2126,30 @@ or dashboard test event. Generic Debug and Release compile checks pass; the
 Release check used non-production placeholders because real RevenueCat, Apple,
 and TikTok values remain outside Git. No simulator or App Store submission was
 used for this change.
+
+## September 17 narrative onboarding QA
+
+Build with `./scripts/run-ios-simulator.sh`. Use the normal Welcome → Get started
+path to verify required inputs, back navigation, and draft recovery. DEBUG-only
+`-review-onboarding-step=<name|phoneTime|struggles|goal|feeling|bedtime|wake|plan|preview|commit>`
+opens a deterministic visual fixture; fixtures are not clean-install proof.
+`-capture-blocking-demo` renders the illustrative phone sequence full screen for
+simulator recording. Simulator builds suppress all product-event uploads.
+
+Before release, verify haptic pacing and Family Controls on a physical iPhone.
+The local visual demo does not establish that TikTok is installed or shielded.
+
+The bundled `Resources/attention-demo.mp4` is a 6.58-second, silent H.264
+simulator recreation, played with `AVQueuePlayer`/`AVPlayerLooper`. It pauses
+when the scene becomes inactive and tears down on navigation. Reduce Motion
+uses the static native shield instead. Source staging is in `IPhoneBlockingDemo`;
+launch with `-capture-blocking-demo`, record with `xcrun simctl io <UDID>
+recordVideo --codec=h264 <output.mov>`, then trim to a full home→tap→launch→feed→shield
+cycle and encode 604×1312 H.264/yuv420p. Capture status-bar visibility is owned by
+RootView; hiding it only on the child causes duplicate status text on iOS 26.
+
+Night window rendering uses a cached color transform of existing warm window
+pixels in `SleepAssetCache.illuminatedNightImage`; transparent pixels and cool
+building geometry remain untouched. No source artwork files are modified.
+Run `./scripts/test-onboarding.sh` for input boundaries, math, exact-minute
+profile persistence, and compatibility with historical raw values.
