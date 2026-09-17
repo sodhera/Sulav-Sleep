@@ -266,12 +266,12 @@ private struct WelcomeStep: View {
                     SleepAnalytics.setEnabled(analyticsEnabled)
                     if analyticsEnabled { SleepAnalytics.record("welcome_viewed", screen: "welcome") }
                 } label: {
-                    Text(analyticsEnabled ? "Anonymous usage analytics: On" : "Anonymous usage analytics: Off")
+                    Text(analyticsEnabled ? "Optional usage analytics: On" : "Optional usage analytics: Off")
                         .font(SleepFont.body(13))
                         .foregroundStyle(SleepColor.dim)
                         .frame(maxWidth: .infinity, minHeight: 40)
                 }
-                .accessibilityHint("Optional. Records setup steps and taps without your answers or sleep data. You can change this in Settings.")
+                .accessibilityHint("Records setup steps and taps without your answers or sleep data. Events may be linked to your account after sign-in. You can change this in Settings.")
             }
             // Bottom-aligned inside the sign-in provider stack's footprint,
             // per the BrandHeroGeometry contract.

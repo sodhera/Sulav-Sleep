@@ -185,7 +185,8 @@ The question copy is shorter by default. A reviewed build supports only the
 server edits switch among those compiled variants, never load executable UI.
 Questionnaire answers and the current step are saved locally until completion.
 
-Anonymous product analytics are optional and off until the user turns them on.
+Product analytics are optional and off until the user turns them on. Events may
+be linked to an account after sign-in, so the UI does not call them anonymous.
 The welcome screen explains the choice and Settings allows withdrawal. Events
 use named screens and controls, with no answer text, sleep data, or Family
 Controls tokens. The on-device queue retries interrupted uploads; RevenueCat's

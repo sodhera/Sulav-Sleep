@@ -2090,6 +2090,16 @@ financial reporting. The second query can inspect one opted-in screen/tap path.
 
 `PrivacyInfo.xcprivacy` declares the random install identifier, linked product
 interaction events after sign-in, and the corresponding analytics purpose. The
-published privacy policy and App Store Connect privacy answers must be updated
-and reviewed before release; the manifest alone does not change those external
-records.
+privacy policy source is `sodhera/orecci/sleepblock/privacy-policy.html`;
+its September 17 update (commit `57e4e94`) discloses cloud sync and optional,
+account-linkable analytics and reached a successful Production deployment.
+App Store Connect privacy answers still require an account with app access;
+the manifest and website policy do not update those answers automatically.
+
+Release access check on September 17: the currently authenticated Supabase CLI
+account receives HTTP 403 for the linked SleepBlock project, so migrations
+009–011 and the RevenueCat webhook have not been deployed. The local
+`Config.xcconfig` has an empty `REVENUECAT_API_KEY`, and the Release build
+fails its intentional secret guard. Obtain project access and production
+configuration before performing steps 1–4 above. No simulator or App Store
+submission was used for this change.

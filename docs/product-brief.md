@@ -82,9 +82,11 @@ never double counted.
 
 ## Storage & sync
 
-Local-first, with optional two-way Apple Health sync. Accounts (Supabase
-Auth) exist alongside this purely as an identity gate — sleep data itself is
-not synced to a server today.
+Local-first, with cloud backup for signed-in profiles and logged sleep sessions
+through Supabase, plus optional two-way Apple Health sync. The device remains
+the primary working copy; cloud sync lets a signed-in user restore their
+schedule and logged nights on another device. Imported HealthKit sessions
+remain device-local.
 
 - Local: UserDefaults-backed JSON, keys `sulav.profile.v1`,
   `sulav.sessions.v1`, `sulav.active.v1`, `sulav.account.v1`.
@@ -92,8 +94,10 @@ not synced to a server today.
   `HKCategoryType(.sleepAnalysis)`. Entirely optional — if the user declines or
   the device lacks HealthKit, the app works fully from local logging.
 - Accounts: Sign in with Apple, Google, or email/password via Supabase Auth,
-  required once after onboarding. The session token lives in the Keychain;
-  see `docs/development.md` and `docs/auth-setup.md`.
+  required once after onboarding. The session token lives in the Keychain.
+- Cloud: Supabase stores the completed profile and in-app sleep sessions under
+  the authenticated account. See `SleepCloudService.swift` and
+  `docs/development.md` for the sync and restore behavior.
 
 ## Native direction
 

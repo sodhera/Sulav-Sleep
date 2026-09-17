@@ -749,7 +749,7 @@ struct SettingsModal: View {
             Text("Privacy").sectionLabel()
             GlassGroup {
                 Toggle(isOn: $analyticsEnabled) {
-                    Text("Anonymous usage analytics")
+                    Text("Optional usage analytics")
                         .font(SleepFont.body(16))
                         .foregroundStyle(SleepColor.ink)
                 }
@@ -760,7 +760,7 @@ struct SettingsModal: View {
                     SleepAnalytics.setEnabled(enabled)
                 }
             }
-            Text("Records screens and taps, never your answers or sleep data.")
+            Text("Records screens and taps, never your answers or sleep data. Events may be linked to your account.")
                 .font(SleepFont.body(13))
                 .foregroundStyle(SleepColor.dim)
         }
