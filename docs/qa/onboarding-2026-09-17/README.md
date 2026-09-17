@@ -1,5 +1,22 @@
 # Narrative onboarding verification — September 17, 2026
 
+## Feedback revision
+
+The later revision removes the lifetime footnote and analytics status, splits
+four symptom sentences into two short chapters, and paints unrevealed letters
+transparent in a full-width UIKit label. This keeps word breaks fixed while
+typing. Sentences alternate white/yellow from white; the slider reads
+**Continue**. The demo now loops home → TikTok tap → logo losing saturation →
+shield, with no feed. Its page has only the requested question, phone, and
+**Yes** button. The simulator screenshots are [symptom story](story-revised.jpg),
+[cost](cost-revised.jpg), [encouragement](plan-revised.jpg), and [demo](demo-revised.jpg).
+They confirm readable text and controls on iPhone 17 Pro at default text size.
+
+The revised iPhone 17 Pro simulator build, `scripts/test-onboarding.sh`, and
+`git diff --check` passed. Screenshots were taken from direct review routes;
+the original full-navigation evidence below predates this revision. Physical
+iPhone Screen Time behavior and haptics remain outside simulator proof.
+
 ## Passed
 
 - Debug iPhone 17 Pro / iOS 26.5 simulator build.
@@ -33,9 +50,8 @@ VoiceOver/Reduce Motion on-device behavior, and real Screen Time blocking remain
 physical-iPhone QA. No authentication, purchase, deployment, policy publication,
 or App Store upload occurred. Simulator event upload is disabled.
 
-The symptom chapter screenshot predates the final 22pt four-sentence typography
-adjustment, which reduces scrolling. Other narrative pages retain 28pt type.
-The symptoms screenshot predates the final warm-window color enhancement.
+The older `symptoms.png` screenshot predates the short chapter revision, and
+the older `demo.png` and video description above predate the grayscale recut.
 
 ## Release requirement
 

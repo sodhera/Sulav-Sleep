@@ -2040,7 +2040,12 @@ restored profile. Review routes ignore drafts and do not save fixture answers.
 
 `AttentionEstimate` clamps to 0…240, multiplies by 365 for yearly minutes, and
 uses 80 years / 1,440 minutes for illustrative whole lifetime days. 240 represents
-a conservative lower bound for 4+ hours. VoiceOver/Reduce Motion reveal complete
+a conservative lower bound for 4+ hours. The figure's explanatory footnote was
+removed from the UI. `NarrativePage` uses a multiline UIKit label to measure
+each complete sentence while painting unrevealed characters transparent, so
+wrapping never changes during typing. Symptom groups contain at most two
+sentences, with a separate Continue gesture for each group. Lines
+alternate white/yellow from white on each page. VoiceOver/Reduce Motion reveal complete
 text; swipe has a named accessibility action. Hold completion requires two seconds
 and cancels with release, drag-away, inactive scene, or disappearance.
 
@@ -2052,7 +2057,7 @@ Family Controls authorization or app launch. Actual shielding must be verified
 on a physical device after permission and app selection.
 
 `SleepAnalytics` is now always enabled for first-party named events. The optional
-toggle is removed from Welcome/Settings and replaced with status/disclosure.
+toggle and visible status are removed from Welcome/Settings.
 Choice taps use a generic `option` control, never selected answers. Simulator
 record/flush are disabled to prevent QA from entering production cohorts. The
 queue remains bounded at 500, UUID-idempotent, and retries failed sends. Events
@@ -2139,13 +2144,16 @@ simulator recording. Simulator builds suppress all product-event uploads.
 Before release, verify haptic pacing and Family Controls on a physical iPhone.
 The local visual demo does not establish that TikTok is installed or shielded.
 
-The bundled `Resources/attention-demo.mp4` is a 6.58-second, silent H.264
+The bundled `Resources/attention-demo.mp4` is a 6.37-second, silent H.264
 simulator recreation, played with `AVQueuePlayer`/`AVPlayerLooper`. It pauses
 when the scene becomes inactive and tears down on navigation. Reduce Motion
 uses the static native shield instead. Source staging is in `IPhoneBlockingDemo`;
 launch with `-capture-blocking-demo`, record with `xcrun simctl io <UDID>
-recordVideo --codec=h264 <output.mov>`, then trim to a full home→tap→launch→feed→shield
-cycle and encode 604×1312 H.264/yuv420p. Capture status-bar visibility is owned by
+recordVideo --codec=h264 <output.mov>`, then run
+`./scripts/edit-attention-demo.sh <input.mov> ios/SulavSleep/Resources/attention-demo.mp4`.
+The edit keeps the home/tap, holds the TikTok launch frame while reducing
+saturation to zero over 1.4 seconds, and cuts directly to the shield. There is
+no feed frame. Capture status-bar visibility is owned by
 RootView; hiding it only on the child causes duplicate status text on iOS 26.
 
 Night window rendering uses a cached color transform of existing warm window

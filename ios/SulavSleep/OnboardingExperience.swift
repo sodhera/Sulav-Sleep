@@ -1,5 +1,6 @@
 import SwiftUI
 import AVKit
+import UIKit
 
 struct BedtimePhoneDial: View {
     @Binding var minutes: Int
@@ -72,53 +73,98 @@ struct BedtimePhoneDial: View {
     }
 }
 
-/// Text reveals are cancellable, pause off-screen, and read as complete sentences to VoiceOver.
+/// Text reveals are cancellable and read as complete sentences to VoiceOver.
 struct NarrativePage: View {
     let lines: [String]
-    var footnote: String? = nil
     @Binding var ready: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
-    @Environment(\.scenePhase) private var scenePhase
     @State private var visible = 0
 
     private var count: Int { lines.reduce(0) { $0 + $1.count } }
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: lines.count > 3 ? 20 : 28) {
-                ForEach(lines.indices, id: \.self) { index in
-                    let preceding = lines.prefix(index).reduce(0) { $0 + $1.count }
-                    let text = String(lines[index].prefix(max(0, visible - preceding)))
-                    Text(text.isEmpty ? " " : text)
-                        .font(SleepFont.title(lines.count > 3 ? 22 : 28))
-                        .foregroundStyle(index == 0 ? SleepColor.ink : SleepColor.gold)
-                        .lineSpacing(5)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .accessibilityLabel(lines[index])
-                }
-                if ready, let footnote {
-                    Text(footnote).font(SleepFont.body(12)).foregroundStyle(SleepColor.dim)
-                }
-            }.padding(.vertical, 36)
-        }
-        .scrollIndicators(.hidden)
+        narrativeLines
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .task(id: lines) {
             visible = 0
             ready = false
             if reduceMotion || voiceOver { visible = count; ready = true; return }
             do {
+                let boundaries = lines.indices.map { lines.prefix($0 + 1).reduce(0) { $0 + $1.count } }
                 try await Task.sleep(for: .milliseconds(450))
                 for index in 1...max(1, count) {
-                    while scenePhase != .active { try await Task.sleep(for: .milliseconds(150)) }
                     try Task.checkCancellation()
                     visible = index
                     if index % 4 == 0 { Haptics.soft() }
-                    let boundaries = lines.indices.map { lines.prefix($0 + 1).reduce(0) { $0 + $1.count } }
                     try await Task.sleep(for: .milliseconds(boundaries.contains(index) ? 650 : 38))
                 }
                 ready = true
             } catch { /* Navigation cancels the reveal. */ }
         }
+    }
+
+    /// Both halves participate in layout, so a word never jumps to a new line
+    /// when its final character arrives. Only its ink changes during reveal.
+    private var narrativeLines: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            ForEach(lines.indices, id: \.self) { index in
+                let start = lines.prefix(index).reduce(0) { $0 + $1.count }
+                let shown = max(0, min(lines[index].count, visible - start))
+                let line = lines[index]
+                let color = index.isMultiple(of: 2) ? SleepColor.ink : SleepColor.gold
+                RevealingSentence(line: line, shown: shown, color: UIColor(color), fontSize: lines.count == 1 ? 28 : 23)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityLabel(line)
+            }
+        }
+        .padding(.vertical, 20)
+    }
+
+}
+
+/// UILabel measures the complete sentence before painting the visible prefix.
+/// That keeps word wrapping fixed while the typewriter reveals each character.
+private struct RevealingSentence: UIViewRepresentable {
+    let line: String
+    let shown: Int
+    let color: UIColor
+    let fontSize: CGFloat
+
+    func makeUIView(context: Context) -> UILabel {
+        let label = UILabel()
+        label.numberOfLines = 0
+        label.lineBreakMode = .byWordWrapping
+        label.backgroundColor = .clear
+        label.setContentCompressionResistancePriority(.required, for: .vertical)
+        configure(label)
+        return label
+    }
+
+    func updateUIView(_ label: UILabel, context: Context) { configure(label) }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView label: UILabel, context: Context) -> CGSize? {
+        let width = proposal.width ?? 320
+        label.preferredMaxLayoutWidth = width
+        let height = label.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude)).height
+        return CGSize(width: width, height: height)
+    }
+
+    private func configure(_ label: UILabel) {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineSpacing = 4
+        paragraph.lineBreakMode = .byWordWrapping
+        let text = NSMutableAttributedString(string: line, attributes: [
+            .font: UIFont.systemFont(ofSize: fontSize, weight: .medium),
+            .foregroundColor: color,
+            .paragraphStyle: paragraph
+        ])
+        let prefixLength = String(line.prefix(shown)).utf16.count
+        let remaining = (line as NSString).length - prefixLength
+        if remaining > 0 {
+            text.addAttribute(.foregroundColor, value: UIColor.clear,
+                              range: NSRange(location: prefixLength, length: remaining))
+        }
+        label.attributedText = text
     }
 }
 
@@ -139,16 +185,18 @@ struct AttentionStoryStep: View {
         if struggles.contains(.negativeThoughts) { lines.append("It fills your attention with noise, leaving less room for the beauty around you.") }
         return lines.isEmpty ? ["Your attention belongs to you. Your nights can, too."] : lines
     }
-    private var lines: [String] {
-        switch chapter {
-        case 0: ["There is an enemy living in your phone."]
-        case 1: ["It is taking away \(minutes == 240 ? "at least " : "")\(minutes) minutes of your life each day.",
-                 "That’s \(AttentionEstimate.yearlyMinutes(minutes).formatted()) minutes each year.",
-                 "\(AttentionEstimate.lifetimeDays(minutes).formatted()) days in a life."]
-        case 2: consequences
-        default: ["What would make your night better?"]
-        }
+    private var pages: [[String]] {
+        let opening = ["There is an enemy living in your phone."]
+        let cost = [
+            "It is taking away \(minutes == 240 ? "at least " : "")\(minutes) minutes of your life each day.",
+            "That’s \(AttentionEstimate.yearlyMinutes(minutes).formatted()) minutes each year.",
+            "\(AttentionEstimate.lifetimeDays(minutes).formatted()) days in a life."
+        ]
+        let symptomPages = stride(from: 0, to: consequences.count, by: 2)
+            .map { Array(consequences[$0..<min($0 + 2, consequences.count)]) }
+        return [opening, cost] + symptomPages + [["What would make your night better?"]]
     }
+    private var lines: [String] { pages[chapter] }
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             if showingOptions {
@@ -167,12 +215,10 @@ struct AttentionStoryStep: View {
                 }.scrollIndicators(.hidden)
                 Spacer(minLength: 10)
             } else {
-                NarrativePage(lines: lines,
-                    footnote: chapter == 1 ? "An illustration at this daily rate for 365 days a year over 80 years, not a prediction of your life." : nil,
-                    ready: $ready)
+                NarrativePage(lines: lines, ready: $ready)
                     .id(chapter)
                     .transition(.opacity)
-                if chapter < 3 {
+                if chapter < pages.count - 1 {
                     StoryUnlockSlider {
                         ready = false
                         withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.4)) { chapter += 1 }
@@ -184,10 +230,18 @@ struct AttentionStoryStep: View {
             }
         }
         .onChange(of: ready) { _, value in
-            if value && chapter == 3 {
+            if value && chapter == pages.count - 1 {
                 withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.6)) { showingOptions = true }
             }
         }
+#if DEBUG
+        .onAppear {
+            if let argument = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("-review-onboarding-chapter=") }),
+               let requested = Int(argument.dropFirst("-review-onboarding-chapter=".count)) {
+                chapter = max(0, min(requested, pages.count - 1))
+            }
+        }
+#endif
 
     }
 }
@@ -202,7 +256,7 @@ struct StoryUnlockSlider: View {
             ZStack(alignment: .leading) {
                 Capsule().fill(SleepColor.navy.opacity(0.88))
                 Capsule().stroke(SleepColor.amber.opacity(0.4), lineWidth: 1)
-                Text("slide to unlock")
+                Text("Continue")
                     .font(SleepFont.body(18)).foregroundStyle(SleepColor.ink)
                     .frame(maxWidth: .infinity).opacity(1 - Double(offset / travel))
                 Image(systemName: "arrow.right")
@@ -225,7 +279,7 @@ struct StoryUnlockSlider: View {
             }
         }.frame(height: 60)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Slide to unlock the next page")
+        .accessibilityLabel("Slide to continue")
         .accessibilityAddTraits(.isButton)
         .accessibilityAction { guard !completed else { return }; completed = true; action() }
     }
@@ -285,10 +339,8 @@ struct CommitmentHoldButton: View {
 struct BlockingPreviewStep: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Protect your attention")
+            Text("Are you ready to protect your mind against the enemy?")
                 .font(SleepFont.title(28)).foregroundStyle(SleepColor.ink)
-            Text("The scroll can wait. Your life can’t.")
-                .font(SleepFont.body(16)).foregroundStyle(SleepColor.dim)
             GeometryReader { geo in
                 let height = min(geo.size.height, 490.0)
                 BlockingDemoPlayback()
@@ -300,9 +352,6 @@ struct BlockingPreviewStep: View {
                     .shadow(color: .black.opacity(0.5), radius: 20, y: 10)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            Text("Illustrative demo · Choose apps after setup")
-                .font(SleepFont.body(12)).foregroundStyle(SleepColor.dim)
-                .frame(maxWidth: .infinity)
         }.padding(.bottom, 18)
     }
 }
@@ -313,6 +362,7 @@ struct IPhoneBlockingDemo: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
     @State private var stage = 0
+    @State private var grayscaleAmount = 0.0
     var body: some View {
         GeometryReader { geo in
             ZStack {
@@ -322,9 +372,9 @@ struct IPhoneBlockingDemo: View {
                     Color.black
                     VStack(spacing: 24) { tiktokMark.font(.system(size: 90, weight: .bold)); Text("TikTok").font(.system(size: 34, weight: .bold)) }
                         .foregroundStyle(.white)
+                        .saturation(1 - grayscaleAmount)
                 }
-                if stage == 3 { feed }
-                if stage >= 4 { shield.transition(.opacity) }
+                if stage >= 3 { shield.transition(.opacity) }
                 VStack {
                     HStack {
                         Text("9:41").font(.system(size: 15, weight: .semibold))
@@ -345,14 +395,16 @@ struct IPhoneBlockingDemo: View {
         .accessibilityLabel("Illustrative iPhone demo: TikTok is tapped, opens, then SleepBlock displays the bedtime shield.")
         .task(id: scenePhase) {
             guard scenePhase == .active else { return }
-            if reduceMotion { stage = 4; return }
+            if reduceMotion { stage = 3; return }
             do {
                 while !Task.isCancelled {
                     stage = 0; try await Task.sleep(for: .milliseconds(1600))
                     stage = 1; try await Task.sleep(for: .milliseconds(450))
-                    stage = 2; try await Task.sleep(for: .milliseconds(650))
-                    stage = 3; try await Task.sleep(for: .milliseconds(600))
-                    withAnimation(.easeOut(duration: 0.2)) { stage = 4 }
+                    grayscaleAmount = 0
+                    stage = 2
+                    withAnimation(.linear(duration: 1.4)) { grayscaleAmount = 1 }
+                    try await Task.sleep(for: .milliseconds(1400))
+                    withAnimation(.easeOut(duration: 0.2)) { stage = 3 }
                     try await Task.sleep(for: .milliseconds(3200))
                 }
             } catch { }
@@ -413,24 +465,6 @@ struct IPhoneBlockingDemo: View {
     private func dockIcon(_ symbol: String, color: Color) -> some View {
         Image(systemName: symbol).font(.system(size: 29)).foregroundStyle(.white)
             .frame(width: 62, height: 62).background(color.gradient, in: RoundedRectangle(cornerRadius: 15))
-    }
-    private var feed: some View {
-        ZStack {
-            LinearGradient(colors: [Color(hex: 0x163549), Color(hex: 0x9D715A), .black], startPoint: .top, endPoint: .bottom)
-            Image("NightCityNearSkyline").resizable().scaledToFill().frame(width: 393, height: 852).clipped().opacity(0.8)
-            VStack {
-                Text("Following   For You").font(.system(size: 18, weight: .bold)).padding(.top, 90)
-                Spacer()
-                HStack(alignment: .bottom) {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("@nightcity").bold(); Text("One more video…"); Text("♫ original sound").font(.system(size: 13))
-                    }
-                    Spacer()
-                    VStack(spacing: 26) { Image(systemName: "heart.fill"); Image(systemName: "bubble.right.fill"); Image(systemName: "arrowshape.turn.up.right.fill") }.font(.system(size: 27))
-                }.padding(22)
-                HStack(spacing: 45) { Image(systemName: "house.fill"); Image(systemName: "magnifyingglass"); Image(systemName: "plus.app"); Image(systemName: "tray"); Image(systemName: "person") }.padding(.bottom, 42)
-            }.foregroundStyle(.white)
-        }
     }
     private var shield: some View {
         ZStack {

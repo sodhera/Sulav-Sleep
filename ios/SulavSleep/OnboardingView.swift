@@ -260,11 +260,6 @@ private struct WelcomeStep: View {
                 .font(SleepFont.body(15))
                 .foregroundStyle(SleepColor.dim)
                 .frame(maxWidth: .infinity, minHeight: 44)
-                Text("Usage analytics are on")
-                    .font(SleepFont.body(13))
-                    .foregroundStyle(SleepColor.dim)
-                    .frame(maxWidth: .infinity, minHeight: 40)
-
             }
             // Bottom-aligned inside the sign-in provider stack's footprint,
             // per the BrandHeroGeometry contract.
@@ -615,7 +610,7 @@ struct OnboardingQuestionsView: View {
                 .disabled(!narrativeReady)
                 .opacity(narrativeReady ? 1 : 0)
         } else if step != .goal || goalReady {
-            LiquidPrimaryButton(title: "Continue", action: advance)
+            LiquidPrimaryButton(title: step == .preview ? "Yes" : "Continue", action: advance)
                 .disabled(!isStepValid)
                 .opacity(isStepValid ? 1 : 0.45)
         }

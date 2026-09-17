@@ -11,14 +11,16 @@ review the rhythm of recent nights — using **real data only**.
   symptom selections; a personalized attention story ending in a night goal;
   desired morning; bedtime; wake time; encouragement; a looping "Protect your
   attention" iPhone demo; and a two-second Hold to commit. Text chapters reveal
-  letter by letter with soft haptics and slide-to-unlock progression. Account
+  letter by letter with stable word positions, alternating white/yellow lines,
+  short groups, and a slide labeled Continue. Account
   creation follows commitment for signed-out users. Already authenticated users
   finish directly. The former "your plan is ready" summary is removed.
 - Setup always shows a starry midnight city with warm windows. Daily Home
   lighting remains phase-aware. Time-cost figures use exact dial minutes;
   lifetime days are explicitly an illustration at that daily rate over 80 years.
-- The demo is a simulator recreation of TikTok opening and a SleepBlock shield,
-  labeled illustrative. It is not evidence of real TikTok blocking. Real
+- The demo is a simulator recreation of a TikTok tap, opening logo, progressive
+  grayscale, then a SleepBlock shield. The page asks "Are you ready to protect
+  your mind against the enemy?" and answers **Yes**. It is not evidence of real TikTok blocking. Real
   permissions and app selection still happen through Apple's Screen Time flow.
 - **SleepBlock is a subscription.** Right after the questionnaire commits, the
   paywall (RevenueCat; annual with a free trial, or monthly) appears at the

@@ -370,7 +370,6 @@ struct SettingsModal: View {
                 referralSection
                 configSection
                 feedbackSection
-                analyticsSection
                 accountSection
 
                 Text("Pixel art by CraftPix.net · OGA-BY 3.0")
@@ -739,27 +738,6 @@ struct SettingsModal: View {
                     .buttonStyle(.plain)
                 }
             }
-        }
-        .padding(.top, SleepSpacing.xxl)
-    }
-
-    private var analyticsSection: some View {
-        VStack(alignment: .leading, spacing: SleepSpacing.md) {
-            Text("Privacy").sectionLabel()
-            GlassGroup {
-                HStack {
-                    Text("Usage analytics").font(SleepFont.body(16))
-                    Spacer()
-                    Text("On").font(SleepFont.body(16)).foregroundStyle(SleepColor.dim)
-                }
-                .foregroundStyle(SleepColor.ink)
-                .padding(.vertical, SleepSpacing.md)
-                .frame(minHeight: 52)
-
-            }
-            Text("Records screens and taps, never your answers or sleep data. Events may be linked to your account.")
-                .font(SleepFont.body(13))
-                .foregroundStyle(SleepColor.dim)
         }
         .padding(.top, SleepSpacing.xxl)
     }

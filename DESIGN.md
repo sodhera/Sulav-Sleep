@@ -181,16 +181,22 @@ lighting and sleep mode remains OLED black.
 The phone-time control is a 270-degree speedometer, 0–240 minutes in five-minute
 increments. The endpoint reads 4+ hours. Continue requires a deliberate nonzero
 setting. Story groups reveal letter by letter with soft haptics, then offer an
-iPhone-style **slide to unlock**. A blank beat separates groups. The final
+iPhone-style slide labeled **Continue**. The complete sentence occupies its
+final lines from the start, with unrendered letters transparent, so words do
+not jump during reveal. Sentences alternate white and yellow, starting with
+white on every page. Long symptom responses split into groups of at most two;
+story text must fit above Continue without scrolling or clipping. The final
 question moves to the top and reveals the goal choices. The lifetime figure
-explicitly assumes the entered daily rate for 80 years; it is an illustration,
-not a prediction. Symptom copy uses attention as a metaphor without diagnosing
+assumes the entered daily rate for 80 years; no explanatory footnote is shown
+on the story screen. Symptom copy uses attention as a metaphor without diagnosing
 or asserting that a phone causes anxiety or night waking. Reduce Motion and
 VoiceOver expose complete text immediately; the slider has an accessible action.
 
 The portrait iPhone demo loops automatically: home-screen TikTok icon and tap,
-TikTok launch, a brief feed, then a SleepBlock shield. It is labeled an
-illustrative demo and does not configure or prove real app blocking. Real app
+TikTok logo progressively losing color, then a SleepBlock shield. The page
+contains only the title "Are you ready to protect your mind against the enemy?",
+the phone video, and a **Yes** button. The on-screen illustrative label and
+supporting copy are removed. The clip remains a simulator recreation; real app
 selection remains in the post-paywall Screen Time primer and Settings.
 
 Commitment requires a two-second hold, cancels on release, drag-away, navigation,
@@ -198,8 +204,8 @@ or backgrounding, and fires once. Account creation and subscription are separate
 from this gesture. Answers and the current step remain locally resumable.
 
 Named first-party usage analytics are always on per the September 17 product
-request. Welcome and Settings show a truthful status instead of an optional
-toggle. No answer values, sleep data, or Family Controls tokens enter events.
+request. No analytics status appears in Welcome or Settings. No answer values,
+sleep data, or Family Controls tokens enter events.
 Simulator QA sends no analytics. Public privacy disclosures must be reconciled
 with this policy before distributing this build; this local change does not
 publish a policy or modify App Store privacy answers.
