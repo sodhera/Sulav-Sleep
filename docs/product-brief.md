@@ -8,7 +8,7 @@ review the rhythm of recent nights — using **real data only**.
 
 - Welcome offers Get started and independent Sign in paths. The iOS setup is
   now ten steps: name; a required 0–4+ hour bedtime-phone dial; four optional
-  symptom selections; a personalized attention story ending in a night goal;
+  symptom selections; a personalized attention story leading directly to night-goal choices;
   desired morning; bedtime; wake time; encouragement; a looping "Protect your
   attention" iPhone demo; and a two-second Hold to commit. Text chapters reveal
   letter by letter with stable word positions, alternating white/yellow lines,
@@ -134,6 +134,7 @@ sleep use. The client never sends entered answers, selected app tokens, or sleep
 records to the product-events table. RevenueCat webhook events separately mark
 trials, payments, renewals, cancellations, and refunds for funnel analysis.
 The new iOS setup has a fixed midnight design; the previous copy/scene variant
-settings do not override it. Before distribution, reconcile the published
-optional-analytics policy and App Store privacy answers. Simulator QA sends no
-product events. No live policy change is included in this implementation.
+settings do not override it. The privacy-policy source in `sodhera/orecci`
+(commit `1e8b249`) describes automatic iOS events; verify its publication and
+reconcile App Store privacy answers before distribution. Simulator QA sends no
+product events.

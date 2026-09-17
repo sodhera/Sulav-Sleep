@@ -2,9 +2,11 @@
 
 > This records the earlier draft PR snapshot. The September 17 local onboarding
 > redesign now uses always-on first-party analytics, a ten-step flow, and a
-> simulator recreation of the TikTok shield. The published privacy policy and
-> App Store privacy answers have **not** been updated for the analytics change;
-> reconcile both before distributing this build. Local simulator QA does not
+> simulator recreation of the TikTok shield. The privacy-policy source was
+> corrected for automatic iOS analytics in `sodhera/orecci` commit `1e8b249`;
+> GitHub reports successful Production deployment `6501274298`. Verify the
+> custom-domain page contents and update
+> App Store privacy answers before distributing this build. Local simulator QA does not
 > establish physical-device Screen Time behavior.
 
 The iOS change is in draft PR [#1](https://github.com/sodhera/Sulav-Sleep/pull/1).
@@ -17,8 +19,9 @@ used explicit non-production placeholders for values that are intentionally
 not committed. No simulator was launched.
 
 The privacy policy source was updated in `sodhera/orecci` commit `57e4e94`.
-GitHub reports a successful Production deployment for that commit. It now
-describes existing profile/session cloud sync and the new optional analytics.
+GitHub reported a successful Production deployment for that earlier commit.
+Commit `1e8b249` updates the wording for automatic iOS events and is also
+reported as a successful Production deployment.
 
 ## Live status and remaining sequence
 
@@ -36,8 +39,9 @@ describes existing profile/session cloud sync and the new optional analytics.
    `SUPABASE_ANON_KEY` are set; `REVENUECAT_API_KEY`, `APPLE_APP_ID`,
    `TIKTOK_APP_ID`, and `TIKTOK_ACCESS_TOKEN` remain intentionally absent from
    the gitignored local file. A production archive needs the real values.
-4. Review and update App Store Connect privacy answers and the published policy
-   to match the always-on first-party events, manifest, and actual third-party
+4. Verify the published privacy policy matches the corrected source. Review and
+   update App Store Connect privacy answers to match the always-on first-party
+   events, manifest, and actual third-party
    SDK behavior. The events may become account-linked after sign-in; they are not
    anonymous. Check device ID, product interaction, purchase history, user ID,
    and the app's existing account, sleep, and advertising disclosures.

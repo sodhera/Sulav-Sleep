@@ -2048,6 +2048,9 @@ sentences, with a separate Continue gesture for each group. Lines
 alternate white/yellow from white on each page. VoiceOver/Reduce Motion reveal complete
 text; swipe has a named accessibility action. Hold completion requires two seconds
 and cancels with release, drag-away, inactive scene, or disappearance.
+The final consequence chapter also ends with Continue; it opens the goal
+options directly. There is no separate typewriter chapter for the goal question
+and no animated swap from that question into the choices.
 
 `SleepBackground(midnight: true)` fixes setup to night layers, reduces the scene
 scrim so window lights survive, and adds Core Animation star opacity loops.
@@ -2061,9 +2064,10 @@ toggle and visible status are removed from Welcome/Settings.
 Choice taps use a generic `option` control, never selected answers. Simulator
 record/flush are disabled to prevent QA from entering production cohorts. The
 queue remains bounded at 500, UUID-idempotent, and retries failed sends. Events
-can be account-linked after auth. **Release gate:** the currently published
-optional-analytics privacy policy and App Store answers must be reconciled before
-distribution; no external privacy-policy deployment is part of this change.
+can be account-linked after auth. **Release gate:** the policy source in
+`sodhera/orecci/sleepblock/privacy-policy.html` was corrected for automatic
+iOS analytics in `1e8b249`; verify the public page reflects that source and reconcile App Store
+privacy answers before distribution.
 
 Deployment order (consequential external actions):
 
@@ -2117,8 +2121,12 @@ financial reporting. The second query can inspect one recorded screen/tap path.
 `PrivacyInfo.xcprivacy` declares the random install identifier, linked product
 interaction events after sign-in, and the corresponding analytics purpose. The
 privacy policy source is `sodhera/orecci/sleepblock/privacy-policy.html`;
-its September 17 update (commit `57e4e94`) discloses cloud sync and optional,
-account-linkable analytics and reached a successful Production deployment.
+its earlier September 17 update (commit `57e4e94`) disclosed cloud sync and
+optional, account-linkable analytics and reached a successful Production deployment.
+Commit `1e8b249` corrects the source and was pushed to the website repository;
+GitHub reports successful Production deployment `6501274298`. The custom-domain
+page contents and App Store privacy answers still need direct verification before
+distributing the revised iOS build.
 App Store Connect privacy answers still require an account with app access;
 the manifest and website policy do not update those answers automatically.
 

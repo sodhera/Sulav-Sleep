@@ -11,6 +11,11 @@ shield, with no feed. Its page has only the requested question, phone, and
 **Yes** button. The simulator screenshots are [symptom story](story-revised.jpg),
 [cost](cost-revised.jpg), [encouragement](plan-revised.jpg), and [demo](demo-revised.jpg).
 They confirm readable text and controls on iPhone 17 Pro at default text size.
+The final consequence chapter now uses Continue to open the goal options
+directly; the separately typed goal question was removed after it caused a
+visible title-to-options jump. A simulator accessibility activation of the
+last chapter's Continue control opened the [goal options](goal-options-direct.jpg)
+with one stable title and four choices.
 
 The revised iPhone 17 Pro simulator build, `scripts/test-onboarding.sh`, and
 `git diff --check` passed. Screenshots were taken from direct review routes;

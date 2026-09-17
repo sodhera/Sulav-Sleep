@@ -13,7 +13,7 @@
 			</array>
 		</dict>
 	</array>
-	<!-- TikTok attribution and optional first-party product analytics. The
+	<!-- TikTok attribution and automatic first-party iOS product analytics. The
 	     analytics event row stores a random install ID and, after sign-in,
 	     the authenticated user ID. Keep App Store privacy answers and the
 	     published policy consistent before release. -->

@@ -185,8 +185,9 @@ iPhone-style slide labeled **Continue**. The complete sentence occupies its
 final lines from the start, with unrendered letters transparent, so words do
 not jump during reveal. Sentences alternate white and yellow, starting with
 white on every page. Long symptom responses split into groups of at most two;
-story text must fit above Continue without scrolling or clipping. The final
-question moves to the top and reveals the goal choices. The lifetime figure
+story text must fit above Continue without scrolling or clipping. Continue on
+the last consequence chapter opens the goal choices directly. The goal question
+appears once as the options-page title, with no typed-question transition. The lifetime figure
 assumes the entered daily rate for 80 years; no explanatory footnote is shown
 on the story screen. Symptom copy uses attention as a metaphor without diagnosing
 or asserting that a phone causes anxiety or night waking. Reduce Motion and
@@ -206,9 +207,9 @@ from this gesture. Answers and the current step remain locally resumable.
 Named first-party usage analytics are always on per the September 17 product
 request. No analytics status appears in Welcome or Settings. No answer values,
 sleep data, or Family Controls tokens enter events.
-Simulator QA sends no analytics. Public privacy disclosures must be reconciled
-with this policy before distributing this build; this local change does not
-publish a policy or modify App Store privacy answers.
+Simulator QA sends no analytics. The website privacy-policy source now states
+that current iOS analytics are automatic. Its publication and the App Store
+privacy answers must be verified before distributing this build.
 
 ## Liquid Glass
 

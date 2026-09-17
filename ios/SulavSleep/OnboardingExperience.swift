@@ -194,7 +194,7 @@ struct AttentionStoryStep: View {
         ]
         let symptomPages = stride(from: 0, to: consequences.count, by: 2)
             .map { Array(consequences[$0..<min($0 + 2, consequences.count)]) }
-        return [opening, cost] + symptomPages + [["What would make your night better?"]]
+        return [opening, cost] + symptomPages
     }
     private var lines: [String] { pages[chapter] }
     var body: some View {
@@ -202,7 +202,6 @@ struct AttentionStoryStep: View {
             if showingOptions {
                 Text("What would make your night better?")
                     .font(SleepFont.title(28)).foregroundStyle(SleepColor.ink)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 Spacer(minLength: 10)
                 ScrollView {
                     VStack(spacing: 12) {
@@ -218,20 +217,17 @@ struct AttentionStoryStep: View {
                 NarrativePage(lines: lines, ready: $ready)
                     .id(chapter)
                     .transition(.opacity)
-                if chapter < pages.count - 1 {
-                    StoryUnlockSlider {
+                StoryUnlockSlider {
+                    if chapter == pages.count - 1 {
+                        showingOptions = true
+                    } else {
                         ready = false
                         withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.4)) { chapter += 1 }
                     }
-                    .id(chapter)
-                    .disabled(!ready).opacity(ready ? 1 : 0)
-                    .padding(.bottom, 16)
                 }
-            }
-        }
-        .onChange(of: ready) { _, value in
-            if value && chapter == pages.count - 1 {
-                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.6)) { showingOptions = true }
+                .id(chapter)
+                .disabled(!ready).opacity(ready ? 1 : 0)
+                .padding(.bottom, 16)
             }
         }
 #if DEBUG
