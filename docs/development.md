@@ -2096,10 +2096,12 @@ account-linkable analytics and reached a successful Production deployment.
 App Store Connect privacy answers still require an account with app access;
 the manifest and website policy do not update those answers automatically.
 
-Release access check on September 17: the currently authenticated Supabase CLI
-account receives HTTP 403 for the linked SleepBlock project, so migrations
-009–011 and the RevenueCat webhook have not been deployed. The local
-`Config.xcconfig` has an empty `REVENUECAT_API_KEY`, and the Release build
-fails its intentional secret guard. Obtain project access and production
-configuration before performing steps 1–4 above. No simulator or App Store
-submission was used for this change.
+Production verification on September 17 confirmed migrations 009–011 through
+the public API: both event tables exist with anonymous reads denied, invalid
+event names reach and fail the expected constraint, and the iOS config row
+returns `concise` / `twilight`. The RevenueCat webhook endpoint is live and
+enforces authorization. Its authenticated ledger write still needs a sandbox
+or dashboard test event. Generic Debug and Release compile checks pass; the
+Release check used non-production placeholders because real RevenueCat, Apple,
+and TikTok values remain outside Git. No simulator or App Store submission was
+used for this change.

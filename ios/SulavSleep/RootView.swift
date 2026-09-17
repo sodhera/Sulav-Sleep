@@ -72,6 +72,26 @@ struct RootView: View {
 #endif
     }
 
+    /// Keeps the sample itself out of Release compilation. A boolean that is
+    /// always false in Release is not enough: Swift still type-checks both
+    /// ViewBuilder branches, while `ActiveSleepSession.sample` is deliberately
+    /// declared only under DEBUG.
+    private var sleepModePreviewSession: ActiveSleepSession? {
+#if DEBUG
+        showsSleepModePreview ? .sample : nil
+#else
+        nil
+#endif
+    }
+
+    private var wakeSummaryPreview: WakeSummary? {
+#if DEBUG
+        showsWakeSummaryPreview ? .sample : nil
+#else
+        nil
+#endif
+    }
+
     /// DEBUG-only preview of the forced update gate, which otherwise needs a
     /// server-side `min_supported_version` bump to appear.
     private var showsUpdateGatePreview: Bool {
@@ -181,17 +201,17 @@ struct RootView: View {
                 SleepBackground(showsMoon: false)
                 SceneReadabilityScrim()
                 OnboardingQuestionsView(store: store, onDone: { _ in })
-            } else if showsSleepModePreview {
+            } else if let previewSession = sleepModePreviewSession {
                 SleepModeView(
                     store: store,
-                    activeSession: .sample,
+                    activeSession: previewSession,
                     initiallyShowsControls: sleepModePreviewShowsControls,
                     wakeClockOverride: "7:00 AM"
                 )
-            } else if showsWakeSummaryPreview {
+            } else if let previewSummary = wakeSummaryPreview {
                 SleepBackground(showsMoon: false)
                 SceneReadabilityScrim()
-                WakeSummaryView(store: store, summary: .sample)
+                WakeSummaryView(store: store, summary: previewSummary)
             } else if store.isOnboarded, let active = store.activeSession {
                 // Immersive, pitch-black sleep mode takes over the whole screen.
                 SleepModeView(store: store, activeSession: active)
