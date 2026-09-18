@@ -228,6 +228,36 @@ xcodebuild \
   build
 ```
 
+## Run on a physical iPhone
+
+The simulator can't exercise Family Controls, so anything touching the lockdown
+has to be checked on hardware. Plug the phone in, trust the Mac, then:
+
+```sh
+xcrun devicectl list devices
+```
+
+Build against that device's identifier (signing is automatic, team `6LYZDNCM4M`;
+`-allowProvisioningUpdates` lets Xcode mint the profile on first run):
+
+```sh
+xcodebuild -project ios/SulavSleep.xcodeproj -scheme SulavSleep -configuration Debug -destination 'id=<DEVICE-UDID>' -derivedDataPath ios/build/DerivedData -allowProvisioningUpdates build
+```
+
+Then install and launch:
+
+```sh
+xcrun devicectl device install app --device <DEVICE-UDID> ios/build/DerivedData/Build/Products/Debug-iphoneos/SulavSleep.app
+```
+
+```sh
+xcrun devicectl device process launch --device <DEVICE-UDID> com.sulav.sleepblock
+```
+
+A Debug build installed this way runs for seven days before the development
+profile expires; reinstall to reset the clock.
+
+
 ## Swift package dependencies
 
 The app links Supabase's `Auth` product, RevenueCat's `RevenueCat` product, and
