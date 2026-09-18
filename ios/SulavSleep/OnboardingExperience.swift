@@ -73,6 +73,12 @@ struct NightSlider: View {
                 }
             }
 
+            // The rail and its end labels sit on a glass stage rather than
+            // bare over the scene. This is the same reasoning as the auth
+            // form's field surfaces (DESIGN.md, "Onboarding & auth"): the
+            // control lands on the busiest band of the skyline, where a
+            // 5pt rail and 13pt grey labels all but disappear. Glass is for
+            // controls, and a slider is a control.
             VStack(spacing: SleepSpacing.md) {
                 track
                 HStack {
@@ -81,14 +87,18 @@ struct NightSlider: View {
                     Text(highLabel)
                 }
                 .font(SleepFont.body(13))
-                .foregroundStyle(SleepColor.muted)
+                .foregroundStyle(SleepColor.dim)
             }
+            .padding(.horizontal, SleepSpacing.lg)
+            .padding(.vertical, SleepSpacing.lg)
+            .liquidGlass(cornerRadius: SleepRadius.lg)
 
             if let caption {
                 Text(caption)
                     .font(SleepFont.body(14))
                     .italic()
-                    .foregroundStyle(SleepColor.muted)
+                    .foregroundStyle(SleepColor.dim)
+                    .shadow(color: SleepColor.navy.opacity(0.9), radius: 3)
             }
         }
         .accessibilityElement(children: .ignore)
@@ -148,17 +158,23 @@ struct NightSlider: View {
         .frame(height: 44)
     }
 
+    /// The social anchor. Deliberately **not** `danger`: in this palette red
+    /// means a destructive action, and colouring "what's typical" as an alarm
+    /// turns a reference mark into a judgement — which is the shaming
+    /// DESIGN.md rules out. Gold is the palette's highlight, and the navy
+    /// bubble gives it contrast without borrowing urgency it hasn't earned.
     private func anchorPip(travel: CGFloat, anchor: Int) -> some View {
         VStack(spacing: 5) {
             Text(anchorLabel)
                 .font(SleepFont.label(10))
-                .foregroundStyle(SleepColor.background)
-                .padding(.horizontal, 7)
-                .padding(.vertical, 3)
-                .background(SleepColor.danger, in: Capsule())
+                .foregroundStyle(SleepColor.gold)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(SleepColor.navy, in: Capsule())
+                .overlay(Capsule().stroke(SleepColor.gold.opacity(0.35), lineWidth: 1))
                 .fixedSize()
             Circle()
-                .fill(SleepColor.danger)
+                .fill(SleepColor.gold)
                 .frame(width: 5, height: 5)
         }
         .offset(x: travel * fraction(of: anchor) + knob / 2, y: -34)
@@ -249,9 +265,13 @@ struct SleepNeedBand: View {
             }
             .frame(height: 118)
 
+            // The citation is the whole reason this screen isn't the app
+            // passing judgement, so it has to survive the skyline. Same
+            // navy-shadow treatment DESIGN.md gives section kickers.
             Text("American Academy of Sleep Medicine")
                 .font(SleepFont.body(12))
-                .foregroundStyle(SleepColor.muted)
+                .foregroundStyle(SleepColor.dim)
+                .shadow(color: SleepColor.navy.opacity(0.9), radius: 3)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Recommended sleep for adults is 7 to 9 hours")
@@ -268,8 +288,12 @@ struct SleepNeedBand: View {
         }
     }
 
+    /// Always amber, never `danger` — **position carries the verdict.** A red
+    /// marker under the band would be the app editorialising about the user's
+    /// nights, and the whole point of sourcing the band to the AASM is that
+    /// the app doesn't have to. Landing outside the lit range says it.
     private func marker(width: CGFloat) -> some View {
-        let tint = isEnough ? SleepColor.gold : SleepColor.danger
+        let tint = isEnough ? SleepColor.gold : SleepColor.amber
         return VStack(spacing: 4) {
             Capsule()
                 .fill(tint)
@@ -310,9 +334,13 @@ struct YearOfNightsGrid: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var revealed = 0
 
-    private static let columns = 20
-    private static let rows = 19
-    private static let gap: CGFloat = 3
+    // Wide and shallow, not square. A 20x19 field ran nearly half the
+    // screen and its lower rows sank into the skyline, which destroyed the
+    // only thing the graphic has to say — the *ratio* of lit to unlit. The
+    // whole 365 has to be legible as one quantity in one glance.
+    private static let columns = 25
+    private static let rows = 15
+    private static let gap: CGFloat = 2.5
 
     private var total: Int { SleepDebt.nightsPerYear }
     private var lit: Int { min(total, SleepDebt.phoneNightsPerYear(phone: phoneMinutes)) }
@@ -344,10 +372,14 @@ struct YearOfNightsGrid: View {
                 Text("in bed, awake, on your phone.")
                     .font(SleepFont.title(20))
                     .foregroundStyle(SleepColor.ink)
+                    .shadow(color: SleepColor.navy.opacity(0.9), radius: 4)
 
+                // The provenance line is what keeps this figure honest, so
+                // it has to be readable over the warm windows it lands on.
                 Text("At the \(phoneMinutes) minutes a night you told us.")
                     .font(SleepFont.body(13))
-                    .foregroundStyle(SleepColor.muted)
+                    .foregroundStyle(SleepColor.dim)
+                    .shadow(color: SleepColor.navy.opacity(0.9), radius: 3)
                     .opacity(ready ? 1 : 0)
                     .animation(.easeIn(duration: 0.35), value: ready)
             }
@@ -403,13 +435,22 @@ struct YearOfNightsGrid: View {
                 )
                 context.fill(
                     Path(roundedRect: rect, cornerRadius: 1.5),
-                    with: .color(index < revealed ? SleepColor.amber : SleepColor.ink.opacity(0.10))
+                    // Unlit cells need real presence: at 10% over the lit
+                    // windows of the skyline they disappeared, and a field
+                    // whose denominator is invisible has no ratio to read.
+                    with: .color(index < revealed ? SleepColor.amber : SleepColor.ink.opacity(0.18))
                 )
             }
         }
         .aspectRatio(CGFloat(Self.columns) / CGFloat(Self.rows), contentMode: .fit)
         .frame(maxWidth: .infinity)
         .drawingGroup()
+        // The field is one object, so it gets one stage. Glass supplies an
+        // even ground under all 365 cells — without it the grid's lower rows
+        // read against warm windows and the top rows against open sky, and
+        // the same colour looks like two different values.
+        .padding(SleepSpacing.md)
+        .liquidGlass(cornerRadius: SleepRadius.md)
     }
 }
 

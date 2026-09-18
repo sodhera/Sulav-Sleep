@@ -650,7 +650,19 @@ struct OnboardingQuestionsView: View {
     private var shortfallTitle: String {
         effectiveSleep >= SleepDebt.target
             ? "You're getting enough. Barely."
-            : "You're \(SleepFormatting.duration(SleepDebt.nightlyShortfall(sleepMinutes: effectiveSleep))) short. Every night."
+            : "You're \(Self.spokenDuration(SleepDebt.nightlyShortfall(sleepMinutes: effectiveSleep))) short. Every night."
+    }
+
+    /// A shortfall read aloud, not clocked. `SleepFormatting.duration` is the
+    /// app's *instrument* format — right for a sleep total ("6h 45m"), wrong
+    /// in a sentence, where it renders a quarter of an hour as "0h 15m" and
+    /// makes the headline sound broken. Durations inside prose get words.
+    private static func spokenDuration(_ minutes: Int) -> String {
+        if minutes < 60 { return "\(minutes) minutes" }
+        let hours = minutes / 60
+        let remainder = minutes % 60
+        if remainder == 0 { return hours == 1 ? "an hour" : "\(hours) hours" }
+        return "\(hours)h \(remainder)m"
     }
 
     private var shortfallSubtitle: String {
