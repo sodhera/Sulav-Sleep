@@ -420,3 +420,84 @@ enum AttentionEstimate {
     static func yearlyMinutes(_ minutes: Int) -> Int { max(0, min(minutes, 240)) * 365 }
     static func lifetimeDays(_ minutes: Int) -> Int { yearlyMinutes(minutes) * 80 / 1_440 }
 }
+
+// MARK: - Sleep debt (onboarding arithmetic)
+
+/// The arithmetic behind onboarding's reveal steps.
+///
+/// Every figure here is a **straight unit conversion of what the user told
+/// us** — nothing is measured, modelled, or inferred from behaviour. That is
+/// deliberate: the flow's persuasive weight rests on the user recognising
+/// their own answer coming back at them, and a number they can't retrace is
+/// a number they can dismiss. The reveal screens caption each figure with
+/// the answer it came from for the same reason.
+///
+/// The one value we supply is `onsetMinutes`. Everything else is theirs.
+enum SleepDebt {
+    /// Recommended nightly sleep for adults, per the American Academy of
+    /// Sleep Medicine / CDC consensus. Shown as a band on the `need` step.
+    static let recommendedRange = (7 * 60)...(9 * 60)
+
+    /// The floor we measure a shortfall against — the **bottom** of the
+    /// recommended band, not its middle. Seven hours is officially enough,
+    /// so billing someone for a shortfall against eight would overstate
+    /// every number the flow shows. Conservative on purpose.
+    static var target: Int { recommendedRange.lowerBound }
+
+    /// How long a person lies in bed before sleep actually begins. Fifteen
+    /// minutes sits at the low end of normal sleep-onset latency, which
+    /// keeps the derived sleep figure generous and the shortfall small.
+    static let onsetMinutes = 15
+
+    static let nightsPerYear = 365
+
+    /// The upper bound of the phone slider, and the clamp on every figure
+    /// derived from it — matching `AttentionEstimate`'s 4-hour ceiling.
+    static let phoneCeiling = 240
+
+    /// Time in bed: from getting in to getting up.
+    static func windowMinutes(inBed: Int, wake: Int) -> Int {
+        SleepMath.windowMinutes(bedtime: inBed, wakeTime: wake)
+    }
+
+    /// What is left of the window once the phone and falling asleep are paid
+    /// for. This is the value the calibration step opens on, so the user
+    /// adjusts a number the app already worked out rather than supplying a
+    /// third one from scratch.
+    static func derivedSleepMinutes(inBed: Int, wake: Int, phone: Int) -> Int {
+        let window = windowMinutes(inBed: inBed, wake: wake)
+        return max(0, window - clampedPhone(phone) - onsetMinutes)
+    }
+
+    /// How far short of the recommendation a night lands. Zero for anyone
+    /// already clearing seven hours — every reveal step has to survive that
+    /// case without claiming a debt that isn't there.
+    static func nightlyShortfall(sleepMinutes: Int) -> Int {
+        max(0, target - max(0, sleepMinutes))
+    }
+
+    /// A year of shortfall, expressed in whole nights of recommended sleep.
+    static func nightsShortPerYear(sleepMinutes: Int) -> Int {
+        nightlyShortfall(sleepMinutes: sleepMinutes) * nightsPerYear / target
+    }
+
+    /// A year of phone-in-bed, expressed in whole nights of recommended
+    /// sleep. This is the flow's hero figure, and the only one that holds
+    /// regardless of whether there is a shortfall: that time was spent in
+    /// bed and awake either way, so it is never an accusation the user can
+    /// argue with.
+    static func phoneNightsPerYear(phone: Int) -> Int {
+        clampedPhone(phone) * nightsPerYear / target
+    }
+
+    /// What the night becomes once the phone is out of it: the whole window
+    /// minus sleep onset. The plan step promises this figure, so it has to
+    /// be reachable by the same arithmetic the user just watched.
+    static func protectedSleepMinutes(inBed: Int, wake: Int) -> Int {
+        max(0, windowMinutes(inBed: inBed, wake: wake) - onsetMinutes)
+    }
+
+    private static func clampedPhone(_ phone: Int) -> Int {
+        max(0, min(phone, phoneCeiling))
+    }
+}

@@ -280,9 +280,26 @@ private struct WelcomeStep: View {
 
 // MARK: - Questionnaire
 
-/// Ten investment steps followed by account creation for signed-out users.
-/// Setup is committed only after new-account authentication succeeds.
-/// The midnight story and demo never request permissions or select real apps.
+/// The sign-up flow: eleven beats, then account creation for signed-out users.
+///
+/// The arc alternates **ask** and **reveal**, and every ask feeds a reveal the
+/// user watches happen. That is the flow's whole design: three cheap factual
+/// inputs (in-bed, wake, phone) are enough to derive everything else, so by
+/// the fourth screen the app is handing the user's own answers back as
+/// arithmetic rather than asking for more. See `SleepDebt` for the figures and
+/// `OnboardingExperience.swift` for the instruments that draw them.
+///
+/// Ordering notes worth keeping:
+/// - **No text field first.** A keyboard is the highest-friction input there
+///   is and step one is where the most people leave. The name is asked late,
+///   where it reads as warmth and has a visible job (Home's greeting).
+/// - **"Get into bed", not "go to bed".** The gap between getting in and
+///   falling asleep *is* the phone time; the wording plants the question two
+///   screens early.
+/// - **The shortfall verdict is sourced, not spoken.** `SleepNeedBand` cites
+///   the AASM so the app never calls the user's nights inadequate itself.
+/// - Setup requests no permissions and selects no real apps. Screen Time
+///   stays post-paywall.
 struct OnboardingQuestionsView: View {
     let store: SleepStore
     /// Back action from the first step (to the welcome screen), or `nil` when
@@ -290,20 +307,25 @@ struct OnboardingQuestionsView: View {
     var onBack: (() -> Void)?
     let onDone: (OnboardingAnswers) -> Void
 
-    @State private var step: Step = .name
+    @State private var step: Step = .inBed
     @State private var draftRestored = false
     @State private var movingForward = true
-    @State private var name = ""
+
+    // Answers.
+    @State private var inBed = 22 * 60 + 30
+    @State private var wakeTime = 6 * 60 + 30
+    @State private var phoneMinutes = 45
+    @State private var phoneTouched = false
+    @State private var sleepMinutes = 0
+    @State private var sleepTouched = false
     @State private var goal: SleepGoal?
-    @State private var struggles: Set<SleepStruggle> = []
-    @State private var phoneTime: LateNightPhoneTime?
-    @State private var phoneMinutes = 0
-    @State private var phoneDialTouched = false
+    @State private var name = ""
+
+    // Reveal gates: the steps that animate own their own Continue.
+    @State private var gridReady = false
     @State private var narrativeReady = false
     @State private var goalReady = false
-    @State private var feeling: WakeFeeling?
-    @State private var bedtime = 22 * 60 + 30
-    @State private var wakeTime = 6 * 60 + 30
+
     /// Whether this run ends on the account step. Captured once so it does not
     /// flip mid-flow when auth flips `isAuthenticated`.
     @State private var includesAccount: Bool
@@ -318,60 +340,84 @@ struct OnboardingQuestionsView: View {
         self.onDone = onDone
         _includesAccount = State(initialValue: !store.isAuthenticated)
 #if DEBUG
+        // QA entry points. `-review-onboarding-step=<raw>` lands on any step
+        // with plausible answers already filled in, so a reveal can be
+        // screenshotted without playing the whole flow.
         let arguments = ProcessInfo.processInfo.arguments
-        if arguments.contains("-review-onboarding-goals") {
-            _step = State(initialValue: .goal)
-            _goal = State(initialValue: .wakeUpRested)
-        } else if arguments.contains("-review-onboarding-bedtime") {
-            _step = State(initialValue: .bedtime)
-        } else if arguments.contains("-review-onboarding-plan") {
-            _step = State(initialValue: .plan)
-            _name = State(initialValue: "Sulav")
-            _goal = State(initialValue: .lessPhoneAtNight)
-            _phoneTime = State(initialValue: .quarterHour)
-            _phoneMinutes = State(initialValue: 60)
-            _feeling = State(initialValue: .rested)
-        }
         if let flag = arguments.first(where: { $0.hasPrefix("-review-onboarding-step=") }),
            let reviewStep = Step(rawValue: String(flag.dropFirst("-review-onboarding-step=".count))) {
             _step = State(initialValue: reviewStep)
-            _name = State(initialValue: "Sirish")
+            _name = State(initialValue: "Sulav")
             _phoneMinutes = State(initialValue: 60)
-            _phoneDialTouched = State(initialValue: true)
-            _struggles = State(initialValue: [.fallingAsleep, .wakingAtNight, .wakingTired, .negativeThoughts])
-            _feeling = State(initialValue: .rested)
+            _phoneTouched = State(initialValue: true)
+            _sleepMinutes = State(initialValue: 6 * 60 + 45)
+            _sleepTouched = State(initialValue: true)
+            _goal = State(initialValue: .lessPhoneAtNight)
         }
 #endif
     }
 
-    /// The investment arc: who you are → what you want → what's in the way →
-    /// how bad it's gotten → your schedule → the plan built from all of it.
+    /// The arc: your schedule → what the phone takes → what that costs →
+    /// what you'd fix → the plan → who you are → what it looks like → commit.
     private enum Step: String, Codable {
-        case preview, name, goal, struggles, phoneTime, feeling, bedtime, wake, plan, commit, account
+        case inBed, wake, phone, sleep, need, grid, story, plan, name, preview, commit, account
     }
 
     private struct Draft: Codable {
         var step: Step
-        var name: String
-        var goal: SleepGoal?
-        var struggles: Set<SleepStruggle>
-        var phoneTime: LateNightPhoneTime?
-        var feeling: WakeFeeling?
-        var bedtime: Int
+        var inBed: Int
         var wakeTime: Int
-        var phoneMinutes: Int?
-        var phoneDialTouched: Bool?
+        var phoneMinutes: Int
+        var phoneTouched: Bool
+        var sleepMinutes: Int
+        var sleepTouched: Bool
+        var goal: SleepGoal?
+        var name: String
     }
 
-    private static let draftKey = "sulav.onboardingDraft.v1"
+    /// v2: the v1 key held the retired ten-step answer set (symptoms, wake
+    /// feeling, a phone dial). A stale v1 draft can't be migrated into this
+    /// flow's questions, so it is left to expire rather than half-restored.
+    private static let draftKey = "sulav.onboardingDraft.v2"
 
     private var steps: [Step] {
-        var result: [Step] = [.name, .phoneTime, .struggles, .goal, .feeling, .bedtime, .wake, .plan, .preview, .commit]
+        var result: [Step] = [
+            .inBed, .wake, .phone, .sleep, .need, .grid, .story, .plan, .name, .preview, .commit
+        ]
         if includesAccount { result.append(.account) }
         return result
     }
 
     private var currentIndex: Int { steps.firstIndex(of: step) ?? 0 }
+
+    // MARK: Derived figures
+    //
+    // All of these are pure functions of the three inputs, recomputed on
+    // demand. Nothing is cached: a back-and-edit on any question has to move
+    // every downstream number, or the flow stops being the user's own
+    // arithmetic.
+
+    private var windowMinutes: Int {
+        SleepDebt.windowMinutes(inBed: inBed, wake: wakeTime)
+    }
+
+    private var derivedSleep: Int {
+        SleepDebt.derivedSleepMinutes(inBed: inBed, wake: wakeTime, phone: phoneMinutes)
+    }
+
+    /// The sleep figure the reveals use: the user's correction if they made
+    /// one, otherwise what the window arithmetic produced.
+    private var effectiveSleep: Int {
+        sleepTouched ? sleepMinutes : derivedSleep
+    }
+
+    private var phoneNights: Int {
+        SleepDebt.phoneNightsPerYear(phone: phoneMinutes)
+    }
+
+    private var protectedSleep: Int {
+        SleepDebt.protectedSleepMinutes(inBed: inBed, wake: wakeTime)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -413,39 +459,31 @@ struct OnboardingQuestionsView: View {
             Haptics.soft()
             goBack()
         }
-        // The account step's auth succeeded. A brand-new account commits the
-        // just-answered profile. An existing account (Apple/Google matching an
-        // already-registered identity) must *not* commit them over the profile
-        // that account already has — `RootView` has already taken the screen
-        // with `ExistingAccountWelcomeView` by this point, which is where that
-        // gets explained; all that's left here is to not call `finish()`.
         .onAppear {
             restoreDraft()
             SleepAnalytics.record("onboarding_step_viewed", screen: step.rawValue)
         }
         .onChange(of: step) { _, next in
             SleepAnalytics.record("onboarding_step_viewed", screen: next.rawValue)
+            saveDraft()
         }
-        .onChange(of: step) { _, _ in saveDraft() }
+        .onChange(of: inBed) { _, _ in saveDraft() }
+        .onChange(of: wakeTime) { _, _ in saveDraft() }
+        .onChange(of: phoneMinutes) { _, _ in saveDraft() }
+        .onChange(of: phoneTouched) { _, _ in saveDraft() }
+        .onChange(of: sleepMinutes) { _, _ in saveDraft() }
+        .onChange(of: sleepTouched) { _, _ in saveDraft() }
         .onChange(of: name) { _, _ in saveDraft() }
         .onChange(of: goal) { _, next in
             saveDraft()
-            if next != nil { SleepAnalytics.record("onboarding_option_tapped", screen: "goal", control: "option") }
+            if next != nil { SleepAnalytics.record("onboarding_option_tapped", screen: "story", control: "goal") }
         }
-        .onChange(of: struggles) { old, next in
-            saveDraft()
-            if draftRestored, !old.symmetricDifference(next).isEmpty {
-                SleepAnalytics.record("onboarding_option_tapped", screen: "struggles", control: "option")
-            }
-        }
-        .onChange(of: phoneMinutes) { _, _ in saveDraft() }
-        .onChange(of: phoneDialTouched) { _, _ in saveDraft() }
-        .onChange(of: feeling) { _, next in
-            saveDraft()
-            if next != nil { SleepAnalytics.record("onboarding_option_tapped", screen: "feeling", control: "option") }
-        }
-        .onChange(of: bedtime) { _, _ in saveDraft() }
-        .onChange(of: wakeTime) { _, _ in saveDraft() }
+        // The account step's auth succeeded. A brand-new account commits the
+        // just-answered profile. An existing account (Apple/Google matching an
+        // already-registered identity) must *not* commit them over the profile
+        // that account already has — `RootView` has already taken the screen
+        // with `ExistingAccountWelcomeView` by this point, which is where that
+        // gets explained; all that's left here is to not call `finish()`.
         .onChange(of: store.isAuthenticated) { _, authenticated in
             guard authenticated, step == .account else { return }
             if store.lastSignInWasNewAccount {
@@ -501,82 +539,89 @@ struct OnboardingQuestionsView: View {
     @ViewBuilder
     private var currentStep: some View {
         switch step {
-        case .preview:
-            BlockingPreviewStep()
-        case .name:
-            QuestionLayout(title: "What should we call you?") {
-                NameField(name: $name, onSubmit: advance)
+        case .inBed:
+            QuestionLayout(title: "What time do you get into bed?") {
+                TimeAdjuster(minutes: $inBed)
             }
-        case .goal:
-            AttentionStoryStep(minutes: phoneMinutes, struggles: struggles, goal: $goal, showingOptions: $goalReady)
-        case .struggles:
-            QuestionLayout(
-                title: "Do you feel any of these?",
-                subtitle: "Choose any that apply."
-            ) {
-                // One glass set: the sibling capsules share a container so
-                // iOS 26 blends their glass together as Apple intends.
-                LiquidGlassContainer(spacing: SleepSpacing.md) {
-                    VStack(spacing: SleepSpacing.md) {
-                        ForEach([SleepStruggle.fallingAsleep, .wakingAtNight, .wakingTired, .negativeThoughts]) { struggle in
-                            OptionRow(
-                                icon: struggle.systemImage,
-                                title: struggle.title,
-                                isSelected: struggles.contains(struggle)
-                            ) {
-                                Haptics.heavy()
-                                if struggles.contains(struggle) {
-                                    struggles.remove(struggle)
-                                } else {
-                                    struggles.insert(struggle)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        case .phoneTime:
-            QuestionLayout(title: "How many minutes do you spend on your phone before bed?") {
-                BedtimePhoneDial(minutes: $phoneMinutes, touched: $phoneDialTouched)
-            }
-        case .feeling:
-            QuestionLayout(
-                title: "How do you want to wake up every morning?"
-            ) {
-                LiquidGlassContainer(spacing: SleepSpacing.md) {
-                    VStack(spacing: SleepSpacing.md) {
-                        ForEach([WakeFeeling.rested, .energized, .calm, .focused]) { option in
-                            OptionRow(
-                                icon: option.systemImage,
-                                title: option.title,
-                                isSelected: feeling == option
-                            ) {
-                                Haptics.heavy()
-                                feeling = option
-                            }
-                        }
-                    }
-                }
-            }
-        case .bedtime:
-            QuestionLayout(title: "When do you want to go to bed?") {
-                TimeAdjuster(minutes: $bedtime)
-            }
+
         case .wake:
             QuestionLayout(
-                title: "And when do you want to wake up?",
-                subtitle: "That's a \(SleepFormatting.duration(windowMinutes)) sleep window."
+                title: "And what time do you need to be up?",
+                subtitle: "That's \(SleepFormatting.duration(windowMinutes)) in bed."
             ) {
                 TimeAdjuster(minutes: $wakeTime)
             }
+
+        case .phone:
+            QuestionLayout(title: "Once you're in bed, how long are you on your phone?") {
+                NightSlider(
+                    value: $phoneMinutes,
+                    touched: $phoneTouched,
+                    range: 0...SleepDebt.phoneCeiling,
+                    step: 5,
+                    anchor: 50,
+                    lowLabel: "None",
+                    highLabel: "4 hrs",
+                    caption: "Be honest.",
+                    format: { $0 >= SleepDebt.phoneCeiling ? "4+" : "\($0)" },
+                    unit: phoneMinutes >= SleepDebt.phoneCeiling ? "hours" : "minutes"
+                )
+            }
+
+        case .sleep:
+            // The one step that hands a number back before asking anything:
+            // the slider opens on the window arithmetic, so most people
+            // confirm with a tap and the rest correct a starting point
+            // instead of inventing a third figure.
+            QuestionLayout(
+                title: "So you're actually asleep for about this long.",
+                subtitle: "Your \(SleepFormatting.duration(windowMinutes)) in bed, minus your phone, minus dropping off. Drag it if that's wrong."
+            ) {
+                NightSlider(
+                    value: $sleepMinutes,
+                    touched: $sleepTouched,
+                    range: (3 * 60)...(11 * 60),
+                    step: 15,
+                    anchor: nil,
+                    lowLabel: "3 hrs",
+                    highLabel: "11 hrs",
+                    caption: nil,
+                    format: { SleepFormatting.duration($0) },
+                    unit: "a night"
+                )
+            }
+
+        case .need:
+            QuestionLayout(
+                title: shortfallTitle,
+                subtitle: shortfallSubtitle
+            ) {
+                SleepNeedBand(sleepMinutes: effectiveSleep)
+            }
+
+        case .grid:
+            YearOfNightsGrid(phoneMinutes: phoneMinutes, ready: $gridReady)
+
+        case .story:
+            NightGoalStep(phoneNights: phoneNights, goal: $goal, showingOptions: $goalReady)
+
         case .plan:
             NarrativePage(lines: [
-                "You can take back control.",
-                "You can wake up every morning at \(SleepFormatting.clock(wakeTime)) feeling \((feeling ?? .rested).title.lowercased()).",
-                "You deserve it."
+                "Phone down at \(SleepFormatting.clock(inBed)).",
+                "Up at \(SleepFormatting.clock(wakeTime)) with \(SleepFormatting.duration(protectedSleep)) behind you.",
+                "That's \(phoneNights) nights back this year."
             ], ready: $narrativeReady)
+
+        case .name:
+            QuestionLayout(title: "What should we call you in the morning?") {
+                NameField(name: $name, onSubmit: advance)
+            }
+
+        case .preview:
+            BlockingPreviewStep(inBedClock: SleepFormatting.clock(inBed))
+
         case .commit:
-            QuestionLayout(title: "Are you serious about living a better life?") {
+            QuestionLayout(title: commitTitle) {
                 VStack(spacing: 24) {
                     Image(systemName: "hand.raised.fill")
                         .font(.system(size: 64, weight: .light))
@@ -587,30 +632,72 @@ struct OnboardingQuestionsView: View {
                         .multilineTextAlignment(.center)
                 }.frame(maxWidth: .infinity)
             }
+
         case .account:
             // Rendered by AuthMethodsView in the body, outside this scaffold.
             EmptyView()
         }
     }
 
-    private var windowMinutes: Int {
-        SleepMath.windowMinutes(bedtime: bedtime, wakeTime: wakeTime)
+    // MARK: Adaptive copy
+    //
+    // Anyone already clearing seven hours must not be told they are short —
+    // the band would contradict the headline, and a flow that argues with its
+    // own graphic loses the credibility the whole arc runs on. They get the
+    // protective framing instead, and the phone figure still carries the
+    // reveal that follows.
+
+    private var shortfallTitle: String {
+        effectiveSleep >= SleepDebt.target
+            ? "You're getting enough. Barely."
+            : "You're \(SleepFormatting.duration(SleepDebt.nightlyShortfall(sleepMinutes: effectiveSleep))) short. Every night."
+    }
+
+    private var shortfallSubtitle: String {
+        effectiveSleep >= SleepDebt.target
+            ? "There's not much room between you and the bottom of that band."
+            : "Adults need 7 to 9 hours."
+    }
+
+    private var commitTitle: String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? "Are you ready to take your nights back?"
+            : "Are you ready to take your nights back, \(name.trimmingCharacters(in: .whitespacesAndNewlines))?"
     }
 
     // MARK: Actions
 
     @ViewBuilder
     private var actions: some View {
-        if step == .commit {
+        switch step {
+        case .commit:
             CommitmentHoldButton {
                 if includesAccount { advance() } else { finish() }
             }
-        } else if step == .plan {
+
+        case .plan:
             StoryUnlockSlider(action: advance)
                 .disabled(!narrativeReady)
                 .opacity(narrativeReady ? 1 : 0)
-        } else if step != .goal || goalReady {
-            LiquidPrimaryButton(title: step == .preview ? "Yes" : "Continue", action: advance)
+
+        case .story:
+            // The story owns its own slider until the goal options appear.
+            if goalReady {
+                LiquidPrimaryButton(title: "Continue", action: advance)
+                    .disabled(!isStepValid)
+                    .opacity(isStepValid ? 1 : 0.45)
+            }
+
+        case .grid:
+            LiquidPrimaryButton(title: "Take them back", action: advance)
+                .disabled(!gridReady)
+                .opacity(gridReady ? 1 : 0)
+
+        case .preview:
+            LiquidPrimaryButton(title: "That's what I want", action: advance)
+
+        default:
+            LiquidPrimaryButton(title: "Continue", action: advance)
                 .disabled(!isStepValid)
                 .opacity(isStepValid ? 1 : 0.45)
         }
@@ -618,14 +705,14 @@ struct OnboardingQuestionsView: View {
 
     private var isStepValid: Bool {
         switch step {
-        case .name: !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        // Single-select questions require an answer because the plan speaks
-        // back to the choice. The struggles and app multi-selects remain
-        // skippable: an empty set is an honest answer there.
-        case .goal: goalReady && goal != nil
-        case .phoneTime: AttentionEstimate.isValid(minutes: phoneMinutes, touched: phoneDialTouched)
-        case .feeling: feeling != nil
+        // A slider that ships with a plausible default would otherwise
+        // accept that default as an answer, and this figure drives every
+        // number downstream.
+        case .phone: phoneTouched && phoneMinutes > 0
+        case .story: goalReady && goal != nil
         case .plan: narrativeReady
+        case .grid: gridReady
+        case .name: !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         default: true
         }
     }
@@ -638,6 +725,13 @@ struct OnboardingQuestionsView: View {
         let nextIndex = currentIndex + 1
         guard nextIndex < steps.count else { return }
         let next = steps[nextIndex]
+
+        // Seed the calibration slider from the window arithmetic the moment
+        // we arrive, unless the user has already corrected it.
+        if next == .sleep, !sleepTouched {
+            sleepMinutes = derivedSleep
+        }
+
         if step == .name {
             // Let the keyboard start dismissing before the slide so the two
             // animations don't fight.
@@ -673,12 +767,15 @@ struct OnboardingQuestionsView: View {
         SleepAnalytics.record("onboarding_finished", screen: "commit")
         onDone(OnboardingAnswers(
             name: name,
-            bedtime: bedtime,
+            bedtime: inBed,
             wakeTime: wakeTime,
-            struggles: struggles.map(\.rawValue),
+            // The retired flow's symptom and wake-feeling questions are gone;
+            // their columns stay in the payload so the Supabase profile shape
+            // and `SleepCloudService` need no migration.
+            struggles: [],
             goal: goal?.rawValue ?? "",
             lateNightPhone: "minutes:\(phoneMinutes)",
-            wakeFeeling: feeling?.rawValue ?? ""
+            wakeFeeling: ""
         ))
     }
 
@@ -687,14 +784,17 @@ struct OnboardingQuestionsView: View {
         withAnimation(.easeInOut(duration: 0.28)) { step = next }
         narrativeReady = false
         goalReady = false
+        gridReady = false
     }
 
     private func saveDraft() {
         guard draftRestored else { return }
-        let draft = Draft(step: step, name: name, goal: goal, struggles: struggles,
-                          phoneTime: phoneTime, feeling: feeling,
-                          bedtime: bedtime, wakeTime: wakeTime,
-                          phoneMinutes: phoneMinutes, phoneDialTouched: phoneDialTouched)
+        let draft = Draft(
+            step: step, inBed: inBed, wakeTime: wakeTime,
+            phoneMinutes: phoneMinutes, phoneTouched: phoneTouched,
+            sleepMinutes: sleepMinutes, sleepTouched: sleepTouched,
+            goal: goal, name: name
+        )
         if let data = try? JSONEncoder().encode(draft) {
             UserDefaults.standard.set(data, forKey: Self.draftKey)
         }
@@ -708,31 +808,29 @@ struct OnboardingQuestionsView: View {
 #endif
         if let data = UserDefaults.standard.data(forKey: Self.draftKey),
            let draft = try? JSONDecoder().decode(Draft.self, from: data) {
-            name = draft.name
-            goal = draft.goal
-            struggles = draft.struggles
-            phoneTime = draft.phoneTime
-            phoneMinutes = draft.phoneMinutes ?? draft.phoneTime?.nightlyMinutes ?? 0
-            phoneDialTouched = draft.phoneDialTouched ?? (draft.phoneTime != nil)
-            feeling = draft.feeling
-            bedtime = draft.bedtime
+            inBed = draft.inBed
             wakeTime = draft.wakeTime
-            // Narrative pages replay on resume; the account step still requires authentication.
-            step = steps.contains(draft.step) ? draft.step : .name
-            // Old drafts began at preview. Never resume past missing required answers.
-            if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            phoneMinutes = draft.phoneMinutes
+            phoneTouched = draft.phoneTouched
+            sleepMinutes = draft.sleepMinutes
+            sleepTouched = draft.sleepTouched
+            goal = draft.goal
+            name = draft.name
+            // Reveal steps replay on resume; the account step still requires
+            // authentication. Never resume past a missing required answer —
+            // a restored draft that skipped the phone question would leave
+            // every downstream figure derived from a default.
+            step = steps.contains(draft.step) ? draft.step : .inBed
+            if !phoneTouched || phoneMinutes <= 0 {
+                if currentIndex > 2 { step = .phone }
+            } else if currentIndex > 6 && goal == nil {
+                step = .story
+            } else if currentIndex > 8 && name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 step = .name
-            } else if currentIndex > 1 && (!phoneDialTouched || phoneMinutes <= 0) {
-                step = .phoneTime
-            } else if currentIndex > 3 && goal == nil {
-                step = .goal
-            } else if currentIndex > 4 && (feeling == nil || [.groggy, .tired, .okay].contains(feeling!)) {
-                step = .feeling
             }
         }
         draftRestored = true
     }
-
 }
 
 // MARK: - Shared question chrome

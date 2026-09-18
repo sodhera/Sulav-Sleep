@@ -2,76 +2,418 @@ import SwiftUI
 import AVKit
 import UIKit
 
-struct BedtimePhoneDial: View {
-    @Binding var minutes: Int
+// The onboarding instruments.
+//
+// Each one exists to turn something the user *told* us into something they
+// can *see*. That is the whole conversion argument of the sign-up flow: not
+// copy, but arithmetic the user can retrace. Nothing here measures anything —
+// every figure is a unit conversion of an answer (`SleepDebt`), and every
+// reveal captions itself with the answer it came from, because a number
+// someone can't retrace is a number they can dismiss.
+//
+// Three reveals, in escalating order: a verdict the user can't argue with
+// (`SleepNeedBand`, sourced to the AASM), a cost they can feel
+// (`YearOfNightsGrid`), and a remedy that is theirs to choose (`NightGoalStep`).
+
+// MARK: - Slider
+
+/// The flow's single input grammar for "how much": a live hero number, a
+/// track, and an optional social anchor pip so the answer lands somewhere.
+///
+/// Hand-built rather than SwiftUI's `Slider` — the amber fill, the anchor
+/// pip, the numeric-text roll, and one haptic tick per step are all
+/// unreachable through the stock control, and the tick is most of what makes
+/// the answer feel deliberate rather than dragged.
+struct NightSlider: View {
+    @Binding var value: Int
+    /// Whether the user has actually moved this. A slider that ships with a
+    /// plausible default otherwise accepts a default as an answer.
     @Binding var touched: Bool
 
+    let range: ClosedRange<Int>
+    var step: Int = 5
+    /// Where a typical answer sits, if the question has one worth showing.
+    var anchor: Int?
+    var anchorLabel = "This is the average"
+    var lowLabel: String
+    var highLabel: String
+    var caption: String?
+    /// Renders the hero number. Kept as a closure so the same control serves
+    /// minutes ("45") and durations ("6h 45m").
+    let format: (Int) -> String
+    var unit: String?
+
+    private let knob: CGFloat = 28
+    private let trackHeight: CGFloat = 5
+
+    private var fraction: Double {
+        let span = Double(range.upperBound - range.lowerBound)
+        guard span > 0 else { return 0 }
+        return (Double(value) - Double(range.lowerBound)) / span
+    }
+
+    private func fraction(of raw: Int) -> Double {
+        let span = Double(range.upperBound - range.lowerBound)
+        guard span > 0 else { return 0 }
+        return (Double(raw) - Double(range.lowerBound)) / span
+    }
+
     var body: some View {
-        VStack(spacing: 24) {
-            GeometryReader { geo in
-                let side = min(geo.size.width, 320.0)
-                let center = CGPoint(x: geo.size.width / 2, y: side / 2)
-                ZStack {
-                    Circle().trim(from: 0.125, to: 0.875)
-                        .stroke(SleepColor.ink.opacity(0.12), style: StrokeStyle(lineWidth: 18, lineCap: .round))
-                        .rotationEffect(.degrees(90))
-                    Circle().trim(from: 0.125, to: 0.125 + 0.75 * Double(minutes) / 240)
-                        .stroke(SleepColor.amber, style: StrokeStyle(lineWidth: 18, lineCap: .round))
-                        .rotationEffect(.degrees(90))
-                    ForEach(0..<49) { tick in
-                        Rectangle().fill(tick % 4 == 0 ? SleepColor.gold : SleepColor.dim.opacity(0.4))
-                            .frame(width: 2, height: tick % 4 == 0 ? 12 : 5)
-                            .offset(y: -side / 2 + 26)
-                            .rotationEffect(.degrees(-135 + Double(tick) * 270 / 48))
-                    }
-                    Capsule().fill(SleepColor.gold)
-                        .frame(width: 4, height: side * 0.22)
-                        .offset(y: -side * 0.11)
-                        .rotationEffect(.degrees(-135 + Double(minutes) / 240 * 270))
-                    Circle().fill(SleepColor.gold).frame(width: 13, height: 13)
-                    VStack(spacing: 2) {
-                        Text(minutes == 240 ? "4+" : "\(minutes)")
-                            .font(SleepFont.hero(48)).contentTransition(.numericText())
-                        Text(minutes == 240 ? "hours" : "minutes").font(SleepFont.body(15))
-                    }.foregroundStyle(SleepColor.ink).offset(y: side * 0.30)
+        VStack(spacing: SleepSpacing.xxxl) {
+            VStack(spacing: 2) {
+                Text(format(value))
+                    .font(SleepFont.hero(52))
+                    .foregroundStyle(SleepColor.ink)
+                    .contentTransition(.numericText())
+                    .animation(.snappy(duration: 0.18), value: value)
+                if let unit {
+                    Text(unit)
+                        .font(SleepFont.body(15))
+                        .foregroundStyle(SleepColor.dim)
                 }
-                .frame(width: side - 24, height: side - 24)
-                .position(center)
-                .contentShape(Rectangle())
-                .gesture(DragGesture(minimumDistance: 0).onChanged { value in
-                    let dx = value.location.x - center.x
-                    let dy = value.location.y - center.y
-                    var angle = atan2(dy, dx) * 180 / .pi - 135
-                    if angle < 0 { angle += 360 }
-                    let clamped = angle > 315 ? 0 : min(angle, 270)
-                    let next = Int((clamped / 270 * 240 / 5).rounded()) * 5
-                    if next != minutes { Haptics.soft() }
-                    minutes = next
-                    touched = true
-                })
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Phone time before bed")
-                .accessibilityValue(minutes == 240 ? "4 or more hours" : "\(minutes) minutes")
-                .accessibilityHint("Adjust to set your nightly phone time")
-                .accessibilityAdjustableAction { direction in
-                    touched = true
-                    switch direction {
-                    case .increment: minutes = min(240, minutes + 5)
-                    case .decrement: minutes = max(0, minutes - 5)
-                    @unknown default: break
-                    }
+            }
+
+            VStack(spacing: SleepSpacing.md) {
+                track
+                HStack {
+                    Text(lowLabel)
+                    Spacer()
+                    Text(highLabel)
                 }
-            }.frame(height: 320)
-            HStack {
-                Text("0 min")
-                Spacer()
-                Text("4+ hours")
-            }.font(SleepFont.body(14)).foregroundStyle(SleepColor.dim)
-            Text("Turn the dial")
-                .font(SleepFont.body(15)).foregroundStyle(SleepColor.dim)
+                .font(SleepFont.body(13))
+                .foregroundStyle(SleepColor.muted)
+            }
+
+            if let caption {
+                Text(caption)
+                    .font(SleepFont.body(14))
+                    .italic()
+                    .foregroundStyle(SleepColor.muted)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(lowLabel.isEmpty ? "Amount" : "\(lowLabel) to \(highLabel)")
+        .accessibilityValue(format(value))
+        .accessibilityAdjustableAction { direction in
+            touched = true
+            switch direction {
+            case .increment: set(value + step)
+            case .decrement: set(value - step)
+            @unknown default: break
+            }
         }
     }
+
+    private var track: some View {
+        GeometryReader { geo in
+            let travel = max(1, geo.size.width - knob)
+            ZStack(alignment: .leading) {
+                // The anchor pip rides above the rail so it never competes
+                // with the knob for the same pixels.
+                if let anchor, range.contains(anchor) {
+                    anchorPip(travel: travel, anchor: anchor)
+                }
+
+                Capsule()
+                    .fill(SleepColor.ink.opacity(0.12))
+                    .frame(height: trackHeight)
+                    .padding(.horizontal, knob / 2)
+
+                Capsule()
+                    .fill(LinearGradient(
+                        colors: [SleepColor.gold, SleepColor.amber],
+                        startPoint: .leading, endPoint: .trailing
+                    ))
+                    .frame(width: max(trackHeight, travel * fraction + knob / 2), height: trackHeight)
+                    .padding(.leading, knob / 2)
+
+                Circle()
+                    .fill(SleepColor.ink)
+                    .frame(width: knob, height: knob)
+                    .shadow(color: .black.opacity(0.35), radius: 6, y: 2)
+                    .offset(x: travel * fraction)
+            }
+            .frame(height: 44)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { drag in
+                        touched = true
+                        let x = min(max(0, drag.location.x - knob / 2), travel)
+                        let span = Double(range.upperBound - range.lowerBound)
+                        set(range.lowerBound + Int((x / travel * span).rounded()))
+                    }
+            )
+        }
+        .frame(height: 44)
+    }
+
+    private func anchorPip(travel: CGFloat, anchor: Int) -> some View {
+        VStack(spacing: 5) {
+            Text(anchorLabel)
+                .font(SleepFont.label(10))
+                .foregroundStyle(SleepColor.background)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .background(SleepColor.danger, in: Capsule())
+                .fixedSize()
+            Circle()
+                .fill(SleepColor.danger)
+                .frame(width: 5, height: 5)
+        }
+        .offset(x: travel * fraction(of: anchor) + knob / 2, y: -34)
+        // The bubble is centred on its pip, so it must not push layout.
+        .frame(width: 0, alignment: .center)
+        .accessibilityHidden(true)
+    }
+
+    /// Snaps to the step grid and ticks only when the value genuinely moves,
+    /// so a slow drag across one step doesn't machine-gun the haptics.
+    private func set(_ raw: Int) {
+        let snapped = (Int((Double(raw) / Double(step)).rounded()) * step)
+            .clamped(to: range)
+        guard snapped != value else { return }
+        value = snapped
+        Haptics.soft()
+    }
 }
+
+private extension Int {
+    /// `Swift.`-qualified: inside an `Int` extension, bare `min`/`max`
+    /// resolve to `Int.min`/`Int.max`, not the free functions.
+    func clamped(to range: ClosedRange<Int>) -> Int {
+        Swift.min(Swift.max(self, range.lowerBound), range.upperBound)
+    }
+}
+
+// MARK: - The verdict
+
+/// The recommended-sleep band with the user's own figure plotted against it.
+///
+/// This step exists so the app never has to be the one calling the user's
+/// nights inadequate — the AASM band delivers the verdict and the app just
+/// draws it. That matters: DESIGN.md forbids shaming, and a sourced
+/// horizontal band is a mirror where "you don't sleep enough" is a scolding.
+/// Copy stays adjective-free for the same reason.
+struct SleepNeedBand: View {
+    let sleepMinutes: Int
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var bandLit = false
+    @State private var markerIn = false
+
+    /// The axis. Wider than the recommended band on both sides so the user's
+    /// marker has somewhere honest to land in either direction.
+    private let axis = (4 * 60)...(10 * 60)
+
+    private func fraction(_ minutes: Int) -> Double {
+        let span = Double(axis.upperBound - axis.lowerBound)
+        let clamped = min(max(minutes, axis.lowerBound), axis.upperBound)
+        return (Double(clamped) - Double(axis.lowerBound)) / span
+    }
+
+    private var isEnough: Bool { sleepMinutes >= SleepDebt.target }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: SleepSpacing.xxxl) {
+            GeometryReader { geo in
+                let width = geo.size.width
+                let lo = fraction(SleepDebt.recommendedRange.lowerBound)
+                let hi = fraction(SleepDebt.recommendedRange.upperBound)
+
+                ZStack(alignment: .topLeading) {
+                    Capsule()
+                        .fill(SleepColor.ink.opacity(0.10))
+                        .frame(height: 14)
+                        .offset(y: 30)
+
+                    Capsule()
+                        .fill(LinearGradient(
+                            colors: [SleepColor.gold, SleepColor.amber],
+                            startPoint: .leading, endPoint: .trailing
+                        ))
+                        .frame(width: bandLit ? width * (hi - lo) : 0, height: 14)
+                        .offset(x: width * lo, y: 30)
+
+                    Text("7–9 HOURS")
+                        .font(SleepFont.label(11))
+                        .tracking(1.4)
+                        .foregroundStyle(SleepColor.gold)
+                        .opacity(bandLit ? 1 : 0)
+                        .frame(width: width * (hi - lo), alignment: .center)
+                        .offset(x: width * lo, y: 8)
+
+                    // The user's own figure, dropped in last.
+                    marker(width: width)
+                }
+            }
+            .frame(height: 118)
+
+            Text("American Academy of Sleep Medicine")
+                .font(SleepFont.body(12))
+                .foregroundStyle(SleepColor.muted)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Recommended sleep for adults is 7 to 9 hours")
+        .accessibilityValue("You get about \(SleepFormatting.duration(sleepMinutes))")
+        .task {
+            if reduceMotion {
+                bandLit = true; markerIn = true
+                return
+            }
+            withAnimation(.easeOut(duration: 0.55)) { bandLit = true }
+            try? await Task.sleep(for: .milliseconds(620))
+            Haptics.rigid()
+            withAnimation(.spring(response: 0.42, dampingFraction: 0.72)) { markerIn = true }
+        }
+    }
+
+    private func marker(width: CGFloat) -> some View {
+        let tint = isEnough ? SleepColor.gold : SleepColor.danger
+        return VStack(spacing: 4) {
+            Capsule()
+                .fill(tint)
+                .frame(width: 3, height: 26)
+            Text(SleepFormatting.duration(sleepMinutes))
+                .font(SleepFont.label(14))
+                .foregroundStyle(tint)
+                .fixedSize()
+        }
+        .frame(width: 0, alignment: .center)
+        .offset(x: width * fraction(sleepMinutes), y: 36)
+        .opacity(markerIn ? 1 : 0)
+        .scaleEffect(markerIn ? 1 : 0.7, anchor: .top)
+    }
+}
+
+// MARK: - The cost
+
+/// A year of nights as 365 cells, with the ones the user spends in bed and
+/// awake on their phone lit amber.
+///
+/// Why phone-nights and not a sleep shortfall: the shortfall depends on where
+/// you put the recommendation's floor and collapses to zero for anyone
+/// already sleeping seven hours, which would leave the flow's centrepiece
+/// empty for exactly the users most likely to pay for a habit tool. Time in
+/// bed awake on a phone is the user's own answer divided by a night — it
+/// holds for everyone, and it is the one number the product actually takes
+/// back. `SleepDebt.phoneNightsPerYear` is that conversion.
+///
+/// The reveal is choreographed to a fixed duration and a fixed tick count
+/// rather than a fixed per-cell interval, so thirteen nights and two hundred
+/// nights feel like the same instrument reporting different numbers.
+struct YearOfNightsGrid: View {
+    let phoneMinutes: Int
+    /// Set once the count has landed; the caller gates Continue on it.
+    @Binding var ready: Bool
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var revealed = 0
+
+    private static let columns = 20
+    private static let rows = 19
+    private static let gap: CGFloat = 3
+
+    private var total: Int { SleepDebt.nightsPerYear }
+    private var lit: Int { min(total, SleepDebt.phoneNightsPerYear(phone: phoneMinutes)) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: SleepSpacing.xxl) {
+            Text("THE NEXT 365 NIGHTS")
+                .font(SleepFont.label(11))
+                .tracking(1.6)
+                .foregroundStyle(SleepColor.dim)
+                .shadow(color: SleepColor.navy.opacity(0.8), radius: 2)
+
+            grid
+
+            VStack(alignment: .leading, spacing: SleepSpacing.sm) {
+                // An HStack rather than `Text + Text`: the count needs
+                // `contentTransition`, which returns a view and can't be
+                // concatenated. Baseline alignment keeps the unit sitting on
+                // the number's feet as the digits roll and the width changes.
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text("\(revealed)")
+                        .font(SleepFont.hero(46))
+                        .contentTransition(.numericText())
+                    Text(revealed == 1 ? "night" : "nights")
+                        .font(SleepFont.title(22))
+                }
+                .foregroundStyle(SleepColor.amber)
+
+                Text("in bed, awake, on your phone.")
+                    .font(SleepFont.title(20))
+                    .foregroundStyle(SleepColor.ink)
+
+                Text("At the \(phoneMinutes) minutes a night you told us.")
+                    .font(SleepFont.body(13))
+                    .foregroundStyle(SleepColor.muted)
+                    .opacity(ready ? 1 : 0)
+                    .animation(.easeIn(duration: 0.35), value: ready)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("The next 365 nights")
+        .accessibilityValue(
+            "\(lit) nights spent in bed, awake, on your phone, at the \(phoneMinutes) minutes a night you told us"
+        )
+        .task(id: lit) {
+            revealed = 0
+            ready = false
+            guard !reduceMotion else {
+                revealed = lit
+                ready = true
+                return
+            }
+            do {
+                try await Task.sleep(for: .milliseconds(420))
+                // One fixed budget and ~14 ticks whatever the count, so the
+                // instrument feels identical across answers.
+                let budget = 1_700.0
+                let interval = max(6.0, min(55.0, budget / Double(max(1, lit))))
+                let tickEvery = max(1, lit / 14)
+                for index in 1...max(1, lit) {
+                    try Task.checkCancellation()
+                    revealed = index
+                    if index % tickEvery == 0 { Haptics.soft() }
+                    try await Task.sleep(for: .milliseconds(Int(interval)))
+                }
+                revealed = lit
+                Haptics.rigid()
+                ready = true
+            } catch { /* Navigating away cancels the count. */ }
+        }
+    }
+
+    /// Drawn in a `Canvas`: 365 discrete views would re-lay-out the whole
+    /// field on every step of the reveal, and this is one colour change per
+    /// frame over a live scene.
+    private var grid: some View {
+        Canvas { context, size in
+            let pitch = size.width / CGFloat(Self.columns)
+            let side = max(1, pitch - Self.gap)
+            for index in 0..<total {
+                let row = index / Self.columns
+                let column = index % Self.columns
+                let rect = CGRect(
+                    x: CGFloat(column) * pitch,
+                    y: CGFloat(row) * pitch,
+                    width: side, height: side
+                )
+                context.fill(
+                    Path(roundedRect: rect, cornerRadius: 1.5),
+                    with: .color(index < revealed ? SleepColor.amber : SleepColor.ink.opacity(0.10))
+                )
+            }
+        }
+        .aspectRatio(CGFloat(Self.columns) / CGFloat(Self.rows), contentMode: .fit)
+        .frame(maxWidth: .infinity)
+        .drawingGroup()
+    }
+}
+
+// MARK: - Narrative
 
 /// Text reveals are cancellable and read as complete sentences to VoiceOver.
 struct NarrativePage: View {
@@ -119,7 +461,6 @@ struct NarrativePage: View {
         }
         .padding(.vertical, 20)
     }
-
 }
 
 /// UILabel measures the complete sentence before painting the visible prefix.
@@ -168,53 +509,62 @@ private struct RevealingSentence: UIViewRepresentable {
     }
 }
 
-struct AttentionStoryStep: View {
-    let minutes: Int
-    let struggles: Set<SleepStruggle>
+// MARK: - The remedy
+
+/// The narrative that names the phone as the cause, resolving into the goal
+/// question on the same step.
+///
+/// One step rather than two on purpose: the argument and the choice belong to
+/// the same beat, and a separate goal screen re-asks for attention the story
+/// has already won. The story never diagnoses and never claims the phone
+/// *causes* anything clinical — it says sleep can't start while the screen is
+/// on, which is the honest mechanism and the one the product acts on.
+struct NightGoalStep: View {
+    let phoneNights: Int
     @Binding var goal: SleepGoal?
+    @Binding var showingOptions: Bool
+
     @State private var chapter = 0
     @State private var ready = false
-    @Binding var showingOptions: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var consequences: [String] {
-        var lines: [String] = []
-        if struggles.contains(.fallingAsleep) { lines.append("The enemy keeps asking for your attention, even when you’re worried and trying to sleep.") }
-        if struggles.contains(.wakingAtNight) { lines.append("When you wake in the middle of the night, it is waiting for your attention.") }
-        if struggles.contains(.wakingTired) { lines.append("Even when you wake up tired, it wants you to come back.") }
-        if struggles.contains(.negativeThoughts) { lines.append("It fills your attention with noise, leaving less room for the beauty around you.") }
-        return lines.isEmpty ? ["Your attention belongs to you. Your nights can, too."] : lines
-    }
     private var pages: [[String]] {
-        let opening = ["There is an enemy living in your phone."]
-        let cost = [
-            "It is taking away \(minutes == 240 ? "at least " : "")\(minutes) minutes of your life each day.",
-            "That’s \(AttentionEstimate.yearlyMinutes(minutes).formatted()) minutes each year.",
-            "\(AttentionEstimate.lifetimeDays(minutes).formatted()) days in a life."
+        [
+            ["Your body already knows how to fall asleep.",
+             "It has done it every night of your life."],
+            ["It just can't start while the screen is still on.",
+             "Those \(phoneNights) nights aren't gone. They're on loan."]
         ]
-        let symptomPages = stride(from: 0, to: consequences.count, by: 2)
-            .map { Array(consequences[$0..<min($0 + 2, consequences.count)]) }
-        return [opening, cost] + symptomPages
     }
-    private var lines: [String] { pages[chapter] }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             if showingOptions {
-                Text("What would make your night better?")
-                    .font(SleepFont.title(28)).foregroundStyle(SleepColor.ink)
+                Text("What would you fix first?")
+                    .font(SleepFont.title(28))
+                    .foregroundStyle(SleepColor.ink)
                 Spacer(minLength: 10)
                 ScrollView {
-                    VStack(spacing: 12) {
-                        ForEach(SleepGoal.allCases) { option in
-                            OptionRow(icon: option.systemImage, title: option.title, isSelected: goal == option) {
-                                Haptics.soft(); goal = option
+                    LiquidGlassContainer(spacing: SleepSpacing.md) {
+                        VStack(spacing: SleepSpacing.md) {
+                            ForEach(SleepGoal.allCases) { option in
+                                OptionRow(
+                                    icon: option.systemImage,
+                                    title: option.title,
+                                    isSelected: goal == option
+                                ) {
+                                    Haptics.heavy()
+                                    goal = option
+                                }
                             }
                         }
-                    }.padding(.vertical, 3)
-                }.scrollIndicators(.hidden)
+                    }
+                    .padding(.vertical, 3)
+                }
+                .scrollIndicators(.hidden)
                 Spacer(minLength: 10)
             } else {
-                NarrativePage(lines: lines, ready: $ready)
+                NarrativePage(lines: pages[chapter], ready: $ready)
                     .id(chapter)
                     .transition(.opacity)
                 StoryUnlockSlider {
@@ -226,21 +576,15 @@ struct AttentionStoryStep: View {
                     }
                 }
                 .id(chapter)
-                .disabled(!ready).opacity(ready ? 1 : 0)
+                .disabled(!ready)
+                .opacity(ready ? 1 : 0)
                 .padding(.bottom, 16)
             }
         }
-#if DEBUG
-        .onAppear {
-            if let argument = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("-review-onboarding-chapter=") }),
-               let requested = Int(argument.dropFirst("-review-onboarding-chapter=".count)) {
-                chapter = max(0, min(requested, pages.count - 1))
-            }
-        }
-#endif
-
     }
 }
+
+// MARK: - Commitment gestures
 
 struct StoryUnlockSlider: View {
     let action: () -> Void
@@ -320,9 +664,9 @@ struct CommitmentHoldButton: View {
                 for tick in 1...40 {
                     try await Task.sleep(for: .milliseconds(50))
                     progress = Double(tick) / 40
-                    if tick % 10 == 0 { Haptics.soft() }
+                    if tick % 10 == 0 { Haptics.tick(intensity: 0.4 + 0.6 * progress) }
                 }
-                complete = true; Haptics.success(); action()
+                complete = true; Haptics.doubleHeavy(); action()
             } catch { }
         }
     }
@@ -332,11 +676,16 @@ struct CommitmentHoldButton: View {
     }
 }
 
+// MARK: - The demo
+
 struct BlockingPreviewStep: View {
+    let inBedClock: String
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Are you ready to protect your mind against the enemy?")
+            Text("This is what \(inBedClock) looks like now.")
                 .font(SleepFont.title(28)).foregroundStyle(SleepColor.ink)
+                .fixedSize(horizontal: false, vertical: true)
             GeometryReader { geo in
                 let height = min(geo.size.height, 490.0)
                 BlockingDemoPlayback()
@@ -352,8 +701,9 @@ struct BlockingPreviewStep: View {
     }
 }
 
-/// An explicit recreation, never presented as proof of granted Screen Time permissions.
-/// Fixed iPhone coordinates keep the status bar, app launch, and shield readable at card scale.
+/// An explicit recreation, never presented as proof of granted Screen Time
+/// permissions. Fixed iPhone coordinates keep the status bar, app launch, and
+/// shield readable at card scale.
 struct IPhoneBlockingDemo: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
