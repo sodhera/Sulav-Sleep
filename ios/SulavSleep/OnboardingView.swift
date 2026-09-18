@@ -547,7 +547,7 @@ struct OnboardingQuestionsView: View {
         case .wake:
             QuestionLayout(
                 title: "And what time do you need to be up?",
-                subtitle: "That's \(SleepFormatting.duration(windowMinutes)) in bed."
+                subtitle: "That's \(Self.spokenDuration(windowMinutes)) in bed."
             ) {
                 TimeAdjuster(minutes: $wakeTime)
             }
@@ -575,7 +575,7 @@ struct OnboardingQuestionsView: View {
             // instead of inventing a third figure.
             QuestionLayout(
                 title: "So you're actually asleep for about this long.",
-                subtitle: "Your \(SleepFormatting.duration(windowMinutes)) in bed, minus your phone, minus dropping off. Drag it if that's wrong."
+                subtitle: "Your \(Self.spokenDuration(windowMinutes)) in bed, minus your phone, minus dropping off. Drag it if that's wrong."
             ) {
                 NightSlider(
                     value: $sleepMinutes,
@@ -608,7 +608,7 @@ struct OnboardingQuestionsView: View {
         case .plan:
             NarrativePage(lines: [
                 "Phone down at \(SleepFormatting.clock(inBed)).",
-                "Up at \(SleepFormatting.clock(wakeTime)) with \(SleepFormatting.duration(protectedSleep)) behind you.",
+                "Up at \(SleepFormatting.clock(wakeTime)) with \(Self.spokenDuration(protectedSleep)) behind you.",
                 "That's \(phoneNights) nights back this year."
             ], ready: $narrativeReady)
 

@@ -2310,15 +2310,13 @@ struct SleepPersistence {
     }
 }
 
-// MARK: - Sleep math (pure, testable)
-
-enum SleepMath {
-    static func windowMinutes(bedtime: Int, wakeTime: Int) -> Int {
-        var diff = wakeTime - bedtime
-        if diff <= 0 { diff += 1_440 }
-        return diff
-    }
-}
+// MARK: - Sleep math
+//
+// `SleepMath` moved to SleepModels.swift: it is a pure model-level function
+// with no store dependency, and `SleepDebt` (onboarding's arithmetic) needs
+// it. Keeping it here meant the model tests could not compile without
+// dragging the whole store in, and duplicating the midnight-wrap in two
+// files is exactly how the schedule and the countdown drift apart.
 
 /// What the app averages over a run of nights: how long you slept, and the two
 /// clock times that bracket it.

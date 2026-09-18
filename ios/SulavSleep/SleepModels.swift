@@ -421,6 +421,20 @@ enum AttentionEstimate {
     static func lifetimeDays(_ minutes: Int) -> Int { yearlyMinutes(minutes) * 80 / 1_440 }
 }
 
+// MARK: - Sleep math (pure, testable)
+
+/// The one place the night's midnight wrap is computed. Every window in the
+/// app — the Home countdown, the lockdown window, the widgets, and
+/// `SleepDebt` below — reads off this, so a bedtime after midnight can never
+/// mean two different spans in two different screens.
+enum SleepMath {
+    static func windowMinutes(bedtime: Int, wakeTime: Int) -> Int {
+        var diff = wakeTime - bedtime
+        if diff <= 0 { diff += 1_440 }
+        return diff
+    }
+}
+
 // MARK: - Sleep debt (onboarding arithmetic)
 
 /// The arithmetic behind onboarding's reveal steps.
