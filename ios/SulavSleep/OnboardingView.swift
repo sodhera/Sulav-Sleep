@@ -309,6 +309,13 @@ struct OnboardingQuestionsView: View {
 
     @State private var step: Step = .inBed
     @State private var draftRestored = false
+    /// Whether this run may write a draft at all. Off for the DEBUG review
+    /// routes: `draftRestored` alone can't gate writes, because that flag
+    /// exists to stop saves *before* a restore has happened and must end up
+    /// true either way — which meant a review route's fixture answers were
+    /// written to the real draft key and a later ordinary launch resumed
+    /// from them. Found by walking the flow after a screenshot run.
+    @State private var draftsEnabled = true
     @State private var movingForward = true
 
     // Answers.
@@ -647,10 +654,22 @@ struct OnboardingQuestionsView: View {
     // protective framing instead, and the phone figure still carries the
     // reveal that follows.
 
+    /// Three bands, not two. An earlier draft told everyone at or above the
+    /// floor "You're getting enough. Barely." — which is flatly false for
+    /// someone sleeping nine hours, and being told an obvious untruth on the
+    /// one screen built to borrow the AASM's credibility costs the whole arc
+    /// that follows it. The phone figure carries the next reveal either way,
+    /// so there is nothing to gain by overstating this one.
     private var shortfallTitle: String {
-        effectiveSleep >= SleepDebt.target
-            ? "You're getting enough. Barely."
-            : "You're \(Self.spokenDuration(SleepDebt.nightlyShortfall(sleepMinutes: effectiveSleep))) short. Every night."
+        switch effectiveSleep {
+        case ..<SleepDebt.target:
+            let short = SleepDebt.nightlyShortfall(sleepMinutes: effectiveSleep)
+            return "You're \(Self.spokenDuration(short)) short. Every night."
+        case ..<(SleepDebt.target + 60):
+            return "You're just inside the range."
+        default:
+            return "You're getting enough sleep."
+        }
     }
 
     /// A shortfall read aloud, not clocked. `SleepFormatting.duration` is the
@@ -666,9 +685,14 @@ struct OnboardingQuestionsView: View {
     }
 
     private var shortfallSubtitle: String {
-        effectiveSleep >= SleepDebt.target
-            ? "There's not much room between you and the bottom of that band."
-            : "Adults need 7 to 9 hours."
+        switch effectiveSleep {
+        case ..<SleepDebt.target:
+            return "Adults need 7 to 9 hours."
+        case ..<(SleepDebt.target + 60):
+            return "Adults need 7 to 9 hours. You're at the bottom of it."
+        default:
+            return "Adults need 7 to 9 hours. Protecting that is the job now."
+        }
     }
 
     private var commitTitle: String {
@@ -800,7 +824,7 @@ struct OnboardingQuestionsView: View {
     }
 
     private func saveDraft() {
-        guard draftRestored else { return }
+        guard draftRestored, draftsEnabled else { return }
         let draft = Draft(
             step: step, inBed: inBed, wakeTime: wakeTime,
             phoneMinutes: phoneMinutes, phoneTouched: phoneTouched,
@@ -816,7 +840,11 @@ struct OnboardingQuestionsView: View {
         guard !draftRestored else { return }
 #if DEBUG
         let isPreviewRoute = ProcessInfo.processInfo.arguments.contains { $0.hasPrefix("-review-onboarding-") }
-        if isPreviewRoute { draftRestored = true; return }
+        if isPreviewRoute {
+            draftsEnabled = false
+            draftRestored = true
+            return
+        }
 #endif
         if let data = UserDefaults.standard.data(forKey: Self.draftKey),
            let draft = try? JSONDecoder().decode(Draft.self, from: data) {
