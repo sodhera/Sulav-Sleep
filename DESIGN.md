@@ -164,52 +164,181 @@ Reasoning: the warm amber reads as indoor lighting against a cold night, which
 is calming rather than clinical. Colored states are always paired with text and
 position (never color alone) so the UI survives a red night-shift tint.
 
-## Setup conversion refresh (September 2026)
+## Sign-up flow (September 2026)
 
-The ten-step iOS setup is: name → phone-time dial → symptoms → attention
-story and night goal → desired morning → bedtime → wake time → encouragement
-→ **Protect your attention** → **Hold to commit**. Account creation follows
-for signed-out users. The old plan summary and artificial building delay are removed.
+The setup is **eleven beats**, alternating **ask** and **reveal**, then account
+creation for signed-out users:
 
-Setup always uses the original **night** skyline, warm illuminated windows,
-a lighter navy readability veil, and slow, sparse star twinkles. Existing warm
-window pixels receive a cached lamplight color treatment; building geometry
-and cool unlit windows retain their original artwork. It no longer
-inherits daylight or the remote twilight variant. Home retains its time-of-day
-lighting and sleep mode remains OLED black.
+> in-bed time → wake time → phone-in-bed → *sleep calibration* → **the
+> recommendation band** → **the year of nights** → cause narrative + night
+> goal → the plan → name → the shield demo → **Hold to commit** → account
 
-The phone-time control is a 270-degree speedometer, 0–240 minutes in five-minute
-increments. The endpoint reads 4+ hours. Continue requires a deliberate nonzero
-setting. Story groups reveal letter by letter with soft haptics, then offer an
-iPhone-style slide labeled **Continue**. The complete sentence occupies its
-final lines from the start, with unrendered letters transparent, so words do
-not jump during reveal. Sentences alternate white and yellow, starting with
-white on every page. Long symptom responses split into groups of at most two;
-story text must fit above Continue without scrolling or clipping. Continue on
-the last consequence chapter opens the goal choices directly. The goal question
-appears once as the options-page title, with no typed-question transition. The lifetime figure
-assumes the entered daily rate for 80 years; no explanatory footnote is shown
-on the story screen. Symptom copy uses attention as a metaphor without diagnosing
-or asserting that a phone causes anxiety or night waking. Reduce Motion and
-VoiceOver expose complete text immediately; the slider has an accessible action.
+Three cheap factual inputs (in-bed, wake, phone) derive everything else, so
+from the fourth screen on the flow hands the user's own answers back as
+arithmetic rather than asking for more. `SleepDebt` (SleepModels.swift) is the
+single home for those figures; the instruments that draw them live in
+`OnboardingExperience.swift`.
 
-The portrait iPhone demo loops automatically: home-screen TikTok icon and tap,
-TikTok logo progressively losing color, then a SleepBlock shield. The page
-contains only the title "Are you ready to protect your mind against the enemy?",
-the phone video, and a **Yes** button. The on-screen illustrative label and
-supporting copy are removed. The clip remains a simulator recreation; real app
-selection remains in the post-paywall Screen Time primer and Settings.
+### The one rule
 
-Commitment requires a two-second hold, cancels on release, drag-away, navigation,
-or backgrounding, and fires once. Account creation and subscription are separate
-from this gesture. Answers and the current step remain locally resumable.
+**Every number on screen is a unit conversion of something the user typed.**
+Nothing is measured, modelled, or inferred from behaviour, and each reveal
+captions itself with the answer it came from ("At the 60 minutes a night you
+told us"). This is not only an honesty constraint — it is the conversion
+argument. A figure the user can retrace is a figure they recognise as theirs;
+a figure they cannot is one they dismiss. The one constant the app supplies is
+sleep onset (15 minutes, the low end of normal latency, so the shortfall
+stays conservative).
 
-Named first-party usage analytics are always on per the September 17 product
-request. No analytics status appears in Welcome or Settings. No answer values,
-sleep data, or Family Controls tokens enter events.
-Simulator QA sends no analytics. The website privacy-policy source now states
-that current iOS analytics are automatic. Its publication and the App Store
-privacy answers must be verified before distributing this build.
+The recommendation floor is the **bottom** of the AASM 7–9 hour band, never
+its middle. Measuring a shortfall against eight hours when seven is officially
+enough would overstate every figure downstream — worth roughly fifty nights a
+year in the hero number.
+
+### Ordering, and why
+
+- **No text field first.** A keyboard is the highest-friction input there is
+  and step one is where the most people leave. The name is asked ninth, where
+  it reads as warmth and has a visible job (Home's greeting, and the
+  commitment question addresses the user by name).
+- **"Get into bed", not "go to bed."** The gap between getting in and falling
+  asleep *is* the phone time; the wording plants the question two screens
+  early.
+- **The shortfall verdict is sourced, not spoken.** `SleepNeedBand` cites the
+  American Academy of Sleep Medicine and plots the user's figure against the
+  lit band. The app never calls someone's nights inadequate in its own voice —
+  see "What to avoid". For the same reason the marker is **amber, never
+  `danger`**: position outside the band carries the verdict, and a red mark
+  under it would be the app editorialising.
+- **Calibration hands a number back before asking for one.** The sleep step's
+  slider opens on the window arithmetic, so most people confirm with a tap and
+  the rest correct a starting point instead of inventing a third figure. It is
+  the beat where the app visibly demonstrates it was listening.
+- **Cause and choice share one beat.** The narrative naming the phone resolves
+  into the goal question on the same step, because a separate goal screen
+  re-asks for attention the story has already won.
+- Setup requests **no permissions** and selects no real apps. Screen Time stays
+  post-paywall.
+
+### The year of nights
+
+The centrepiece: 365 cells on a glass stage, with the nights the user spends
+in bed and awake on their phone lit amber.
+
+**Why phone-nights and not a sleep shortfall.** A shortfall depends on where
+the recommendation's floor sits and collapses to zero for anyone already
+sleeping seven hours — which would leave the flow's centrepiece empty for
+exactly the users most likely to pay for a habit tool. Time in bed awake on a
+phone is the user's own answer divided by a night: it holds for everyone, it
+is not an accusation they can argue with, and it is the one quantity the
+product actually takes back.
+
+The field is **25 × 15, wide and shallow** — a squarer grid ran nearly half
+the screen and its lower rows sank into the skyline, which destroyed the only
+thing the graphic says: the **ratio** of lit to unlit. The denominator has to
+be legible or there is no ratio to read, which is also why unlit cells sit at
+18% ink on their own glass ground rather than 10% over open scene. Drawn in a
+`Canvas`; 365 discrete views re-laid out the whole field on every step of the
+reveal.
+
+The reveal is choreographed to a **fixed duration (~1.7s) and a fixed tick
+count (~14)** rather than a fixed per-cell interval, so thirteen nights and
+two hundred nights feel like the same instrument reporting different numbers.
+
+### Controls
+
+`NightSlider` is the flow's single grammar for "how much": a live hero number
+(`contentTransition(.numericText())`), an amber track, an optional social
+anchor pip, and one soft haptic per step. Hand-built rather than SwiftUI's
+`Slider` — the fill, the pip, the numeric roll and the per-step tick are all
+unreachable through the stock control, and the tick is most of what makes the
+answer feel deliberate rather than dragged.
+
+The rail and its end labels sit on a **glass stage**, for the reason recorded
+under "Onboarding & auth" for the auth form's field surfaces: the control
+lands on the busiest band of the skyline, where a 5pt rail and 13pt labels all
+but disappear. Glass is for controls, and a slider is a control.
+
+The anchor pip is **navy + gold, never `danger`**. In this palette red means a
+destructive action, so colouring "what's typical" as an alarm turns a
+reference mark into a judgement.
+
+Sliders that ship with a plausible default track whether they were **touched**
+— otherwise a default is accepted as an answer, and the phone figure drives
+every number downstream. Continue requires a deliberate nonzero setting.
+
+### Copy
+
+Durations appear in two registers and they must not be mixed:
+
+| Register | Format | Example | Use |
+| --- | --- | --- | --- |
+| Instrument | `SleepFormatting.duration` | `6h 45m` | a value on display — the calibration hero, the band marker |
+| Prose | `spokenDuration` | `15 minutes`, `an hour`, `1h 15m` | a duration inside a sentence |
+
+The instrument format leaking into prose produced "You're 0h 15m short", which
+reads as a bug. Anything in a sentence gets words.
+
+Anyone already clearing seven hours must **not** be told they are short: the
+band would contradict the headline, and a flow that argues with its own
+graphic loses the credibility the whole arc rests on. They get protective
+framing ("You're getting enough. Barely.") and the phone figure still carries
+the reveal that follows.
+
+### Narrative and commitment
+
+Text chapters reveal letter by letter with stable word positions (the complete
+sentence occupies its final lines from the start, unrendered letters
+transparent, so words never jump), alternating ink and gold starting with ink,
+in groups of at most two lines, unlocked by an iPhone-style slide labelled
+**Continue**. Reduce Motion and VoiceOver expose complete text immediately;
+every animated reveal has an accessible action and gates its Continue on a
+`ready` flag.
+
+The demo page is titled with the user's own bedtime — "This is what 10:30 PM
+looks like now." — and answered with **That's what I want**. It remains a
+simulator recreation and is never presented as evidence of granted Screen Time
+permissions; real selection happens in the post-paywall primer.
+
+Commitment requires a two-second hold, ratcheting heavy ticks and landing on a
+double knock. It cancels on release, drag-away, navigation, or backgrounding,
+and fires once. The question addresses the user by name.
+
+### Retired
+
+`BedtimePhoneDial` (the 270° speedometer), `AttentionStoryStep`, the symptom
+multi-select, the desired-morning question, and the lifetime "days in a life"
+figure. The dial was replaced because a 320pt control crowded the step and the
+flow needed one slider grammar; the lifetime figure because an 80-year
+extrapolation is both hand-wavy and not a number the product can move, which
+is the whole test a hero figure has to pass. The symptom and wake-feeling
+**columns stay in the Supabase payload** (sent empty) so the profile shape and
+`SleepCloudService` need no migration.
+
+The draft key is `sulav.onboardingDraft.v2`. A v1 draft holds the retired
+answer set and cannot be migrated into these questions, so it is left to
+expire rather than half-restored. A restored draft never resumes past a
+missing required answer — otherwise downstream figures derive from defaults.
+
+### Still open
+
+**Social proof has no beat.** A stats row belongs immediately before the
+account step (its headline should complete the sentence the account button
+finishes), but it needs *real* numbers — actual App Store rating, review
+count, install base. Nothing fabricated goes on that screen: it is the one
+surface whose entire job is credibility, and invented counts are also an App
+Store review risk. Add it when the real figures are known.
+
+**The paywall headline should carry the user's figure.** It is fixed and
+generic today. A loss-aversion line naming the phone-nights number would
+convert better and is compliant — 3.1.2(c) governs *pricing* elements, and the
+referral variant already establishes the dynamic-headline architecture. Not
+yet implemented.
+
+**A downsell on ✕ does not exist.** The highest-leverage missing piece: a
+"No worries" beat with a Today → Day 5 → Day 7 trial timeline spelling out
+when Apple emails and when the charge lands. It converts *and* cuts refunds,
+because nobody is surprised. Fire once per install.
 
 ## Liquid Glass
 
@@ -941,13 +1070,17 @@ line promises setup instead — never reassurance the next screen will
 contradict. The email path keeps its inline red message ("That email already
 has an account…") since it can still fail before any session exists.
 
-The questionnaire follows the ten-step attention story specified in "Setup
-conversion refresh" above. Apple Health stays outside onboarding.
+The questionnaire follows the eleven-beat arc specified in "Sign-up flow"
+above. Apple Health stays outside onboarding.
 
-The two **schedule steps** are single-wheel and framed as the target the app
-holds the user to — "When do you want to go to bed?" and "And when do you
-want to wake up?" (the wake step carries a live sleep-window readout). That
-target is the operative schedule: `profile.bedtime`/`wakeTime`, what the Home
+The two **schedule steps** are single-wheel and framed as fact rather than
+aspiration — "What time do you get into bed?" and "And what time do you need
+to be up?" (the wake step carries a live in-bed readout). They ask what the
+user *does*, not what they wish, because the whole flow downstream is
+arithmetic on these two answers and an aspirational bedtime would produce an
+aspirational shortfall. "Get into bed" rather than "go to bed" is deliberate:
+the gap between getting in and falling asleep is the phone time, which is the
+next question. That target is still the operative schedule: `profile.bedtime`/`wakeTime`, what the Home
 countdown, the lockdown window, and the widgets all key off. (An earlier
 revision asked ideal *and* current on each screen to manufacture a gap; it
 was cut — the second wheel made the screen busy, and the narrative already
@@ -958,10 +1091,12 @@ duplicated the wheel's selected value.
 
 Selection grammar splits by meaning. The **goal is a required single-select**:
 this step asks for the one outcome that matters most, and choosing another row
-replaces the previous choice. The struggle multi-select allows zero because an empty set is an honest answer. The phone-time dial requires a positive setting and desired wake-feeling
-requires a choice because the plan speaks to the answer and
-there is no meaningful skipped reading. The chosen goal keeps the existing
-`goal` string schema as one stable raw value.
+replaces the previous choice. It is required because the plan speaks back to
+the answer, so there is no meaningful skipped reading. The chosen goal keeps
+the existing `goal` string schema as one stable raw value. The phone slider
+likewise requires a deliberate nonzero setting — it is the figure every
+downstream number derives from (see "Sign-up flow → Controls"). There is no
+longer any multi-select in the flow.
 
 > Android revision (July 2026): on Android, **every** questionnaire step
 > holds Next until the user actually interacts — multi-selects require at

@@ -518,31 +518,47 @@ target can inject fakes without new hooks.
   `Profile.healthPromptDismissed`).
 - `OnboardingView.swift`: `OnboardingGateView`, the whole pre-app gate. A
   welcome screen offers two independent paths — "Get started" runs the sign-up
-  flow (`OnboardingQuestionsView`: blocking preview, name, goal, sleep
-  struggles, late-night phone time, wake feeling, bedtime, wake with a live
-  sleep-window readout, the plan reveal, and — as the final step — the account
+  flow (`OnboardingQuestionsView`: in-bed time, wake time with a live in-bed
+  readout, phone-in-bed, a pre-filled sleep calibration, the recommendation
+  band, the year-of-nights grid, the cause narrative + goal, the plan reveal,
+  name, the shield demo, Hold to commit, and — as the final step — the account
   creation, embedding `AuthMethodsView`); "I already have an account" goes
   straight to a standalone `AuthView` (`.signIn`), followed by the same
   questions as a quick setup when the device has no profile. The two paths are
   never linked. Apple Health is not part of onboarding — it's offered later on
-  Profile (see `HealthConnectCard`). Goal, phone time, and feeling are required
-  single-selects; struggles allow zero. The selected
+  Profile (see `HealthConnectCard`).
+
+  **The arithmetic.** Only three figures are asked for — in-bed, wake, and
+  phone-in-bed. Everything else on screen is a unit conversion of those,
+  computed on demand (never cached, so a back-and-edit moves every downstream
+  number) by `SleepDebt` in `SleepModels.swift`: `derivedSleepMinutes`,
+  `nightlyShortfall`, `nightsShortPerYear`, `phoneNightsPerYear`, and
+  `protectedSleepMinutes`. The recommendation floor is the *bottom* of the
+  AASM 7–9h band. The only constant the app supplies is 15 minutes of sleep
+  onset. `SleepMath.windowMinutes` (also in `SleepModels.swift`, moved there
+  from `SleepStore.swift` so the model tests can compile without the store)
+  owns the midnight wrap. `scripts/test-onboarding.sh` covers the degenerate
+  cases — zero shortfall, midnight wrap both ways, negative input, the 4-hour
+  phone clamp.
+
+  The phone slider is required and must be **touched** (`phoneTouched`) with a
+  nonzero value: it ships with a plausible default, and without the touch flag
+  a default would be accepted as the answer that drives every later figure.
+  The goal is a required single-select. The reveal steps
+  (`grid`, `plan`, `story`) gate their own Continue on a `ready` flag the
+  animation sets, so the user cannot advance past a half-drawn figure. The
+  selected
   `SleepGoal.rawValue` travels through the existing `goal` string, so choosing
   another goal replaces the previous answer without a local or Supabase schema
   change.
-  The **plan step** (`PlanStep`) runs a ~1.8s "Building your sleep plan…"
-  beat (`startPlanBuild`, cancelled if the user backs out mid-build, sticky
-  once revealed), with the sloth and status text centered in the full flexible
-  content region, before crossfading to three compact outcomes: nightly sleep,
-  time to win back per week, and the chosen goal. `PlanRow` keeps its label on
-  the left and anchors the value to the trailing edge. Both are vertically
-  centered, and the value stays on one line with a `0.85` minimum scale plus
-  tightening for longer goal copy. It deliberately has no detail field. Weekly
-  durations use compact copy such as `1h 45min per week`. The reveal echoes the
-  single goal but does not repeat the exact clocks or explanatory
-  copy from prior steps. Its "I'm ready" CTA advances to the account step (or
-  commits directly on the quick-setup path, where the plan step is the final
-  one). All answers travel
+  The **plan step** is a `NarrativePage`, not a summary card: three typed
+  lines that restate the user's own schedule and the figure the flow just
+  earned ("Phone down at 10:30 PM." / "Up at 6:30 AM with 7h 45m behind you."
+  / "That's 52 nights back this year."). The gain it promises is exactly the
+  phone answer by construction, so the claim is retraceable. The earlier
+  `PlanStep` — a ~1.8s "Building your sleep plan…" beat crossfading to three
+  `PlanRow` outcomes — is retired along with its artificial delay. All answers
+  travel
   as one `OnboardingAnswers` value into `store.completeOnboarding`.
   `OnboardingQuestionsView` builds its step list dynamically: the account
   step is appended only when the user is not already signed in (captured once
@@ -551,7 +567,7 @@ target can inject fakes without new hooks.
   account step's auth succeeds — an `onChange(store.isAuthenticated)` inside
   the questionnaire fires `completeOnboarding`, so the gate stays mounted
   (progress bar + back chevron intact) through account creation and "back"
-  from it returns to the plan step. Navigation is array-index based so the
+  from it returns to the commitment step. Navigation is array-index based so the
   conditional final step is handled uniformly. The questionnaire renders only the active step
   (directional slide transitions, thin amber progress bar, glass back chevron),
   top-anchors the prompt 32pt below that header, vertically centers the answer
@@ -2052,21 +2068,37 @@ the app, and `assetutil --info <app>/Assets.car` should list `SplashSloth`.
 
 ## Onboarding conversion and first-party analytics (September 2026)
 
-`OnboardingQuestionsView` saves a Codable draft under `sulav.onboardingDraft.v1`.
-New optional draft fields `phoneMinutes` and `phoneDialTouched` preserve exact dial
-input; old drafts decode using the prior phone-time bucket's conservative minutes.
-Completed profiles carry `lateNightPhone = "minutes:N"` in the existing string
-field, which cloud sync already preserves. Old enum values remain decodable.
-The desired wake-feeling values add `energized`, `calm`, and `focused`; the new
-symptom adds `negativeThoughts`. No database migration is needed for these string
-fields. `OnboardingExperience.swift` owns dial, story, swipe, hold, and demo views.
+`OnboardingQuestionsView` saves a Codable draft under
+`sulav.onboardingDraft.v2`. The key was bumped because a v1 draft holds the
+retired answer set (a phone dial, symptom selections, a wake feeling) that
+cannot be migrated into these questions — a v1 draft is left to expire rather
+than half-restored. A restored v2 draft never resumes past a missing required
+answer: without the phone figure every downstream number would derive from a
+default.
 
-Order: name, phoneTime, struggles, goal (story chapters + choices), feeling,
-bedtime, wake, plan (encouragement), preview, commit, then account when needed.
-The legacy internal `plan` identifier is retained for draft compatibility; no
-plan-summary screen remains. All transient animation state restarts on reentry.
-Successful setup clears the draft; existing-account auth never overwrites its
-restored profile. Review routes ignore drafts and do not save fixture answers.
+Completed profiles still carry `lateNightPhone = "minutes:N"` in the existing
+string field, which cloud sync already preserves. The retired symptom and
+wake-feeling columns are still *sent*, empty, so the Supabase profile shape
+and `SleepCloudService` need no migration. Old enum values remain decodable.
+
+`OnboardingExperience.swift` owns the instruments: `NightSlider`,
+`SleepNeedBand`, `YearOfNightsGrid`, `NightGoalStep`, `NarrativePage`, the
+swipe/hold gestures, and the demo views.
+
+Order: `inBed`, `wake`, `phone`, `sleep`, `need`, `grid`, `story` (narrative
+chapters + goal choices), `plan`, `name`, `preview`, `commit`, then `account`
+when needed. All transient animation state restarts on reentry. Successful
+setup clears the draft; existing-account auth never overwrites its restored
+profile.
+
+Review routes ignore drafts and do not save fixture answers.
+`-review-onboarding-step=<raw>` lands directly on any step with plausible
+answers pre-filled, which is how the reveals get screenshotted without
+playing the whole flow:
+
+```bash
+xcrun simctl launch booted com.sulav.sleepblock --args -review-onboarding-step=grid
+```
 
 `AttentionEstimate` clamps to 0…240, multiplies by 365 for yearly minutes, and
 uses 80 years / 1,440 minutes for illustrative whole lifetime days. 240 represents

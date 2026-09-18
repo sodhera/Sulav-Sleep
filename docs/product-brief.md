@@ -7,21 +7,33 @@ review the rhythm of recent nights — using **real data only**.
 ## Current product
 
 - Welcome offers Get started and independent Sign in paths. The iOS setup is
-  now ten steps: name; a required 0–4+ hour bedtime-phone dial; four optional
-  symptom selections; a personalized attention story leading directly to night-goal choices;
-  desired morning; bedtime; wake time; encouragement; a looping "Protect your
-  attention" iPhone demo; and a two-second Hold to commit. Text chapters reveal
-  letter by letter with stable word positions, alternating white/yellow lines,
-  short groups, and a slide labeled Continue. Account
-  creation follows commitment for signed-out users. Already authenticated users
-  finish directly. The former "your plan is ready" summary is removed.
-- Setup always shows a starry midnight city with warm windows. Daily Home
-  lighting remains phase-aware. Time-cost figures use exact dial minutes;
-  lifetime days are explicitly an illustration at that daily rate over 80 years.
+  **eleven beats**, alternating ask and reveal: in-bed time; wake time; a
+  required phone-in-bed slider; a sleep calibration the app pre-fills from the
+  first three answers; the AASM 7–9 hour recommendation band with the user's
+  figure plotted on it; **the year of nights** (365 cells, the ones spent
+  awake on a phone lit amber); a short narrative naming the phone, resolving
+  into the night-goal choice; the plan; name; a looping shield demo titled
+  with the user's own bedtime; and a two-second Hold to commit. Account
+  creation follows commitment for signed-out users. Already authenticated
+  users finish directly.
+- **Three inputs derive everything.** In-bed, wake and phone-in-bed are the
+  only figures asked for; the shortfall, the year-of-nights count and the plan
+  are all unit conversions of those (`SleepDebt`, `SleepModels.swift`).
+  Nothing is measured or modelled, and every reveal captions itself with the
+  answer it came from. The recommendation floor is the bottom of the 7–9 band,
+  not its middle, so no figure is overstated. See `DESIGN.md` → "Sign-up flow".
+- Text chapters reveal letter by letter with stable word positions,
+  alternating white/yellow lines, short groups, and a slide labeled Continue.
+  Setup always shows a starry midnight city with warm windows; Daily Home
+  lighting remains phase-aware. The retired flow's symptom multi-select,
+  desired-morning question, phone dial, and the 80-year "days in a life"
+  figure are all gone — the last because an 80-year extrapolation is not a
+  number the product can move, which is the test a hero figure has to pass.
 - The demo is a simulator recreation of a TikTok tap, opening logo, progressive
-  grayscale, then a SleepBlock shield. The page asks "Are you ready to protect
-  your mind against the enemy?" and answers **Yes**. It is not evidence of real TikTok blocking. Real
-  permissions and app selection still happen through Apple's Screen Time flow.
+  grayscale, then a SleepBlock shield. The page is titled "This is what
+  {bedtime} looks like now." and answered **That's what I want**. It is not
+  evidence of real TikTok blocking. Real permissions and app selection still
+  happen through Apple's Screen Time flow.
 - **SleepBlock is a subscription.** Right after the questionnaire commits, the
   paywall (RevenueCat; annual with a free trial, or monthly) appears at the
   moment of highest intent, after the user sets their target schedule. It is
@@ -36,9 +48,11 @@ review the rhythm of recent nights — using **real data only**.
   instead of 7, and their first paid payment gives you a month free (a real
   App Store renewal extension, capped at six earned months a year). The ask
   is a relationship, not a coupon.
-- Setup saves an unfinished questionnaire locally, including the current step.
-  The retired app-name question has been removed. Real app selection occurs
-  in Apple’s system picker after permission.
+- Setup saves an unfinished questionnaire locally, including the current step
+  (`sulav.onboardingDraft.v2`; a v1 draft holds the retired answer set and is
+  left to expire rather than half-restored). A restored draft never resumes
+  past a missing required answer. Real app selection occurs in Apple’s system
+  picker after permission.
 - After the paywall, a one-time **Screen Time primer** uses an interactive
   preview of the iOS permission dialog. Its Continue action requests the
   Family Controls authorization directly; Not now skips it, with no duplicate
