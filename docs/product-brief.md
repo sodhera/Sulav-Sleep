@@ -23,9 +23,19 @@ review the rhythm of recent nights — using **real data only**.
   answer it came from. The recommendation floor is the bottom of the 7–9 band,
   not its middle, so no figure is overstated. See `DESIGN.md` → "Sign-up flow".
 - Text chapters reveal letter by letter with stable word positions,
-  alternating white/yellow lines, short groups, and a slide labeled Continue.
-  Setup always shows a starry midnight city with warm windows; Daily Home
-  lighting remains phase-aware. The retired flow's symptom multi-select,
+  alternating white/yellow lines, and short groups. The flow has exactly two
+  controls — one primary button for every forward step, and the commitment
+  hold — replacing an earlier mix of taps, a slide-to-continue capsule, and
+  the hold.
+- **Setup no longer uses the pixel city.** The whole pre-app gate (welcome,
+  the flow, auth, paywall, primer) stands on a quiet deep-night ground with a
+  single pool of warm amber light, deepening toward black as the flow
+  advances; the city is what opens when setup ends. The scene is unchanged
+  everywhere the app is lived in, and Home stays phase-aware. This removed
+  four separate legibility workarounds (two glass panels, caption drop
+  shadows, a setup-specific scrim) that all had the same cause. See
+  `DESIGN.md` → "Sign-up flow → The stage".
+- The retired flow's symptom multi-select,
   desired-morning question, phone dial, and the 80-year "days in a life"
   figure are all gone — the last because an 80-year extrapolation is not a
   number the product can move, which is the test a hero figure has to pass.

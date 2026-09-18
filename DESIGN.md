@@ -179,6 +179,44 @@ arithmetic rather than asking for more. `SleepDebt` (SleepModels.swift) is the
 single home for those figures; the instruments that draw them live in
 `OnboardingExperience.swift`.
 
+### The stage: setup does not use the city
+
+The pre-app gate — welcome, the sign-up flow, auth, the paywall, the Screen
+Time primer — stands on `OnboardingStage`, **not** the pixel night city.
+
+The scene is still the app's identity everywhere the app is *lived in*: Home,
+the record, sleep mode, the widgets, the icon. Setup is the one place it
+worked against the product. An illustrated, high-contrast skyline sits
+directly under the densest typography in the app, and every reveal in this
+flow is a **figure that has to be read**, not a scene to be admired. The cost
+showed up as a list of workarounds: a glass panel under the slider rail, a
+second one under the 365-cell grid, navy drop shadows on every caption, and a
+setup-specific scrim to darken the sky. Four patches, one cause. Removing the
+cause removed all four.
+
+It also buys a better first moment. The user commits to their night on a dark,
+quiet ground, and **the city is what opens when setup ends** — the scene
+became a payoff instead of wallpaper.
+
+What is kept is the half of the identity that matters here: **warm amber light
+against deep night.** The stage is a deep blue-black gradient with one soft
+pool of indoor amber low and centred, plus a fainter gold wash high up so the
+area behind the question text isn't a dead flat field. The lamp breathes on a
+6-second cycle, deliberately below the threshold of notice (per "Motion" — if
+the user sees it animating it is too strong), so the ground is never a dead
+rectangle. No pixel art, no assets, no parallax.
+
+`depth` runs **0 → 1 across the flow** and settles the ground toward black as
+it advances: the questionnaire reports its own progress up to the gate, so the
+screen is literally closest to night at the moment the user holds to commit.
+It is a slow gradient, never a cut, and it never changes what is legible.
+Welcome sits at the lit end (0); the paywall and primer sit at 1.
+
+> Note on history: setup used `SleepBackground(midnight: true)` plus an
+> `OnboardingReadabilityScrim`. Both are retired here, and the scrim is
+> deleted — with the scene gone there was nothing left for a setup-specific
+> veil to darken.
+
 ### The one rule
 
 **Every number on screen is a unit conversion of something the user typed.**
@@ -254,10 +292,12 @@ anchor pip, and one soft haptic per step. Hand-built rather than SwiftUI's
 unreachable through the stock control, and the tick is most of what makes the
 answer feel deliberate rather than dragged.
 
-The rail and its end labels sit on a **glass stage**, for the reason recorded
-under "Onboarding & auth" for the auth form's field surfaces: the control
-lands on the busiest band of the skyline, where a 5pt rail and 13pt labels all
-but disappear. Glass is for controls, and a slider is a control.
+The rail is **bare** — no glass panel. An earlier revision put the rail and
+its end labels on a glass stage, because a 5pt rail and 13pt labels vanished
+over the skyline. On the quiet stage that panel was a container around
+nothing, and it went with the scene. The same applies to the 365-cell grid,
+which also lost its glass ground, and to the navy drop shadows that were
+holding captions off the buildings.
 
 The anchor pip is **navy + gold, never `danger`**. In this palette red means a
 destructive action, so colouring "what's typical" as an alarm turns a
@@ -287,13 +327,30 @@ the reveal that follows.
 
 ### Narrative and commitment
 
+**The flow has exactly two controls: one button and one gesture.**
+
+Every forward step — questions, narrative pages, reveals — is the same primary
+button. The commitment hold is the only gesture. An earlier revision ran three
+grammars inside one questionnaire: a tap on the questions, a slide-to-unlock
+capsule on the narrative pages, and the hold at the end. The slide was the
+weakest of the three: it read as a lock-screen relic, it charged a drag for
+something completely reversible, and it had to be hidden entirely while its
+page was still typing — a control that appears out of nowhere. DESIGN.md
+already settled the principle under sleep mode: **consequential actions earn a
+deliberate confirmation; harmless ones are taps.** Turning a page of type is
+harmless. Committing to your nights is not.
+
+Steps that animate a figure keep their button **present but inert** until the
+reveal lands — faded to 35%, never absent — so the user can always see where
+they are going next.
+
 Text chapters reveal letter by letter with stable word positions (the complete
 sentence occupies its final lines from the start, unrendered letters
 transparent, so words never jump), alternating ink and gold starting with ink,
-in groups of at most two lines, unlocked by an iPhone-style slide labelled
-**Continue**. Reduce Motion and VoiceOver expose complete text immediately;
-every animated reveal has an accessible action and gates its Continue on a
-`ready` flag.
+in groups of at most two lines. Chapter state lives in the *parent* step, not
+inside the narrative view, because the one button drives it. Reduce Motion and
+VoiceOver expose complete text immediately; every animated reveal gates its
+button on a `ready` flag.
 
 The demo page is titled with the user's own bedtime — "This is what 10:30 PM
 looks like now." — and answered with **That's what I want**. It remains a
@@ -306,9 +363,10 @@ and fires once. The question addresses the user by name.
 
 ### Retired
 
-`BedtimePhoneDial` (the 270° speedometer), `AttentionStoryStep`, the symptom
-multi-select, the desired-morning question, and the lifetime "days in a life"
-figure. The dial was replaced because a 320pt control crowded the step and the
+`BedtimePhoneDial` (the 270° speedometer), `StoryUnlockSlider` (the
+slide-to-continue capsule), `AttentionStoryStep`,
+`OnboardingReadabilityScrim`, the symptom multi-select, the desired-morning
+question, and the lifetime "days in a life" figure. The dial was replaced because a 320pt control crowded the step and the
 flow needed one slider grammar; the lifetime figure because an 80-year
 extrapolation is both hand-wavy and not a number the product can move, which
 is the whole test a hero figure has to pass. The symptom and wake-feeling
@@ -1178,7 +1236,9 @@ alarm. Never style an expected step as an error.
 
 SleepBlock is a subscription app, and the paywall (`PaywallView.swift`) is
 the questionnaire's closing beat: it appears between the account step and
-Main, on the same living scene as onboarding. It is a **soft paywall** — a
+Main, on the same quiet stage as onboarding (`OnboardingStage` — the pre-app
+gate does not use the pixel city; see "Sign-up flow → The stage"). It is a
+**soft paywall** — a
 quiet ✕ in the top-right corner closes it — softened further by honesty:
 the terms line under the button leads with the real billed price and says
 "cancel anytime". It only ever renders off a *resolved* not-entitled

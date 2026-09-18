@@ -15,6 +15,107 @@ import UIKit
 // (`SleepNeedBand`, sourced to the AASM), a cost they can feel
 // (`YearOfNightsGrid`), and a remedy that is theirs to choose (`NightGoalStep`).
 
+// MARK: - The stage
+
+/// The ground the whole pre-app gate stands on: welcome, the sign-up flow,
+/// auth, the paywall, the Screen Time primer.
+///
+/// **Why setup does not use the pixel city.** The scene is the app's identity
+/// and it stays that way everywhere the app is *lived in* — Home, the record,
+/// sleep mode, the widgets. Setup is the one place it actively fought the
+/// product: an illustrated, high-contrast skyline sits directly under the
+/// densest typography in the app, and every reveal here is a figure that has
+/// to be read, not admired. Propping that up cost a glass panel under the
+/// slider rail, a second one under the 365-cell grid, and navy drop shadows on
+/// every caption — three workarounds for one cause. Removing the cause removed
+/// all three.
+///
+/// It also buys a better first moment: the user commits to their night in the
+/// dark, and the city is what opens when setup ends. The scene became a
+/// payoff instead of wallpaper.
+///
+/// What is kept is the identity that matters — **warm amber light against deep
+/// night.** The city is gone; the lamp is not.
+///
+/// `depth` runs 0 → 1 across the flow and darkens the ground as it goes, so
+/// the screen is literally closer to night by the time the user holds to
+/// commit. It is a gradient, never a cut, and at no point does it change what
+/// is legible.
+struct OnboardingStage: View {
+    var depth: Double = 0
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var breathe = false
+
+    private var clamped: Double { min(max(depth, 0), 1) }
+
+    var body: some View {
+        ZStack {
+            // Base: a deep blue night settling toward black.
+            LinearGradient(
+                colors: [
+                    Color(hex: 0x0B1626).mix(with: Color(hex: 0x04070E), amount: clamped),
+                    Color(hex: 0x05080F).mix(with: .black, amount: clamped * 0.8)
+                ],
+                startPoint: .top, endPoint: .bottom
+            )
+
+            // The lamp: one soft pool of indoor amber, low and centred, the
+            // warm-light half of the palette with none of the pixel noise.
+            // It dims as the flow deepens — the room settling down for the
+            // night rather than a light being switched off.
+            RadialGradient(
+                colors: [
+                    SleepColor.amber.opacity((0.11 - 0.05 * clamped) * (breathe ? 1.12 : 1)),
+                    .clear
+                ],
+                center: UnitPoint(x: 0.5, y: 0.88),
+                startRadius: 0,
+                endRadius: 480
+            )
+
+            // A second, much fainter wash high up, so the top of the screen
+            // isn't a dead flat field behind the question text.
+            RadialGradient(
+                colors: [SleepColor.gold.opacity(0.05 - 0.03 * clamped), .clear],
+                center: UnitPoint(x: 0.22, y: 0.1),
+                startRadius: 0,
+                endRadius: 380
+            )
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+        .animation(.easeInOut(duration: 0.9), value: clamped)
+        .task {
+            guard !reduceMotion else { return }
+            // A lamp's breath: deliberately below the threshold of notice,
+            // per DESIGN.md — if the user sees it animating it is too strong.
+            // It exists so the ground isn't a dead rectangle.
+            withAnimation(.easeInOut(duration: 6).repeatForever(autoreverses: true)) {
+                breathe = true
+            }
+        }
+    }
+}
+
+private extension Color {
+    /// Linear blend in sRGB. Enough for two hand-picked night tones; this is
+    /// not a colour-science mix and does not need to be.
+    func mix(with other: Color, amount: Double) -> Color {
+        let t = min(max(amount, 0), 1)
+        let a = UIColor(self), b = UIColor(other)
+        var ar: CGFloat = 0, ag: CGFloat = 0, ab: CGFloat = 0, aa: CGFloat = 0
+        var br: CGFloat = 0, bg: CGFloat = 0, bb: CGFloat = 0, ba: CGFloat = 0
+        a.getRed(&ar, green: &ag, blue: &ab, alpha: &aa)
+        b.getRed(&br, green: &bg, blue: &bb, alpha: &ba)
+        return Color(
+            red: Double(ar + (br - ar) * t),
+            green: Double(ag + (bg - ag) * t),
+            blue: Double(ab + (bb - ab) * t)
+        )
+    }
+}
+
 // MARK: - Slider
 
 /// The flow's single input grammar for "how much": a live hero number, a
@@ -73,12 +174,9 @@ struct NightSlider: View {
                 }
             }
 
-            // The rail and its end labels sit on a glass stage rather than
-            // bare over the scene. This is the same reasoning as the auth
-            // form's field surfaces (DESIGN.md, "Onboarding & auth"): the
-            // control lands on the busiest band of the skyline, where a
-            // 5pt rail and 13pt grey labels all but disappear. Glass is for
-            // controls, and a slider is a control.
+            // Bare rail, no glass box. The glass panel here only ever
+            // existed to lift a 5pt rail off the skyline; on the quiet stage
+            // (`OnboardingStage`) it was a floating container around nothing.
             VStack(spacing: SleepSpacing.md) {
                 track
                 HStack {
@@ -87,18 +185,14 @@ struct NightSlider: View {
                     Text(highLabel)
                 }
                 .font(SleepFont.body(13))
-                .foregroundStyle(SleepColor.dim)
+                .foregroundStyle(SleepColor.muted)
             }
-            .padding(.horizontal, SleepSpacing.lg)
-            .padding(.vertical, SleepSpacing.lg)
-            .liquidGlass(cornerRadius: SleepRadius.lg)
 
             if let caption {
                 Text(caption)
                     .font(SleepFont.body(14))
                     .italic()
-                    .foregroundStyle(SleepColor.dim)
-                    .shadow(color: SleepColor.navy.opacity(0.9), radius: 3)
+                    .foregroundStyle(SleepColor.muted)
             }
         }
         .accessibilityElement(children: .ignore)
@@ -266,12 +360,11 @@ struct SleepNeedBand: View {
             .frame(height: 118)
 
             // The citation is the whole reason this screen isn't the app
-            // passing judgement, so it has to survive the skyline. Same
-            // navy-shadow treatment DESIGN.md gives section kickers.
+            // passing judgement, so it stays legible — which on the quiet
+            // stage needs no drop shadow.
             Text("American Academy of Sleep Medicine")
                 .font(SleepFont.body(12))
-                .foregroundStyle(SleepColor.dim)
-                .shadow(color: SleepColor.navy.opacity(0.9), radius: 3)
+                .foregroundStyle(SleepColor.muted)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Recommended sleep for adults is 7 to 9 hours")
@@ -350,8 +443,7 @@ struct YearOfNightsGrid: View {
             Text("THE NEXT 365 NIGHTS")
                 .font(SleepFont.label(11))
                 .tracking(1.6)
-                .foregroundStyle(SleepColor.dim)
-                .shadow(color: SleepColor.navy.opacity(0.8), radius: 2)
+                .foregroundStyle(SleepColor.muted)
 
             grid
 
@@ -372,14 +464,11 @@ struct YearOfNightsGrid: View {
                 Text("in bed, awake, on your phone.")
                     .font(SleepFont.title(20))
                     .foregroundStyle(SleepColor.ink)
-                    .shadow(color: SleepColor.navy.opacity(0.9), radius: 4)
 
-                // The provenance line is what keeps this figure honest, so
-                // it has to be readable over the warm windows it lands on.
+                // The provenance line is what keeps this figure honest.
                 Text("At the \(phoneMinutes) minutes a night you told us.")
                     .font(SleepFont.body(13))
-                    .foregroundStyle(SleepColor.dim)
-                    .shadow(color: SleepColor.navy.opacity(0.9), radius: 3)
+                    .foregroundStyle(SleepColor.muted)
                     .opacity(ready ? 1 : 0)
                     .animation(.easeIn(duration: 0.35), value: ready)
             }
@@ -445,12 +534,6 @@ struct YearOfNightsGrid: View {
         .aspectRatio(CGFloat(Self.columns) / CGFloat(Self.rows), contentMode: .fit)
         .frame(maxWidth: .infinity)
         .drawingGroup()
-        // The field is one object, so it gets one stage. Glass supplies an
-        // even ground under all 365 cells — without it the grid's lower rows
-        // read against warm windows and the top rows against open sky, and
-        // the same colour looks like two different values.
-        .padding(SleepSpacing.md)
-        .liquidGlass(cornerRadius: SleepRadius.md)
     }
 }
 
@@ -561,13 +644,18 @@ private struct RevealingSentence: UIViewRepresentable {
 /// *causes* anything clinical — it says sleep can't start while the screen is
 /// on, which is the honest mechanism and the one the product acts on.
 struct NightGoalStep: View {
+    /// Narrative chapters before the goal question appears. The parent drives
+    /// chapter advance with the flow's single primary button, so it has to
+    /// know when the story has run out of pages.
+    static let pageCount = 2
+
     let phoneNights: Int
     @Binding var goal: SleepGoal?
     @Binding var showingOptions: Bool
-
-    @State private var chapter = 0
-    @State private var ready = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Owned by the parent: all forward motion in this flow goes through one
+    /// button, and that button lives in the step scaffold, not in here.
+    @Binding var chapter: Int
+    @Binding var ready: Bool
 
     private var pages: [[String]] {
         [
@@ -605,21 +693,9 @@ struct NightGoalStep: View {
                 .scrollIndicators(.hidden)
                 Spacer(minLength: 10)
             } else {
-                NarrativePage(lines: pages[chapter], ready: $ready)
+                NarrativePage(lines: pages[min(chapter, Self.pageCount - 1)], ready: $ready)
                     .id(chapter)
                     .transition(.opacity)
-                StoryUnlockSlider {
-                    if chapter == pages.count - 1 {
-                        showingOptions = true
-                    } else {
-                        ready = false
-                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.4)) { chapter += 1 }
-                    }
-                }
-                .id(chapter)
-                .disabled(!ready)
-                .opacity(ready ? 1 : 0)
-                .padding(.bottom, 16)
             }
         }
     }
@@ -627,45 +703,20 @@ struct NightGoalStep: View {
 
 // MARK: - Commitment gestures
 
-struct StoryUnlockSlider: View {
-    let action: () -> Void
-    @State private var offset: CGFloat = 0
-    @State private var completed = false
-    var body: some View {
-        GeometryReader { geo in
-            let travel = max(1, geo.size.width - 66)
-            ZStack(alignment: .leading) {
-                Capsule().fill(SleepColor.navy.opacity(0.88))
-                Capsule().stroke(SleepColor.amber.opacity(0.4), lineWidth: 1)
-                Text("Continue")
-                    .font(SleepFont.body(18)).foregroundStyle(SleepColor.ink)
-                    .frame(maxWidth: .infinity).opacity(1 - Double(offset / travel))
-                Image(systemName: "arrow.right")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(SleepColor.background)
-                    .frame(width: 56, height: 50)
-                    .background(SleepColor.gold, in: Capsule())
-                    .offset(x: 5 + offset)
-                    .gesture(DragGesture(minimumDistance: 0)
-                        .onChanged { value in
-                            guard !completed else { return }
-                            offset = min(travel, max(0, value.translation.width))
-                        }
-                        .onEnded { _ in
-                            guard !completed else { return }
-                            if offset >= travel * 0.85 {
-                                completed = true; Haptics.success(); action()
-                            } else { withAnimation(.spring()) { offset = 0 } }
-                        })
-            }
-        }.frame(height: 60)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Slide to continue")
-        .accessibilityAddTraits(.isButton)
-        .accessibilityAction { guard !completed else { return }; completed = true; action() }
-    }
-}
-
+/// The flow has exactly **two** gestures, and this is the only one.
+///
+/// An earlier draft had three grammars competing inside one questionnaire: a
+/// tap button on the questions, a slide-to-unlock capsule on the narrative
+/// pages, and this hold on the commitment. The slide was the weakest of the
+/// three — it read like a lock-screen relic, it had to be hidden entirely
+/// while its page was still typing (a control that appears from nowhere), and
+/// it charged a drag for something completely reversible.
+///
+/// DESIGN.md already settles this: consequential actions earn a deliberate
+/// confirmation, harmless ones are taps. Advancing a page of type is
+/// harmless. Committing to your nights is not. So every forward step in the
+/// flow is now one primary button, and the hold is reserved for the single
+/// moment that deserves it.
 struct CommitmentHoldButton: View {
     let action: () -> Void
     @Environment(\.scenePhase) private var scenePhase

@@ -198,20 +198,16 @@ struct RootView: View {
             } else if showsReviewPaywall {
                 // A deterministic, DEBUG-only route for the private screenshot
                 // App Store Connect asks for when reviewing a subscription.
-                SleepBackground(showsMoon: false)
-                SceneReadabilityScrim()
+                OnboardingStage(depth: 1)
                 PaywallView(store: store, onClose: { store.dismissPaywall() })
             } else if showsPrimerPreview {
-                SleepBackground(showsMoon: false)
-                SceneReadabilityScrim()
+                OnboardingStage(depth: 1)
                 ScreenTimePrimerView(store: store)
             } else if showsExistingAccountPreview {
-                SleepBackground(showsMoon: false)
-                SceneReadabilityScrim()
+                OnboardingStage(depth: 1)
                 ExistingAccountWelcomeView(store: store)
             } else if showsOnboardingQuestionPreview {
-                SleepBackground(midnight: true)
-                OnboardingReadabilityScrim()
+                OnboardingStage(depth: 0.6)
                 OnboardingQuestionsView(store: store, onDone: { _ in })
             } else if let previewSession = sleepModePreviewSession {
                 SleepModeView(
@@ -289,14 +285,16 @@ struct RootView: View {
                         // escape for returning users. Also where a signed-out
                         // user lands, opening on the welcome screen. See
                         // OnboardingGateView.
-                        SleepBackground(showsMoon: true, midnight: true)
-                        OnboardingReadabilityScrim()
+                        // The pre-app gate stands on its own quiet ground
+                        // (`OnboardingStage`), not the pixel city — see the
+                        // type's own note for why setup is the one place the
+                        // scene hurt. The gate mounts the stage itself so it
+                        // can deepen it as the flow progresses.
                         OnboardingGateView(store: store)
                     case .existingAccount:
                         // Same scene as the flow it interrupts — this is the
                         // account step's answer, not a new place.
-                        SleepBackground(showsMoon: false)
-                        SceneReadabilityScrim()
+                        OnboardingStage(depth: 1)
                         ExistingAccountWelcomeView(store: store)
                     case .paywall:
                         // The subscription pitch, on the same scene as
@@ -304,15 +302,13 @@ struct RootView: View {
                         // beat. Note the sleep-mode overlay above outranks
                         // it: an active night always keeps wake/cancel (and
                         // the lockdown teardown) reachable, subscribed or not.
-                        SleepBackground(showsMoon: false)
-                        SceneReadabilityScrim()
+                        OnboardingStage(depth: 1)
                         PaywallView(store: store, onClose: { store.dismissPaywall() })
                     case .screenTimePrimer:
                         // The Screen Time permission primer, on the same
                         // scene — the last gate before Main. See
                         // ScreenTimePrimerView for the show/skip rules.
-                        SleepBackground(showsMoon: false)
-                        SceneReadabilityScrim()
+                        OnboardingStage(depth: 1)
                         ScreenTimePrimerView(store: store)
                     case .main:
                         EmptyView() // Handled by the branch above.

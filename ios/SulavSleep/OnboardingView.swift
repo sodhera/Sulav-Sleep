@@ -13,6 +13,10 @@ struct OnboardingGateView: View {
     @Bindable var store: SleepStore
 
     @State private var route: Route
+    /// How far the ground has settled toward black, 0 → 1. Welcome sits at
+    /// the lightest end; the questionnaire reports its own progress so the
+    /// screen is closest to night at the commitment. See `OnboardingStage`.
+    @State private var stageDepth: Double = 0
 
     private enum Route: Equatable {
         case welcome
@@ -29,6 +33,10 @@ struct OnboardingGateView: View {
 
     var body: some View {
         ZStack {
+            // The gate owns its own ground rather than taking RootView's
+            // scene: it is the only pre-app screen whose stage moves.
+            OnboardingStage(depth: stageDepth)
+
             switch route {
             case .welcome:
                 WelcomeStep(
@@ -46,7 +54,8 @@ struct OnboardingGateView: View {
             case .questions:
                 OnboardingQuestionsView(
                     store: store,
-                    onBack: store.isAuthenticated ? nil : { setRoute(.welcome) }
+                    onBack: store.isAuthenticated ? nil : { setRoute(.welcome) },
+                    onProgress: { stageDepth = $0 }
                 ) { answers in
                     store.completeOnboarding(answers)
                 }
@@ -94,6 +103,9 @@ struct OnboardingGateView: View {
                 Keyboard.prewarm()
             }
         }
+        // Welcome and the standalone sign-in sit at the lit end of the
+        // ground; the questionnaire takes over from its own progress.
+        if next != .questions { stageDepth = next == .welcome ? 0 : 0.35 }
         withAnimation(.easeInOut(duration: 0.28)) { route = next }
     }
 }
@@ -305,6 +317,9 @@ struct OnboardingQuestionsView: View {
     /// Back action from the first step (to the welcome screen), or `nil` when
     /// there is nowhere to go back to (post-sign-in quick setup).
     var onBack: (() -> Void)?
+    /// Reports flow progress (0 → 1) so the gate can deepen the ground
+    /// underneath as the user advances. See `OnboardingStage`.
+    var onProgress: ((Double) -> Void)?
     let onDone: (OnboardingAnswers) -> Void
 
     @State private var step: Step = .inBed
@@ -332,6 +347,9 @@ struct OnboardingQuestionsView: View {
     @State private var gridReady = false
     @State private var narrativeReady = false
     @State private var goalReady = false
+    /// Which narrative chapter of the `story` step is showing. Owned here
+    /// because the flow's single primary button drives it (see "Actions").
+    @State private var storyChapter = 0
 
     /// Whether this run ends on the account step. Captured once so it does not
     /// flip mid-flow when auth flips `isAuthenticated`.
@@ -340,10 +358,12 @@ struct OnboardingQuestionsView: View {
     init(
         store: SleepStore,
         onBack: (() -> Void)? = nil,
+        onProgress: ((Double) -> Void)? = nil,
         onDone: @escaping (OnboardingAnswers) -> Void
     ) {
         self.store = store
         self.onBack = onBack
+        self.onProgress = onProgress
         self.onDone = onDone
         _includesAccount = State(initialValue: !store.isAuthenticated)
 #if DEBUG
@@ -468,9 +488,11 @@ struct OnboardingQuestionsView: View {
         }
         .onAppear {
             restoreDraft()
+            onProgress?(progress)
             SleepAnalytics.record("onboarding_step_viewed", screen: step.rawValue)
         }
         .onChange(of: step) { _, next in
+            onProgress?(progress)
             SleepAnalytics.record("onboarding_step_viewed", screen: next.rawValue)
             saveDraft()
         }
@@ -610,7 +632,13 @@ struct OnboardingQuestionsView: View {
             YearOfNightsGrid(phoneMinutes: phoneMinutes, ready: $gridReady)
 
         case .story:
-            NightGoalStep(phoneNights: phoneNights, goal: $goal, showingOptions: $goalReady)
+            NightGoalStep(
+                phoneNights: phoneNights,
+                goal: $goal,
+                showingOptions: $goalReady,
+                chapter: $storyChapter,
+                ready: $narrativeReady
+            )
 
         case .plan:
             NarrativePage(lines: [
@@ -703,6 +731,15 @@ struct OnboardingQuestionsView: View {
 
     // MARK: Actions
 
+    /// **One button, one gesture.** Every forward step is the same primary
+    /// button; the commitment hold is the only gesture in the flow. The
+    /// retired slide-to-continue capsule is discussed above
+    /// `CommitmentHoldButton`.
+    ///
+    /// Steps that animate a figure keep their button *present but inert*
+    /// until the reveal lands — faded, never absent. A control that
+    /// materialises out of nothing when a page finishes typing reads as a
+    /// glitch, and it hides where the user is meant to go next.
     @ViewBuilder
     private var actions: some View {
         switch step {
@@ -711,23 +748,15 @@ struct OnboardingQuestionsView: View {
                 if includesAccount { advance() } else { finish() }
             }
 
-        case .plan:
-            StoryUnlockSlider(action: advance)
-                .disabled(!narrativeReady)
-                .opacity(narrativeReady ? 1 : 0)
+        case .story where !goalReady:
+            // Still telling the story: the button turns the page.
+            revealGatedButton("Continue", ready: narrativeReady, action: advanceStory)
 
-        case .story:
-            // The story owns its own slider until the goal options appear.
-            if goalReady {
-                LiquidPrimaryButton(title: "Continue", action: advance)
-                    .disabled(!isStepValid)
-                    .opacity(isStepValid ? 1 : 0.45)
-            }
+        case .plan:
+            revealGatedButton("Continue", ready: narrativeReady, action: advance)
 
         case .grid:
-            LiquidPrimaryButton(title: "Take them back", action: advance)
-                .disabled(!gridReady)
-                .opacity(gridReady ? 1 : 0)
+            revealGatedButton("Take them back", ready: gridReady, action: advance)
 
         case .preview:
             LiquidPrimaryButton(title: "That's what I want", action: advance)
@@ -736,6 +765,29 @@ struct OnboardingQuestionsView: View {
             LiquidPrimaryButton(title: "Continue", action: advance)
                 .disabled(!isStepValid)
                 .opacity(isStepValid ? 1 : 0.45)
+        }
+    }
+
+    private func revealGatedButton(
+        _ title: String,
+        ready: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        LiquidPrimaryButton(title: title, action: action)
+            .disabled(!ready)
+            .opacity(ready ? 1 : 0.35)
+            .animation(.easeInOut(duration: 0.3), value: ready)
+    }
+
+    /// Turns a narrative page, or hands the step over to the goal question
+    /// once the story is out of pages.
+    private func advanceStory() {
+        SleepAnalytics.record("onboarding_next_tapped", screen: "story", control: "chapter")
+        if storyChapter >= NightGoalStep.pageCount - 1 {
+            withAnimation(.easeInOut(duration: 0.32)) { goalReady = true }
+        } else {
+            narrativeReady = false
+            withAnimation(.easeInOut(duration: 0.4)) { storyChapter += 1 }
         }
     }
 
@@ -821,6 +873,7 @@ struct OnboardingQuestionsView: View {
         narrativeReady = false
         goalReady = false
         gridReady = false
+        storyChapter = 0
     }
 
     private func saveDraft() {

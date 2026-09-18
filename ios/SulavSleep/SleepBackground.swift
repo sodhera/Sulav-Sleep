@@ -52,22 +52,11 @@ struct SleepBackground: View {
 /// supplies the dark stage the ink system was designed for, per phase. It is full-bleed with
 /// no edges or corners, so it reads as atmospheric haze rather than a card, and
 /// never intercepts touches. Layer it directly above `SleepBackground`.
-/// A richer dusk tint reserved for setup. The city stays recognizable while
-/// foreground copy rests on a dark, stable stage. Sleep mode remains black.
-struct OnboardingReadabilityScrim: View {
-    var body: some View {
-        LinearGradient(
-            stops: [
-                .init(color: Color(hex: 0x071127).opacity(0.35), location: 0),
-                .init(color: SleepColor.background.opacity(0.28), location: 0.38),
-                .init(color: SleepColor.background.opacity(0.16), location: 1)
-            ],
-            startPoint: .top, endPoint: .bottom
-        )
-        .ignoresSafeArea()
-        .allowsHitTesting(false)
-    }
-}
+// Note on history: `OnboardingReadabilityScrim` lived here — a deeper dusk
+// tint that let setup keep the city recognizable while copy sat on a darker
+// stage. It is gone with the city: the pre-app gate now stands on
+// `OnboardingStage` (OnboardingExperience.swift) instead of this scene, so
+// there is nothing left for a setup-specific veil to darken.
 
 struct SceneReadabilityScrim: View {
     var body: some View {
