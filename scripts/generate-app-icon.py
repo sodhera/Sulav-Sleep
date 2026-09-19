@@ -7,7 +7,7 @@ system from DESIGN.md, producing two deliverables:
 
 1. **App icon** (light/dark/tinted 1024px, into AppIcon.appiconset): amber
    sloth, gold ZZZ, cool ink pillow, over a skyTop -> background night
-   gradient with a faint warm lamp glow.
+   gradient with a faint warm lamp glow and a sparse, seeded star field.
 2. **Night sloth** (transparent PNG, into NightSloth.imageset): the sleep
    screen's centerpiece — the same sloth banked down to the ember palette
    (only ember pixels may be lit on that screen), pillow reduced to deep
@@ -211,6 +211,26 @@ def remap(img: Image.Image) -> Image.Image:
     floor = np.clip((yy - 0.72) / 0.28, 0.0, 1.0) ** 2 * 0.10
     warm = np.clip(glow + floor, 0.0, 0.30)[:, :, None]
     bgcol = grad * (1 - warm) + np.array(AMBER, dtype=np.float32) * warm
+
+    # A few stars in the upper sky, so the icon carries the same night the
+    # launch screen and setup flow do. Deliberately sparse and small: an icon
+    # is read at 60px on a home screen, where anything more becomes noise, and
+    # they sit above the sloth's head so the crop never cuts through one.
+    # Seeded, so regenerating the icon never reshuffles them.
+    star_rng = np.random.default_rng(0x5EEDBED)
+    for _ in range(14):
+        sx = float(star_rng.uniform(0.06, 0.94))
+        sy = float(star_rng.uniform(0.04, 0.32))
+        brightness = float(star_rng.uniform(0.45, 1.0))
+        radius = (0.0022 + 0.0042 * brightness) * w
+        tint = np.array(GOLD if star_rng.random() < 0.25 else (255, 255, 255), dtype=np.float32)
+        gy, gx = np.ogrid[0:h, 0:w]
+        d = np.sqrt((gx - sx * w) ** 2 + (gy - sy * h) ** 2)
+        # Soft core plus a wider halo, matching the app's star construction.
+        core = np.clip(1.0 - d / radius, 0.0, 1.0) ** 0.6 * brightness
+        halo = np.clip(1.0 - d / (radius * 3.0), 0.0, 1.0) ** 2 * brightness * 0.35
+        a = np.clip(core + halo, 0.0, 1.0)[:, :, None]
+        bgcol = bgcol * (1 - a) + tint * a
 
     for k, key in enumerate(PALETTE):
         m = idx == k

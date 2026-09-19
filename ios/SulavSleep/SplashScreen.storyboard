@@ -20,6 +20,17 @@
                         <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
                         <subviews>
+                            <!--The night sky, baked. A launch storyboard cannot run code, so the
+                                stars OnboardingStage draws procedurally are rendered to an image by
+                                scripts/generate-splash-stars.py using the same seeded field, so the
+                                storyboard hands over to a sky that matches the one the app draws a
+                                frame later. Aspect-fill, full bleed, behind everything.-->
+                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFill" image="SplashSky" translatesAutoresizingMaskIntoConstraints="NO" id="SPLASH-SKY" userLabel="SplashSky">
+                                <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
+                                <accessibility key="accessibilityConfiguration">
+                                    <accessibilityTraits key="traits" image="YES" notEnabled="YES"/>
+                                </accessibility>
+                            </imageView>
                             <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="SplashSloth" translatesAutoresizingMaskIntoConstraints="NO" id="SPLASH-ICON" userLabel="SplashSloth">
                                 <rect key="frame" x="96.5" y="366" width="200" height="120"/>
                                 <accessibility key="accessibilityConfiguration">
@@ -33,6 +44,10 @@
                         </subviews>
                         <viewLayoutGuide key="safeArea" id="SPLASH-SAFEAREA"/>
                         <constraints>
+                            <constraint firstItem="SPLASH-SKY" firstAttribute="top" secondItem="SPLASH-CONTAINER" secondAttribute="top" id="SPLASH-SKY-T"/>
+                            <constraint firstItem="SPLASH-SKY" firstAttribute="leading" secondItem="SPLASH-CONTAINER" secondAttribute="leading" id="SPLASH-SKY-L"/>
+                            <constraint firstAttribute="trailing" secondItem="SPLASH-SKY" secondAttribute="trailing" id="SPLASH-SKY-R"/>
+                            <constraint firstAttribute="bottom" secondItem="SPLASH-SKY" secondAttribute="bottom" id="SPLASH-SKY-B"/>
                             <constraint firstItem="SPLASH-ICON" firstAttribute="centerY" secondItem="SPLASH-CONTAINER" secondAttribute="centerY" id="SPLASH-CENTER-Y"/>
                             <constraint firstItem="SPLASH-ICON" firstAttribute="centerX" secondItem="SPLASH-CONTAINER" secondAttribute="centerX" id="SPLASH-CENTER-X"/>
                         </constraints>
@@ -45,6 +60,7 @@
         </scene>
     </scenes>
     <resources>
-        <image name="SplashSloth" width="1200" height="720"/>
+        <image name="SplashSky" width="1290" height="2796"/>
+            <image name="SplashSloth" width="1200" height="720"/>
     </resources>
 </document>

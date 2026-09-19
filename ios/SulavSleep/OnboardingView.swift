@@ -655,16 +655,16 @@ struct OnboardingQuestionsView: View {
             BlockingPreviewStep(inBedClock: SleepFormatting.clock(inBed))
 
         case .commit:
-            QuestionLayout(title: commitTitle) {
-                VStack(spacing: 24) {
-                    Image(systemName: "hand.raised.fill")
-                        .font(.system(size: 64, weight: .light))
-                        .foregroundStyle(SleepColor.amber)
-                    Text("Take back your nights.\nMake room for your mornings.")
-                        .font(SleepFont.title(24))
-                        .foregroundStyle(SleepColor.ink)
-                        .multilineTextAlignment(.center)
-                }.frame(maxWidth: .infinity)
+            // The fingerprint *is* this step, so it lives in the content
+            // region rather than the bottom action slot. A commitment you
+            // authorise should be the thing you are looking at.
+            QuestionLayout(
+                title: commitTitle,
+                subtitle: "Take back your nights. Make room for your mornings."
+            ) {
+                CommitmentHoldButton {
+                    if includesAccount { advance() } else { finish() }
+                }
             }
 
         case .account:
@@ -742,10 +742,9 @@ struct OnboardingQuestionsView: View {
     @ViewBuilder
     private var actions: some View {
         switch step {
+        // `.commit` has no bottom action: its fingerprint is the content.
         case .commit:
-            CommitmentHoldButton {
-                if includesAccount { advance() } else { finish() }
-            }
+            EmptyView()
 
         case .story where !goalReady:
             // Still telling the story: the button turns the page.
@@ -940,19 +939,26 @@ private struct QuestionLayout<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: SleepSpacing.md) {
+        // Centred, not leading. The flow reads as a sequence of statements
+        // addressed to one person, and a centred column carries that better
+        // than a left rag — it also keeps the question, the control and the
+        // readout on one axis, so the eye travels straight down.
+        VStack(alignment: .center, spacing: 0) {
+            VStack(alignment: .center, spacing: SleepSpacing.md) {
                 Text(title)
                     .font(SleepFont.title(28))
                     .foregroundStyle(SleepColor.ink)
+                    .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
                 if let subtitle {
                     Text(subtitle)
                         .font(SleepFont.body(15))
                         .foregroundStyle(SleepColor.ink.opacity(0.88))
+                        .multilineTextAlignment(.center)
                         .lineSpacing(4)
                 }
             }
+            .frame(maxWidth: .infinity)
 
             Spacer(minLength: SleepSpacing.lg)
 

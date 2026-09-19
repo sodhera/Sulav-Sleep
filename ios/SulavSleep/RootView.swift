@@ -375,7 +375,11 @@ private struct LaunchSplashView: View {
 
     var body: some View {
         ZStack {
-            SleepColor.background
+            // The same ground the gate stands on, so the handover from the
+            // launch storyboard (which shows a baked copy of this sky) to the
+            // running app is a crossfade between two versions of one image
+            // rather than a cut from flat navy to a star field.
+            OnboardingStage(depth: 0)
             Image("SplashSloth")
                 .resizable()
                 .scaledToFit()

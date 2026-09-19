@@ -943,8 +943,6 @@ struct SleepNeedBand: View {
         return (Double(clamped) - Double(axis.lowerBound)) / span
     }
 
-    private var isEnough: Bool { sleepMinutes >= SleepDebt.target }
-
     var body: some View {
         VStack(alignment: .leading, spacing: SleepSpacing.xxxl) {
             GeometryReader { geo in
@@ -974,11 +972,24 @@ struct SleepNeedBand: View {
                         .frame(width: width * (hi - lo), alignment: .center)
                         .offset(x: width * lo, y: 8)
 
+                    // The scale. Without endpoints the track is unreadable:
+                    // a tick somewhere and a lit range somewhere, with no way
+                    // to tell what the distance between them means.
+                    HStack {
+                        Text(Self.axisLabel(axis.lowerBound))
+                        Spacer()
+                        Text(Self.axisLabel(axis.upperBound))
+                    }
+                    .font(SleepFont.body(11))
+                    .foregroundStyle(SleepColor.muted)
+                    .frame(width: width)
+                    .offset(y: 52)
+
                     // The user's own figure, dropped in last.
                     marker(width: width)
                 }
             }
-            .frame(height: 118)
+            .frame(height: 130)
 
         }
         .accessibilityElement(children: .ignore)
@@ -996,26 +1007,33 @@ struct SleepNeedBand: View {
         }
     }
 
-    /// Always amber, never `danger` — **position carries the verdict.** A red
-    /// marker under the band would be the app editorialising about the user's
-    /// nights, and the whole point of sourcing the band to the AASM is that
-    /// the app doesn't have to. Landing outside the lit range says it.
+    /// **Ink, not amber.** Position carries the verdict here — the figure
+    /// lands inside the lit range or outside it — so the marker needs no
+    /// colour of its own, and a red one would be the app editorialising about
+    /// the user's nights. It was amber for exactly that reason, and that was
+    /// the bug: an amber tick against an amber band is invisible at the one
+    /// place it matters most, the boundary. White reads on both.
+    ///
+    /// The tick spans the full track height rather than hanging below it, so
+    /// it is unambiguous which point on the scale it marks.
     private func marker(width: CGFloat) -> some View {
-        let tint = isEnough ? SleepColor.gold : SleepColor.amber
-        return VStack(spacing: 4) {
+        VStack(spacing: 5) {
             Capsule()
-                .fill(tint)
-                .frame(width: 3, height: 26)
+                .fill(SleepColor.ink)
+                .frame(width: 2.5, height: 24)
+                .shadow(color: .black.opacity(0.55), radius: 3)
             Text(SleepFormatting.duration(sleepMinutes))
                 .font(SleepFont.label(14))
-                .foregroundStyle(tint)
+                .foregroundStyle(SleepColor.ink)
                 .fixedSize()
         }
         .frame(width: 0, alignment: .center)
-        .offset(x: width * fraction(sleepMinutes), y: 36)
+        .offset(x: width * fraction(sleepMinutes), y: 25)
         .opacity(markerIn ? 1 : 0)
         .scaleEffect(markerIn ? 1 : 0.7, anchor: .top)
     }
+
+    private static func axisLabel(_ minutes: Int) -> String { "\(minutes / 60)h" }
 }
 
 // MARK: - The cost
@@ -1041,6 +1059,9 @@ struct YearOfNightsGrid: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var revealed = 0
+    /// How far the unlit field has settled in, 0 → 1 — its own beat, ahead of
+    /// the count.
+    @State private var fieldIn: Double = 0
 
     // Wide and shallow, not square. A 20x19 field ran nearly half the
     // screen and its lower rows sank into the skyline, which destroyed the
@@ -1048,18 +1069,19 @@ struct YearOfNightsGrid: View {
     // whole 365 has to be legible as one quantity in one glance.
     private static let columns = 25
     private static let rows = 15
-    private static let gap: CGFloat = 2.5
+    private static let gap: CGFloat = 3.2
 
-    /// The unlit cell. Matches what `ink` at 18% used to composite to over
-    /// the stage around this step's depth, but as a fixed colour so the
-    /// field can't change value with what is behind it.
-    private static let unlit = Color(hex: 0x333A47)
+    /// The unlit night. Opaque, never translucent ink: a translucent cell
+    /// composites its backdrop, and a bright star in the stage's sky showed
+    /// *through* the field and read as a lit night. A data graphic's empty
+    /// state has to be a definite value, not a function of what is behind it.
+    private static let unlit = Color(hex: 0x2E3646)
 
     private var total: Int { SleepDebt.nightsPerYear }
     private var lit: Int { min(total, SleepDebt.phoneNightsPerYear(phone: phoneMinutes)) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: SleepSpacing.xxl) {
+        VStack(alignment: .center, spacing: SleepSpacing.xxl) {
             Text("THE NEXT 365 NIGHTS")
                 .font(SleepFont.label(11))
                 .tracking(1.6)
@@ -1067,7 +1089,7 @@ struct YearOfNightsGrid: View {
 
             grid
 
-            VStack(alignment: .leading, spacing: SleepSpacing.sm) {
+            VStack(alignment: .center, spacing: SleepSpacing.sm) {
                 // An HStack rather than `Text + Text`: the count needs
                 // `contentTransition`, which returns a view and can't be
                 // concatenated. Baseline alignment keeps the unit sitting on
@@ -1092,7 +1114,8 @@ struct YearOfNightsGrid: View {
                     .opacity(ready ? 1 : 0)
                     .animation(.easeIn(duration: 0.35), value: ready)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity)
+            .multilineTextAlignment(.center)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("The next 365 nights")
@@ -1101,14 +1124,23 @@ struct YearOfNightsGrid: View {
         )
         .task(id: lit) {
             revealed = 0
+            fieldIn = 0
             ready = false
             guard !reduceMotion else {
+                fieldIn = 1
                 revealed = lit
                 ready = true
                 return
             }
             do {
-                try await Task.sleep(for: .milliseconds(420))
+                // Two beats, not one. The field settles first — so "365
+                // nights" registers as a quantity of its own before anything
+                // is taken out of it — and only then do the phone nights
+                // light. Counting straight into an empty frame skipped the
+                // denominator, and the ratio is the whole argument.
+                try await Task.sleep(for: .milliseconds(180))
+                withAnimation(.easeOut(duration: 0.7)) { fieldIn = 1 }
+                try await Task.sleep(for: .milliseconds(760))
                 // One fixed budget and ~14 ticks whatever the count, so the
                 // instrument feels identical across answers.
                 let budget = 1_700.0
@@ -1142,19 +1174,23 @@ struct YearOfNightsGrid: View {
                     y: CGFloat(row) * pitch,
                     width: side, height: side
                 )
-                context.fill(
-                    Path(roundedRect: rect, cornerRadius: 1.5),
-                    // Unlit cells are an **opaque** slate, not translucent
-                    // ink. Two reasons. They need real presence — a field
-                    // whose denominator is invisible has no ratio to read,
-                    // which is the only thing this graphic says. And a
-                    // translucent cell composites whatever is behind it, so
-                    // a bright star in the stage's sky showed *through* the
-                    // field and read as a lit night. A data graphic's empty
-                    // state has to be a definite value, not a function of
-                    // its backdrop.
-                    with: .color(index < revealed ? SleepColor.amber : Self.unlit)
-                )
+                // Dots, not squares. A square grid reads as a spreadsheet;
+                // a field of dots reads as nights, and it sits better beside
+                // a flow that has no hard edges anywhere else in it.
+                if index < revealed {
+                    context.fill(Path(ellipseIn: rect), with: .color(SleepColor.amber))
+                } else {
+                    // The field settles in as a wave across the grid rather
+                    // than appearing whole, then steps back once the amber
+                    // starts counting so the lit nights carry.
+                    let wave = min(1, max(0, fieldIn * 1.35 - Double(index) / Double(total) * 0.35))
+                    if wave > 0.01 {
+                        context.fill(
+                            Path(ellipseIn: rect),
+                            with: .color(Self.unlit.opacity(wave * (revealed > 0 ? 0.72 : 1)))
+                        )
+                    }
+                }
             }
         }
         .aspectRatio(CGFloat(Self.columns) / CGFloat(Self.rows), contentMode: .fit)
@@ -1176,7 +1212,7 @@ struct NarrativePage: View {
     private var count: Int { lines.reduce(0) { $0 + $1.count } }
     var body: some View {
         narrativeLines
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .task(id: lines) {
             visible = 0
             ready = false
@@ -1198,14 +1234,14 @@ struct NarrativePage: View {
     /// Both halves participate in layout, so a word never jumps to a new line
     /// when its final character arrives. Only its ink changes during reveal.
     private var narrativeLines: some View {
-        VStack(alignment: .leading, spacing: 22) {
+        VStack(alignment: .center, spacing: 22) {
             ForEach(lines.indices, id: \.self) { index in
                 let start = lines.prefix(index).reduce(0) { $0 + $1.count }
                 let shown = max(0, min(lines[index].count, visible - start))
                 let line = lines[index]
                 let color = index.isMultiple(of: 2) ? SleepColor.ink : SleepColor.gold
                 RevealingSentence(line: line, shown: shown, color: UIColor(color), fontSize: lines.count == 1 ? 28 : 23)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(maxWidth: .infinity)
                     .accessibilityLabel(line)
             }
         }
@@ -1224,6 +1260,7 @@ private struct RevealingSentence: UIViewRepresentable {
     func makeUIView(context: Context) -> UILabel {
         let label = UILabel()
         label.numberOfLines = 0
+        label.textAlignment = .center
         label.lineBreakMode = .byWordWrapping
         label.backgroundColor = .clear
         label.setContentCompressionResistancePriority(.required, for: .vertical)
@@ -1243,6 +1280,7 @@ private struct RevealingSentence: UIViewRepresentable {
     private func configure(_ label: UILabel) {
         let paragraph = NSMutableParagraphStyle()
         paragraph.lineSpacing = 4
+        paragraph.alignment = .center
         paragraph.lineBreakMode = .byWordWrapping
         let text = NSMutableAttributedString(string: line, attributes: [
             .font: UIFont.systemFont(ofSize: fontSize, weight: .medium),
@@ -1293,11 +1331,13 @@ struct NightGoalStep: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .center, spacing: 18) {
             if showingOptions {
                 Text("What would you fix first?")
                     .font(SleepFont.title(28))
                     .foregroundStyle(SleepColor.ink)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
                 Spacer(minLength: 10)
                 ScrollView {
                     LiquidGlassContainer(spacing: SleepSpacing.md) {
@@ -1329,68 +1369,197 @@ struct NightGoalStep: View {
 
 // MARK: - Commitment gestures
 
-/// The flow has exactly **two** gestures, and this is the only one.
+/// A fingerprint you hold, not a capsule you press.
 ///
-/// An earlier draft had three grammars competing inside one questionnaire: a
-/// tap button on the questions, a slide-to-unlock capsule on the narrative
-/// pages, and this hold on the commitment. The slide was the weakest of the
-/// three — it read like a lock-screen relic, it had to be hidden entirely
-/// while its page was still typing (a control that appears from nowhere), and
-/// it charged a drag for something completely reversible.
+/// The gesture is borrowed from Touch ID on purpose: people already know what
+/// holding a fingerprint means, so the commitment reads as something you
+/// *authorise* rather than something you click past. The print fills from the
+/// bottom as you hold, a scan line rides the top of the fill, and a ring
+/// closes around it.
 ///
-/// DESIGN.md already settles this: consequential actions earn a deliberate
-/// confirmation, harmless ones are taps. Advancing a page of type is
-/// harmless. Committing to your nights is not. So every forward step in the
-/// flow is now one primary button, and the hold is reserved for the single
-/// moment that deserves it.
+/// The mark is Material Symbols `fingerprint` at weight 100 (`CREDITS.md`) —
+/// the hairline cut is the only one light enough to sit beside the rest of
+/// this flow. Not SF Symbols' `touchid`, which Apple licenses only for
+/// referring to Touch ID itself.
+///
+/// This is the **only** gesture left in setup; every other forward step is one
+/// primary button. DESIGN.md's rule from sleep mode settles which is which:
+/// consequential actions earn a deliberate confirmation, harmless ones are
+/// taps. Releasing early rewinds rather than snapping to zero — a hard reset
+/// reads as punishment for a slip.
 struct CommitmentHoldButton: View {
     let action: () -> Void
+
     @Environment(\.scenePhase) private var scenePhase
-    @State private var progress = 0.0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    @State private var progress: Double = 0
+    @State private var isPressing = false
+    @State private var done = false
+    @State private var pulse = false
     @State private var task: Task<Void, Never>?
-    @State private var complete = false
+    @State private var lastTick = 0
+
+    private let holdDuration = 2.0
+    private let printSize: CGFloat = 96
+
+    private var caption: String {
+        if done { return "Committed" }
+        return isPressing ? "Keep holding…" : "Hold to commit"
+    }
+
     var body: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .leading) {
-                Capsule().fill(SleepColor.navy)
-                Capsule().fill(SleepColor.gold.opacity(0.8)).frame(width: geo.size.width * progress)
-                Capsule().stroke(SleepColor.gold.opacity(0.5), lineWidth: 1)
-                Label(complete ? "Committed" : "Hold to commit", systemImage: "hand.raised.fill")
-                    .font(SleepFont.label(18))
-                    .foregroundStyle(progress > 0.55 ? SleepColor.background : SleepColor.ink)
-                    .frame(maxWidth: .infinity)
-            }.contentShape(Capsule())
-            .gesture(DragGesture(minimumDistance: 0)
-                .onChanged { value in
-                    if abs(value.translation.width) > 45 || abs(value.translation.height) > 45 { cancel(); return }
-                    start()
-                }.onEnded { _ in cancel() })
-        }.frame(height: 60)
+        VStack(spacing: SleepSpacing.xl) {
+            print
+            Text(caption)
+                .font(SleepFont.label(16))
+                .foregroundStyle(done ? SleepColor.gold : SleepColor.dim)
+                .contentTransition(.opacity)
+                .animation(.easeInOut(duration: 0.2), value: caption)
+        }
+        .frame(maxWidth: .infinity)
         .onDisappear { cancel() }
         .onChange(of: scenePhase) { _, phase in if phase != .active { cancel() } }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Hold to commit")
-        .accessibilityHint("Hold for two seconds to commit to your nights")
-        .accessibilityAddTraits(.isButton)
-        .accessibilityAction(named: "Commit") { guard !complete else { return }; complete = true; action() }
     }
-    private func start() {
-        guard task == nil, !complete else { return }
+
+    private var print: some View {
+        ZStack {
+            // The ring closes as the hold completes. It sweeps in from
+            // nothing rather than running over a static track, which at rest
+            // was just a hoop drawn around the mark.
+            Circle()
+                .trim(from: 0, to: progress)
+                .stroke(
+                    LinearGradient(
+                        colors: [SleepColor.amber, SleepColor.gold],
+                        startPoint: .top, endPoint: .bottom
+                    ),
+                    style: StrokeStyle(lineWidth: 3, lineCap: .round)
+                )
+                .frame(width: printSize + 44, height: printSize + 44)
+                .rotationEffect(.degrees(-90))
+
+            Circle()
+                .fill(SleepColor.navy.opacity(isPressing ? 0.9 : 0.6))
+                .frame(width: printSize + 24, height: printSize + 24)
+                .overlay(Circle().stroke(SleepColor.border, lineWidth: 1))
+
+            if done {
+                Image(systemName: "checkmark")
+                    .font(.system(size: printSize * 0.44, weight: .light))
+                    .foregroundStyle(SleepColor.gold)
+            } else {
+                mark(SleepColor.muted)
+                mark(LinearGradient(
+                    colors: [SleepColor.amber, SleepColor.gold],
+                    startPoint: .bottom, endPoint: .top
+                ))
+                .mask(alignment: .bottom) {
+                    Rectangle().frame(height: printSize * 0.86 * progress)
+                }
+
+                // Scan line riding the top edge of the fill.
+                if progress > 0.02, progress < 0.99 {
+                    Capsule()
+                        .fill(SleepColor.gold)
+                        .frame(width: printSize * 0.86, height: 1.5)
+                        .shadow(color: SleepColor.gold.opacity(0.8), radius: 5)
+                        .offset(y: (printSize * 0.86 / 2) - (printSize * 0.86 * progress))
+                }
+            }
+        }
+        .frame(width: printSize + 44, height: printSize + 44)
+        .scaleEffect(done ? 1.03 : (isPressing ? 0.97 : 1))
+        .animation(.spring(response: 0.34, dampingFraction: 0.7), value: done)
+        .animation(.easeOut(duration: 0.18), value: isPressing)
+        .overlay {
+            // One outward pulse, on success only.
+            if done, !reduceMotion {
+                Circle()
+                    .stroke(SleepColor.amber.opacity(pulse ? 0 : 0.5), lineWidth: 2)
+                    .scaleEffect(pulse ? 1.5 : 1)
+                    .frame(width: printSize + 44, height: printSize + 44)
+                    .allowsHitTesting(false)
+            }
+        }
+        .contentShape(Circle())
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { value in
+                    // A drag away from the print is a cancel, not a hold.
+                    if abs(value.translation.width) > 60 || abs(value.translation.height) > 60 {
+                        cancel()
+                        return
+                    }
+                    begin()
+                }
+                .onEnded { _ in cancel() }
+        )
+        .accessibilityElement()
+        .accessibilityLabel("Hold to commit")
+        .accessibilityHint("Double tap and hold to commit to your nights")
+        .accessibilityAddTraits(.isButton)
+        // VoiceOver can't express a press-and-hold, so give it a plain action.
+        .accessibilityAction { complete() }
+    }
+
+    private func mark(_ style: some ShapeStyle) -> some View {
+        Image("FingerprintMark")
+            .renderingMode(.template)
+            .resizable()
+            .scaledToFit()
+            .frame(width: printSize * 0.86, height: printSize * 0.86)
+            .foregroundStyle(style)
+    }
+
+    private func begin() {
+        guard task == nil, !done else { return }
+        isPressing = true
+        lastTick = 0
         Haptics.soft()
         task = Task { @MainActor in
             do {
-                for tick in 1...40 {
-                    try await Task.sleep(for: .milliseconds(50))
-                    progress = Double(tick) / 40
-                    if tick % 10 == 0 { Haptics.tick(intensity: 0.4 + 0.6 * progress) }
+                let step = 0.02
+                while progress < 1 {
+                    try await Task.sleep(for: .milliseconds(Int(step * 1000)))
+                    progress = min(1, progress + step / holdDuration)
+                    // A tick every 20% reads like a scanner reading ridges.
+                    let tick = Int(progress * 5)
+                    if tick > lastTick {
+                        lastTick = tick
+                        Haptics.tick(intensity: 0.5 + 0.5 * progress)
+                    }
                 }
-                complete = true; Haptics.doubleHeavy(); action()
+                complete()
             } catch { }
         }
     }
+
     private func cancel() {
-        task?.cancel(); task = nil
-        if !complete { withAnimation(.easeOut(duration: 0.18)) { progress = 0 } }
+        guard !done else { return }
+        task?.cancel()
+        task = nil
+        isPressing = false
+        lastTick = 0
+        // Rewind rather than snap — a hard reset to zero feels punitive.
+        withAnimation(.easeOut(duration: 0.4)) { progress = 0 }
+    }
+
+    private func complete() {
+        guard !done else { return }
+        task?.cancel()
+        task = nil
+        progress = 1
+        done = true
+        isPressing = false
+        Haptics.doubleHeavy()
+        // A frame later, so the ring is on screen unexpanded before it starts
+        // expanding; set in the same pass there is no "from" state to animate
+        // out of and the pulse never shows.
+        DispatchQueue.main.async {
+            withAnimation(.easeOut(duration: 0.7)) { pulse = true }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) { action() }
     }
 }
 

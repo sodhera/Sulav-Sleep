@@ -31,3 +31,8 @@
   licence to travel with the font files (it does) and forbids selling the
   fonts on their own. The font is copied into both the app and the widget
   extension bundles — see the Typography note in `DESIGN.md`.
+
+- **Fingerprint mark (`FingerprintMark`)** — Material Symbols `fingerprint`,
+  weight 100, by Google, under the **Apache License 2.0**. Used as the
+  commitment gesture on the last setup step. Deliberately *not* SF Symbols'
+  `touchid`, which Apple licenses only for referring to Touch ID itself.
