@@ -796,7 +796,7 @@ struct SleepBreakdown: View {
             timeline
                 .frame(height: 6)
 
-            Text("After \(SleepFormatting.duration(phoneMinutes)) on your phone\nand \(onsetMinutes) minutes to fall asleep.")
+            Text("After \(SleepFormatting.duration(phoneMinutes)) on your phone.")
                 .font(SleepFont.body(14))
                 .foregroundStyle(SleepColor.dim)
                 .lineSpacing(5)

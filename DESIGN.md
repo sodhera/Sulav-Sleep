@@ -299,8 +299,9 @@ year in the hero number.
   night is already implied by the three answers behind it, so the step shows
   a proportional night timeline. The presentation is one compact centered
   group: sentence-case "Estimated sleep", the amber value, and "of X in bed";
-  one thin line; then a two-line sentence naming phone time and the 15-minute
-  settling allowance. Awake time shares one muted color; sleep is gold-to-amber.
+  one thin line; then one sentence naming phone time. The requested copy
+  simplification removes the settling-time sentence; the estimate still uses
+  the existing allowance. Awake time shares one muted color; sleep is gold-to-amber.
   The estimate appears as the line finishes. Clock labels, icons, separate
   breakdown columns, endpoint glow, and a second explanatory footer were
   removed after device review: they competed with the one useful conclusion.

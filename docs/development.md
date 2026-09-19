@@ -545,8 +545,10 @@ target can inject fakes without new hooks.
   proportional line. Phone and settling share one muted color and reveal
   before the amber sleep segment;
   the large estimate lands last. Widths clamp to the available in-bed window
-  so short windows never overflow or manufacture sleep. The supplied minute
-  values form one short sentence below the line; time in bed sits beneath the
+  so short windows never overflow or manufacture sleep. Phone time forms
+  one short sentence below the line; the settling-time copy was removed at
+  the user's request, without changing `SleepDebt.onsetMinutes` or the estimate.
+  Time in bed sits beneath the
   hero. The device-reviewed revision removes clocks, icons, separate columns,
   and the extra footer to keep one compact focal group.
   A cancellable `.task` owns the single
