@@ -193,6 +193,7 @@ struct OnboardingStage: View {
                     let time = timeline.date.timeIntervalSinceReferenceDate
                     Canvas { context, size in
                         draw(StarField.live, in: context, size: size, time: time)
+                        drawMeteor(in: context, size: size, time: time)
                     }
                 }
             }
@@ -276,6 +277,100 @@ struct OnboardingStage: View {
         }
     }
 
+
+    /// A faint meteor, now and then.
+    ///
+    /// Costs nothing extra: the live star layer already redraws every frame,
+    /// so this rides along in the same `Canvas` pass with no second timeline
+    /// and no blend mode. It is also **stateless** — everything is derived
+    /// from absolute time, so the sky is continuous across step changes
+    /// instead of restarting its clock whenever the flow advances.
+    ///
+    /// Deliberately rare and deliberately faint — roughly **one a minute**,
+    /// on uneven gaps. The point is that someone who happens to be looking
+    /// catches one; nobody should ever feel *shown* a meteor. It never
+    /// appears under Reduce Motion (the caller is already gated).
+    private func drawMeteor(in context: GraphicsContext, size: CGSize, time: Double) {
+        // ~One a minute, and **never two in quick succession.**
+        //
+        // The mean rate is `period / passRate`, but the mean is not the whole
+        // story: the gap distribution is geometric, so a short period with a
+        // low pass rate hits the right average while still clustering. At
+        // 20s/0.34 the average was a correct 59s and yet a third of all gaps
+        // were 20s — meteors arriving in pairs, which is what reads as "too
+        // often" however good the average looks. A long period with a high
+        // pass rate keeps the same 60s mean and makes 40s a hard floor:
+        // 66% of gaps are 40s, 22% are 80s, and the tail thins from there.
+        let period = 40.0
+        let cycle = (time / period).rounded(.down)
+        // The cycle index must be *hashed*, not scaled, before it seeds the
+        // generator. A seed that is linear in `cycle` stays linear through
+        // one LCG step, so the first draw marched in a sawtooth —
+        // 0.57, 0.90, 0.23, 0.56, 0.89, 0.22, … — which made the appearance
+        // gate a fixed repeating cadence and, worse, gave consecutive
+        // meteors near-identical position, angle and duration, because those
+        // are successive draws from nearly-identical state. A splitmix64
+        // finalizer decorrelates adjacent indices.
+        var random = StageRandom(seed: StageRandom.hash(UInt64(bitPattern: Int64(cycle))))
+
+        guard random.next() < 0.66 else { return }
+
+        let duration = 0.75 + random.next() * 0.5
+        let phase = time - cycle * period
+        guard phase < duration else { return }
+        let progress = phase / duration
+
+        // Kept in the upper sky, where the field lives and the layout is
+        // empty on every step.
+        let originX = (0.12 + random.next() * 0.74) * size.width
+        let originY = (0.02 + random.next() * 0.22) * size.height
+        let length = (0.15 + random.next() * 0.15) * size.height
+        let angle = (52 + random.next() * 22) * .pi / 180
+        let run = cos(angle) * length * (random.next() < 0.5 ? -1 : 1)
+        let drop = sin(angle) * length
+
+        // A short trail chasing the head, rather than a line that grows.
+        let trailLength = 0.32
+        let headT = progress
+        let tailT = max(0, progress - trailLength)
+        let head = CGPoint(x: originX + run * headT, y: originY + drop * headT)
+        let tail = CGPoint(x: originX + run * tailT, y: originY + drop * tailT)
+
+        // In fast, out slow.
+        let peak = 0.42 * sin(.pi * pow(progress, 0.8))
+        guard peak > 0.012 else { return }
+
+        var streak = Path()
+        streak.move(to: tail)
+        streak.addLine(to: head)
+        context.stroke(
+            streak,
+            with: .linearGradient(
+                Gradient(stops: [
+                    .init(color: .clear, location: 0),
+                    .init(color: .white.opacity(peak * 0.45), location: 0.72),
+                    .init(color: .white.opacity(peak), location: 1)
+                ]),
+                startPoint: tail, endPoint: head
+            ),
+            style: StrokeStyle(lineWidth: 1.5, lineCap: .round)
+        )
+
+        // The head gets the same glow treatment as a bright star, so it
+        // belongs to the same sky.
+        let glow: CGFloat = 5
+        context.fill(
+            Path(ellipseIn: CGRect(
+                x: head.x - glow, y: head.y - glow,
+                width: glow * 2, height: glow * 2
+            )),
+            with: .radialGradient(
+                Gradient(colors: [.white.opacity(peak * 0.6), .clear]),
+                center: head, startRadius: 0, endRadius: glow
+            )
+        )
+    }
+
     // MARK: Seating
 
     /// Corner darkening. Nothing dramatic — just enough that the eye settles
@@ -323,6 +418,16 @@ private struct StageRandom {
 
     init(seed: UInt64) { state = seed }
 
+    /// splitmix64's finalizer. Use this on any seed derived from a counter:
+    /// an LCG seeded with `n * k + c` produces a first draw that is itself
+    /// linear in `n`, which is not randomness at all.
+    static func hash(_ value: UInt64) -> UInt64 {
+        var z = value &+ 0x9E37_79B9_7F4A_7C15
+        z = (z ^ (z >> 30)) &* 0xBF58_476D_1CE4_E5B9
+        z = (z ^ (z >> 27)) &* 0x94D0_49BB_1331_11EB
+        return z ^ (z >> 31)
+    }
+
     /// Next value in 0..<1.
     mutating func next() -> Double {
         state = state &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
@@ -356,21 +461,27 @@ private enum StarField {
 
     /// How many of the field twinkle. A real sky has a handful scintillating,
     /// not all of them — and every one of these costs a per-frame redraw.
-    private static let liveCount = 30
+    private static let liveCount = 16
 
     static let all: [Star] = build()
     static let live = Array(all.prefix(liveCount))
     static let quiet = Array(all.dropFirst(liveCount))
 
-    private static func build(count: Int = 74) -> [Star] {
+    /// Forty-two, not seventy-four. The first count was set while the stars
+    /// were nearly invisible (peak alpha 0.24); once they had real cores and
+    /// halos the same density read as clutter, and a crowded sky is the one
+    /// thing a low-stimulation night screen cannot afford.
+    private static func build(count: Int = 42) -> [Star] {
         var random = StageRandom(seed: 0x5EEDBED)
         return (0..<count).map { _ in
-            // Squared distribution: denser toward the crown.
-            let t = random.next()
+            // Denser toward the crown, but softened from a square — at t²
+            // the whole field bunched into a band at the very top, which
+            // looked less like a sky than a seam.
+            let t = pow(random.next(), 1.6)
             let brightness = random.next()
             return Star(
                 x: random.next(),
-                y: t * t,
+                y: t,
                 // Size tracks brightness rather than being rolled
                 // independently. Drawn separately, a dim 0.8pt core could
                 // land inside a 9pt halo, which reads as a smudge on the

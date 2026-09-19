@@ -233,11 +233,18 @@ are also confined to the crown *and* faded by descent — a hard y-cap alone
 still parked full-brightness stars inside the question title, which sits high
 on every step.
 
-**Only the stars move, and only 30 of the 74.** They ride a 2.4–6.2s twinkle
-and walk a 1–2.4pt drift ellipse over 18–36s. The other 44 are rasterised once
+**Forty-two stars, and only 16 of them move.** They ride a 2.4–6.2s twinkle
+and walk a 1–2.4pt drift ellipse over 18–36s. The other 26 are rasterised once
 via `drawingGroup` and never touched; a real sky does not have every star
 scintillating at once, and each animated one costs a per-frame redraw. Reduce
 Motion freezes the whole field (verified: zero changed pixels between frames).
+
+The count came down from 74. It was set while the stars were nearly invisible
+(peak alpha 0.24); once they had real cores and halos, the same density read
+as clutter, and a crowded sky is the one thing a low-stimulation night screen
+cannot afford. The vertical distribution was also softened from t² to t^1.6 —
+squared bunched the whole field into a band at the very top, which looked less
+like a sky than a seam.
 
 Two things make the twinkle actually *visible*, and the first attempt had
 neither:
@@ -273,6 +280,33 @@ plain `Canvas` fills, no blend mode. So the test for adding motion here is not
 how subtle it is, it is what it costs to composite.
 
 The ground also moves *meaningfully*: `depth` ramps once per step over ~1.1s.
+
+### The meteor
+
+A faint meteor falls roughly **once a minute**, drawn in the same per-frame
+`Canvas` pass as the live stars — no second timeline, no blend mode, so it
+costs essentially nothing. It is **stateless**: everything derives from
+absolute time, so the sky is continuous across step changes instead of
+restarting its clock whenever the flow advances. Peak opacity 0.42, ~0.75–1.25s,
+a bright head with a short trail chasing it. Never under Reduce Motion.
+
+Two things this took to get right, both worth not re-breaking:
+
+**Hash the cycle index, never scale it.** The appearance gate seeds a
+generator from the current cycle number. Seeded as `cycle * k + c`, the first
+draw is *itself* linear in `cycle` — the values marched in a sawtooth
+(0.57, 0.90, 0.23, 0.56, 0.89, 0.22, …), so the gate became a fixed repeating
+cadence and, worse, consecutive meteors shared near-identical position, angle
+and duration, because those are successive draws from nearly-identical state.
+A splitmix64 finalizer on the index fixes it. Any counter-derived seed in this
+file needs the same treatment (`StageRandom.hash`).
+
+**The mean rate is not the whole story.** Gaps are geometrically distributed,
+so a short cycle with a low pass rate hits the right average while still
+clustering. At 20s/0.34 the mean was a correct 59s and yet a third of all gaps
+were 20s — meteors arriving in pairs, which reads as "too often" however good
+the average looks. 40s/0.66 keeps the 60s mean and makes 40s a hard floor:
+66% of gaps are 40s, 22% are 80s, and the tail thins from there.
 
 `depth` runs **0 → 1 across the flow and night falls as it goes**: the sky
 cools and darkens, the horizon dims and sinks out of frame, and the stars come
