@@ -216,6 +216,14 @@ So the stage is built as a real one: **sky, horizon, ground.**
 | Vignette | Gentle corner darkening | Seats the eye mid-screen, where every question lives |
 | Grain | Tiled luminance noise at ~2%, generated once | Dithers away OLED gradient banding, and makes the ground read as a material rather than a fill |
 
+The year-of-nights grid draws its unlit cells as an **opaque** slate rather
+than translucent ink, because a translucent cell composites whatever is behind
+it — a bright star in the stage's sky showed *through* the field. A data
+graphic's empty state has to be a definite value, not a function of its
+backdrop. Stars still show faintly in the 2.5pt gaps between cells, which
+reads as sky behind a lattice and carries no ambiguity: lit nights are amber,
+and nothing in the sky is.
+
 Two details worth not undoing:
 
 **The star field is seeded.** `StageRandom` is a small deterministic LCG, so
@@ -225,14 +233,35 @@ are also confined to the crown *and* faded by descent — a hard y-cap alone
 still parked full-brightness stars inside the question title, which sits high
 on every step.
 
-**Only the stars move, and only 22 of the 74.** They ride a 3.5–8s twinkle and
-walk a 1–2pt drift ellipse over 20–40s — too slow to read as something
-moving, but enough that the sky is never twice the same and the ground never
-reads as a frozen bitmap. The other 52 are rasterised once via `drawingGroup`
-and never touched; a real sky does not have every star scintillating at once,
-and each animated one costs a per-frame redraw. Reduce Motion freezes the
-whole field at its mid-twinkle value (verified: zero changed pixels between
-frames).
+**Only the stars move, and only 30 of the 74.** They ride a 2.4–6.2s twinkle
+and walk a 1–2.4pt drift ellipse over 18–36s. The other 44 are rasterised once
+via `drawingGroup` and never touched; a real sky does not have every star
+scintillating at once, and each animated one costs a per-frame redraw. Reduce
+Motion freezes the whole field (verified: zero changed pixels between frames).
+
+Two things make the twinkle actually *visible*, and the first attempt had
+neither:
+
+- **The halo carries it, not the core.** Brightening a 2pt dot is
+  imperceptible — there aren't enough pixels involved. Bright stars get a glow
+  at ~3.1× the core radius, roughly ten times the area, and that is what the
+  eye reads as scintillation. The twinkle also pulses the core's radius
+  slightly, because real scintillation is a size flicker as much as a
+  brightness one.
+- **The field has to be bright enough to twinkle in the first place.** The
+  first version stacked `lift`, a `descent` falloff and a `min(…, 0.5)` cap
+  onto a base alpha of 0.10–0.44, so the brightest star peaked at **alpha
+  0.24** and a typical one at **0.09**. A 0.06 absolute swing on a sub-pixel
+  dot is nothing. Base alpha is now 0.30–0.92, radius 0.6–2.2pt, and — this
+  matters — **radius tracks brightness** rather than being rolled
+  independently, or a dim 0.8pt core lands inside a 9pt halo and reads as dust
+  on the lens instead of a star.
+
+> Measuring note: "some pixels changed between frames" does **not** establish
+> that a human can see an effect. The first twinkle passed that test (~1,000
+> px changed) and was invisible. The useful measure is how many pixels swing
+> by a *perceptible* amount: ~3,800 px swinging >25 levels, against ~1,000 px
+> swinging >8 before.
 
 The sky, horizon, vignette and grain are all static, and the reason is worth
 keeping straight, because it is not "motion is bad". A draft breathed the

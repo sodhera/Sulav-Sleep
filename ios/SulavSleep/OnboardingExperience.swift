@@ -201,25 +201,35 @@ struct OnboardingStage: View {
 
     /// One star pass. `time == nil` draws the still frame.
     ///
-    /// Both effects are deliberately under-scaled: the twinkle rides a 3.5–8s
-    /// sine per star, and the drift is a 1–2pt ellipse walked over 20–40s —
-    /// far too slow to read as something moving, but enough that the sky is
-    /// never twice the same and never reads as a frozen bitmap.
+    /// **Perceptibility is carried by the halo, not the core.** Brightening a
+    /// 2pt dot is invisible no matter how far its alpha swings — there simply
+    /// aren't enough pixels involved. The glow around it covers ~10x the area,
+    /// so the same alpha swing there is what the eye actually reads as a star
+    /// scintillating. A first version twinkled only the cores and could not be
+    /// seen at all: the brightest star peaked at alpha 0.24 and a typical one
+    /// at 0.09, because `lift`, `descent` and a 0.5 cap were all multiplying
+    /// down onto a sub-pixel dot.
+    ///
+    /// The twinkle also pulses the core's radius slightly. Scintillation in
+    /// life is a size flicker as much as a brightness one.
     private func draw(
         _ stars: [StarField.Star],
         in context: GraphicsContext,
         size: CGSize,
         time: Double?
     ) {
-        let ceiling = size.height * 0.62
-        let lift = 0.55 + 0.75 * clamped   // stars come up as night falls
+        // Kept high in the frame: bright stars belong to the sky band above
+        // the content, and the grid step's own field starts around 22% down.
+        let ceiling = size.height * 0.48
+        let lift = 0.85 + 0.30 * clamped   // stars come up as night falls
 
         for star in stars {
             var twinkle = 1.0
             var dx = 0.0, dy = 0.0
 
             if let time {
-                twinkle = 0.70 + 0.36 * sin(time * (2 * .pi / star.twinklePeriod) + star.twinklePhase)
+                // [0.04, 1.0] — a real blink, not a 6% nudge.
+                twinkle = 0.52 + 0.48 * sin(time * (2 * .pi / star.twinklePeriod) + star.twinklePhase)
                 let angle = time * (2 * .pi / star.driftPeriod) + star.driftPhase
                 dx = cos(angle) * star.driftRadius
                 // A flatter vertical component, so the walk reads as a slow
@@ -227,20 +237,41 @@ struct OnboardingStage: View {
                 dy = sin(angle * 0.8) * star.driftRadius * 0.6
             }
 
-            let descent = pow(1 - star.y, 1.6)
-            let alpha = min(star.alpha * lift * descent * twinkle, 0.5)
-            guard alpha > 0.004 else { continue }
+            let descent = pow(1 - star.y, 1.25)
+            let alpha = min(star.alpha * lift * descent * twinkle, 0.95)
+            guard alpha > 0.01 else { continue }
 
-            let radius = star.radius
-            let rect = CGRect(
-                x: star.x * size.width + dx - radius,
-                y: star.y * ceiling + dy - radius,
-                width: radius * 2,
-                height: radius * 2
+            let tint = star.warm ? SleepColor.gold : Color.white
+            let centre = CGPoint(
+                x: star.x * size.width + dx,
+                y: star.y * ceiling + dy
             )
+
+            // The glow, on the brighter stars only — this is the part the eye
+            // sees change.
+            if star.haloed {
+                let haloRadius = star.radius * 3.1
+                let haloRect = CGRect(
+                    x: centre.x - haloRadius, y: centre.y - haloRadius,
+                    width: haloRadius * 2, height: haloRadius * 2
+                )
+                context.fill(
+                    Path(ellipseIn: haloRect),
+                    with: .radialGradient(
+                        Gradient(colors: [tint.opacity(alpha * 0.42), .clear]),
+                        center: centre, startRadius: 0, endRadius: haloRadius
+                    )
+                )
+            }
+
+            // The core, with a slight size pulse.
+            let radius = star.radius * (0.82 + 0.18 * twinkle)
             context.fill(
-                Path(ellipseIn: rect),
-                with: .color((star.warm ? SleepColor.gold : Color.white).opacity(alpha))
+                Path(ellipseIn: CGRect(
+                    x: centre.x - radius, y: centre.y - radius,
+                    width: radius * 2, height: radius * 2
+                )),
+                with: .color(tint.opacity(alpha))
             )
         }
     }
@@ -313,6 +344,9 @@ private enum StarField {
         let radius: Double
         let alpha: Double
         let warm: Bool
+        /// Whether this star carries a glow. Only the brighter ones do —
+        /// a halo on a dim star is a smudge.
+        let haloed: Bool
         let twinklePhase: Double
         let twinklePeriod: Double
         let driftPhase: Double
@@ -322,7 +356,7 @@ private enum StarField {
 
     /// How many of the field twinkle. A real sky has a handful scintillating,
     /// not all of them — and every one of these costs a per-frame redraw.
-    private static let liveCount = 22
+    private static let liveCount = 30
 
     static let all: [Star] = build()
     static let live = Array(all.prefix(liveCount))
@@ -333,17 +367,26 @@ private enum StarField {
         return (0..<count).map { _ in
             // Squared distribution: denser toward the crown.
             let t = random.next()
+            let brightness = random.next()
             return Star(
                 x: random.next(),
                 y: t * t,
-                radius: 0.4 + random.next() * 0.95,
-                alpha: 0.10 + random.next() * 0.34,
+                // Size tracks brightness rather than being rolled
+                // independently. Drawn separately, a dim 0.8pt core could
+                // land inside a 9pt halo, which reads as a smudge on the
+                // lens instead of a star — the glow needs something bright
+                // at the middle of it. Correlating them is also how real
+                // stars render: the bright ones bloom wider.
+                radius: 0.6 + brightness * 1.6,
+                alpha: 0.30 + brightness * 0.62,
                 warm: random.next() < 0.22,
+                // Only genuinely bright cores earn a glow.
+                haloed: brightness > 0.55,
                 twinklePhase: random.next() * 2 * .pi,
-                twinklePeriod: 3.5 + random.next() * 4.5,
+                twinklePeriod: 2.4 + random.next() * 3.8,
                 driftPhase: random.next() * 2 * .pi,
-                driftRadius: 1.0 + random.next() * 1.1,
-                driftPeriod: 20 + random.next() * 20
+                driftRadius: 1.1 + random.next() * 1.3,
+                driftPeriod: 18 + random.next() * 18
             )
         }
     }
@@ -720,6 +763,11 @@ struct YearOfNightsGrid: View {
     private static let rows = 15
     private static let gap: CGFloat = 2.5
 
+    /// The unlit cell. Matches what `ink` at 18% used to composite to over
+    /// the stage around this step's depth, but as a fixed colour so the
+    /// field can't change value with what is behind it.
+    private static let unlit = Color(hex: 0x333A47)
+
     private var total: Int { SleepDebt.nightsPerYear }
     private var lit: Int { min(total, SleepDebt.phoneNightsPerYear(phone: phoneMinutes)) }
 
@@ -809,10 +857,16 @@ struct YearOfNightsGrid: View {
                 )
                 context.fill(
                     Path(roundedRect: rect, cornerRadius: 1.5),
-                    // Unlit cells need real presence: at 10% over the lit
-                    // windows of the skyline they disappeared, and a field
-                    // whose denominator is invisible has no ratio to read.
-                    with: .color(index < revealed ? SleepColor.amber : SleepColor.ink.opacity(0.18))
+                    // Unlit cells are an **opaque** slate, not translucent
+                    // ink. Two reasons. They need real presence — a field
+                    // whose denominator is invisible has no ratio to read,
+                    // which is the only thing this graphic says. And a
+                    // translucent cell composites whatever is behind it, so
+                    // a bright star in the stage's sky showed *through* the
+                    // field and read as a lit night. A data graphic's empty
+                    // state has to be a definite value, not a function of
+                    // its backdrop.
+                    with: .color(index < revealed ? SleepColor.amber : Self.unlit)
                 )
             }
         }
