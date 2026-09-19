@@ -297,10 +297,17 @@ year in the hero number.
   whole job is one number against one range.
 - **The fourth beat concludes rather than asks.** Everything about the user's
   night is already implied by the three answers behind it, so the step shows
-  its working — in bed, minus phone, minus falling asleep, a rule, the
-  remainder — and says nothing else. It is the beat where the app visibly
-  demonstrates it was listening, and the one screen where the flow's
-  arithmetic is *visible* rather than merely true.
+  a proportional night timeline. A fine line draws phone time in silver,
+  settling time in muted slate, and the remaining sleep in gold-to-amber.
+  Bedtime and wake time anchor the ends; total time in bed sits above it.
+  The large **Estimated sleep** figure appears as the line finishes, with a
+  restrained amber endpoint glow. Two compact labels below retain the phone
+  and settling durations; a quiet caption discloses the 15-minute assumption.
+  This replaces the accounting-style subtraction table. No surrounding card,
+  looping sweep, or invented sleep-stage waveform. Widths remain proportional,
+  including zero sleep; tiny segments are never inflated for decoration.
+  The reveal runs once per entry, cancels on exit, and is immediate with
+  Reduce Motion or VoiceOver. Continue stays available throughout.
 
   > Note on history: this was a slider pre-filled with our own arithmetic for
   > the user to confirm. Two things were wrong with it. Pre-filling a figure

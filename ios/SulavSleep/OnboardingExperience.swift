@@ -752,92 +752,170 @@ private extension Int {
 
 // MARK: - The conclusion
 
-/// The night, shown as the subtraction that produced it.
-///
-/// This replaced a slider pre-filled with the same figure. Pre-filling our own
-/// arithmetic and then asking the user to confirm it invited them to argue
-/// with a number they had no better information about than we did — and it
-/// needed a paragraph of prose to explain where the number came from. Showing
-/// the working needs no prose at all: three lines the user recognises as their
-/// own answers, a rule, and the remainder.
-///
-/// It is also the flow's whole philosophy made literal. Every figure here is a
-/// unit conversion of something they typed, and this is the one screen where
-/// that is visible rather than merely true.
+/// A proportional night timeline: phone, settling, then the sleep left over.
+/// The line draws once on entry; the estimated sleep lands as its conclusion.
+/// Segment widths use the same minutes as the readout, never decorative widths.
 struct SleepBreakdown: View {
     let inBedMinutes: Int
     let phoneMinutes: Int
     let onsetMinutes: Int
     let asleepMinutes: Int
+    let bedtime: Int
+    let wakeTime: Int
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
     @State private var revealed = 0
+    @State private var lineProgress: CGFloat = 0
 
-    private var rows: [(label: String, value: Int, sign: String)] {
-        [
-            ("In bed", inBedMinutes, ""),
-            ("On your phone", phoneMinutes, "−"),
-            ("Falling asleep", onsetMinutes, "−")
-        ]
+    private var phoneFraction: CGFloat {
+        CGFloat(min(max(phoneMinutes, 0), max(inBedMinutes, 0))) / CGFloat(max(inBedMinutes, 1))
     }
+    private var sleepStart: CGFloat {
+        min(1, phoneFraction + CGFloat(max(onsetMinutes, 0)) / CGFloat(max(inBedMinutes, 1)))
+    }
+    private let phoneColor = SleepColor.dim
 
     var body: some View {
-        VStack(alignment: .leading, spacing: SleepSpacing.lg) {
-            ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
-                HStack(alignment: .firstTextBaseline) {
-                    Text(row.label)
-                        .font(SleepFont.body(16))
-                        .foregroundStyle(SleepColor.dim)
-                    Spacer(minLength: SleepSpacing.lg)
-                    Text(row.sign)
-                        .font(SleepFont.body(16))
-                        .foregroundStyle(SleepColor.muted)
-                    Text(SleepFormatting.duration(row.value))
-                        .font(SleepFont.title(18))
-                        .foregroundStyle(SleepColor.ink)
-                        .monospacedDigit()
-                }
-                .opacity(revealed > index ? 1 : 0)
-            }
-
-            Rectangle()
-                .fill(SleepColor.hairline)
-                .frame(height: 1)
-                .opacity(revealed > rows.count - 1 ? 1 : 0)
-
-            HStack(alignment: .firstTextBaseline) {
-                Text("Asleep")
-                    .font(SleepFont.body(16))
-                    .foregroundStyle(SleepColor.ink)
-                Spacer(minLength: SleepSpacing.lg)
+        VStack(spacing: 36) {
+            VStack(spacing: 8) {
+                Text("ESTIMATED SLEEP")
+                    .font(SleepFont.label(11))
+                    .tracking(2.5)
+                    .foregroundStyle(SleepColor.dim)
                 Text(SleepFormatting.duration(asleepMinutes))
-                    .font(SleepFont.hero(34))
+                    .font(SleepFont.hero(56))
                     .foregroundStyle(SleepColor.amber)
                     .monospacedDigit()
+                    .minimumScaleFactor(0.6)
+                    .lineLimit(1)
+                    .shadow(color: SleepColor.amber.opacity(0.16), radius: 24)
             }
-            .opacity(revealed > rows.count ? 1 : 0)
+            .opacity(revealed >= 3 ? 1 : 0)
+            .offset(y: revealed >= 3 ? 0 : 8)
+
+            VStack(spacing: 18) {
+                Text("\(SleepFormatting.duration(inBedMinutes)) in bed")
+                    .font(SleepFont.body(14))
+                    .foregroundStyle(SleepColor.dim)
+
+                timeline
+                    .frame(height: 24)
+
+                HStack {
+                    clockLabel(bedtime, symbol: "bed.double")
+                    Spacer()
+                    clockLabel(wakeTime, symbol: "sunrise")
+                }
+            }
+
+            HStack(alignment: .top, spacing: 24) {
+                deduction("On your phone", minutes: phoneMinutes, color: phoneColor, symbol: "iphone")
+                    .opacity(revealed >= 1 ? 1 : 0)
+                deduction("Falling asleep", minutes: onsetMinutes, color: SleepColor.muted, symbol: "moon")
+                    .opacity(revealed >= 2 ? 1 : 0)
+            }
+            Text("Based on your answers and \(onsetMinutes) minutes to fall asleep.")
+                .font(SleepFont.body(12))
+                .foregroundStyle(SleepColor.muted)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .opacity(revealed >= 3 ? 1 : 0)
         }
+        .frame(maxWidth: .infinity)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Your night")
         .accessibilityValue(
             "\(SleepFormatting.duration(inBedMinutes)) in bed, minus "
             + "\(SleepFormatting.duration(phoneMinutes)) on your phone, minus "
             + "\(SleepFormatting.duration(onsetMinutes)) falling asleep. "
-            + "\(SleepFormatting.duration(asleepMinutes)) asleep."
+            + "\(SleepFormatting.duration(asleepMinutes)) estimated sleep."
         )
-        .task {
-            guard !reduceMotion else {
-                revealed = rows.count + 1
+        .task(id: reduceMotion || voiceOver) {
+            revealed = 0
+            lineProgress = 0
+            guard !reduceMotion, !voiceOver else {
+                revealed = 3
+                lineProgress = 1
                 return
             }
-            // Line by line, so the subtraction is watched rather than read.
-            for line in 1...(rows.count + 1) {
-                try? await Task.sleep(for: .milliseconds(line == 1 ? 260 : 420))
-                withAnimation(.easeOut(duration: 0.3)) { revealed = line }
+            do {
+                try await Task.sleep(for: .milliseconds(180))
+                withAnimation(.easeInOut(duration: 0.5)) {
+                    lineProgress = phoneFraction
+                    revealed = 1
+                }
+                try await Task.sleep(for: .milliseconds(550))
+                withAnimation(.easeInOut(duration: 0.35)) {
+                    lineProgress = sleepStart
+                    revealed = 2
+                }
+                try await Task.sleep(for: .milliseconds(400))
+                withAnimation(.easeInOut(duration: 0.85)) { lineProgress = 1 }
+                try await Task.sleep(for: .milliseconds(650))
+                withAnimation(.easeOut(duration: 0.5)) { revealed = 3 }
                 Haptics.soft()
+            } catch {
+                // Navigation cancels the reveal, including its final haptic.
             }
-            Haptics.rigid()
         }
+    }
+
+    private var timeline: some View {
+        GeometryReader { geo in
+            let width = max(geo.size.width - 12, 0)
+            ZStack(alignment: .leading) {
+                Capsule().fill(SleepColor.ink.opacity(0.08)).frame(height: 6)
+                ZStack(alignment: .leading) {
+                    // Exact widths: a zero-length segment occupies no space.
+                    Rectangle().fill(phoneColor)
+                        .frame(width: width * phoneFraction, height: 6)
+                    Rectangle().fill(SleepColor.muted.opacity(0.6))
+                        .frame(width: width * (sleepStart - phoneFraction), height: 6)
+                        .offset(x: width * phoneFraction)
+                    Rectangle()
+                        .fill(LinearGradient(colors: [SleepColor.gold, SleepColor.amber], startPoint: .leading, endPoint: .trailing))
+                        .frame(width: width * (1 - sleepStart), height: 6)
+                        .offset(x: width * sleepStart)
+                }
+                .frame(width: width, height: 6, alignment: .leading)
+                .clipShape(Capsule())
+                .mask(alignment: .leading) {
+                    Rectangle().frame(width: width * lineProgress)
+                }
+                if asleepMinutes > 0 {
+                    Circle()
+                        .fill(SleepColor.amber)
+                        .frame(width: 10, height: 10)
+                        .shadow(color: SleepColor.amber.opacity(0.65), radius: 8)
+                        .offset(x: width - 5)
+                        .opacity(revealed >= 3 ? 1 : 0)
+                }
+            }
+            .frame(width: width, height: geo.size.height)
+            .padding(.horizontal, 6)
+        }
+    }
+
+    private func clockLabel(_ minutes: Int, symbol: String) -> some View {
+        Label(SleepFormatting.clock(minutes), systemImage: symbol)
+            .font(SleepFont.body(12))
+            .foregroundStyle(SleepColor.dim)
+    }
+
+    private func deduction(_ title: String, minutes: Int, color: Color, symbol: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(title, systemImage: symbol)
+                .font(SleepFont.body(12))
+                .foregroundStyle(color)
+            Text(SleepFormatting.duration(minutes))
+                .font(SleepFont.title(20))
+                .foregroundStyle(SleepColor.ink)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

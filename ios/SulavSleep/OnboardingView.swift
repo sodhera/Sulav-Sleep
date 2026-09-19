@@ -607,18 +607,16 @@ struct OnboardingQuestionsView: View {
             }
 
         case .sleep:
-            // No longer an ask. Everything on this screen is already implied
-            // by the three answers behind it, so asking again would be
-            // theatre — and a slider pre-filled with our own arithmetic
-            // invited the user to argue with a number they had no better
-            // information about than we did. It shows its working instead:
-            // the subtraction is the point, and it needs no prose.
+            // The first conclusion: the user's window becomes a proportional
+            // timeline, with the remaining sleep and onset assumption explicit.
             QuestionLayout(title: "So here's your night.") {
                 SleepBreakdown(
                     inBedMinutes: windowMinutes,
                     phoneMinutes: phoneMinutes,
                     onsetMinutes: SleepDebt.onsetMinutes,
-                    asleepMinutes: effectiveSleep
+                    asleepMinutes: effectiveSleep,
+                    bedtime: inBed,
+                    wakeTime: wakeTime
                 )
             }
 

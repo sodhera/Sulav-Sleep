@@ -519,7 +519,7 @@ target can inject fakes without new hooks.
 - `OnboardingView.swift`: `OnboardingGateView`, the whole pre-app gate. A
   welcome screen offers two independent paths — "Get started" runs the sign-up
   flow (`OnboardingQuestionsView`: in-bed time, wake time with a live in-bed
-  readout, phone-in-bed, a pre-filled sleep calibration, the recommendation
+  readout, phone-in-bed, an estimated-sleep timeline, the recommendation
   band, the year-of-nights grid, the cause narrative + goal, the plan reveal,
   name, the shield demo, Hold to commit, and — as the final step — the account
   creation, embedding `AuthMethodsView`); "I already have an account" goes
@@ -540,6 +540,20 @@ target can inject fakes without new hooks.
   owns the midnight wrap. `scripts/test-onboarding.sh` covers the degenerate
   cases — zero shortfall, midnight wrap both ways, negative input, the 4-hour
   phone clamp.
+
+  `SleepBreakdown` in `OnboardingExperience.swift` draws the night on one
+  proportional line, with actual bedtime/wake labels passed by the sleep
+  step. Phone and settling segments reveal before the amber sleep segment;
+  the large estimate lands last. Widths clamp to the available in-bed window
+  so short windows never overflow or manufacture sleep. The supplied minute
+  values remain visible below the line. A cancellable `.task` owns the single
+  reveal and final soft haptic; Reduce Motion/VoiceOver show the final state
+  immediately. Continue is never blocked. Review via
+  `-review-onboarding-step=sleep`; verify a short window, back/reentry, and
+  Reduce Motion in addition to the normal fixture.
+  September 19 validation: simulator and signed iPhone builds pass; the normal
+  sleep-step fixture was visually inspected and `scripts/test-onboarding.sh`
+  passes the existing arithmetic/clamp/persistence checks.
 
   The phone slider is required and must be **touched** (`phoneTouched`) with a
   nonzero value: it ships with a plausible default, and without the touch flag

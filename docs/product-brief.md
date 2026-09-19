@@ -8,8 +8,9 @@ review the rhythm of recent nights — using **real data only**.
 
 - Welcome offers Get started and independent Sign in paths. The iOS setup is
   **eleven beats**, alternating ask and reveal: in-bed time; wake time; a
-  required phone-in-bed slider; a sleep calibration the app pre-fills from the
-  first three answers; the AASM 7–9 hour recommendation band with the user's
+  required phone-in-bed slider; an animated night timeline showing estimated
+  sleep from those answers, with the 15-minute settling assumption disclosed;
+  the AASM 7–9 hour recommendation band with the user's
   figure plotted on it; **the year of nights** (365 cells, the ones spent
   awake on a phone lit amber); a short narrative naming the phone, resolving
   into the night-goal choice; the plan; name; a looping shield demo titled
