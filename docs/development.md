@@ -541,16 +541,20 @@ target can inject fakes without new hooks.
   cases — zero shortfall, midnight wrap both ways, negative input, the 4-hour
   phone clamp.
 
-  `SleepBreakdown` in `OnboardingExperience.swift` draws the night on one
-  proportional line. Phone and settling share one muted color and reveal
-  before the amber sleep segment;
-  the large estimate lands last. Widths clamp to the available in-bed window
-  so short windows never overflow or manufacture sleep. Phone time forms
-  one short sentence below the line; the settling-time copy was removed at
-  the user's request, without changing `SleepDebt.onsetMinutes` or the estimate.
-  Time in bed sits beneath the
-  hero. The device-reviewed revision removes clocks, icons, separate columns,
-  and the extra footer to keep one compact focal group.
+  `SleepNightStrip` in `OnboardingExperience.swift` draws the night as a thin
+  strip carrying the stage's own night-to-dawn gradient, with the phone as an
+  amber bite at the front. Widths clamp to the available in-bed window so a
+  short window never overflows or manufactures sleep. The sweep runs left to
+  right with one haptic where the phone lets go of the night; the ink hero
+  figure lands after it, with the clock labels and a single sentence naming
+  the phone time. Four elements, deliberately — see the note in `DESIGN.md`
+  for the four busier versions this replaced.
+
+  There is no settling segment, and no settling allowance in the maths:
+  `SleepDebt` no longer subtracts sleep-onset latency, because it was the one
+  figure the app invented rather than derived. A typical answer therefore
+  lands on the seven-hour floor rather than under it.
+
   A cancellable `.task` owns the single
   reveal and final soft haptic; Reduce Motion/VoiceOver show the final state
   immediately. Continue is never blocked. Review via
