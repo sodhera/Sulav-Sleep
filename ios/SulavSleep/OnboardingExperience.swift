@@ -46,15 +46,14 @@ import UIKit
 ///   the city were just below frame. A shallow ellipse reads as a horizon; the
 ///   big circle it replaced read as a blob behind the button.
 /// - **Stars**, sparse and deterministic, in the upper sky only, so they never
-///   land behind body copy. Static by choice — this is a sleep app and
-///   stillness is a feature, and a redrawing star field under the grid's own
-///   365-cell reveal would be waste.
+///   land behind body copy. A subset twinkles and drifts; the rest are
+///   rasterised once. See `stars`.
 /// - A **vignette** to seat the content, and **film grain** at ~2% to kill the
 ///   gradient banding that every flat dark screen shows on OLED. The grain is
 ///   the single cheapest thing that makes a dark ground read as a material
 ///   rather than a fill.
 ///
-/// Every layer is static; see `body` for why nothing here breathes.
+/// Everything but the stars is static; see `body` for what moves and why.
 ///
 /// `depth` runs 0 → 1 across the flow and **night falls as it goes**: the sky
 /// cools and darkens, the horizon dims and sinks out of frame, and the stars
@@ -65,22 +64,27 @@ import UIKit
 struct OnboardingStage: View {
     var depth: Double = 0
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private var clamped: Double { min(max(depth, 0), 1) }
 
-    /// **The stage is completely still**, and that is a decision, not an
-    /// omission.
+    /// **Only the stars move, and only some of them.**
     ///
-    /// A draft had the horizon breathing on a 7-second cycle. It was pitched
-    /// (correctly, per "Motion") below the threshold of notice — which is
-    /// exactly what made it a bad trade: it contributed almost nothing
-    /// visually while forcing a per-frame offscreen composite, through
-    /// `blendMode(.screen)`, underneath the grid step's own animating
-    /// 365-cell `Canvas`. Paying continuously for something nobody can see is
-    /// the worst version of decorative motion.
+    /// The sky, horizon, vignette and grain are all static. An earlier draft
+    /// also breathed the horizon on a 7-second cycle and that was removed for
+    /// a specific reason worth keeping straight: the problem was never the
+    /// motion, it was that the horizon carries `blendMode(.screen)`, so
+    /// animating it forced a **per-frame offscreen composite** underneath the
+    /// grid step's own animating 365-cell `Canvas` — continuous cost for
+    /// something deliberately imperceptible.
     ///
-    /// The ground still moves — it just moves *meaningfully*. `depth` ramps
-    /// once per step over ~1.1s, so night visibly falls as the user advances
-    /// and is otherwise perfectly quiet. A sleep app should be still.
+    /// The star twinkle has neither problem. It is a plain `Canvas` fill with
+    /// no blend mode, it is confined to 22 of 74 stars, and it is the one
+    /// place in this composition where a little life stops the ground reading
+    /// as a frozen bitmap. See `stars`.
+    ///
+    /// The ground also moves *meaningfully*: `depth` ramps once per step over
+    /// ~1.1s, so night visibly falls as the user advances.
     var body: some View {
         ZStack {
             sky
@@ -151,42 +155,94 @@ struct OnboardingStage: View {
 
     // MARK: Stars
 
-    /// Sparse, deterministic, upper sky only.
+    /// Sparse, deterministic, upper sky only — and quietly alive.
     ///
-    /// Seeded so the field is identical on every screen of the flow — a star
-    /// field that reshuffles between steps reads as a rendering bug during the
-    /// crossfade. Confined to the top ~58% because that is the band the layout
-    /// leaves empty; below it there is always copy or a control.
+    /// The field is confined to the crown *and* faded by descent, so it
+    /// dissolves before it reaches any copy. A hard y-cap alone still parked
+    /// full-brightness stars inside the question title, which sits high on
+    /// every step.
     ///
-    /// Rasterised once via `drawingGroup`: the grid step animates its own
-    /// 365-cell `Canvas`, and a second per-frame canvas underneath it would be
-    /// pure waste for pixels that never change.
+    /// **Split into two layers on purpose.** Only `StarField.live` (22 of 74)
+    /// twinkles and drifts; the rest are rasterised once via `drawingGroup`
+    /// and never touched again. That is both cheaper — the grid step is
+    /// already animating its own 365-cell `Canvas` underneath this — and more
+    /// truthful, since a real sky does not have every star scintillating at
+    /// once. Neither layer uses a blend mode, so nothing here forces an
+    /// offscreen pass; that was the actual cost of the horizon breath this
+    /// replaces, not the motion itself.
+    ///
+    /// Positions are precomputed in `StarField` rather than generated inside
+    /// the draw closure: the live layer redraws every frame, and re-running
+    /// the LCG 74 times per frame to arrive at the same answer is pure waste.
     private var stars: some View {
-        Canvas { context, size in
-            var random = StageRandom(seed: 0x5EEDBED)
-            let lift = 0.55 + 0.75 * clamped   // stars come up as night falls
-            let ceiling = size.height * 0.62
-            for _ in 0..<74 {
-                let x = random.next() * size.width
-                // Squared distribution: denser toward the crown.
-                let t = random.next()
-                let y = t * t * ceiling
-                let radius = 0.4 + random.next() * 0.95
-                // Fade with descent as well as thin out. A hard y-cap alone
-                // still parked full-brightness stars inside the question
-                // title, which sits high on every step; a falloff means the
-                // field dissolves before it reaches any copy, and the few
-                // that do land behind a glyph read as dust in the gaps.
-                let descent = pow(1 - (y / ceiling), 1.6)
-                let alpha = (0.10 + random.next() * 0.34) * lift * descent
-                let warm = random.next() < 0.22
-                context.fill(
-                    Path(ellipseIn: CGRect(x: x, y: y, width: radius * 2, height: radius * 2)),
-                    with: .color((warm ? SleepColor.gold : Color.white).opacity(min(alpha, 0.46)))
-                )
+        ZStack {
+            Canvas { context, size in
+                draw(StarField.quiet, in: context, size: size, time: nil)
+            }
+            .drawingGroup()
+
+            if reduceMotion {
+                // Frozen at their mid-twinkle value, so Reduce Motion loses
+                // the movement without losing the field.
+                Canvas { context, size in
+                    draw(StarField.live, in: context, size: size, time: nil)
+                }
+                .drawingGroup()
+            } else {
+                TimelineView(.animation) { timeline in
+                    let time = timeline.date.timeIntervalSinceReferenceDate
+                    Canvas { context, size in
+                        draw(StarField.live, in: context, size: size, time: time)
+                    }
+                }
             }
         }
-        .drawingGroup()
+    }
+
+    /// One star pass. `time == nil` draws the still frame.
+    ///
+    /// Both effects are deliberately under-scaled: the twinkle rides a 3.5–8s
+    /// sine per star, and the drift is a 1–2pt ellipse walked over 20–40s —
+    /// far too slow to read as something moving, but enough that the sky is
+    /// never twice the same and never reads as a frozen bitmap.
+    private func draw(
+        _ stars: [StarField.Star],
+        in context: GraphicsContext,
+        size: CGSize,
+        time: Double?
+    ) {
+        let ceiling = size.height * 0.62
+        let lift = 0.55 + 0.75 * clamped   // stars come up as night falls
+
+        for star in stars {
+            var twinkle = 1.0
+            var dx = 0.0, dy = 0.0
+
+            if let time {
+                twinkle = 0.70 + 0.36 * sin(time * (2 * .pi / star.twinklePeriod) + star.twinklePhase)
+                let angle = time * (2 * .pi / star.driftPeriod) + star.driftPhase
+                dx = cos(angle) * star.driftRadius
+                // A flatter vertical component, so the walk reads as a slow
+                // sway rather than a circle.
+                dy = sin(angle * 0.8) * star.driftRadius * 0.6
+            }
+
+            let descent = pow(1 - star.y, 1.6)
+            let alpha = min(star.alpha * lift * descent * twinkle, 0.5)
+            guard alpha > 0.004 else { continue }
+
+            let radius = star.radius
+            let rect = CGRect(
+                x: star.x * size.width + dx - radius,
+                y: star.y * ceiling + dy - radius,
+                width: radius * 2,
+                height: radius * 2
+            )
+            context.fill(
+                Path(ellipseIn: rect),
+                with: .color((star.warm ? SleepColor.gold : Color.white).opacity(alpha))
+            )
+        }
     }
 
     // MARK: Seating
@@ -240,6 +296,56 @@ private struct StageRandom {
     mutating func next() -> Double {
         state = state &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
         return Double((state >> 11) & 0xFFFF_FFFF) / Double(0x1_0000_0000)
+    }
+}
+
+/// The star field, generated once per process.
+///
+/// Coordinates are **normalised** (x across the width, y across the crown
+/// band) so the same cached field serves every screen size, and so the draw
+/// closure never has to re-run the generator. Seeded, because a field that
+/// reshuffles between steps reads as a rendering bug during the crossfade.
+private enum StarField {
+    struct Star {
+        let x: Double
+        /// 0 → 1 across the crown band, not the screen.
+        let y: Double
+        let radius: Double
+        let alpha: Double
+        let warm: Bool
+        let twinklePhase: Double
+        let twinklePeriod: Double
+        let driftPhase: Double
+        let driftRadius: Double
+        let driftPeriod: Double
+    }
+
+    /// How many of the field twinkle. A real sky has a handful scintillating,
+    /// not all of them — and every one of these costs a per-frame redraw.
+    private static let liveCount = 22
+
+    static let all: [Star] = build()
+    static let live = Array(all.prefix(liveCount))
+    static let quiet = Array(all.dropFirst(liveCount))
+
+    private static func build(count: Int = 74) -> [Star] {
+        var random = StageRandom(seed: 0x5EEDBED)
+        return (0..<count).map { _ in
+            // Squared distribution: denser toward the crown.
+            let t = random.next()
+            return Star(
+                x: random.next(),
+                y: t * t,
+                radius: 0.4 + random.next() * 0.95,
+                alpha: 0.10 + random.next() * 0.34,
+                warm: random.next() < 0.22,
+                twinklePhase: random.next() * 2 * .pi,
+                twinklePeriod: 3.5 + random.next() * 4.5,
+                driftPhase: random.next() * 2 * .pi,
+                driftRadius: 1.0 + random.next() * 1.1,
+                driftPeriod: 20 + random.next() * 20
+            )
+        }
     }
 }
 

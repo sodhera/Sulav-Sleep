@@ -211,7 +211,7 @@ So the stage is built as a real one: **sky, horizon, ground.**
 | Layer | What it is | Why |
 | --- | --- | --- |
 | Sky | Five stops travelling in hue — indigo at the crown, cooling through navy, near-black at the base | Two-stop gradients are what make a dark background look generated |
-| Stars | 74, sparse, deterministic, crown-weighted, alpha falling off with descent | Night identity for almost nothing; the falloff keeps them out of the copy |
+| Stars | 74, sparse, deterministic, crown-weighted, alpha falling off with descent; 22 of them twinkle and drift | Night identity for almost nothing; the falloff keeps them out of the copy |
 | Horizon | A wide, shallow ember wash hugging the bottom edge, anchored below frame | The city just out of shot. Shallow reads as a horizon; a circle read as a lamp |
 | Vignette | Gentle corner darkening | Seats the eye mid-screen, where every question lives |
 | Grain | Tiled luminance noise at ~2%, generated once | Dithers away OLED gradient banding, and makes the ground read as a material rather than a fill |
@@ -225,13 +225,25 @@ are also confined to the crown *and* faded by descent — a hard y-cap alone
 still parked full-brightness stars inside the question title, which sits high
 on every step.
 
-**The stage is completely still, on purpose.** A draft had the horizon
-breathing on a 7-second cycle, pitched (correctly, per "Motion") below the
-threshold of notice — which is what made it a bad trade: it contributed
-nothing visible while forcing a per-frame offscreen composite, through
-`blendMode(.screen)`, underneath the grid step's own animating 365-cell
-`Canvas`. Paying continuously for motion nobody can see is the worst kind of
-decoration. The ground still moves; it moves *meaningfully*, once per step.
+**Only the stars move, and only 22 of the 74.** They ride a 3.5–8s twinkle and
+walk a 1–2pt drift ellipse over 20–40s — too slow to read as something
+moving, but enough that the sky is never twice the same and the ground never
+reads as a frozen bitmap. The other 52 are rasterised once via `drawingGroup`
+and never touched; a real sky does not have every star scintillating at once,
+and each animated one costs a per-frame redraw. Reduce Motion freezes the
+whole field at its mid-twinkle value (verified: zero changed pixels between
+frames).
+
+The sky, horizon, vignette and grain are all static, and the reason is worth
+keeping straight, because it is not "motion is bad". A draft breathed the
+horizon on a 7-second cycle and that was removed because **the horizon carries
+`blendMode(.screen)`** — animating it forced a per-frame *offscreen composite*
+underneath the grid step's own animating 365-cell `Canvas`, continuous cost
+for something deliberately imperceptible. The star layer has neither problem:
+plain `Canvas` fills, no blend mode. So the test for adding motion here is not
+how subtle it is, it is what it costs to composite.
+
+The ground also moves *meaningfully*: `depth` ramps once per step over ~1.1s.
 
 `depth` runs **0 → 1 across the flow and night falls as it goes**: the sky
 cools and darkens, the horizon dims and sinks out of frame, and the stars come
