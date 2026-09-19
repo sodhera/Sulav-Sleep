@@ -22,86 +22,265 @@ import UIKit
 ///
 /// **Why setup does not use the pixel city.** The scene is the app's identity
 /// and it stays that way everywhere the app is *lived in* — Home, the record,
-/// sleep mode, the widgets. Setup is the one place it actively fought the
-/// product: an illustrated, high-contrast skyline sits directly under the
-/// densest typography in the app, and every reveal here is a figure that has
-/// to be read, not admired. Propping that up cost a glass panel under the
-/// slider rail, a second one under the 365-cell grid, and navy drop shadows on
-/// every caption — three workarounds for one cause. Removing the cause removed
-/// all three.
+/// sleep mode, the widgets, the icon. Setup is the one place it worked against
+/// the product: an illustrated, high-contrast skyline sits directly under the
+/// densest typography in the app, and every reveal here is a **figure that has
+/// to be read**, not a scene to be admired. The cost showed up as a list of
+/// workarounds — a glass panel under the slider rail, a second under the
+/// 365-cell grid, navy drop shadows on every caption, a setup-only scrim.
+/// Four patches, one cause.
 ///
-/// It also buys a better first moment: the user commits to their night in the
-/// dark, and the city is what opens when setup ends. The scene became a
-/// payoff instead of wallpaper.
+/// **But removing the city is not the same as having no ground.** The first
+/// attempt at this replaced the scene with a two-stop gradient and a pair of
+/// diffuse radials, which read as a default dark-mode background: flat, no
+/// vantage point, and banding visibly on OLED. What the app actually is — "a
+/// warm apartment window over a quiet city night" — survives the loss of the
+/// skyline if you keep the *composition* and drop only the illustration.
 ///
-/// What is kept is the identity that matters — **warm amber light against deep
-/// night.** The city is gone; the lamp is not.
+/// So this is built as a real one: **sky, horizon, ground.**
 ///
-/// `depth` runs 0 → 1 across the flow and darkens the ground as it goes, so
-/// the screen is literally closer to night by the time the user holds to
-/// commit. It is a gradient, never a cut, and at no point does it change what
+/// - A five-stop sky that travels in hue, not just in value — indigo at the
+///   crown, cooling through navy, nearly black at the base. Two-stop gradients
+///   are what make a dark background look generated.
+/// - A **horizon**: a wide, shallow ember glow hugging the bottom edge, as if
+///   the city were just below frame. A shallow ellipse reads as a horizon; the
+///   big circle it replaced read as a blob behind the button.
+/// - **Stars**, sparse and deterministic, in the upper sky only, so they never
+///   land behind body copy. Static by choice — this is a sleep app and
+///   stillness is a feature, and a redrawing star field under the grid's own
+///   365-cell reveal would be waste.
+/// - A **vignette** to seat the content, and **film grain** at ~2% to kill the
+///   gradient banding that every flat dark screen shows on OLED. The grain is
+///   the single cheapest thing that makes a dark ground read as a material
+///   rather than a fill.
+///
+/// Every layer is static; see `body` for why nothing here breathes.
+///
+/// `depth` runs 0 → 1 across the flow and **night falls as it goes**: the sky
+/// cools and darkens, the horizon dims and sinks out of frame, and the stars
+/// come up. So the screen is closest to true night at the moment the user
+/// holds to commit, and the city that opens when setup ends is a sunrise by
+/// comparison. It is a slow gradient, never a cut, and it never changes what
 /// is legible.
 struct OnboardingStage: View {
     var depth: Double = 0
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var breathe = false
-
     private var clamped: Double { min(max(depth, 0), 1) }
 
+    /// **The stage is completely still**, and that is a decision, not an
+    /// omission.
+    ///
+    /// A draft had the horizon breathing on a 7-second cycle. It was pitched
+    /// (correctly, per "Motion") below the threshold of notice — which is
+    /// exactly what made it a bad trade: it contributed almost nothing
+    /// visually while forcing a per-frame offscreen composite, through
+    /// `blendMode(.screen)`, underneath the grid step's own animating
+    /// 365-cell `Canvas`. Paying continuously for something nobody can see is
+    /// the worst version of decorative motion.
+    ///
+    /// The ground still moves — it just moves *meaningfully*. `depth` ramps
+    /// once per step over ~1.1s, so night visibly falls as the user advances
+    /// and is otherwise perfectly quiet. A sleep app should be still.
     var body: some View {
         ZStack {
-            // Base: a deep blue night settling toward black.
-            LinearGradient(
-                colors: [
-                    Color(hex: 0x0B1626).mix(with: Color(hex: 0x04070E), amount: clamped),
-                    Color(hex: 0x05080F).mix(with: .black, amount: clamped * 0.8)
-                ],
-                startPoint: .top, endPoint: .bottom
-            )
-
-            // The lamp: one soft pool of indoor amber, low and centred, the
-            // warm-light half of the palette with none of the pixel noise.
-            // It dims as the flow deepens — the room settling down for the
-            // night rather than a light being switched off.
-            RadialGradient(
-                colors: [
-                    SleepColor.amber.opacity((0.11 - 0.05 * clamped) * (breathe ? 1.12 : 1)),
-                    .clear
-                ],
-                center: UnitPoint(x: 0.5, y: 0.88),
-                startRadius: 0,
-                endRadius: 480
-            )
-
-            // A second, much fainter wash high up, so the top of the screen
-            // isn't a dead flat field behind the question text.
-            RadialGradient(
-                colors: [SleepColor.gold.opacity(0.05 - 0.03 * clamped), .clear],
-                center: UnitPoint(x: 0.22, y: 0.1),
-                startRadius: 0,
-                endRadius: 380
-            )
+            sky
+            stars
+            horizon
+            vignette
+            grain
         }
         .ignoresSafeArea()
         .allowsHitTesting(false)
-        .animation(.easeInOut(duration: 0.9), value: clamped)
-        .task {
-            guard !reduceMotion else { return }
-            // A lamp's breath: deliberately below the threshold of notice,
-            // per DESIGN.md — if the user sees it animating it is too strong.
-            // It exists so the ground isn't a dead rectangle.
-            withAnimation(.easeInOut(duration: 6).repeatForever(autoreverses: true)) {
-                breathe = true
+        .animation(.easeInOut(duration: 1.1), value: clamped)
+    }
+
+    // MARK: Sky
+
+    /// Five stops with a hue journey. The crown keeps a little indigo so the
+    /// top of the screen isn't a dead field behind the question text; the base
+    /// goes nearly black so the horizon has something to glow against.
+    private var sky: some View {
+        LinearGradient(
+            stops: [
+                .init(color: mix(0x16243E, 0x080D18), location: 0),
+                .init(color: mix(0x101B2F, 0x060A12), location: 0.28),
+                .init(color: mix(0x0B1424, 0x04070E), location: 0.56),
+                .init(color: mix(0x080F1C, 0x030509), location: 0.8),
+                .init(color: mix(0x050A14, 0x010204), location: 1)
+            ],
+            startPoint: .top, endPoint: .bottom
+        )
+    }
+
+    // MARK: Horizon
+
+    /// A wide, shallow ember wash along the bottom edge — the city just out of
+    /// frame. Anchored *below* the screen so only its upper falloff shows, and
+    /// squashed hard on Y: the shallowness is what makes it read as a horizon
+    /// rather than a lamp behind the primary button.
+    ///
+    /// It sinks and dims as `depth` rises, so by the commitment the warm light
+    /// has almost gone out of the frame.
+    private var horizon: some View {
+        GeometryReader { geo in
+            let intensity = 0.46 - 0.30 * clamped
+            let sink = 0.07 * clamped
+            RadialGradient(
+                stops: [
+                    .init(color: SleepColor.ember.opacity(intensity), location: 0),
+                    .init(color: SleepColor.amber.opacity(intensity * 0.5), location: 0.38),
+                    .init(color: SleepColor.gold.opacity(intensity * 0.16), location: 0.66),
+                    .init(color: .clear, location: 1)
+                ],
+                center: .center,
+                startRadius: 0,
+                endRadius: geo.size.width * 0.9
+            )
+            .frame(width: geo.size.width * 2.6, height: geo.size.width * 1.8)
+            // Squashed to a shallow arc, then pushed mostly off the bottom, so
+            // what shows is the upper falloff — light spilling up from a city
+            // below the frame, not a lamp behind the primary button.
+            .scaleEffect(x: 1, y: 0.3, anchor: .center)
+            .position(
+                x: geo.size.width / 2,
+                y: geo.size.height * (0.99 + sink)
+            )
+            .blendMode(.screen)
+        }
+    }
+
+    // MARK: Stars
+
+    /// Sparse, deterministic, upper sky only.
+    ///
+    /// Seeded so the field is identical on every screen of the flow — a star
+    /// field that reshuffles between steps reads as a rendering bug during the
+    /// crossfade. Confined to the top ~58% because that is the band the layout
+    /// leaves empty; below it there is always copy or a control.
+    ///
+    /// Rasterised once via `drawingGroup`: the grid step animates its own
+    /// 365-cell `Canvas`, and a second per-frame canvas underneath it would be
+    /// pure waste for pixels that never change.
+    private var stars: some View {
+        Canvas { context, size in
+            var random = StageRandom(seed: 0x5EEDBED)
+            let lift = 0.55 + 0.75 * clamped   // stars come up as night falls
+            let ceiling = size.height * 0.62
+            for _ in 0..<74 {
+                let x = random.next() * size.width
+                // Squared distribution: denser toward the crown.
+                let t = random.next()
+                let y = t * t * ceiling
+                let radius = 0.4 + random.next() * 0.95
+                // Fade with descent as well as thin out. A hard y-cap alone
+                // still parked full-brightness stars inside the question
+                // title, which sits high on every step; a falloff means the
+                // field dissolves before it reaches any copy, and the few
+                // that do land behind a glyph read as dust in the gaps.
+                let descent = pow(1 - (y / ceiling), 1.6)
+                let alpha = (0.10 + random.next() * 0.34) * lift * descent
+                let warm = random.next() < 0.22
+                context.fill(
+                    Path(ellipseIn: CGRect(x: x, y: y, width: radius * 2, height: radius * 2)),
+                    with: .color((warm ? SleepColor.gold : Color.white).opacity(min(alpha, 0.46)))
+                )
             }
         }
+        .drawingGroup()
+    }
+
+    // MARK: Seating
+
+    /// Corner darkening. Nothing dramatic — just enough that the eye settles
+    /// in the middle of the screen where every question lives.
+    private var vignette: some View {
+        RadialGradient(
+            stops: [
+                .init(color: .clear, location: 0.45),
+                .init(color: .black.opacity(0.18), location: 0.82),
+                .init(color: .black.opacity(0.42), location: 1)
+            ],
+            center: .center,
+            startRadius: 0,
+            endRadius: 560
+        )
+    }
+
+    /// Film grain at ~2%.
+    ///
+    /// This is the one element here that is purely about material quality. A
+    /// smooth dark gradient bands into visible steps on an OLED panel, and no
+    /// amount of extra stops fixes it; a fine noise floor dithers the
+    /// transition away and, as a side effect, makes the ground read as
+    /// something printed rather than something filled. Generated once and
+    /// tiled.
+    private var grain: some View {
+        Image(uiImage: StageGrain.tile)
+            .resizable(resizingMode: .tile)
+            .opacity(0.022)
+            .blendMode(.overlay)
+    }
+
+    // MARK: Helpers
+
+    /// Interpolates a `depth`-lit stop between its lit and its darkest value.
+    private func mix(_ lit: UInt32, _ dark: UInt32) -> Color {
+        Color(hex: lit).mixed(with: Color(hex: dark), amount: clamped)
+    }
+}
+
+/// A tiny deterministic LCG. `SystemRandomNumberGenerator` would reshuffle the
+/// star field on every redraw, and `seed`-stability is the whole point.
+private struct StageRandom {
+    private var state: UInt64
+
+    init(seed: UInt64) { state = seed }
+
+    /// Next value in 0..<1.
+    mutating func next() -> Double {
+        state = state &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
+        return Double((state >> 11) & 0xFFFF_FFFF) / Double(0x1_0000_0000)
+    }
+}
+
+/// The grain tile, built once per process.
+private enum StageGrain {
+    static let tile: UIImage = make()
+
+    private static func make(side: Int = 128) -> UIImage {
+        // Premultiplied white: with r=g=b=a the pixel is white at alpha a,
+        // which is what a luminance noise floor needs.
+        var bytes = [UInt8](repeating: 0, count: side * side * 4)
+        var random = StageRandom(seed: 0xC0FFEE)
+        for index in 0..<(side * side) {
+            let value = UInt8(random.next() * 255)
+            let offset = index * 4
+            bytes[offset] = value
+            bytes[offset + 1] = value
+            bytes[offset + 2] = value
+            bytes[offset + 3] = value
+        }
+        let space = CGColorSpaceCreateDeviceRGB()
+        guard let provider = CGDataProvider(data: Data(bytes) as CFData),
+              let image = CGImage(
+                width: side, height: side,
+                bitsPerComponent: 8, bitsPerPixel: 32,
+                bytesPerRow: side * 4,
+                space: space,
+                bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
+                provider: provider,
+                decode: nil, shouldInterpolate: false,
+                intent: .defaultIntent
+              )
+        else { return UIImage() }
+        return UIImage(cgImage: image)
     }
 }
 
 private extension Color {
-    /// Linear blend in sRGB. Enough for two hand-picked night tones; this is
-    /// not a colour-science mix and does not need to be.
-    func mix(with other: Color, amount: Double) -> Color {
+    /// Linear blend in sRGB. Enough for hand-picked night tones; this is not
+    /// colour science and does not need to be.
+    func mixed(with other: Color, amount: Double) -> Color {
         let t = min(max(amount, 0), 1)
         let a = UIColor(self), b = UIColor(other)
         var ar: CGFloat = 0, ag: CGFloat = 0, ab: CGFloat = 0, aa: CGFloat = 0

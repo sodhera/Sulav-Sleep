@@ -198,19 +198,46 @@ It also buys a better first moment. The user commits to their night on a dark,
 quiet ground, and **the city is what opens when setup ends** — the scene
 became a payoff instead of wallpaper.
 
-What is kept is the half of the identity that matters here: **warm amber light
-against deep night.** The stage is a deep blue-black gradient with one soft
-pool of indoor amber low and centred, plus a fainter gold wash high up so the
-area behind the question text isn't a dead flat field. The lamp breathes on a
-6-second cycle, deliberately below the threshold of notice (per "Motion" — if
-the user sees it animating it is too strong), so the ground is never a dead
-rectangle. No pixel art, no assets, no parallax.
+**Removing the city is not the same as having no ground.** The first attempt
+replaced the scene with a two-stop gradient and a pair of diffuse radials. It
+read as a default dark-mode background: flat, no vantage point, banding
+visibly on OLED, and its one warm blob sat directly behind the primary button
+so the CTA looked like it had a bloom artifact. What the app actually is — *a
+warm apartment window over a quiet city night* — survives losing the skyline
+only if you keep the **composition** and drop just the illustration.
 
-`depth` runs **0 → 1 across the flow** and settles the ground toward black as
-it advances: the questionnaire reports its own progress up to the gate, so the
-screen is literally closest to night at the moment the user holds to commit.
-It is a slow gradient, never a cut, and it never changes what is legible.
-Welcome sits at the lit end (0); the paywall and primer sit at 1.
+So the stage is built as a real one: **sky, horizon, ground.**
+
+| Layer | What it is | Why |
+| --- | --- | --- |
+| Sky | Five stops travelling in hue — indigo at the crown, cooling through navy, near-black at the base | Two-stop gradients are what make a dark background look generated |
+| Stars | 74, sparse, deterministic, crown-weighted, alpha falling off with descent | Night identity for almost nothing; the falloff keeps them out of the copy |
+| Horizon | A wide, shallow ember wash hugging the bottom edge, anchored below frame | The city just out of shot. Shallow reads as a horizon; a circle read as a lamp |
+| Vignette | Gentle corner darkening | Seats the eye mid-screen, where every question lives |
+| Grain | Tiled luminance noise at ~2%, generated once | Dithers away OLED gradient banding, and makes the ground read as a material rather than a fill |
+
+Two details worth not undoing:
+
+**The star field is seeded.** `StageRandom` is a small deterministic LCG, so
+the field is pixel-identical on every screen of the flow. A field that
+reshuffles between steps reads as a rendering bug during the crossfade. Stars
+are also confined to the crown *and* faded by descent — a hard y-cap alone
+still parked full-brightness stars inside the question title, which sits high
+on every step.
+
+**The stage is completely still, on purpose.** A draft had the horizon
+breathing on a 7-second cycle, pitched (correctly, per "Motion") below the
+threshold of notice — which is what made it a bad trade: it contributed
+nothing visible while forcing a per-frame offscreen composite, through
+`blendMode(.screen)`, underneath the grid step's own animating 365-cell
+`Canvas`. Paying continuously for motion nobody can see is the worst kind of
+decoration. The ground still moves; it moves *meaningfully*, once per step.
+
+`depth` runs **0 → 1 across the flow and night falls as it goes**: the sky
+cools and darkens, the horizon dims and sinks out of frame, and the stars come
+up. The screen is closest to true night at the moment the user holds to
+commit, which makes the city that opens when setup ends read almost like a
+sunrise. Welcome sits at the lit end (0); the paywall and primer sit at 1.
 
 > Note on history: setup used `SleepBackground(midnight: true)` plus an
 > `OnboardingReadabilityScrim`. Both are retired here, and the scrim is
