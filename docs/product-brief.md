@@ -27,14 +27,11 @@ review the rhythm of recent nights — using **real data only**.
   controls — one primary button for every forward step, and the commitment
   hold — replacing an earlier mix of taps, a slide-to-continue capsule, and
   the hold.
-- **Setup no longer uses the pixel city.** The whole pre-app gate (welcome,
-  the flow, auth, paywall, primer) stands on a quiet deep-night ground with a
-  single pool of warm amber light, deepening toward black as the flow
-  advances; the city is what opens when setup ends. The scene is unchanged
-  everywhere the app is lived in, and Home stays phase-aware. This removed
-  four separate legibility workarounds (two glass panels, caption drop
-  shadows, a setup-specific scrim) that all had the same cause. See
-  `DESIGN.md` → "Sign-up flow → The stage".
+- **One starry background throughout iOS.** Welcome, setup, Home, Profile,
+  Settings, partners, paywalls, and wake summary share the sign-up stage's
+  navy sky, sparse animated stars, grain, and low ember horizon. Setup deepens
+  as it advances; regular screens use its initial depth. The legacy city is
+  retired. Active sleep remains true OLED black for bedside use.
 - The retired flow's symptom multi-select,
   desired-morning question, phone dial, and the 80-year "days in a life"
   figure are all gone — the last because an 80-year extrapolation is not a
@@ -144,7 +141,7 @@ Family Controls + WidgetKit, with their platform constraints).
 ## Visual direction — Warm Pixel Night
 
 The app should feel like a warm apartment window over a quiet city night (see
-`DESIGN.md`): a living, layered pixel night scene behind a minimal, editorial
+`DESIGN.md`): a quiet starry night stage behind a minimal, editorial
 Liquid Glass interface. Warm amber indoor light against deep navy; no purple, no
 neon. Low stimulation at night, sparse during active sleep, and legible under a
 red night tint.

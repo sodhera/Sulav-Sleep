@@ -45,8 +45,8 @@ struct SceneScreen<Content: View>: View {
 
     var body: some View {
         ZStack {
-            SleepBackground(showsMoon: true)
-            SceneReadabilityScrim()
+            SleepBackground()
+
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 0) {
                     content

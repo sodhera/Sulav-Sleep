@@ -601,33 +601,15 @@ target can inject fakes without new hooks.
   glass tint, so selecting an option felt sluggish; an overlay fade is a pure
   composite.
 - `LiquidGlass.swift`: native Liquid Glass wrappers with material fallbacks.
-- `SleepBackground.swift`: Core Animation pixel-night scene, plus
-  `SceneReadabilityScrim` — a full-bleed vertical gradient (clear through the
-  upper sky, fading to ~80% deep-navy at the bottom) layered between the scene
-  and UI content so light text stays legible over the lit skyline. It keeps the
-  pixel city in separate scrolling/parallaxed depth planes and uses system
-  motion-effect parallax instead of CoreMotion polling. Because native `TabView`
-  content is opaque, `MainShellView` renders one background inside each tab; the
-  scrolling layers use the same global Core Animation phase so switching between
-  Home and Profile (or pushing a Profile sub-page, each of which embeds its own
-  scene) does not restart the skyline. The view is
-  non-interactive (`isUserInteractionEnabled = false`) — it never reacts to
-  touch and can't intercept input meant for the UI above it; depth parallax
-  comes from the device-tilt motion effect only.
-- `SleepAssetCache.swift`: launch-time decode cache for the big scene bitmaps
-  so the first interactive onboarding steps do not pay image-decode cost at
-  interaction time (`UIImage(named:)` defers the decode to first draw). The
-  prewarm list is **phase-derived**: the six city depth planes are named
-  `CityPhase.rawValue + cityLayerNames[i]` (e.g. `NightCitySkyBase`,
-  `DayCityClouds`), matching `citySpecs` in `SleepBackground.swift`, plus the
-  current phase's brand-mark sloth (`HomeSloth{phase}Blink`) and `SplashSloth`.
-  A fixed night-only list would decode art a day/dusk open never draws and
-  miss the layers actually shown; misses fall through to an on-demand decode
-  that is then cached (e.g. the next phase's set at a boundary crossfade), so
-  every name is decoded at most once per run. `SlothBrandMark`
-  (`OnboardingView.swift`) draws its sloth through this cache so the
-  questionnaire-header mark isn't decoding a 1200×720 PNG inside the
-  "Get started" transition.
+- `SleepBackground.swift`: shared wrapper around `OnboardingStage()` at depth 0.
+  All former city call sites use this wrapper without a readability scrim.
+  Each opaque tab/page host owns its background; seeded stars and absolute-time
+  animation preserve continuity. Setup uses `OnboardingStage(depth:)` directly
+  to retain its progressive darkening. Active sleep remains black.
+- `SleepAssetCache.swift`: prewarms the current phase's brand-mark sloth and
+  `SplashSloth`; city planes are no longer decoded at launch. Cache misses
+  decode artwork on demand. `CityPhase` remains for the sloth and greeting.
+
 - `SleepTheme.swift`: palette, spacing, radius, typography, `Haptics`, and
   `RisingZs` — the animated rising-z chain (the icon's ZZZ, alive),
   parameterized by color and scale. It runs full-size in emberDim on the
@@ -2114,9 +2096,8 @@ The final consequence chapter also ends with Continue; it opens the goal
 options directly. There is no separate typewriter chapter for the goal question
 and no animated swap from that question into the choices.
 
-`SleepBackground(midnight: true)` fixes setup to night layers, reduces the scene
-scrim so window lights survive, and adds Core Animation star opacity loops.
-Home's default phase behavior remains unchanged. Setup ignores legacy remote
+`OnboardingStage(depth:)` provides setup lighting; `SleepBackground()` shares
+that renderer throughout the app at depth 0. Setup ignores legacy remote
 scene/copy variants. The portrait demo is an explicit recreation, never a real
 Family Controls authorization or app launch. Actual shielding must be verified
 on a physical device after permission and app selection.
@@ -2231,3 +2212,19 @@ pixels in `SleepAssetCache.illuminatedNightImage`; transparent pixels and cool
 building geometry remain untouched. No source artwork files are modified.
 Run `./scripts/test-onboarding.sh` for input boundaries, math, exact-minute
 profile persistence, and compatibility with historical raw values.
+
+## Shared app background (September 19, 2026)
+
+The requested sign-up-to-app visual continuity replaces the legacy city renderer
+and removes every `SceneReadabilityScrim` call. No extra veil should be added
+on top of the stage: its own sky and vignette provide the intended contrast.
+The historical stage name remains to reuse the exact sign-up implementation.
+City artwork stays bundled for now, but is neither rendered nor prewarmed.
+
+Validation: build with `./scripts/run-ios-simulator.sh`; inspect Home, Profile,
+Settings, partners, and `-review-wake-summary`. Compare with onboarding and
+check that `-review-sleep-mode-collapsed` still opens on black.
+
+Verified on September 19: iPhone 17 Pro simulator build/install passed;
+Welcome and the wake-summary review route visually share the same starry sky
+and ember horizon with no skyline or extra scrim.

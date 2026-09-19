@@ -24,56 +24,14 @@ itself is minimal, editorial, and built on native iOS **Liquid Glass**.
 
 ## The scene (background)
 
-The background is a living scene, not a flat color, composited in
-`SleepBackground.swift`. Everything keeps moving even when the phone is
-perfectly still; motion should read as ambient city depth, not software. If a user
-consciously notices an animation, it is too strong.
-
-The **base** is a real pixel-art night city (CraftPix, OGA-BY 3.0 — see
-`CREDITS.md`): sky, moon, stars, clouds, and a warm-lit skyline. We do not
-hand-draw the pixel art. It is warm-tinted (saturation pulled down, amber/ember
-overlay) and darkened with a deep-navy scrim so UI text stays legible.
-
-The runtime scene keeps real depth planes instead of baking the whole image into
-a video. `SleepBackground.swift` composes separate sky/skyline layers, each
-slightly oversized, independently scrolling, and independently moved by
-`UIInterpolatingMotionEffect`. The sky barely moves; the front skyline moves
-most.
-
-The city, sky, clouds, moon, warm windows, slow layer drift, and depth parallax
-carry the scene without extra visual noise or foreground weather effects. The
-scene is purely ambient and never reacts to touch — depth parallax comes from
-the device-tilt motion effect only, so the background can't shift under a tap or
-intercept input meant for the UI above it.
-
-**The city follows the user's day** (`CityPhase`: day 5–17, dusk 17–22, night
-22–5 — the same bands as the greeting copy, so "Good afternoon" is never said
-over a midnight sky). *Day*: hazy daylight blue, stars and moon healed away, a
-stationary pale pixel sun, windows off (warm pixels remapped to cool glass),
-street glows and the amber wash disabled, the scene scrim eased so daylight
-reads. *Dusk*: golden hour — deep blue into dusty rose into an ember horizon
-(never neon purple; the saturation deliberately dips through the pink band),
-windows lit. *Night*: the original art, untouched — still the app's core
-identity. Day and dusk layers are **generated, never hand-edited**, from the
-night layers by `scripts/generate-scene-variants.py`; the view crossfades
-between phases at the minute the clock crosses a boundary. The sky is two
-planes: a **static base** (gradient + moon/stars — celestial bodies must not
-scroll) and a **clouds layer** drifting past it; the split happens on the
-high-contrast night art, then each phase's colorway is applied to both. The
-day sun is a hard-pixel sprite (`CitySun`) drawn by the readability veil
-*above* itself — a warm disc under the day veil turns olive, so the sun gets
-the same above-the-veil privilege the moon gets from night's clear upper
-stops — and it is static by construction. Home's sloth wears
-the same light (`HomeSloth{Day,Dusk,Night}{Awake,Drowsy,Blink}`), and blinks
-every few jittered seconds — a pixel-aligned closed-eye frame flashed for
-120ms, a hard cut like a cartoon blink should be (suppressed, along with the
-breath, under Reduce Motion). Because the whole ink system was designed
-against a dark night stage, the readability veil is also phase-aware: day
-and dusk get a full-height veil (deepest in the text bands) so grey muted
-text, white-opacity quiet/faint, and gold heroes keep their contrast on the
-brighter skies; night keeps its clear upper sky. Section-label kickers are
-`dim` with a soft navy shadow — small quiet caps get no free contrast from
-a bright sky, and the shadow travels with the text across all phases.
+All regular iOS screens use the sign-up flow's starry stage: the five-stop
+navy sky, seeded stars with gentle twinkle and occasional meteor, shallow
+ember horizon, vignette, and grain. `SleepBackground` delegates to
+`OnboardingStage()` at its default depth (0). Home, Profile and its pages,
+Settings, partners, wake summary, and the in-app paywall share this backdrop.
+The pixel city renderer and its phase-aware readability veil are retired.
+No city-specific sun, building layers, parallax, or scrim remains in the UI.
+The sloth and greeting retain their time-of-day behavior.
 
 The immersive sleep screen (`SleepModeView`) does **not** use this scene — it
 is true OLED black (`Color.black`; only ember pixels are ever lit). **Ember
@@ -137,12 +95,10 @@ reads as the free option at a glance, without needing to read either label.
 reads as a quiet text link that all but disappears until pressed, matching
 its role as a rare, irreversible exit (see "What to avoid").
 
-The whole scene runs through **Core Animation** layers, so SwiftUI does not run
-a per-frame render loop. The native `TabView` host is opaque, so Home and
-Profile each keep an in-tab scene (Profile's pushed sub-pages embed their own);
-their layer clocks are synchronized to the same global animation phase so tab
-switching and pushes do not reset the skyline motion. Onboarding keeps the
-scene active through the keyboard transition.
+The native `TabView` host is opaque, so each tab and presented page owns its
+stage. Seeded star positions and absolute-time animation keep navigation
+visually continuous. Reduce Motion freezes the star field and removes meteors.
+Onboarding keeps its existing progressive depth and keyboard behavior.
 
 ## Palette
 
@@ -179,24 +135,11 @@ arithmetic rather than asking for more. `SleepDebt` (SleepModels.swift) is the
 single home for those figures; the instruments that draw them live in
 `OnboardingExperience.swift`.
 
-### The stage: setup does not use the city
+### The stage: shared throughout the app
 
-The pre-app gate — welcome, the sign-up flow, auth, the paywall, the Screen
-Time primer — stands on `OnboardingStage`, **not** the pixel night city.
-
-The scene is still the app's identity everywhere the app is *lived in*: Home,
-the record, sleep mode, the widgets, the icon. Setup is the one place it
-worked against the product. An illustrated, high-contrast skyline sits
-directly under the densest typography in the app, and every reveal in this
-flow is a **figure that has to be read**, not a scene to be admired. The cost
-showed up as a list of workarounds: a glass panel under the slider rail, a
-second one under the 365-cell grid, navy drop shadows on every caption, and a
-setup-specific scrim to darken the sky. Four patches, one cause. Removing the
-cause removed all four.
-
-It also buys a better first moment. The user commits to their night on a dark,
-quiet ground, and **the city is what opens when setup ends** — the scene
-became a payoff instead of wallpaper.
+The stage introduced for setup is now the background for all regular iOS
+screens. Setup still deepens from 0 to 1 through commitment; everyday app
+screens use depth 0. Finishing setup no longer reveals a skyline.
 
 **Removing the city is not the same as having no ground.** The first attempt
 replaced the scene with a two-stop gradient and a pair of diffuse radials. It
@@ -311,8 +254,8 @@ the average looks. 40s/0.66 keeps the 60s mean and makes 40s a hard floor:
 `depth` runs **0 → 1 across the flow and night falls as it goes**: the sky
 cools and darkens, the horizon dims and sinks out of frame, and the stars come
 up. The screen is closest to true night at the moment the user holds to
-commit, which makes the city that opens when setup ends read almost like a
-sunrise. Welcome sits at the lit end (0); the paywall and primer sit at 1.
+commit. Welcome and regular app screens sit at the lit end (0); the setup
+paywall and primer sit at 1.
 
 > Note on history: setup used `SleepBackground(midnight: true)` plus an
 > `OnboardingReadabilityScrim`. Both are retired here, and the scrim is
@@ -1172,15 +1115,10 @@ proportional to what each one destroys.
 
 ### Legibility over the scene
 
-Text sits directly on the living pixel scene, whose lit windows are
-high-contrast and can swallow light type where it crosses them. Every
-scene-bearing screen therefore layers a `SceneReadabilityScrim` *between* the
-background and the content: a full-bleed vertical gradient that stays clear
-through the upper sky (moon and clouds untouched) and fades to ~80% deep-navy
-by the bottom, where the busy skyline and most screen text live. Because it has
-no edges or corners it reads as atmospheric haze, never a card, and it never
-intercepts touches. Prefer this shared scrim over per-element text shadows or
-darkening the whole scene.
+Text sits directly on the shared starry stage. Its dark sky, crown-weighted
+stars, and vignette provide contrast without a separate readability overlay.
+The city-era `SceneReadabilityScrim` is removed, including its daytime sun.
+Do not reintroduce it over the stage: it would obscure the sign-up background.
 
 ## Layout & containers
 

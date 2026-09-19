@@ -217,8 +217,8 @@ struct RootView: View {
                     wakeClockOverride: "7:00 AM"
                 )
             } else if let previewSummary = wakeSummaryPreview {
-                SleepBackground(showsMoon: false)
-                SceneReadabilityScrim()
+                SleepBackground()
+
                 WakeSummaryView(store: store, summary: previewSummary)
             } else if store.isOnboarded, let active = store.activeSession {
                 // Immersive, pitch-black sleep mode takes over the whole screen.
@@ -227,15 +227,15 @@ struct RootView: View {
                     .zIndex(2)
             } else if let summary = store.wakeSummary {
                 // The morning card, straight out of sleep mode: the black
-                // lifts into the day scene and the night just logged is on
+                // lifts into the starry stage and the night just logged is on
                 // screen. Placed here — above every gate, below only the
                 // running session — because it is the tail of the sleep
                 // screen rather than a screen of its own, and because it is
                 // one tap and gone. Nothing can route *into* it: only
                 // `wakeUp()` sets it, and it is never persisted, so a relaunch
                 // lands on Home. See SleepWakeSummaryView.
-                SleepBackground(showsMoon: false)
-                SceneReadabilityScrim()
+                SleepBackground()
+
                 WakeSummaryView(store: store, summary: summary)
                     .transition(.opacity)
                     .zIndex(1)
@@ -248,8 +248,8 @@ struct RootView: View {
                 // screen, because none of them work on a build old enough to
                 // trip this. Only a successfully fetched config can raise
                 // `updateRequired`, so network failure never lands here.
-                SleepBackground(showsMoon: false)
-                SceneReadabilityScrim()
+                SleepBackground()
+
                 UpdateRequiredView(message: store.updateGateMessage) {
                     store.openAppStoreProductPage()
                 }
@@ -403,7 +403,7 @@ struct MainShellView: View {
                 .tag(AppTab.home)
 
             // Profile hosts its own NavigationStack; each of its screens embeds
-            // the scene itself so pushed pages stay on the night city.
+            // the scene itself so pushed pages stay on the shared starry stage.
             ProfileView(store: store, profile: profile)
                 .tabItem { Label(AppTab.profile.title, systemImage: AppTab.profile.symbol) }
                 .tag(AppTab.profile)
@@ -417,8 +417,8 @@ struct MainShellView: View {
         // dismissal — that already happened, or the route would still be up.
         .fullScreenCover(isPresented: $store.showPaywall) {
             ZStack {
-                SleepBackground(showsMoon: false)
-                SceneReadabilityScrim()
+                SleepBackground()
+
                 PaywallView(store: store, onClose: { store.showPaywall = false })
             }
         }
@@ -433,12 +433,12 @@ struct MainShellView: View {
     }
 
     // The native TabView content host is opaque, so the scene must live inside
-    // each tab. SleepBackground synchronizes its Core Animation phase globally,
-    // which keeps Home/Profile switches from restarting the skyline motion.
+    // each tab. The shared stage uses seeded stars and absolute-time animation,
+    // so Home/Profile switches do not reshuffle the sky or restart its motion.
     private func tab<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         ZStack {
-            SleepBackground(showsMoon: true)
-            SceneReadabilityScrim()
+            SleepBackground()
+
             content()
         }
     }
