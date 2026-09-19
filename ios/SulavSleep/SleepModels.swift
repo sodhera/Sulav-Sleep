@@ -446,7 +446,7 @@ enum SleepMath {
 /// a number they can dismiss. The reveal screens caption each figure with
 /// the answer it came from for the same reason.
 ///
-/// The one value we supply is `onsetMinutes`. Everything else is theirs.
+/// Nothing here is supplied by us. Every figure is theirs.
 enum SleepDebt {
     /// Recommended nightly sleep for adults, per the American Academy of
     /// Sleep Medicine / CDC consensus. Shown as a band on the `need` step.
@@ -457,11 +457,6 @@ enum SleepDebt {
     /// so billing someone for a shortfall against eight would overstate
     /// every number the flow shows. Conservative on purpose.
     static var target: Int { recommendedRange.lowerBound }
-
-    /// How long a person lies in bed before sleep actually begins. Fifteen
-    /// minutes sits at the low end of normal sleep-onset latency, which
-    /// keeps the derived sleep figure generous and the shortfall small.
-    static let onsetMinutes = 15
 
     static let nightsPerYear = 365
 
@@ -474,13 +469,17 @@ enum SleepDebt {
         SleepMath.windowMinutes(bedtime: inBed, wakeTime: wake)
     }
 
-    /// What is left of the window once the phone and falling asleep are paid
-    /// for. This is the value the calibration step opens on, so the user
-    /// adjusts a number the app already worked out rather than supplying a
-    /// third one from scratch.
+    /// What is left of the window once the phone is paid for.
+    ///
+    /// **Nothing else is subtracted.** A draft also took off a fixed fifteen
+    /// minutes of sleep-onset latency, and that was the single number in the
+    /// whole flow the *app* invented rather than deriving from an answer. It
+    /// broke the rule the rest of this keeps, and it showed: the night reveal
+    /// had to draw a sliver segment and name it, for a figure the user never
+    /// gave us and could not check.
     static func derivedSleepMinutes(inBed: Int, wake: Int, phone: Int) -> Int {
         let window = windowMinutes(inBed: inBed, wake: wake)
-        return max(0, window - clampedPhone(phone) - onsetMinutes)
+        return max(0, window - clampedPhone(phone))
     }
 
     /// How far short of the recommendation a night lands. Zero for anyone
@@ -504,11 +503,12 @@ enum SleepDebt {
         clampedPhone(phone) * nightsPerYear / target
     }
 
-    /// What the night becomes once the phone is out of it: the whole window
-    /// minus sleep onset. The plan step promises this figure, so it has to
-    /// be reachable by the same arithmetic the user just watched.
+    /// What the night becomes once the phone is out of it — the whole window.
+    /// The plan step promises this figure, so it has to be reachable by the
+    /// same arithmetic the user just watched, which makes the gain it claims
+    /// exactly the phone answer.
     static func protectedSleepMinutes(inBed: Int, wake: Int) -> Int {
-        max(0, windowMinutes(inBed: inBed, wake: wake) - onsetMinutes)
+        windowMinutes(inBed: inBed, wake: wake)
     }
 
     private static func clampedPhone(_ phone: Int) -> Int {

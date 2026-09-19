@@ -610,10 +610,9 @@ struct OnboardingQuestionsView: View {
             // The first conclusion: the user's window becomes a proportional
             // timeline, with the remaining sleep and onset assumption explicit.
             QuestionLayout(title: "So here's your night.") {
-                SleepNightBar(
+                SleepNightStrip(
                     inBedMinutes: windowMinutes,
                     phoneMinutes: phoneMinutes,
-                    onsetMinutes: SleepDebt.onsetMinutes,
                     asleepMinutes: effectiveSleep,
                     inBedClock: SleepFormatting.clock(inBed),
                     wakeClock: SleepFormatting.clock(wakeTime)

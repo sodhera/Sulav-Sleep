@@ -269,9 +269,15 @@ Nothing is measured, modelled, or inferred from behaviour, and each reveal
 captions itself with the answer it came from ("At the 60 minutes a night you
 told us"). This is not only an honesty constraint — it is the conversion
 argument. A figure the user can retrace is a figure they recognise as theirs;
-a figure they cannot is one they dismiss. The one constant the app supplies is
-sleep onset (15 minutes, the low end of normal latency, so the shortfall
-stays conservative).
+a figure they cannot is one they dismiss.
+
+**The app supplies no constants of its own.** A draft subtracted a fixed
+fifteen minutes of sleep-onset latency from the night, and it was the one
+number here the app invented rather than derived. It broke the rule the rest
+of the flow keeps, and the cost showed on screen: the night reveal had to draw
+a sliver segment and name it, for a figure the user never gave and could not
+check. Removed — which also means the typical answer now lands *on* the
+seven-hour floor rather than fifteen minutes under it.
 
 The recommendation floor is the **bottom** of the AASM 7–9 hour band, never
 its middle. Measuring a shortfall against eight hours when seven is officially
@@ -295,53 +301,33 @@ year in the hero number.
   editorial that the position hasn't earned. An earlier revision printed an
   attributing line under the band; it was cut as clutter on a screen whose
   whole job is one number against one range.
-- **The fourth beat concludes rather than asks, and it concludes with a
-  bar.** "So here's your night" draws the time in bed as a strip divided
-  where it actually goes — phone, settling, asleep — in **chronological
-  order** with the real clock times at either end, then lands the estimated
-  sleep as its conclusion. Chronological rather than sorted by size is what
-  turns a proportion chart into the user's own night, read left to right the
-  way they will live it; the sweep runs the same direction with a soft tick
-  at each boundary, so the phone segment is something you *feel* end. Colour
-  follows the year-of-nights grid — amber is what the phone takes, here as
-  there — and the legend names only the two small segments, since the long
-  one is already named by the hero figure above it.
+- **The fourth beat concludes rather than asks, and it states one
+  subtraction.** "So here's your night" is a statement, not a chart: the
+  estimated sleep in ink, a thin strip of night with the phone taken out of
+  the front of it, the real clock times, and one line of copy. Four elements.
 
-  Two traps this went through. The asleep segment is a muted **indigo**, not
-  a neutral slate: it is the longest thing on the screen and a grey tail
-  reads as the *unfilled track* of a progress bar, the exact wrong idiom for
-  the part of the night that went well. And an earlier revision drew the
-  timeline as a 6pt hairline, at which weight the 15-minute settling segment
-  was a pixel and the phone segment read as a tick mark — the proportion the
-  graphic exists to show was unreadable. 28pt carries it.
+  The strip carries the same deep-night-to-dawn gradient as the stage behind
+  it, so it reads as a piece of sky rather than a UI control, and the phone is
+  an amber bite at the beginning — amber meaning the same thing here as in the
+  year-of-nights grid. The sweep runs left to right with a single tick where
+  the phone lets go of the night. The hero figure lands after it, as its
+  conclusion.
 
-  > Note on history: before the bar this was a ledger of three rows and a
-  > rule. It stated the subtraction correctly but as a *table*, and the thing
-  > being described is a whole divided into parts — a table makes you
-  > assemble the proportion in your head. Before that it was a slider.
+  **The hero is ink, not amber.** Amber has one job on this screen (what the
+  phone takes) and the primary button already owns it as an action; a third
+  amber thing, for the figure that is the *good* news, muddled all three.
 
-- **The fourth beat, in the original framing:** Everything about the user's
-  night is already implied by the three answers behind it, so the step shows
-  a proportional night timeline. The presentation is one compact centered
-  group: sentence-case "Estimated sleep", the amber value, and "of X in bed";
-  one thin line; then one sentence naming phone time. The requested copy
-  simplification removes the settling-time sentence; the estimate still uses
-  the existing allowance. Awake time shares one muted color; sleep is gold-to-amber.
-  The estimate appears as the line finishes. Clock labels, icons, separate
-  breakdown columns, endpoint glow, and a second explanatory footer were
-  removed after device review: they competed with the one useful conclusion.
-  This replaces the accounting-style subtraction table. No surrounding card,
-  looping sweep, or invented sleep-stage waveform. Widths remain proportional,
-  including zero sleep; tiny segments are never inflated for decoration.
-  The reveal runs once per entry, cancels on exit, and is immediate with
-  Reduce Motion or VoiceOver. Continue stays available throughout.
-
-  > Note on history: this was a slider pre-filled with our own arithmetic for
-  > the user to confirm. Two things were wrong with it. Pre-filling a figure
-  > and then asking for agreement invites the user to argue with a number they
-  > have no better information about than we do; and it needed a paragraph of
-  > prose to explain where the figure came from. Showing the subtraction needs
-  > no prose at all.
+  > Note on history, because this screen took five attempts and each failure
+  > was a different way of over-building it. A **slider** asked the user to
+  > confirm arithmetic they had no better information about than we did. A
+  > **ledger** of three rows and a rule stated the subtraction as a table,
+  > which makes you assemble the proportion in your head. A **6pt hairline**
+  > timeline had too little substance to read a proportion from. A **28pt
+  > capsule** with a border, clock labels, two legend dots and two legend rows
+  > had the opposite problem: seven elements of chart furniture around one
+  > fact, in the visual language of a download bar. The lesson is that every
+  > other beat in this flow is a kicker, one big thing and one line, and this
+  > one has no licence to be busier.
 
 - **A live consequence belongs under its control, not under the question.**
   The wake step's "That's 8 hours in bed" sits directly beneath the wheel.

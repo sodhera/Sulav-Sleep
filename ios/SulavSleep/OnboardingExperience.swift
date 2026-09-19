@@ -751,107 +751,96 @@ private extension Int {
 
 // MARK: - The conclusion
 
-/// The night as a strip of time, divided where it actually goes.
+/// The night as a thin slice of sky, with the phone taken out of the front.
 ///
-/// Three designs preceded this one. A **slider** asked the user to confirm
-/// arithmetic they had no better information about than we did. A **ledger**
-/// of three rows and a rule stated the subtraction correctly, but as a table —
-/// and the thing being described is a whole divided into parts, which is a
-/// bar; a table makes you assemble the proportion in your head. A **6pt hairline**
-/// timeline had the right idea and too little substance: at that weight the
-/// 15-minute settling segment was a pixel and the phone segment read as a tick
-/// mark, so the proportion it existed to show was unreadable.
+/// Four designs preceded this one, and the lesson of all four is that this
+/// screen states **one subtraction** and should look like a statement, not a
+/// chart. A slider asked the user to confirm arithmetic they had no better
+/// information about than we did. A ledger put the subtraction in a table,
+/// which makes you assemble the proportion in your head. A 6pt hairline had
+/// too little substance to read. And a 28pt capsule with a border, clock
+/// labels, two legend dots and two legend rows had the opposite problem:
+/// seven elements of chart furniture around one fact, in the visual language
+/// of a download bar.
 ///
-/// What survives from each: the hero figure lands *after* the line finishes,
-/// as its conclusion, and the segment widths are the real minutes — never
-/// decorative.
+/// So: no capsule, no border, no legend, no dots. The strip *is* the night —
+/// it carries the same deep-night-to-dawn gradient as the stage behind it, so
+/// it reads as a piece of the sky rather than a UI control — and the phone is
+/// an amber bite out of the beginning of it. Amber means the same thing here
+/// as in the year-of-nights grid.
 ///
-/// Two decisions worth keeping:
+/// The hero is **ink, not amber**. Amber is doing one job on this screen (what
+/// the phone takes) and the primary button already owns it as an action; a
+/// third amber thing, for the figure that is the *good* news, muddled all
+/// three.
 ///
-/// **Chronological, not sorted by size.** Phone, settling, asleep, with the
-/// real clock times at either end. That turns a proportion chart into the
-/// user's own night, read left to right the way they will live it, and the
-/// sweep runs the same direction with a soft tick at each boundary — so the
-/// phone segment is something you feel end.
-///
-/// **The legend explains only the two small segments.** The long one is
-/// already named by the hero number above it, so a third row would be the
-/// screen repeating itself. Colour follows the grid — amber is what the phone
-/// takes, here as there — so the two reveals speak the same language.
-struct SleepNightBar: View {
+/// A settling allowance used to sit between the two segments. It is gone —
+/// see `SleepDebt.derivedSleepMinutes` for why the number the app invented
+/// was the wrong one to keep.
+struct SleepNightStrip: View {
     let inBedMinutes: Int
     let phoneMinutes: Int
-    let onsetMinutes: Int
     let asleepMinutes: Int
     let inBedClock: String
     let wakeClock: String
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
-    @State private var fill: Double = 0
+    @State private var sweep: Double = 0
     @State private var conclusionIn = false
 
-    private static let barHeight: CGFloat = 28
-    /// A muted indigo, not a neutral slate. This is the longest thing on the
-    /// screen and a grey tail reads as the *unfilled track* of a progress bar —
-    /// the exact wrong idiom for the part of the night that went well. Blue
-    /// with some saturation in it reads as night, i.e. as material.
-    private static let asleepTint = Color(hex: 0x445270)
+    private static let stripHeight: CGFloat = 16
 
-    private var total: Double { Double(max(1, inBedMinutes)) }
-
-    private var segments: [(minutes: Int, tint: Color)] {
-        [
-            (max(0, phoneMinutes), SleepColor.amber),
-            (max(0, onsetMinutes), SleepColor.dim.opacity(0.5)),
-            (max(0, asleepMinutes), Self.asleepTint)
-        ]
+    private var phoneFraction: Double {
+        Double(min(max(phoneMinutes, 0), max(inBedMinutes, 1))) / Double(max(inBedMinutes, 1))
     }
 
     var body: some View {
         VStack(spacing: SleepSpacing.xxl) {
             conclusion
             VStack(spacing: SleepSpacing.md) {
-                bar
+                strip
                 clocks
             }
-            legend
+            Text("\(Self.compact(phoneMinutes)) of it on your phone.")
+                .font(SleepFont.body(15))
+                .foregroundStyle(SleepColor.dim)
+                .opacity(conclusionIn ? 1 : 0)
+                .animation(.easeOut(duration: 0.35).delay(0.08), value: conclusionIn)
         }
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Your night, \(inBedClock) to \(wakeClock)")
         .accessibilityValue(
             "\(SleepFormatting.duration(inBedMinutes)) in bed, minus "
-            + "\(SleepFormatting.duration(phoneMinutes)) on your phone, minus "
-            + "\(SleepFormatting.duration(onsetMinutes)) settling. "
-            + "\(SleepFormatting.duration(asleepMinutes)) estimated sleep."
+            + "\(SleepFormatting.duration(phoneMinutes)) on your phone. "
+            + "\(SleepFormatting.duration(asleepMinutes)) asleep."
         )
         .task(id: reduceMotion || voiceOver) {
-            fill = 0
+            sweep = 0
             conclusionIn = false
-            // VoiceOver reads the whole element at once; making it wait out a
-            // sweep it cannot see is just a delay.
+            // VoiceOver reads the element whole; making it wait out a sweep it
+            // cannot see is just a delay.
             guard !reduceMotion, !voiceOver else {
-                fill = 1
+                sweep = 1
                 conclusionIn = true
                 return
             }
-            let boundaries = segmentBoundaries
-            var crossed = 0
-            let steps = 64
             do {
                 try await Task.sleep(for: .milliseconds(220))
+                var ticked = false
+                let steps = 60
                 for step in 1...steps {
                     try await Task.sleep(for: .milliseconds(13))
-                    // Ease out: the night settles rather than stopping dead.
                     let t = Double(step) / Double(steps)
-                    fill = 1 - pow(1 - t, 2.2)
-                    while crossed < boundaries.count, fill >= boundaries[crossed] {
-                        crossed += 1
+                    sweep = 1 - pow(1 - t, 2.2)
+                    // One tick, where the phone lets go of the night.
+                    if !ticked, sweep >= phoneFraction {
+                        ticked = true
                         Haptics.soft()
                     }
                 }
-                fill = 1
+                sweep = 1
                 Haptics.rigid()
                 withAnimation(.easeOut(duration: 0.4)) { conclusionIn = true }
             } catch {
@@ -860,50 +849,46 @@ struct SleepNightBar: View {
         }
     }
 
-    /// Cumulative fractions at which one segment becomes the next.
-    private var segmentBoundaries: [Double] {
-        var running = 0.0
-        return segments.dropLast().map { segment in
-            running += Double(segment.minutes) / total
-            return running
-        }
-    }
-
     private var conclusion: some View {
-        VStack(spacing: 4) {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text(SleepFormatting.duration(asleepMinutes))
-                .font(SleepFont.hero(52))
-                .foregroundStyle(SleepColor.amber)
+                .font(SleepFont.hero(46))
                 .monospacedDigit()
                 .minimumScaleFactor(0.6)
                 .lineLimit(1)
-            Text("asleep, of \(Self.compact(inBedMinutes)) in bed")
-                .font(SleepFont.body(14))
+            Text("asleep")
+                .font(SleepFont.title(20))
                 .foregroundStyle(SleepColor.dim)
         }
+        .foregroundStyle(SleepColor.ink)
         .opacity(conclusionIn ? 1 : 0)
         .offset(y: conclusionIn ? 0 : 8)
     }
 
-    private var bar: some View {
+    /// Deep night on the left, easing toward the first light of the wake end,
+    /// with the phone burning amber at the start of it.
+    private var strip: some View {
         GeometryReader { geo in
-            HStack(spacing: 0) {
-                ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
-                    Rectangle()
-                        .fill(segment.tint)
-                        .frame(width: geo.size.width * Double(segment.minutes) / total)
-                }
+            ZStack(alignment: .leading) {
+                LinearGradient(
+                    colors: [
+                        Color(hex: 0x141C2E),
+                        Color(hex: 0x1D2942),
+                        Color(hex: 0x33436A)
+                    ],
+                    startPoint: .leading, endPoint: .trailing
+                )
+                Rectangle()
+                    .fill(SleepColor.amber)
+                    .frame(width: geo.size.width * phoneFraction)
             }
             .frame(width: geo.size.width, alignment: .leading)
-            // One mask sweeping left to right, so the segments arrive in the
-            // order the night does instead of all growing at once.
             .mask(alignment: .leading) {
-                Rectangle().frame(width: geo.size.width * fill)
+                Rectangle().frame(width: geo.size.width * sweep)
             }
         }
-        .frame(height: Self.barHeight)
-        .clipShape(Capsule())
-        .overlay { Capsule().stroke(SleepColor.border, lineWidth: 1) }
+        .frame(height: Self.stripHeight)
+        .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
     }
 
     private var clocks: some View {
@@ -916,41 +901,14 @@ struct SleepNightBar: View {
         .foregroundStyle(SleepColor.muted)
     }
 
-    /// Only the two segments the hero doesn't already name.
-    private var legend: some View {
-        HStack(spacing: SleepSpacing.xl) {
-            legendItem(SleepColor.amber, "\(Self.compact(phoneMinutes)) on your phone")
-            legendItem(SleepColor.dim.opacity(0.5), "\(Self.compact(onsetMinutes)) settling")
-            Spacer(minLength: 0)
-        }
-        .opacity(conclusionIn ? 1 : 0)
-        .animation(.easeOut(duration: 0.35).delay(0.08), value: conclusionIn)
-    }
-
     /// Durations that sit inside a phrase, not in a column.
     /// `SleepFormatting.duration` is the app's *instrument* format — right for
-    /// the hero value, wrong here, where it renders a quarter of an hour as
-    /// "0h 15m". Only the big number keeps the instrument spelling.
+    /// the hero value, wrong here, where it renders an hour as "1h 00m".
     private static func compact(_ minutes: Int) -> String {
         let hours = minutes / 60, rest = minutes % 60
         if hours == 0 { return "\(rest)m" }
         if rest == 0 { return "\(hours)h" }
         return "\(hours)h \(rest)m"
-    }
-
-    private func legendItem(_ tint: Color, _ label: String) -> some View {
-        HStack(spacing: SleepSpacing.sm) {
-            // A hairline lifts the darker tints off the ground: at legend size
-            // a bare dot in these tones is hard to tell apart.
-            Circle()
-                .fill(tint)
-                .overlay(Circle().stroke(SleepColor.ink.opacity(0.28), lineWidth: 1))
-                .frame(width: 9, height: 9)
-            Text(label)
-                .font(SleepFont.body(13))
-                .foregroundStyle(SleepColor.dim)
-                .fixedSize(horizontal: false, vertical: true)
-        }
     }
 }
 

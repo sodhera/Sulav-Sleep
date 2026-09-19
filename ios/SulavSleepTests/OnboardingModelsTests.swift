@@ -51,13 +51,13 @@ struct OnboardingModelsTests {
         // Typical: in bed 10:30pm, up 6:30am, an hour on the phone.
         let inBed = 22 * 60 + 30, wake = 6 * 60 + 30
         assert(SleepDebt.windowMinutes(inBed: inBed, wake: wake) == 480)
-        assert(SleepDebt.derivedSleepMinutes(inBed: inBed, wake: wake, phone: 60) == 405)
-        assert(SleepDebt.nightlyShortfall(sleepMinutes: 405) == 15)
-        assert(SleepDebt.nightsShortPerYear(sleepMinutes: 405) == 13)
+        assert(SleepDebt.derivedSleepMinutes(inBed: inBed, wake: wake, phone: 60) == 420)
+        assert(SleepDebt.nightlyShortfall(sleepMinutes: 420) == 0)
+        assert(SleepDebt.nightsShortPerYear(sleepMinutes: 420) == 0)
         assert(SleepDebt.phoneNightsPerYear(phone: 60) == 52)
-        // The plan promises the window minus onset, and the gain it claims is
+        // The plan promises the whole window, and the gain it claims is
         // exactly the phone time — so the promise is retraceable by the user.
-        assert(SleepDebt.protectedSleepMinutes(inBed: inBed, wake: wake) == 465)
+        assert(SleepDebt.protectedSleepMinutes(inBed: inBed, wake: wake) == 480)
         assert(SleepDebt.protectedSleepMinutes(inBed: inBed, wake: wake)
                - SleepDebt.derivedSleepMinutes(inBed: inBed, wake: wake, phone: 60) == 60)
 
@@ -75,8 +75,8 @@ struct OnboardingModelsTests {
         assert(SleepDebt.phoneNightsPerYear(phone: -30) == 0)
         assert(SleepDebt.phoneNightsPerYear(phone: 9_999) == SleepDebt.phoneNightsPerYear(phone: 240))
         // An out-of-range phone answer behaves as the 4-hour ceiling, so the
-        // window keeps 480 - 240 - 15. It does not collapse to zero.
-        assert(SleepDebt.derivedSleepMinutes(inBed: inBed, wake: wake, phone: 9_999) == 225)
+        // window keeps 480 - 240. It does not collapse to zero.
+        assert(SleepDebt.derivedSleepMinutes(inBed: inBed, wake: wake, phone: 9_999) == 240)
         // A window shorter than the phone answer must clamp, not wrap.
         assert(SleepDebt.derivedSleepMinutes(inBed: 5 * 60, wake: 6 * 60, phone: 180) == 0)
 
