@@ -295,7 +295,32 @@ year in the hero number.
   editorial that the position hasn't earned. An earlier revision printed an
   attributing line under the band; it was cut as clutter on a screen whose
   whole job is one number against one range.
-- **The fourth beat concludes rather than asks.** Everything about the user's
+- **The fourth beat concludes rather than asks, and it concludes with a
+  bar.** "So here's your night" draws the time in bed as a strip divided
+  where it actually goes — phone, settling, asleep — in **chronological
+  order** with the real clock times at either end, then lands the estimated
+  sleep as its conclusion. Chronological rather than sorted by size is what
+  turns a proportion chart into the user's own night, read left to right the
+  way they will live it; the sweep runs the same direction with a soft tick
+  at each boundary, so the phone segment is something you *feel* end. Colour
+  follows the year-of-nights grid — amber is what the phone takes, here as
+  there — and the legend names only the two small segments, since the long
+  one is already named by the hero figure above it.
+
+  Two traps this went through. The asleep segment is a muted **indigo**, not
+  a neutral slate: it is the longest thing on the screen and a grey tail
+  reads as the *unfilled track* of a progress bar, the exact wrong idiom for
+  the part of the night that went well. And an earlier revision drew the
+  timeline as a 6pt hairline, at which weight the 15-minute settling segment
+  was a pixel and the phone segment read as a tick mark — the proportion the
+  graphic exists to show was unreadable. 28pt carries it.
+
+  > Note on history: before the bar this was a ledger of three rows and a
+  > rule. It stated the subtraction correctly but as a *table*, and the thing
+  > being described is a whole divided into parts — a table makes you
+  > assemble the proportion in your head. Before that it was a slider.
+
+- **The fourth beat, in the original framing:** Everything about the user's
   night is already implied by the three answers behind it, so the step shows
   a proportional night timeline. The presentation is one compact centered
   group: sentence-case "Estimated sleep", the amber value, and "of X in bed";
