@@ -257,6 +257,18 @@ up. The screen is closest to true night at the moment the user holds to
 commit. Welcome and regular app screens sit at the lit end (0); the setup
 paywall and primer sit at 1.
 
+**The sky reaches the launch screen and the icon too.** A launch storyboard
+cannot run code, so `scripts/generate-splash-stars.py` bakes this exact sky —
+same five stops, same seeded field through the same LCG and splitmix64
+seeding, same crown weighting and descent falloff, same ember horizon — into
+`SplashSky`, and `LaunchSplashView` then renders the live `OnboardingStage`
+behind the same sloth at the same size. The handover is a crossfade between
+two versions of one image rather than a cut from flat navy to a star field.
+Keep the script's constants in step with `OnboardingStage`, or the two drift
+apart. The app icon carries the same sparse seeded field
+(`scripts/generate-app-icon.py`), deliberately thin — an icon is read at 60px,
+where anything more is noise.
+
 > Note on history: setup used `SleepBackground(midnight: true)` plus an
 > `OnboardingReadabilityScrim`. Both are retired here, and the scrim is
 > deleted — with the scene gone there was nothing left for a setup-specific
@@ -297,10 +309,17 @@ year in the hero number.
   `SleepNeedBand` plots the user's figure against the lit 7–9 hour range; it
   lands inside or outside, and that is the judgement. The app never calls
   someone's nights inadequate in its own voice — see "What to avoid". For the
-  same reason the marker is **amber, never `danger`**: a red mark would be
-  editorial that the position hasn't earned. An earlier revision printed an
-  attributing line under the band; it was cut as clutter on a screen whose
-  whole job is one number against one range.
+  same reason the marker is **ink**: position carries the verdict, so it needs
+  no colour of its own, and a red mark would be editorial the position hasn't
+  earned. It was amber for exactly that reason, and that was the bug — an
+  amber tick against an amber band is invisible at the one place it matters,
+  the boundary.
+
+  The track carries **endpoint labels** (4h, 10h). Without them it was a tick
+  somewhere and a lit range somewhere, with nothing to read the distance
+  between them against, and the figure looked wrong when it was exactly right.
+  An earlier revision also printed an attributing line under the band; that
+  was cut as clutter.
 - **The fourth beat concludes rather than asks, and it states one
   subtraction.** "So here's your night" is a statement, not a chart: the
   estimated sleep in ink, a thin strip of night with the phone taken out of
@@ -353,6 +372,14 @@ exactly the users most likely to pay for a habit tool. Time in bed awake on a
 phone is the user's own answer divided by a night: it holds for everyone, it
 is not an accusation they can argue with, and it is the one quantity the
 product actually takes back.
+
+The cells are **dots, not squares** — a square grid reads as a spreadsheet, a
+field of dots reads as nights, and it sits better beside a flow with no hard
+edges anywhere else in it. The reveal is **two beats**: the field settles in
+as a wave first, so "365 nights" registers as a quantity of its own, and only
+then do the phone nights light, with the unlit dots stepping back so the amber
+carries. Counting straight into an empty frame skipped the denominator, and
+the ratio is the whole argument.
 
 The field is **25 × 15, wide and shallow** — a squarer grid ran nearly half
 the screen and its lower rows sank into the skyline, which destroyed the only
@@ -459,9 +486,23 @@ looks like now." — and answered with **That's what I want**. It remains a
 simulator recreation and is never presented as evidence of granted Screen Time
 permissions; real selection happens in the post-paywall primer.
 
-Commitment requires a two-second hold, ratcheting heavy ticks and landing on a
-double knock. It cancels on release, drag-away, navigation, or backgrounding,
-and fires once. The question addresses the user by name.
+Commitment is a **fingerprint you hold**, and it is the only gesture left in
+setup. The gesture is borrowed from Touch ID on purpose: people already know
+what holding a fingerprint means, so the commitment reads as something you
+*authorise* rather than something you click past. The print fills from the
+bottom over two seconds, a scan line rides the top of the fill, a ring closes
+around it, and a tick every 20% reads like a scanner reading ridges. It lives
+in the step's content region, not the bottom action slot — a commitment you
+authorise should be the thing you are looking at.
+
+Releasing early **rewinds** rather than snapping to zero; a hard reset reads as
+punishment for a slip. It cancels on release, drag-away, navigation or
+backgrounding, and fires once. The question addresses the user by name.
+
+The mark is Material Symbols `fingerprint` at weight 100 (`CREDITS.md`) — the
+hairline cut is the only one light enough for this flow, and deliberately not
+SF Symbols' `touchid`, which Apple licenses only for referring to Touch ID
+itself.
 
 ### Retired
 
@@ -567,7 +608,13 @@ heavy frosted glass.
 ## Typography
 
 Editorial geometric sans: generous spacing, light visual weight, highly
-readable, calm. The app is set in **DM Sans** (SIL Open Font License — see
+readable, calm. **Setup is centre-aligned** — the flow reads as a sequence of
+statements addressed to one person, and a centred column carries that better
+than a left rag; it also keeps the question, its control and its readout on
+one axis, so the eye travels straight down. List rows stay left-aligned inside
+their capsules, which is what a list wants. (The typewriter needs both
+`UILabel.textAlignment` and a centred paragraph style, or it recentres only
+after the last character lands.) The app is set in **DM Sans** (SIL Open Font License — see
 `CREDITS.md`), bundled as its variable font. Weights stay light; the heaviest
 cut is reserved for hero moments. Small-caps section labels use open
 `.tracking`.
