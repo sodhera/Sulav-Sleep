@@ -614,9 +614,7 @@ struct OnboardingQuestionsView: View {
                     inBedMinutes: windowMinutes,
                     phoneMinutes: phoneMinutes,
                     onsetMinutes: SleepDebt.onsetMinutes,
-                    asleepMinutes: effectiveSleep,
-                    bedtime: inBed,
-                    wakeTime: wakeTime
+                    asleepMinutes: effectiveSleep
                 )
             }
 

@@ -297,12 +297,13 @@ year in the hero number.
   whole job is one number against one range.
 - **The fourth beat concludes rather than asks.** Everything about the user's
   night is already implied by the three answers behind it, so the step shows
-  a proportional night timeline. A fine line draws phone time in silver,
-  settling time in muted slate, and the remaining sleep in gold-to-amber.
-  Bedtime and wake time anchor the ends; total time in bed sits above it.
-  The large **Estimated sleep** figure appears as the line finishes, with a
-  restrained amber endpoint glow. Two compact labels below retain the phone
-  and settling durations; a quiet caption discloses the 15-minute assumption.
+  a proportional night timeline. The presentation is one compact centered
+  group: sentence-case "Estimated sleep", the amber value, and "of X in bed";
+  one thin line; then a two-line sentence naming phone time and the 15-minute
+  settling allowance. Awake time shares one muted color; sleep is gold-to-amber.
+  The estimate appears as the line finishes. Clock labels, icons, separate
+  breakdown columns, endpoint glow, and a second explanatory footer were
+  removed after device review: they competed with the one useful conclusion.
   This replaces the accounting-style subtraction table. No surrounding card,
   looping sweep, or invented sleep-stage waveform. Widths remain proportional,
   including zero sleep; tiny segments are never inflated for decoration.

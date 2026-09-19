@@ -760,8 +760,6 @@ struct SleepBreakdown: View {
     let phoneMinutes: Int
     let onsetMinutes: Int
     let asleepMinutes: Int
-    let bedtime: Int
-    let wakeTime: Int
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
@@ -774,50 +772,34 @@ struct SleepBreakdown: View {
     private var sleepStart: CGFloat {
         min(1, phoneFraction + CGFloat(max(onsetMinutes, 0)) / CGFloat(max(inBedMinutes, 1)))
     }
-    private let phoneColor = SleepColor.dim
+    private let awakeColor = SleepColor.dim.opacity(0.5)
 
     var body: some View {
-        VStack(spacing: 36) {
+        VStack(spacing: 24) {
             VStack(spacing: 8) {
-                Text("ESTIMATED SLEEP")
-                    .font(SleepFont.label(11))
-                    .tracking(2.5)
+                Text("Estimated sleep")
+                    .font(SleepFont.body(14))
                     .foregroundStyle(SleepColor.dim)
                 Text(SleepFormatting.duration(asleepMinutes))
-                    .font(SleepFont.hero(56))
+                    .font(SleepFont.hero(52))
                     .foregroundStyle(SleepColor.amber)
                     .monospacedDigit()
                     .minimumScaleFactor(0.6)
                     .lineLimit(1)
-                    .shadow(color: SleepColor.amber.opacity(0.16), radius: 24)
+                Text("of \(SleepFormatting.duration(inBedMinutes)) in bed")
+                    .font(SleepFont.body(14))
+                    .foregroundStyle(SleepColor.dim)
             }
             .opacity(revealed >= 3 ? 1 : 0)
             .offset(y: revealed >= 3 ? 0 : 8)
 
-            VStack(spacing: 18) {
-                Text("\(SleepFormatting.duration(inBedMinutes)) in bed")
-                    .font(SleepFont.body(14))
-                    .foregroundStyle(SleepColor.dim)
+            timeline
+                .frame(height: 6)
 
-                timeline
-                    .frame(height: 24)
-
-                HStack {
-                    clockLabel(bedtime, symbol: "bed.double")
-                    Spacer()
-                    clockLabel(wakeTime, symbol: "sunrise")
-                }
-            }
-
-            HStack(alignment: .top, spacing: 24) {
-                deduction("On your phone", minutes: phoneMinutes, color: phoneColor, symbol: "iphone")
-                    .opacity(revealed >= 1 ? 1 : 0)
-                deduction("Falling asleep", minutes: onsetMinutes, color: SleepColor.muted, symbol: "moon")
-                    .opacity(revealed >= 2 ? 1 : 0)
-            }
-            Text("Based on your answers and \(onsetMinutes) minutes to fall asleep.")
-                .font(SleepFont.body(12))
-                .foregroundStyle(SleepColor.muted)
+            Text("After \(SleepFormatting.duration(phoneMinutes)) on your phone\nand \(onsetMinutes) minutes to fall asleep.")
+                .font(SleepFont.body(14))
+                .foregroundStyle(SleepColor.dim)
+                .lineSpacing(5)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
                 .opacity(revealed >= 3 ? 1 : 0)
@@ -868,9 +850,9 @@ struct SleepBreakdown: View {
                 Capsule().fill(SleepColor.ink.opacity(0.08)).frame(height: 6)
                 ZStack(alignment: .leading) {
                     // Exact widths: a zero-length segment occupies no space.
-                    Rectangle().fill(phoneColor)
+                    Rectangle().fill(awakeColor)
                         .frame(width: width * phoneFraction, height: 6)
-                    Rectangle().fill(SleepColor.muted.opacity(0.6))
+                    Rectangle().fill(awakeColor)
                         .frame(width: width * (sleepStart - phoneFraction), height: 6)
                         .offset(x: width * phoneFraction)
                     Rectangle()
@@ -883,40 +865,12 @@ struct SleepBreakdown: View {
                 .mask(alignment: .leading) {
                     Rectangle().frame(width: width * lineProgress)
                 }
-                if asleepMinutes > 0 {
-                    Circle()
-                        .fill(SleepColor.amber)
-                        .frame(width: 10, height: 10)
-                        .shadow(color: SleepColor.amber.opacity(0.65), radius: 8)
-                        .offset(x: width - 5)
-                        .opacity(revealed >= 3 ? 1 : 0)
-                }
             }
             .frame(width: width, height: geo.size.height)
             .padding(.horizontal, 6)
         }
     }
 
-    private func clockLabel(_ minutes: Int, symbol: String) -> some View {
-        Label(SleepFormatting.clock(minutes), systemImage: symbol)
-            .font(SleepFont.body(12))
-            .foregroundStyle(SleepColor.dim)
-    }
-
-    private func deduction(_ title: String, minutes: Int, color: Color, symbol: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label(title, systemImage: symbol)
-                .font(SleepFont.body(12))
-                .foregroundStyle(color)
-            Text(SleepFormatting.duration(minutes))
-                .font(SleepFont.title(20))
-                .foregroundStyle(SleepColor.ink)
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
 }
 
 // MARK: - The verdict

@@ -542,11 +542,14 @@ target can inject fakes without new hooks.
   phone clamp.
 
   `SleepBreakdown` in `OnboardingExperience.swift` draws the night on one
-  proportional line, with actual bedtime/wake labels passed by the sleep
-  step. Phone and settling segments reveal before the amber sleep segment;
+  proportional line. Phone and settling share one muted color and reveal
+  before the amber sleep segment;
   the large estimate lands last. Widths clamp to the available in-bed window
   so short windows never overflow or manufacture sleep. The supplied minute
-  values remain visible below the line. A cancellable `.task` owns the single
+  values form one short sentence below the line; time in bed sits beneath the
+  hero. The device-reviewed revision removes clocks, icons, separate columns,
+  and the extra footer to keep one compact focal group.
+  A cancellable `.task` owns the single
   reveal and final soft haptic; Reduce Motion/VoiceOver show the final state
   immediately. Continue is never blocked. Review via
   `-review-onboarding-step=sleep`; verify a short window, back/reentry, and
