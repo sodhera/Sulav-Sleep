@@ -555,16 +555,48 @@ heavy frosted glass.
 
 ## Typography
 
-Editorial neo-grotesk feel: generous spacing, light visual weight, highly
-readable, calm. We use native **San Francisco** (`.default` design) rather than
-bundling Inter — SF is Apple's own grotesk, keeps the app dependency-free, and
-reads as award-grade native. Weights stay light; `.semibold` is reserved for
-hero moments. Small-caps section labels use open `.tracking`.
+Editorial geometric sans: generous spacing, light visual weight, highly
+readable, calm. The app is set in **DM Sans** (SIL Open Font License — see
+`CREDITS.md`), bundled as its variable font. Weights stay light; the heaviest
+cut is reserved for hero moments. Small-caps section labels use open
+`.tracking`.
 
-- Hero (name, timer): `SleepFont.hero` — semibold.
-- Titles / values: `SleepFont.title` — medium.
-- Body: `SleepFont.body` — regular, ~1.5–1.6 line height for long copy.
-- Labels / caps: `SleepFont.label` — medium, tracked via `.sectionLabel()`.
+- Hero (name, timer): `SleepFont.hero` — weight 600.
+- Titles / values: `SleepFont.title` — weight 500.
+- Body: `SleepFont.body` — weight 400, ~1.5–1.6 line height for long copy.
+- Labels / caps: `SleepFont.label` — weight 500, tracked via `.sectionLabel()`.
+- The one italic (the phone slider's "Be honest.") uses `SleepFont.bodyItalic`
+  and the real italic cut, rather than letting the system shear the roman.
+
+Three things about the integration that are easy to get wrong:
+
+**Drive the optical size axis.** DM Sans ships `opsz` defaulting to **9**, so
+pulling it in with `Font.custom(_:size:)` renders the *text* cut at every
+size — noticeably loose and wide at a 52pt hero number. `SleepTypeface` maps
+`opsz` to the point size (clamped to the 9–40 the face defines), which is most
+of why the type looks right at the top of a screen and still reads at 12pt.
+The weight axis replaces what `.system(weight:)` used to do.
+
+**The PostScript names are not "DM Sans".** The family name carries the
+default optical size, so the roman registers as `DMSans-9ptRegular`. A wrong
+name here does not fail — `UIFont(descriptor:size:)` quietly returns San
+Francisco, which looks exactly like "the font change didn't apply". That is
+why `SleepTypeface.uiFont` verifies the family it got back, and why DEBUG
+launches assert `SleepTypeface.isAvailable`.
+
+**Bundle it in two targets.** The widget extension compiles `SleepTheme.swift`
+too, and an app extension has its own bundle — it does not inherit fonts the
+host registered. The roman is in both Copy Bundle Resources phases and both
+`UIAppFonts` arrays; the italic is app-only, since its single use is in
+onboarding.
+
+> Note on history: the app used native **San Francisco**, chosen to stay
+> dependency-free and read as award-grade native. DM Sans keeps the same
+> editorial register while giving the app a voice of its own — and its optical
+> size axis is genuinely useful for a product whose type runs from 52pt hero
+> figures down to 11pt tracked kickers. `Font(uiFont)` does not participate in
+> Dynamic Type, but neither did the fixed-size `.system(size:)` calls it
+> replaced, so nothing regressed — still worth fixing one day.
 
 ## Navigation & structure
 

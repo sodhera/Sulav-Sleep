@@ -43,6 +43,14 @@ class SleepAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCente
         // keys. See SleepTikTok.swift.
         SleepTikTok.start()
 #if DEBUG
+        // A missing or misnamed bundled typeface degrades silently to San
+        // Francisco, which looks exactly like "the font change didn't apply"
+        // and is very easy to ship. Fail loudly in development instead.
+        assert(
+            SleepTypeface.isAvailable,
+            "DM Sans failed to register — check UIAppFonts in Info.plist, the "
+            + "Copy Bundle Resources phase, and SleepTypeface's PostScript names."
+        )
         if ProcessInfo.processInfo.arguments.contains("-review-tiktok-events") {
             SleepTikTok.fireReviewEvents()
         }

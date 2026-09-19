@@ -90,34 +90,112 @@ enum SleepRadius {
 
 // MARK: - Typography
 //
-// Editorial neo-grotesk feel per the design brief: light visual weight, highly
-// readable, calm. We use the native San Francisco family (`.default` design)
-// rather than bundling Inter — SF is Apple's own grotesk and keeps the app
-// dependency-free and award-grade native. Weights stay light (regular/medium),
-// with `.semibold` reserved for hero moments. Open tracking is applied at call
-// sites via `.tracking(...)`.
+// **DM Sans** (SIL Open Font License — see `CREDITS.md`), bundled as its
+// variable font and driven on both of its axes.
+//
+// The weight axis replaces what `.system(weight:)` used to do. The **optical
+// size** axis is the part that matters and the part a naive integration
+// throws away: DM Sans ships with `opsz` defaulting to 9, so pulling it in
+// with `Font.custom(_:size:)` renders the *text* cut of the typeface at every
+// size — noticeably loose and wide at a 46pt hero number. Mapping `opsz` to
+// the point size gets the display cut where it belongs, which is most of why
+// the face looks right at the top of a screen and still reads at 12pt.
+//
+// Everything routes through `SleepFont`, so this is the single place the app's
+// type is decided; call sites are unchanged. `Font(uiFont)` does not
+// participate in Dynamic Type, but neither did the fixed-size `.system(size:)`
+// calls it replaces, so nothing regressed — it is still worth fixing one day.
+//
+// The font is bundled in **two** targets: the app and the widget extension,
+// which compiles this file too. An app extension has its own bundle and does
+// not inherit the host's registered fonts.
 
 enum SleepFont {
-    /// Hero moments: the greeting name, the sleep timer. Weight ~600.
-    static func hero(_ size: CGFloat) -> Font {
-        .system(size: size, weight: .semibold, design: .default)
-    }
+    /// Hero moments: the greeting name, the sleep timer.
+    static func hero(_ size: CGFloat) -> Font { dmSans(size, weight: 600) }
 
-    /// Section titles and prominent values. Weight ~500.
-    static func title(_ size: CGFloat) -> Font {
-        .system(size: size, weight: .medium, design: .default)
-    }
+    /// Section titles and prominent values.
+    static func title(_ size: CGFloat) -> Font { dmSans(size, weight: 500) }
 
-    /// Body copy. Weight 400.
-    static func body(_ size: CGFloat) -> Font {
-        .system(size: size, weight: .regular, design: .default)
-    }
+    /// Body copy.
+    static func body(_ size: CGFloat) -> Font { dmSans(size, weight: 400) }
 
-    /// Labels, buttons, small caps. Weight ~500.
-    static func label(_ size: CGFloat) -> Font {
-        .system(size: size, weight: .medium, design: .default)
+    /// Labels, buttons, small caps.
+    static func label(_ size: CGFloat) -> Font { dmSans(size, weight: 500) }
+
+    /// The one italic in the app (the phone slider's "Be honest."). Uses the
+    /// real italic cut rather than letting the system shear the roman.
+    static func bodyItalic(_ size: CGFloat) -> Font {
+        dmSans(size, weight: 400, italic: true)
     }
 }
+
+#if canImport(UIKit)
+/// Builds a DM Sans instance at a given weight and optical size.
+///
+/// Falls back to the system face if the bundle is missing the font or the
+/// descriptor fails, so a packaging mistake degrades to Apple's grotesk
+/// instead of crashing — but `SleepTypeface.isAvailable` exists so a build can
+/// *assert* the real thing loaded, because silent fallback looks exactly like
+/// "the font change didn't apply".
+private func dmSans(_ size: CGFloat, weight: CGFloat, italic: Bool = false) -> Font {
+    guard let uiFont = SleepTypeface.uiFont(size: size, weight: weight, italic: italic) else {
+        return .system(size: size, weight: systemWeight(weight), design: .default)
+    }
+    return Font(uiFont)
+}
+
+private func systemWeight(_ weight: CGFloat) -> Font.Weight {
+    switch weight {
+    case ..<450: .regular
+    case ..<550: .medium
+    case ..<650: .semibold
+    default: .bold
+    }
+}
+
+enum SleepTypeface {
+    /// PostScript names of the bundled variable fonts. These are *not*
+    /// "DM Sans" — the family name carries the default optical size, so the
+    /// roman registers as `DMSans-9ptRegular`. Getting this wrong is the
+    /// classic silent fallback to San Francisco.
+    static let roman = "DMSans-9ptRegular"
+    static let italic = "DMSans-9ptItalic"
+
+    /// Variation axis tags as their four-character codes.
+    private static let opszAxis: UInt32 = 0x6F70_737A   // 'opsz'
+    private static let wghtAxis: UInt32 = 0x7767_6874   // 'wght'
+
+    /// The `opsz` axis range DM Sans actually defines. Sizes outside it clamp.
+    private static let opticalRange: ClosedRange<CGFloat> = 9...40
+
+    static func uiFont(size: CGFloat, weight: CGFloat, italic: Bool) -> UIFont? {
+        let optical = min(max(size, opticalRange.lowerBound), opticalRange.upperBound)
+        let descriptor = UIFontDescriptor(fontAttributes: [
+            .name: italic ? Self.italic : roman,
+            UIFontDescriptor.AttributeName(rawValue: kCTFontVariationAttribute as String): [
+                opszAxis: optical,
+                wghtAxis: weight
+            ]
+        ])
+        let font = UIFont(descriptor: descriptor, size: size)
+        // UIFont(descriptor:size:) never returns nil: an unknown name yields
+        // the system face instead, which is the failure we actually care
+        // about catching.
+        return font.familyName.contains("DM Sans") ? font : nil
+    }
+
+    /// Whether the bundled typeface registered. Checked once at launch in
+    /// DEBUG so a packaging regression is loud rather than invisible.
+    static var isAvailable: Bool {
+        uiFont(size: 17, weight: 400, italic: false) != nil
+    }
+}
+#else
+private func dmSans(_ size: CGFloat, weight: CGFloat, italic: Bool = false) -> Font {
+    .system(size: size, weight: weight >= 550 ? .semibold : (weight >= 450 ? .medium : .regular))
+}
+#endif
 
 // MARK: - Tracking helpers
 

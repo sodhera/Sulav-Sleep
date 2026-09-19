@@ -8,6 +8,9 @@
 
 /* Begin PBXBuildFile section */
 		B017B017B017B017B0170003 /* attention-demo.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = B017B017B017B017B0170004; };
+		DAF0000000000000000F0011 /* DMSans.ttf in Resources */ = {isa = PBXBuildFile; fileRef = DAF0000000000000000F0001; };
+		DAF0000000000000000F0012 /* DMSans-Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = DAF0000000000000000F0002; };
+		DAF0000000000000000F0021 /* DMSans.ttf in Resources */ = {isa = PBXBuildFile; fileRef = DAF0000000000000000F0001; };
 		B017B017B017B017B0170001 /* OnboardingExperience.swift in Sources */ = {isa = PBXBuildFile; fileRef = B017B017B017B017B0170002; };
 		05AC2F4B7D3F4F3896894861 /* SleepModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 740A33B6E6D4861DF61CFBB1 /* SleepModels.swift */; };
 		09AFEF368C3AA0418E7EE898 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 314F2F155CF97AAF34DA0A4C /* HomeView.swift */; };
@@ -127,6 +130,8 @@
 
 /* Begin PBXFileReference section */
 		B017B017B017B017B0170004 /* attention-demo.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = SulavSleep/Resources/attention-demo.mp4; sourceTree = "<group>"; };
+		DAF0000000000000000F0001 /* DMSans.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = SulavSleep/Resources/Fonts/DMSans.ttf; sourceTree = "<group>"; };
+		DAF0000000000000000F0002 /* DMSans-Italic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = SulavSleep/Resources/Fonts/DMSans-Italic.ttf; sourceTree = "<group>"; };
 		B017B017B017B017B0170002 /* OnboardingExperience.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SulavSleep/OnboardingExperience.swift; sourceTree = "<group>"; };
 		116765E93C9E1F418AE0CB6A /* SleepIntents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SleepIntents.swift; path = SulavSleep/SleepIntents.swift; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* SulavSleep.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SulavSleep.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -241,6 +246,8 @@
 				9234E0E1693C0FC11F33BD3A /* OnboardingView.swift */,
 				B017B017B017B017B0170002 /* OnboardingExperience.swift */,
 				B017B017B017B017B0170004 /* attention-demo.mp4 */,
+				DAF0000000000000000F0001 /* DMSans.ttf */,
+				DAF0000000000000000F0002 /* DMSans-Italic.ttf */,
 				F0E16E05E315F1EE37C03F9C /* ProfileView.swift */,
 				EBB2CED1004A6A08D5A70F24 /* RootView.swift */,
 				9F4311BA03CAD3F576F79BFC /* SleepBackground.swift */,
@@ -552,6 +559,8 @@
 			files = (
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				B017B017B017B017B0170003 /* attention-demo.mp4 in Resources */,
+				DAF0000000000000000F0011 /* DMSans.ttf in Resources */,
+				DAF0000000000000000F0012 /* DMSans-Italic.ttf in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
 				83B718F7C4B4F234291D6F95 /* PrivacyInfo.xcprivacy in Resources */,
 			);
@@ -562,6 +571,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F400000000000000000000E2 /* WidgetAssets.xcassets in Resources */,
+				DAF0000000000000000F0021 /* DMSans.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
