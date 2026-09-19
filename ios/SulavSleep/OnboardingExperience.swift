@@ -11,9 +11,10 @@ import UIKit
 // reveal captions itself with the answer it came from, because a number
 // someone can't retrace is a number they can dismiss.
 //
-// Three reveals, in escalating order: a verdict the user can't argue with
-// (`SleepNeedBand`, sourced to the AASM), a cost they can feel
-// (`YearOfNightsGrid`), and a remedy that is theirs to choose (`NightGoalStep`).
+// The arc in four beats: a conclusion drawn from their own answers
+// (`SleepBreakdown`), a verdict delivered by position rather than phrasing
+// (`SleepNeedBand`), a cost they can feel (`YearOfNightsGrid`), and a remedy
+// that is theirs to choose (`NightGoalStep`).
 
 // MARK: - The stage
 
@@ -572,6 +573,15 @@ struct NightSlider: View {
 
     let range: ClosedRange<Int>
     var step: Int = 5
+    /// Response curve: `value = lo + (hi - lo) * position^curve`. 1 is linear.
+    ///
+    /// A linear 0–4h rail put a typical answer (~50 min) a fifth of the way
+    /// along, so the interesting part of the question — the difference
+    /// between twenty minutes and an hour — was squeezed into the left edge
+    /// while most of the travel served a handful of extreme answers. An
+    /// exponent spends the travel where the answers actually are and still
+    /// reaches the ceiling.
+    var curve: Double = 1
     /// Where a typical answer sits, if the question has one worth showing.
     var anchor: Int?
     var anchorLabel = "This is the average"
@@ -586,16 +596,22 @@ struct NightSlider: View {
     private let knob: CGFloat = 28
     private let trackHeight: CGFloat = 5
 
-    private var fraction: Double {
-        let span = Double(range.upperBound - range.lowerBound)
-        guard span > 0 else { return 0 }
-        return (Double(value) - Double(range.lowerBound)) / span
-    }
+    private var fraction: Double { fraction(of: value) }
 
+    /// Value → knob position.
     private func fraction(of raw: Int) -> Double {
         let span = Double(range.upperBound - range.lowerBound)
         guard span > 0 else { return 0 }
-        return (Double(raw) - Double(range.lowerBound)) / span
+        let t = (Double(raw) - Double(range.lowerBound)) / span
+        return curve == 1 ? t : pow(max(0, t), 1 / curve)
+    }
+
+    /// Knob position → value.
+    private func value(atFraction position: Double) -> Int {
+        let span = Double(range.upperBound - range.lowerBound)
+        let p = min(max(position, 0), 1)
+        let t = curve == 1 ? p : pow(p, curve)
+        return range.lowerBound + Int((t * span).rounded())
     }
 
     var body: some View {
@@ -683,8 +699,7 @@ struct NightSlider: View {
                     .onChanged { drag in
                         touched = true
                         let x = min(max(0, drag.location.x - knob / 2), travel)
-                        let span = Double(range.upperBound - range.lowerBound)
-                        set(range.lowerBound + Int((x / travel * span).rounded()))
+                        set(value(atFraction: x / travel))
                     }
             )
         }
@@ -735,15 +750,111 @@ private extension Int {
     }
 }
 
+// MARK: - The conclusion
+
+/// The night, shown as the subtraction that produced it.
+///
+/// This replaced a slider pre-filled with the same figure. Pre-filling our own
+/// arithmetic and then asking the user to confirm it invited them to argue
+/// with a number they had no better information about than we did — and it
+/// needed a paragraph of prose to explain where the number came from. Showing
+/// the working needs no prose at all: three lines the user recognises as their
+/// own answers, a rule, and the remainder.
+///
+/// It is also the flow's whole philosophy made literal. Every figure here is a
+/// unit conversion of something they typed, and this is the one screen where
+/// that is visible rather than merely true.
+struct SleepBreakdown: View {
+    let inBedMinutes: Int
+    let phoneMinutes: Int
+    let onsetMinutes: Int
+    let asleepMinutes: Int
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var revealed = 0
+
+    private var rows: [(label: String, value: Int, sign: String)] {
+        [
+            ("In bed", inBedMinutes, ""),
+            ("On your phone", phoneMinutes, "−"),
+            ("Falling asleep", onsetMinutes, "−")
+        ]
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: SleepSpacing.lg) {
+            ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
+                HStack(alignment: .firstTextBaseline) {
+                    Text(row.label)
+                        .font(SleepFont.body(16))
+                        .foregroundStyle(SleepColor.dim)
+                    Spacer(minLength: SleepSpacing.lg)
+                    Text(row.sign)
+                        .font(SleepFont.body(16))
+                        .foregroundStyle(SleepColor.muted)
+                    Text(SleepFormatting.duration(row.value))
+                        .font(SleepFont.title(18))
+                        .foregroundStyle(SleepColor.ink)
+                        .monospacedDigit()
+                }
+                .opacity(revealed > index ? 1 : 0)
+            }
+
+            Rectangle()
+                .fill(SleepColor.hairline)
+                .frame(height: 1)
+                .opacity(revealed > rows.count - 1 ? 1 : 0)
+
+            HStack(alignment: .firstTextBaseline) {
+                Text("Asleep")
+                    .font(SleepFont.body(16))
+                    .foregroundStyle(SleepColor.ink)
+                Spacer(minLength: SleepSpacing.lg)
+                Text(SleepFormatting.duration(asleepMinutes))
+                    .font(SleepFont.hero(34))
+                    .foregroundStyle(SleepColor.amber)
+                    .monospacedDigit()
+            }
+            .opacity(revealed > rows.count ? 1 : 0)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Your night")
+        .accessibilityValue(
+            "\(SleepFormatting.duration(inBedMinutes)) in bed, minus "
+            + "\(SleepFormatting.duration(phoneMinutes)) on your phone, minus "
+            + "\(SleepFormatting.duration(onsetMinutes)) falling asleep. "
+            + "\(SleepFormatting.duration(asleepMinutes)) asleep."
+        )
+        .task {
+            guard !reduceMotion else {
+                revealed = rows.count + 1
+                return
+            }
+            // Line by line, so the subtraction is watched rather than read.
+            for line in 1...(rows.count + 1) {
+                try? await Task.sleep(for: .milliseconds(line == 1 ? 260 : 420))
+                withAnimation(.easeOut(duration: 0.3)) { revealed = line }
+                Haptics.soft()
+            }
+            Haptics.rigid()
+        }
+    }
+}
+
 // MARK: - The verdict
 
 /// The recommended-sleep band with the user's own figure plotted against it.
 ///
-/// This step exists so the app never has to be the one calling the user's
-/// nights inadequate — the AASM band delivers the verdict and the app just
-/// draws it. That matters: DESIGN.md forbids shaming, and a sourced
-/// horizontal band is a mirror where "you don't sleep enough" is a scolding.
-/// Copy stays adjective-free for the same reason.
+/// The band delivers the verdict by *position* — the user's figure lands
+/// inside the lit range or outside it — so the app never has to phrase the
+/// judgement itself. DESIGN.md forbids shaming, and a horizontal band is a
+/// mirror where "you don't sleep enough" is a scolding. Copy stays
+/// adjective-free for the same reason, and the marker is amber rather than
+/// `danger` so colour adds no editorial the position hasn't earned.
+///
+/// The 7–9 hour range is the standard adult guidance. An earlier revision
+/// printed an attributing line under the band; it was cut as clutter on a
+/// screen whose whole job is one number against one range.
 struct SleepNeedBand: View {
     let sleepMinutes: Int
 
@@ -798,12 +909,6 @@ struct SleepNeedBand: View {
             }
             .frame(height: 118)
 
-            // The citation is the whole reason this screen isn't the app
-            // passing judgement, so it stays legible — which on the quiet
-            // stage needs no drop shadow.
-            Text("American Academy of Sleep Medicine")
-                .font(SleepFont.body(12))
-                .foregroundStyle(SleepColor.muted)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Recommended sleep for adults is 7 to 9 hours")

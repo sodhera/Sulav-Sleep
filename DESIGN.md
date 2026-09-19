@@ -169,7 +169,7 @@ position (never color alone) so the UI survives a red night-shift tint.
 The setup is **eleven beats**, alternating **ask** and **reveal**, then account
 creation for signed-out users:
 
-> in-bed time → wake time → phone-in-bed → *sleep calibration* → **the
+> in-bed time → wake time → phone-in-bed → *your night, totalled* → **the
 > recommendation band** → **the year of nights** → cause narrative + night
 > goal → the plan → name → the shield demo → **Hold to commit** → account
 
@@ -344,16 +344,34 @@ year in the hero number.
 - **"Get into bed", not "go to bed."** The gap between getting in and falling
   asleep *is* the phone time; the wording plants the question two screens
   early.
-- **The shortfall verdict is sourced, not spoken.** `SleepNeedBand` cites the
-  American Academy of Sleep Medicine and plots the user's figure against the
-  lit band. The app never calls someone's nights inadequate in its own voice —
-  see "What to avoid". For the same reason the marker is **amber, never
-  `danger`**: position outside the band carries the verdict, and a red mark
-  under it would be the app editorialising.
-- **Calibration hands a number back before asking for one.** The sleep step's
-  slider opens on the window arithmetic, so most people confirm with a tap and
-  the rest correct a starting point instead of inventing a third figure. It is
-  the beat where the app visibly demonstrates it was listening.
+- **The shortfall verdict is delivered by position, not by phrasing.**
+  `SleepNeedBand` plots the user's figure against the lit 7–9 hour range; it
+  lands inside or outside, and that is the judgement. The app never calls
+  someone's nights inadequate in its own voice — see "What to avoid". For the
+  same reason the marker is **amber, never `danger`**: a red mark would be
+  editorial that the position hasn't earned. An earlier revision printed an
+  attributing line under the band; it was cut as clutter on a screen whose
+  whole job is one number against one range.
+- **The fourth beat concludes rather than asks.** Everything about the user's
+  night is already implied by the three answers behind it, so the step shows
+  its working — in bed, minus phone, minus falling asleep, a rule, the
+  remainder — and says nothing else. It is the beat where the app visibly
+  demonstrates it was listening, and the one screen where the flow's
+  arithmetic is *visible* rather than merely true.
+
+  > Note on history: this was a slider pre-filled with our own arithmetic for
+  > the user to confirm. Two things were wrong with it. Pre-filling a figure
+  > and then asking for agreement invites the user to argue with a number they
+  > have no better information about than we do; and it needed a paragraph of
+  > prose to explain where the figure came from. Showing the subtraction needs
+  > no prose at all.
+
+- **A live consequence belongs under its control, not under the question.**
+  The wake step's "That's 8 hours in bed" sits directly beneath the wheel.
+  Under the title it read as part of the prompt, and the user had to look away
+  from the thing they were turning to watch their own number change.
+  `QuestionLayout` carries a `readout` slot for this, separate from
+  `subtitle`.
 - **Cause and choice share one beat.** The narrative naming the phone resolves
   into the goal question on the same step, because a separate goal screen
   re-asks for attention the story has already won.
@@ -393,6 +411,25 @@ anchor pip, and one soft haptic per step. Hand-built rather than SwiftUI's
 `Slider` — the fill, the pip, the numeric roll and the per-step tick are all
 unreachable through the stock control, and the tick is most of what makes the
 answer feel deliberate rather than dragged.
+
+**The rail opens on a typical answer, and that answer sits at the centre of
+the travel.** Both took work. The default is `typicalPhoneMinutes` (50) with
+the anchor pip directly above it, because a rail that starts at one end reads
+as "drag me somewhere" and says nothing about where normal is. And because the
+starting value is now a real proposition rather than an unset control, the
+step no longer demands a `touched` before Continue — requiring one would force
+anyone whose answer *is* typical to drag away and back to prove they meant it.
+
+Centring the average needed a **response curve**, not a smaller range: on a
+linear 0–4h rail a 50-minute answer sat a fifth of the way along, so the part
+of the question that actually varies — twenty minutes versus an hour — was
+squeezed into the left edge while most of the rail served answers almost
+nobody gives. `NightSlider.curve` maps `value = lo + (hi − lo) · position^k`;
+at k = 1.85 over 0–3h, 50 minutes lands at 50% of travel. The ceiling came
+down 4h → 3h in the same pass (`SleepDebt.phoneCeiling` still clamps at 4h, so
+historical answers stay valid). The curve costs a small dead zone — the first
+~10% of travel all snaps to zero — which reads as a detent on zero and is the
+price of spending the rail where the answers are.
 
 The rail is **bare** — no glass panel. An earlier revision put the rail and
 its end labels on a glass stage, because a 5pt rail and 13pt labels vanished

@@ -336,10 +336,11 @@ struct OnboardingQuestionsView: View {
     // Answers.
     @State private var inBed = 22 * 60 + 30
     @State private var wakeTime = 6 * 60 + 30
-    @State private var phoneMinutes = 45
+    /// Opens on a typical answer rather than at zero: a rail that starts at
+    /// one end reads as "drag me somewhere" with no sense of where normal is,
+    /// and the anchor pip is right there saying what normal looks like.
+    @State private var phoneMinutes = OnboardingQuestionsView.typicalPhoneMinutes
     @State private var phoneTouched = false
-    @State private var sleepMinutes = 0
-    @State private var sleepTouched = false
     @State private var goal: SleepGoal?
     @State private var name = ""
 
@@ -377,12 +378,24 @@ struct OnboardingQuestionsView: View {
             _name = State(initialValue: "Sulav")
             _phoneMinutes = State(initialValue: 60)
             _phoneTouched = State(initialValue: true)
-            _sleepMinutes = State(initialValue: 6 * 60 + 45)
-            _sleepTouched = State(initialValue: true)
             _goal = State(initialValue: .lessPhoneAtNight)
         }
 #endif
     }
+
+    // MARK: The phone rail
+    //
+    // A typical hour in bed on a phone, and the rail that collects it. The
+    // curve is chosen so `typicalPhoneMinutes` lands at the *centre* of the
+    // travel: on a linear 0-4h rail a typical answer sat a fifth of the way
+    // along, which squeezed the part of the question that actually varies —
+    // twenty minutes versus an hour — into the left edge, and spent most of
+    // the rail on answers almost nobody gives. The ceiling came down 4h → 3h
+    // in the same pass; `SleepDebt.phoneCeiling` still clamps at 4h, so
+    // historical answers stay valid.
+    static let typicalPhoneMinutes = 50
+    static let phoneSliderMax = 180
+    static let phoneSliderCurve = 1.85
 
     /// The arc: your schedule → what the phone takes → what that costs →
     /// what you'd fix → the plan → who you are → what it looks like → commit.
@@ -396,8 +409,6 @@ struct OnboardingQuestionsView: View {
         var wakeTime: Int
         var phoneMinutes: Int
         var phoneTouched: Bool
-        var sleepMinutes: Int
-        var sleepTouched: Bool
         var goal: SleepGoal?
         var name: String
     }
@@ -432,11 +443,10 @@ struct OnboardingQuestionsView: View {
         SleepDebt.derivedSleepMinutes(inBed: inBed, wake: wakeTime, phone: phoneMinutes)
     }
 
-    /// The sleep figure the reveals use: the user's correction if they made
-    /// one, otherwise what the window arithmetic produced.
-    private var effectiveSleep: Int {
-        sleepTouched ? sleepMinutes : derivedSleep
-    }
+    /// The sleep figure every reveal reads off. Purely derived — the
+    /// calibration step presents this rather than asking the user to confirm
+    /// it, so there is no override to honour.
+    private var effectiveSleep: Int { derivedSleep }
 
     private var phoneNights: Int {
         SleepDebt.phoneNightsPerYear(phone: phoneMinutes)
@@ -500,8 +510,6 @@ struct OnboardingQuestionsView: View {
         .onChange(of: wakeTime) { _, _ in saveDraft() }
         .onChange(of: phoneMinutes) { _, _ in saveDraft() }
         .onChange(of: phoneTouched) { _, _ in saveDraft() }
-        .onChange(of: sleepMinutes) { _, _ in saveDraft() }
-        .onChange(of: sleepTouched) { _, _ in saveDraft() }
         .onChange(of: name) { _, _ in saveDraft() }
         .onChange(of: goal) { _, next in
             saveDraft()
@@ -576,7 +584,7 @@ struct OnboardingQuestionsView: View {
         case .wake:
             QuestionLayout(
                 title: "And what time do you need to be up?",
-                subtitle: "That's \(Self.spokenDuration(windowMinutes)) in bed."
+                readout: "That's \(Self.spokenDuration(windowMinutes)) in bed."
             ) {
                 TimeAdjuster(minutes: $wakeTime)
             }
@@ -586,37 +594,31 @@ struct OnboardingQuestionsView: View {
                 NightSlider(
                     value: $phoneMinutes,
                     touched: $phoneTouched,
-                    range: 0...SleepDebt.phoneCeiling,
+                    range: 0...Self.phoneSliderMax,
                     step: 5,
-                    anchor: 50,
+                    curve: Self.phoneSliderCurve,
+                    anchor: Self.typicalPhoneMinutes,
                     lowLabel: "None",
-                    highLabel: "4 hrs",
+                    highLabel: "3+ hrs",
                     caption: "Be honest.",
-                    format: { $0 >= SleepDebt.phoneCeiling ? "4+" : "\($0)" },
-                    unit: phoneMinutes >= SleepDebt.phoneCeiling ? "hours" : "minutes"
+                    format: { $0 >= Self.phoneSliderMax ? "3+" : "\($0)" },
+                    unit: phoneMinutes >= Self.phoneSliderMax ? "hours" : "minutes"
                 )
             }
 
         case .sleep:
-            // The one step that hands a number back before asking anything:
-            // the slider opens on the window arithmetic, so most people
-            // confirm with a tap and the rest correct a starting point
-            // instead of inventing a third figure.
-            QuestionLayout(
-                title: "So you're actually asleep for about this long.",
-                subtitle: "Your \(Self.spokenDuration(windowMinutes)) in bed, minus your phone, minus dropping off. Drag it if that's wrong."
-            ) {
-                NightSlider(
-                    value: $sleepMinutes,
-                    touched: $sleepTouched,
-                    range: (3 * 60)...(11 * 60),
-                    step: 15,
-                    anchor: nil,
-                    lowLabel: "3 hrs",
-                    highLabel: "11 hrs",
-                    caption: nil,
-                    format: { SleepFormatting.duration($0) },
-                    unit: "a night"
+            // No longer an ask. Everything on this screen is already implied
+            // by the three answers behind it, so asking again would be
+            // theatre — and a slider pre-filled with our own arithmetic
+            // invited the user to argue with a number they had no better
+            // information about than we did. It shows its working instead:
+            // the subtraction is the point, and it needs no prose.
+            QuestionLayout(title: "So here's your night.") {
+                SleepBreakdown(
+                    inBedMinutes: windowMinutes,
+                    phoneMinutes: phoneMinutes,
+                    onsetMinutes: SleepDebt.onsetMinutes,
+                    asleepMinutes: effectiveSleep
                 )
             }
 
@@ -793,10 +795,11 @@ struct OnboardingQuestionsView: View {
 
     private var isStepValid: Bool {
         switch step {
-        // A slider that ships with a plausible default would otherwise
-        // accept that default as an answer, and this figure drives every
-        // number downstream.
-        case .phone: phoneTouched && phoneMinutes > 0
+        // The rail opens on a typical answer with the anchor pip beside it,
+        // so the starting value is a real proposition rather than an
+        // unset control — and requiring a touch would force anyone whose
+        // answer *is* typical to drag away and back to prove they meant it.
+        case .phone: phoneMinutes > 0
         case .story: goalReady && goal != nil
         case .plan: narrativeReady
         case .grid: gridReady
@@ -813,12 +816,6 @@ struct OnboardingQuestionsView: View {
         let nextIndex = currentIndex + 1
         guard nextIndex < steps.count else { return }
         let next = steps[nextIndex]
-
-        // Seed the calibration slider from the window arithmetic the moment
-        // we arrive, unless the user has already corrected it.
-        if next == .sleep, !sleepTouched {
-            sleepMinutes = derivedSleep
-        }
 
         if step == .name {
             // Let the keyboard start dismissing before the slide so the two
@@ -881,7 +878,6 @@ struct OnboardingQuestionsView: View {
         let draft = Draft(
             step: step, inBed: inBed, wakeTime: wakeTime,
             phoneMinutes: phoneMinutes, phoneTouched: phoneTouched,
-            sleepMinutes: sleepMinutes, sleepTouched: sleepTouched,
             goal: goal, name: name
         )
         if let data = try? JSONEncoder().encode(draft) {
@@ -905,8 +901,6 @@ struct OnboardingQuestionsView: View {
             wakeTime = draft.wakeTime
             phoneMinutes = draft.phoneMinutes
             phoneTouched = draft.phoneTouched
-            sleepMinutes = draft.sleepMinutes
-            sleepTouched = draft.sleepTouched
             goal = draft.goal
             name = draft.name
             // Reveal steps replay on resume; the account step still requires
@@ -914,7 +908,7 @@ struct OnboardingQuestionsView: View {
             // a restored draft that skipped the phone question would leave
             // every downstream figure derived from a default.
             step = steps.contains(draft.step) ? draft.step : .inBed
-            if !phoneTouched || phoneMinutes <= 0 {
+            if phoneMinutes <= 0 {
                 if currentIndex > 2 { step = .phone }
             } else if currentIndex > 6 && goal == nil {
                 step = .story
@@ -938,6 +932,14 @@ struct OnboardingQuestionsView: View {
 private struct QuestionLayout<Content: View>: View {
     let title: String
     var subtitle: String?
+    /// A live consequence of the control below it — "That's 8 hours in bed."
+    ///
+    /// Separate from `subtitle` because it belongs to the *answer*, not the
+    /// question. Sat under the title it read as part of the prompt and the
+    /// user had to look away from the wheel they were turning to see their
+    /// own number change; directly beneath the control, the cause and its
+    /// effect are in one glance.
+    var readout: String?
     @ViewBuilder var content: Content
 
     var body: some View {
@@ -952,13 +954,22 @@ private struct QuestionLayout<Content: View>: View {
                         .font(SleepFont.body(15))
                         .foregroundStyle(SleepColor.ink.opacity(0.88))
                         .lineSpacing(4)
-                        .contentTransition(.numericText())
                 }
             }
 
             Spacer(minLength: SleepSpacing.lg)
 
-            content
+            VStack(spacing: SleepSpacing.xl) {
+                content
+                if let readout {
+                    Text(readout)
+                        .font(SleepFont.body(16))
+                        .foregroundStyle(SleepColor.dim)
+                        .contentTransition(.numericText())
+                        .animation(.snappy(duration: 0.2), value: readout)
+                        .frame(maxWidth: .infinity)
+                }
+            }
 
             Spacer(minLength: SleepSpacing.lg)
         }
