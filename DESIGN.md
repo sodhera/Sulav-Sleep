@@ -524,13 +524,47 @@ Steps that animate a figure keep their button **present but inert** until the
 reveal lands — faded to 35%, never absent — so the user can always see where
 they are going next.
 
-Text chapters reveal letter by letter with stable word positions (the complete
-sentence occupies its final lines from the start, unrendered letters
-transparent, so words never jump), alternating ink and gold starting with ink,
-in groups of at most two lines. Chapter state lives in the *parent* step, not
-inside the narrative view, because the one button drives it. Reduce Motion and
-VoiceOver expose complete text immediately; every animated reveal gates its
-button on a `ready` flag.
+**Sentences arrive one at a time and the ones before them fall back.** The
+line being typed is full size in `ink`; every line already said shrinks and
+drops to `muted`, so the stack reads as a conversation with the newest thing
+at the front.
+
+> Note on history: an earlier version laid all of a page's lines out at once
+> and typed through them in sequence, alternating ink and gold. That made
+> colour mean *position in the page* rather than *what you are reading now*,
+> and gave every line equal weight however long ago it had been said.
+
+Letters still reveal with stable word positions — the complete sentence
+occupies its final lines from the start with unrendered letters transparent,
+so words never jump. A tap anywhere completes the reveal, deliberately
+**unlabelled**: a "Tap to speed up" hint was tried and cut, because a line of
+chrome telling you to hurry past the writing undercuts the writing.
+
+The **Continue button is absent**, not dimmed, until the reveal lands. While
+the text is still arriving there is nothing to press, and a greyed-out button
+only invites pressing it; its space stays reserved so nothing jumps. Chapter
+state lives in the *parent* step, not inside the narrative view, because the
+one button drives it. Reduce Motion and VoiceOver expose complete text
+immediately; every animated reveal gates its button on a `ready` flag.
+
+### Getting the narrative haptics felt
+
+Haptics tick on **word boundaries** with a four-character floor, and each
+sentence lands on a firmer `rigid` — roughly 3.5 taps a second while typing,
+then a distinguishable landing.
+
+Two extremes preceded that and both failed. Every *fourth character* ran ~4.6
+a second at 38ms a character: fast enough to blur into a buzz and to be
+coalesced by the Taptic Engine. One tap per *finished sentence* was the
+over-correction — two `.soft` taps four seconds apart, both after the words
+had stopped moving, and `.soft` is the faintest style there is, so the page
+read as having no haptics at all. A word is the unit a reader perceives; the
+floor stops short words ("it has", "of your") machine-gunning.
+
+The reveal also calls `Haptics.prepare()` before its first tap. The generators
+idle after a couple of seconds, and a cold `UIImpactFeedbackGenerator` fires
+weakly or not at all — which is why the *first* tap on a page went unfelt
+regardless of rate. Anything here that fires after a pause should prepare.
 
 The demo page is titled with the user's own bedtime — "This is what 10:30 PM
 looks like now." — and answered with **That's what I want**. It remains a
