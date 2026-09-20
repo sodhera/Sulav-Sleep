@@ -354,7 +354,27 @@ struct ScreenTimePrimerView: View {
         // convenience modifier supplies that chrome and we lose it here.
         .sheet(isPresented: $showPicker) {
             NavigationStack {
-                FamilyActivityPicker(selection: $selection)
+                // `headerText` is the sanctioned way to put guidance inside
+                // the picker — Apple renders it above the list, so it is the
+                // first thing read when the sheet opens.
+                //
+                // **It names the apps rather than showing their icons, and it
+                // has to.** Family Controls is built so an app can never learn
+                // what is installed: `ApplicationToken` is opaque and has no
+                // public initialiser from a bundle identifier, so there is no
+                // way to obtain a token — and therefore no icon — for an app
+                // the user has not already chosen. `Label(ApplicationToken)`
+                // *does* render the real name and icon, but only for a token
+                // we already hold, which by definition excludes every app we
+                // might want to recommend. Bundling the real logos would be
+                // the only alternative: third-party trademarks, and still not
+                // tappable, since a drawn logo cannot produce a token either.
+                // Names are what the user types into the picker's own search
+                // field anyway.
+                FamilyActivityPicker(
+                    headerText: "Most people lock Instagram, TikTok, YouTube and Snapchat.",
+                    selection: $selection
+                )
                     .navigationTitle("Choose apps")
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {

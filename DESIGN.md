@@ -1804,6 +1804,23 @@ app's own voice — a gold confirmation tick, **"Now choose what to lock"**,
 "Pick the apps that keep you up. They stay locked from your bedtime until you
 wake.", then **Choose apps** with a quiet **Not now** beneath it.
 
+The picker carries a **`headerText`** naming the usual suspects — "Most
+people lock Instagram, TikTok, YouTube and Snapchat." — which Apple renders
+above the list, so it is the first thing read when the sheet opens.
+
+**It names the apps rather than showing their icons, and it has to.** Family
+Controls is built so an app can never learn what is installed:
+`ApplicationToken` is opaque and has no public initialiser from a bundle
+identifier, so there is no way to obtain a token — and therefore no icon — for
+an app the user has not already chosen. `Label(ApplicationToken)` *does*
+render the real name and icon, but only for a token we already hold, which by
+definition excludes every app we might want to recommend. Bundling the real
+logos is the only alternative, and it buys third-party trademarks in the UI
+for something still not tappable, since a drawn logo cannot produce a token
+either. Names are what the user types into the picker's own search field
+anyway. (The blocking demo's TikTok mark is a deliberate stylised
+approximation for the same reason.)
+
 The picker is presented as a **half-sheet** (`.medium`, draggable to
 `.large`), not full screen. Full screen made choosing apps feel like leaving
 setup for somewhere else; at `.medium` the flow stays visible behind it and
