@@ -298,10 +298,14 @@ year in the hero number.
 
 ### Ordering, and why
 
-- **No text field first.** A keyboard is the highest-friction input there is
-  and step one is where the most people leave. The name is asked ninth, where
-  it reads as warmth and has a visible job (Home's greeting, and the
-  commitment question addresses the user by name).
+- **The name is asked first.** It sat ninth at one point, on the argument
+  that a keyboard is the highest-friction input there is and step one is
+  where the most people leave. Reversed: a flow that opens by asking who you
+  are reads as a conversation from the first screen, and the gate already
+  pre-warms the keyboard on the way in (`Keyboard.prewarm` exists precisely
+  because the name step autofocuses), so the cold-start cost that argument
+  rested on is already paid. The answer still has its downstream jobs —
+  Home's greeting, and the commitment question addressing the user by name.
 - **"Get into bed", not "go to bed."** The gap between getting in and falling
   asleep *is* the phone time; the wording plants the question two screens
   early.
