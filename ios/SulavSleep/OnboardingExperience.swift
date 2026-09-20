@@ -615,7 +615,7 @@ struct NightSlider: View {
     }
 
     var body: some View {
-        VStack(spacing: SleepSpacing.xxxl) {
+        VStack(spacing: SleepSpacing.huge) {
             VStack(spacing: 2) {
                 Text(format(value))
                     .font(SleepFont.hero(52))
@@ -634,13 +634,7 @@ struct NightSlider: View {
             // (`OnboardingStage`) it was a floating container around nothing.
             VStack(spacing: SleepSpacing.md) {
                 track
-                HStack {
-                    Text(lowLabel)
-                    Spacer()
-                    Text(highLabel)
-                }
-                .font(SleepFont.body(13))
-                .foregroundStyle(SleepColor.muted)
+                scaleLabels
             }
 
             if let caption {
@@ -660,6 +654,43 @@ struct NightSlider: View {
             @unknown default: break
             }
         }
+    }
+
+    /// Low, high — and the anchor named in the same row, under its pip.
+    ///
+    /// The anchor used to be a floating bubble above the knob. It sat in the
+    /// gap between the hero number and the rail, which is the gap that was
+    /// giving the control room to breathe, so the whole thing read as
+    /// crammed: three stacked text elements and then a rail, with no air
+    /// anywhere. And at the default value the knob is *at* the anchor, so the
+    /// bubble landed directly under the unit label.
+    ///
+    /// This row already existed and its middle was empty. Putting the label
+    /// there costs no vertical space at all and removes a floating element.
+    private var scaleLabels: some View {
+        GeometryReader { geo in
+            let travel = max(1, geo.size.width - knob)
+            ZStack(alignment: .topLeading) {
+                HStack {
+                    Text(lowLabel)
+                    Spacer()
+                    Text(highLabel)
+                }
+                .frame(width: geo.size.width)
+
+                if let anchor, range.contains(anchor) {
+                    Text(anchorLabel)
+                        .foregroundStyle(SleepColor.gold)
+                        .fixedSize()
+                        .frame(width: 0, alignment: .center)
+                        .offset(x: travel * fraction(of: anchor) + knob / 2)
+                        .accessibilityHidden(true)
+                }
+            }
+        }
+        .frame(height: 18)
+        .font(SleepFont.body(13))
+        .foregroundStyle(SleepColor.muted)
     }
 
     private var track: some View {
@@ -705,29 +736,19 @@ struct NightSlider: View {
         .frame(height: 44)
     }
 
-    /// The social anchor. Deliberately **not** `danger`: in this palette red
-    /// means a destructive action, and colouring "what's typical" as an alarm
-    /// turns a reference mark into a judgement — which is the shaming
-    /// DESIGN.md rules out. Gold is the palette's highlight, and the navy
-    /// bubble gives it contrast without borrowing urgency it hasn't earned.
+    /// The social anchor: a gold pip on the rail, named in the scale row
+    /// below it. Deliberately **not** `danger` — in this palette red means a
+    /// destructive action, and colouring "what's typical" as an alarm turns a
+    /// reference mark into a judgement, which is the shaming DESIGN.md rules
+    /// out. Gold is the palette's highlight.
     private func anchorPip(travel: CGFloat, anchor: Int) -> some View {
-        VStack(spacing: 5) {
-            Text(anchorLabel)
-                .font(SleepFont.label(10))
-                .foregroundStyle(SleepColor.gold)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(SleepColor.navy, in: Capsule())
-                .overlay(Capsule().stroke(SleepColor.gold.opacity(0.35), lineWidth: 1))
-                .fixedSize()
-            Circle()
-                .fill(SleepColor.gold)
-                .frame(width: 5, height: 5)
-        }
-        .offset(x: travel * fraction(of: anchor) + knob / 2, y: -34)
-        // The bubble is centred on its pip, so it must not push layout.
-        .frame(width: 0, alignment: .center)
-        .accessibilityHidden(true)
+        Circle()
+            .fill(SleepColor.gold)
+            .frame(width: 5, height: 5)
+            .offset(x: travel * fraction(of: anchor) + knob / 2, y: -15)
+            // Centred on its pip, so it must not push layout.
+            .frame(width: 0, alignment: .center)
+            .accessibilityHidden(true)
     }
 
     /// Snaps to the step grid and ticks only when the value genuinely moves,

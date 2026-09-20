@@ -428,7 +428,19 @@ nothing, and it went with the scene. The same applies to the 365-cell grid,
 which also lost its glass ground, and to the navy drop shadows that were
 holding captions off the buildings.
 
-The anchor pip is **navy + gold, never `danger`**. In this palette red means a
+The anchor is a small **gold pip on the rail, named in the scale row below
+it** — the row that already carried the endpoint labels and had an empty
+middle, so the label costs no vertical space at all.
+
+It used to be a floating bubble above the knob, and that was what made the
+step feel crammed: the bubble sat in the gap between the hero number and the
+rail, which is precisely the gap giving the control room to breathe, so the
+screen read as three stacked text elements and then a rail with no air
+anywhere. Worse, at the default value the knob *is* the anchor, so the bubble
+landed directly under the unit label. Nothing about the spacing was wrong — a
+floating element was eating it.
+
+The pip is **gold, never `danger`**. In this palette red means a
 destructive action, so colouring "what's typical" as an alarm turns a
 reference mark into a judgement.
 

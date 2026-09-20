@@ -598,6 +598,7 @@ struct OnboardingQuestionsView: View {
                     step: 5,
                     curve: Self.phoneSliderCurve,
                     anchor: Self.typicalPhoneMinutes,
+                    anchorLabel: "average",
                     lowLabel: "None",
                     highLabel: "3+ hrs",
                     caption: "Be honest.",
