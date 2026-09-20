@@ -810,7 +810,10 @@ struct SleepNightStrip: View {
     @State private var sweep: Double = 0
     @State private var conclusionIn = false
 
-    private static let stripHeight: CGFloat = 16
+    /// Taller and square-ended, because this is a **quantity**, not a scale:
+    /// every pixel of it is the user's night. The recommendation band on the
+    /// next step is deliberately the opposite shape — see `SleepNeedBand`.
+    private static let stripHeight: CGFloat = 20
 
     private var phoneFraction: Double {
         Double(min(max(phoneMinutes, 0), max(inBedMinutes, 1))) / Double(max(inBedMinutes, 1))
@@ -909,7 +912,10 @@ struct SleepNightStrip: View {
             }
         }
         .frame(height: Self.stripHeight)
-        .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+        // Square ends, near enough: a capsule would round off the very
+        // minutes the strip is measuring, and rounded ends read as "a
+        // continuum" where this is "all of it, edge to edge".
+        .clipShape(RoundedRectangle(cornerRadius: 2, style: .continuous))
     }
 
     private var clocks: some View {
@@ -972,18 +978,25 @@ struct SleepNeedBand: View {
                 let hi = fraction(SleepDebt.recommendedRange.upperBound)
 
                 ZStack(alignment: .topLeading) {
+                    // A thin axis, not a bar. The night strip on the previous
+                    // step is a part-to-whole where every pixel is the user's
+                    // own night; this is a *scale*, and most of it is not
+                    // their data at all. At matching weights the two read as
+                    // one inconsistent instrument, and worse, this one
+                    // invites being read as another part-to-whole. Thin
+                    // recedes; the lit range and the marker advance.
                     Capsule()
                         .fill(SleepColor.ink.opacity(0.10))
-                        .frame(height: 14)
-                        .offset(y: 30)
+                        .frame(height: 8)
+                        .offset(y: 33)
 
                     Capsule()
                         .fill(LinearGradient(
                             colors: [SleepColor.gold, SleepColor.amber],
                             startPoint: .leading, endPoint: .trailing
                         ))
-                        .frame(width: bandLit ? width * (hi - lo) : 0, height: 14)
-                        .offset(x: width * lo, y: 30)
+                        .frame(width: bandLit ? width * (hi - lo) : 0, height: 8)
+                        .offset(x: width * lo, y: 33)
 
                     Text("7–9 HOURS")
                         .font(SleepFont.label(11))
@@ -1041,7 +1054,7 @@ struct SleepNeedBand: View {
         VStack(spacing: 5) {
             Capsule()
                 .fill(SleepColor.ink)
-                .frame(width: 2.5, height: 24)
+                .frame(width: 2.5, height: 22)
                 .shadow(color: .black.opacity(0.55), radius: 3)
             Text(SleepFormatting.duration(sleepMinutes))
                 .font(SleepFont.label(14))
@@ -1049,7 +1062,7 @@ struct SleepNeedBand: View {
                 .fixedSize()
         }
         .frame(width: 0, alignment: .center)
-        .offset(x: width * fraction(sleepMinutes), y: 25)
+        .offset(x: width * fraction(sleepMinutes), y: 26)
         .opacity(markerIn ? 1 : 0)
         .scaleEffect(markerIn ? 1 : 0.7, anchor: .top)
     }

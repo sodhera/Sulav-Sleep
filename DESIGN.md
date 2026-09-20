@@ -360,6 +360,32 @@ year in the hero number.
 - Setup requests **no permissions** and selects no real apps. Screen Time stays
   post-paywall.
 
+### Two bars, deliberately unlike
+
+Setup shows a horizontal bar on two consecutive steps, and they are **not** the
+same shape on purpose — the answer to "should these match?" is that they should
+be pushed further apart, not closer together.
+
+| | `SleepNightStrip` (step 4) | `SleepNeedBand` (step 5) |
+| --- | --- | --- |
+| What it is | a **part-to-whole** | a **scale** |
+| Every pixel is… | the user's own night | an axis from 4h to 10h |
+| Height | 20pt | 8pt track |
+| Ends | square (r2) | capsule |
+| Reads as | "all of it, edge to edge" | "a continuum, with a range on it" |
+
+They were 16pt square-ish and 14pt capsule — close enough to look like an
+inconsistency, different enough not to read as a system, which is the worst
+of both. The real cost was meaning, not tidiness: at matching weights the
+second bar invites being read as another part-to-whole ("my night is… 4 to 10
+hours?"), when most of it is not the user's data at all. Thin recedes so the
+lit range and the marker advance; the marker crosses the axis, which only
+works on a track thin enough to cross.
+
+Rounded ends on the strip would also round off the very minutes it is
+measuring. The rule generalises: **a quantity gets square ends, an axis gets
+round ones.**
+
 ### The year of nights
 
 The centrepiece: 365 cells on a glass stage, with the nights the user spends
