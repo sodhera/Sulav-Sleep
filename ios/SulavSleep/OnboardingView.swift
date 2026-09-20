@@ -345,6 +345,7 @@ struct OnboardingQuestionsView: View {
     @State private var name = ""
 
     // Reveal gates: the steps that animate own their own Continue.
+    @State private var previewReady = false
     @State private var gridReady = false
     @State private var narrativeReady = false
     @State private var goalReady = false
@@ -674,7 +675,9 @@ struct OnboardingQuestionsView: View {
             }
 
         case .preview:
-            BlockingPreviewStep(inBedClock: SleepFormatting.clock(inBed))
+            QuestionLayout(title: "This is what \(SleepFormatting.clock(inBed)) looks like now.") {
+                BlockingPreviewStep(ready: $previewReady)
+            }
 
         case .commit:
             // The fingerprint *is* this step, so it lives in the content
@@ -781,7 +784,9 @@ struct OnboardingQuestionsView: View {
             revealGatedButton("Take them back", ready: gridReady, action: advance)
 
         case .preview:
-            LiquidPrimaryButton(title: "That's what I want", action: advance)
+            // Held back until the shield has actually resolved: agreeing to
+            // something you have not been shown yet is not agreement.
+            revealGatedButton("That's what I want", ready: previewReady, action: advance)
 
         default:
             LiquidPrimaryButton(title: "Continue", action: advance)
@@ -890,6 +895,7 @@ struct OnboardingQuestionsView: View {
         narrativeReady = false
         goalReady = false
         gridReady = false
+        previewReady = false
         storyChapter = 0
     }
 

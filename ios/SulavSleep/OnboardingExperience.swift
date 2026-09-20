@@ -1708,26 +1708,50 @@ struct CommitmentHoldButton: View {
 
 // MARK: - The demo
 
+/// The phone showing the shield. The title and the surrounding rhythm belong
+/// to `QuestionLayout` like every other step, so this draws only the device —
+/// an earlier version owned its own left-aligned heading and let the handset
+/// grow to 490pt, which on a 14 Pro left the art pressed against both the
+/// title above and the button below with nothing between them.
 struct BlockingPreviewStep: View {
-    let inBedClock: String
+    /// Set once the shield has actually landed; the caller gates Continue on
+    /// it, so nobody can agree to something they have not been shown.
+    @Binding var ready: Bool
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// When the shield resolves. Measured, not guessed: it lands at 3.5s in
+    /// `attention-demo.mp4` and at 3.45s in the `IPhoneBlockingDemo` fallback,
+    /// which was built to mirror the recording. Gating here means the button
+    /// arrives on the payoff rather than on an arbitrary timer.
+    private static let shieldLands: Duration = .milliseconds(3_500)
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("This is what \(inBedClock) looks like now.")
-                .font(SleepFont.title(28)).foregroundStyle(SleepColor.ink)
-                .fixedSize(horizontal: false, vertical: true)
-            GeometryReader { geo in
-                let height = min(geo.size.height, 490.0)
-                BlockingDemoPlayback()
-                    .frame(width: height * 0.47, height: height)
-                    .clipShape(RoundedRectangle(cornerRadius: height * 0.065))
-                    .padding(5)
-                    .background(.black, in: RoundedRectangle(cornerRadius: height * 0.075))
-                    .overlay(RoundedRectangle(cornerRadius: height * 0.075).stroke(.white.opacity(0.3), lineWidth: 1))
-                    .shadow(color: .black.opacity(0.5), radius: 20, y: 10)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+        GeometryReader { geo in
+            let height = min(geo.size.height, 400.0)
+            BlockingDemoPlayback()
+                .frame(width: height * 0.47, height: height)
+                .clipShape(RoundedRectangle(cornerRadius: height * 0.065))
+                .padding(5)
+                .background(.black, in: RoundedRectangle(cornerRadius: height * 0.075))
+                .overlay(RoundedRectangle(cornerRadius: height * 0.075).stroke(.white.opacity(0.3), lineWidth: 1))
+                .shadow(color: .black.opacity(0.5), radius: 20, y: 10)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .frame(height: 400)
+        .task {
+            ready = false
+            // Reduce Motion shows the shield immediately, so there is nothing
+            // to wait for — holding the button back would be a delay with no
+            // content behind it.
+            guard !reduceMotion else {
+                ready = true
+                return
             }
-        }.padding(.bottom, 18)
+            try? await Task.sleep(for: Self.shieldLands)
+            Haptics.rigid()
+            ready = true
+        }
     }
 }
 

@@ -567,7 +567,19 @@ weakly or not at all — which is why the *first* tap on a page went unfelt
 regardless of rate. Anything here that fires after a pause should prepare.
 
 The demo page is titled with the user's own bedtime — "This is what 10:30 PM
-looks like now." — and answered with **That's what I want**. It remains a
+looks like now." — and answered with **That's what I want**, which stays
+**absent until the shield has actually resolved**: agreeing to something you
+have not been shown yet is not agreement. The wait is measured, not guessed —
+the shield lands at 3.5s in `attention-demo.mp4` and 3.45s in the
+`IPhoneBlockingDemo` fallback built to mirror it — so the button arrives on
+the payoff rather than on an arbitrary timer, with a `rigid` to mark it.
+Reduce Motion shows the shield immediately and so unlocks immediately; a delay
+with no content behind it is just a delay.
+
+The step uses `QuestionLayout` like every other one, and the handset is capped
+at 400pt. It previously owned a left-aligned heading of its own and let the
+art grow to 490pt, which on a 14 Pro pressed it against both the title above
+and the button below with nothing between them. It remains a
 simulator recreation and is never presented as evidence of granted Screen Time
 permissions; real selection happens in the post-paywall primer.
 
