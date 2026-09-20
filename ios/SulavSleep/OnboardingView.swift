@@ -369,16 +369,29 @@ struct OnboardingQuestionsView: View {
         _includesAccount = State(initialValue: !store.isAuthenticated)
 #if DEBUG
         // QA entry points. `-review-onboarding-step=<raw>` lands on any step
-        // with plausible answers already filled in, so a reveal can be
-        // screenshotted without playing the whole flow.
+        // with the answers from the steps *before* it filled in, so a reveal
+        // can be screenshotted without playing the whole flow.
+        //
+        // Crucially it does **not** fill in the answer the reviewed step
+        // itself collects. Pre-filling that meant the route could never show
+        // a step's real initial state — an unselected goal list, an empty
+        // name field, a disabled Continue — which is exactly the state most
+        // worth reviewing, and it reads as a bug when you land on it.
         let arguments = ProcessInfo.processInfo.arguments
         if let flag = arguments.first(where: { $0.hasPrefix("-review-onboarding-step=") }),
            let reviewStep = Step(rawValue: String(flag.dropFirst("-review-onboarding-step=".count))) {
             _step = State(initialValue: reviewStep)
-            _name = State(initialValue: "Sulav")
-            _phoneMinutes = State(initialValue: 60)
-            _phoneTouched = State(initialValue: true)
-            _goal = State(initialValue: .lessPhoneAtNight)
+            func isPast(_ collecting: Step) -> Bool {
+                guard let a = Step.reviewOrder.firstIndex(of: collecting),
+                      let b = Step.reviewOrder.firstIndex(of: reviewStep) else { return false }
+                return a < b
+            }
+            if isPast(.phone) {
+                _phoneMinutes = State(initialValue: 60)
+                _phoneTouched = State(initialValue: true)
+            }
+            if isPast(.story) { _goal = State(initialValue: .lessPhoneAtNight) }
+            if isPast(.name) { _name = State(initialValue: "Sulav") }
         }
 #endif
     }
@@ -401,6 +414,14 @@ struct OnboardingQuestionsView: View {
     /// what you'd fix → the plan → who you are → what it looks like → commit.
     private enum Step: String, Codable {
         case inBed, wake, phone, sleep, need, grid, story, plan, name, preview, commit, account
+
+        /// The full order, for the DEBUG review route to reason about which
+        /// answers precede a given step. Kept separate from `steps`, which is
+        /// an instance property and varies with `includesAccount`.
+        static let reviewOrder: [Step] = [
+            .inBed, .wake, .phone, .sleep, .need, .grid,
+            .story, .plan, .name, .preview, .commit, .account
+        ]
     }
 
     private struct Draft: Codable {
