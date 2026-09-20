@@ -322,7 +322,7 @@ struct OnboardingQuestionsView: View {
     var onProgress: ((Double) -> Void)?
     let onDone: (OnboardingAnswers) -> Void
 
-    @State private var step: Step = .inBed
+    @State private var step: Step = .name
     @State private var draftRestored = false
     /// Whether this run may write a draft at all. Off for the DEBUG review
     /// routes: `draftRestored` alone can't gate writes, because that flag
@@ -419,8 +419,8 @@ struct OnboardingQuestionsView: View {
         /// answers precede a given step. Kept separate from `steps`, which is
         /// an instance property and varies with `includesAccount`.
         static let reviewOrder: [Step] = [
-            .inBed, .wake, .phone, .sleep, .need, .grid,
-            .story, .plan, .name, .preview, .commit, .account
+            .name, .inBed, .wake, .phone, .sleep, .need, .grid,
+            .story, .plan, .preview, .commit, .account
         ]
     }
 
@@ -441,7 +441,7 @@ struct OnboardingQuestionsView: View {
 
     private var steps: [Step] {
         var result: [Step] = [
-            .inBed, .wake, .phone, .sleep, .need, .grid, .story, .plan, .name, .preview, .commit
+            .name, .inBed, .wake, .phone, .sleep, .need, .grid, .story, .plan, .preview, .commit
         ]
         if includesAccount { result.append(.account) }
         return result
@@ -669,7 +669,7 @@ struct OnboardingQuestionsView: View {
             ], ready: $narrativeReady)
 
         case .name:
-            QuestionLayout(title: "What should we call you in the morning?") {
+            QuestionLayout(title: "What should we call you?") {
                 NameField(name: $name, onSubmit: advance)
             }
 
@@ -757,10 +757,12 @@ struct OnboardingQuestionsView: View {
     /// retired slide-to-continue capsule is discussed above
     /// `CommitmentHoldButton`.
     ///
-    /// Steps that animate a figure keep their button *present but inert*
-    /// until the reveal lands — faded, never absent. A control that
-    /// materialises out of nothing when a page finishes typing reads as a
-    /// glitch, and it hides where the user is meant to go next.
+    /// Steps that animate keep their button **absent** until the reveal
+    /// lands, matching the reference this flow is measured against: while the
+    /// text is still arriving there is nothing to press, so offering a
+    /// greyed-out button only invites pressing it. Its space is still
+    /// reserved, so nothing jumps when it fades in, and the narrative pages
+    /// carry a "Tap to speed up" hint so the wait is always skippable.
     @ViewBuilder
     private var actions: some View {
         switch step {
@@ -795,8 +797,8 @@ struct OnboardingQuestionsView: View {
     ) -> some View {
         LiquidPrimaryButton(title: title, action: action)
             .disabled(!ready)
-            .opacity(ready ? 1 : 0.35)
-            .animation(.easeInOut(duration: 0.3), value: ready)
+            .opacity(ready ? 1 : 0)
+            .animation(.easeInOut(duration: 0.35), value: ready)
     }
 
     /// Turns a narrative page, or hands the step over to the goal question
@@ -926,12 +928,12 @@ struct OnboardingQuestionsView: View {
             // a restored draft that skipped the phone question would leave
             // every downstream figure derived from a default.
             step = steps.contains(draft.step) ? draft.step : .inBed
-            if phoneMinutes <= 0 {
-                if currentIndex > 2 { step = .phone }
-            } else if currentIndex > 6 && goal == nil {
-                step = .story
-            } else if currentIndex > 8 && name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 step = .name
+            } else if phoneMinutes <= 0, currentIndex > 3 {
+                step = .phone
+            } else if currentIndex > 7, goal == nil {
+                step = .story
             }
         }
         draftRestored = true

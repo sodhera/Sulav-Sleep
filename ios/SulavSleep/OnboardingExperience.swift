@@ -1246,51 +1246,121 @@ struct YearOfNightsGrid: View {
 
 // MARK: - Narrative
 
-/// Text reveals are cancellable and read as complete sentences to VoiceOver.
+/// Sentences arrive one at a time and the ones before them fall back.
+///
+/// The line being typed is full size in `ink`; every line already said shrinks
+/// slightly and drops to `muted`, so the stack reads as a conversation with
+/// the newest thing at the front. An earlier version laid all of a page's
+/// lines out at once and typed through them in sequence, alternating white and
+/// gold — which made colour mean *position in the page* rather than *what you
+/// are reading now*, and gave every line equal weight however long ago it had
+/// been said.
+///
+/// Because the page takes its time, it also takes a tap: anywhere on it
+/// completes the reveal immediately. That is deliberately **unlabelled** —
+/// a "Tap to speed up" hint was tried and cut, because a line of chrome
+/// telling you to hurry past the writing undercuts the writing. The gesture
+/// stays for anyone who reaches for it; nobody is told to.
 struct NarrativePage: View {
     let lines: [String]
     @Binding var ready: Bool
+
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
-    @State private var visible = 0
 
-    private var count: Int { lines.reduce(0) { $0 + $1.count } }
+    /// Which line is currently typing. Lines past this one are not on screen.
+    @State private var current = 0
+    /// Characters shown of the current line.
+    @State private var shown = 0
+    @State private var skipped = false
+
+    private var isSingle: Bool { lines.count == 1 }
+
     var body: some View {
-        narrativeLines
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        stack
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        .contentShape(Rectangle())
+        .onTapGesture { skip() }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(lines.joined(separator: " "))
         .task(id: lines) {
-            visible = 0
+            current = 0
+            shown = 0
+            skipped = false
             ready = false
-            if reduceMotion || voiceOver { visible = count; ready = true; return }
+            // VoiceOver reads the element whole, and Reduce Motion should not
+            // be made to sit through a reveal it cannot see.
+            if reduceMotion || voiceOver {
+                finish()
+                return
+            }
             do {
-                let boundaries = lines.indices.map { lines.prefix($0 + 1).reduce(0) { $0 + $1.count } }
-                try await Task.sleep(for: .milliseconds(450))
-                for index in 1...max(1, count) {
+                try await Task.sleep(for: .milliseconds(420))
+                for index in lines.indices {
                     try Task.checkCancellation()
-                    visible = index
-                    if index % 4 == 0 { Haptics.soft() }
-                    try await Task.sleep(for: .milliseconds(boundaries.contains(index) ? 650 : 38))
+                    if skipped { break }
+                    if index > 0 {
+                        withAnimation(.spring(response: 0.42, dampingFraction: 0.8)) {
+                            current = index
+                        }
+                        shown = 0
+                        try await Task.sleep(for: .milliseconds(180))
+                    }
+                    for character in 1...max(1, lines[index].count) {
+                        try Task.checkCancellation()
+                        if skipped { break }
+                        shown = character
+                        try await Task.sleep(for: .milliseconds(38))
+                    }
+                    if skipped { break }
+                    // One tick per sentence, not one per few characters. At
+                    // 38ms a character the old every-fourth-character tap ran
+                    // ~4.6 times a second, which is fast enough to blur into
+                    // a buzz and to be coalesced by the Taptic Engine. A
+                    // haptic here should mark that a thought landed.
+                    Haptics.soft()
+                    try await Task.sleep(for: .milliseconds(380))
                 }
-                ready = true
+                if !skipped { finish() }
             } catch { /* Navigation cancels the reveal. */ }
         }
     }
 
-    /// Both halves participate in layout, so a word never jumps to a new line
-    /// when its final character arrives. Only its ink changes during reveal.
-    private var narrativeLines: some View {
-        VStack(alignment: .center, spacing: 22) {
-            ForEach(lines.indices, id: \.self) { index in
-                let start = lines.prefix(index).reduce(0) { $0 + $1.count }
-                let shown = max(0, min(lines[index].count, visible - start))
-                let line = lines[index]
-                let color = index.isMultiple(of: 2) ? SleepColor.ink : SleepColor.gold
-                RevealingSentence(line: line, shown: shown, color: UIColor(color), fontSize: lines.count == 1 ? 28 : 23)
-                    .frame(maxWidth: .infinity)
-                    .accessibilityLabel(line)
+    private var stack: some View {
+        VStack(spacing: 20) {
+            ForEach(lines.indices.filter { $0 <= current }, id: \.self) { index in
+                let isCurrent = index == current
+                RevealingSentence(
+                    line: lines[index],
+                    shown: isCurrent ? shown : lines[index].count,
+                    color: UIColor(isCurrent ? SleepColor.ink : SleepColor.muted),
+                    fontSize: isSingle ? 28 : 23
+                )
+                .frame(maxWidth: .infinity)
+                .scaleEffect(isCurrent ? 1 : 0.9)
+                .opacity(isCurrent ? 1 : 0.75)
+                .transition(.asymmetric(
+                    insertion: .opacity.combined(with: .offset(y: 14)),
+                    removal: .opacity
+                ))
             }
         }
-        .padding(.vertical, 20)
+        .animation(.spring(response: 0.42, dampingFraction: 0.8), value: current)
+    }
+
+    private func skip() {
+        guard !ready else { return }
+        skipped = true
+        Haptics.soft()
+        finish()
+    }
+
+    private func finish() {
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+            current = max(0, lines.count - 1)
+        }
+        shown = lines.isEmpty ? 0 : lines[max(0, lines.count - 1)].count
+        ready = true
     }
 }
 
