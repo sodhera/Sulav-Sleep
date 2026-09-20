@@ -1804,6 +1804,26 @@ app's own voice — a gold confirmation tick, **"Now choose what to lock"**,
 "Pick the apps that keep you up. They stay locked from your bedtime until you
 wake.", then **Choose apps** with a quiet **Not now** beneath it.
 
+Phase two's centrepiece is a **real screenshot of the picker**
+(`PickerPreview`), cropped to a span that opens and closes on a ticked row —
+Instagram, TikTok and Snapchat checked, four unchecked rows between them. It
+is the sibling of phase one's `MockPermissionDialog` and serves the same
+purpose (show the system UI so it is recognised on sight), but it is a
+captured image rather than a rebuild.
+
+That choice is deliberate and was made the other way first. A SwiftUI
+recreation has to *invent* marks for Instagram and TikTok, which looks cheaper
+**and** is the worse trademark position: a fabricated tile standing in for
+someone's logo is a use of their brand, where a screenshot is incidental
+depiction of iOS. The repo already had the precedent — `attention-demo.mp4` is
+a bundled simulator recording behind the blocking demo. When a captured asset
+will do, capture it.
+
+Two cropping details worth keeping: the span must begin and end on a *ticked*
+row, or the picture stops being about the action; and the crop has to clear
+the picker's floating search bar, whose blur reaches ~30px above its solid
+edge and otherwise leaves a stray rounded corner at the foot of the card.
+
 The picker carries a **`headerText`** naming the usual suspects — "Most
 people lock Instagram, TikTok, YouTube and Snapchat." — which Apple renders
 above the list, so it is the first thing read when the sheet opens.

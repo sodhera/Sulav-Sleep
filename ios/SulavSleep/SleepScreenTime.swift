@@ -459,25 +459,46 @@ struct ScreenTimePrimerView: View {
         VStack(spacing: 0) {
             Spacer()
 
-            VStack(spacing: SleepSpacing.lg) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 44, weight: .light))
-                    .foregroundStyle(SleepColor.gold)
-
-                VStack(spacing: SleepSpacing.sm) {
-                    Text("Now choose what to lock")
-                        .font(SleepFont.title(28))
-                        .foregroundStyle(SleepColor.ink)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text("Pick the apps that keep you up. They stay locked from your bedtime until you wake.")
-                        .font(SleepFont.body(15))
-                        .foregroundStyle(SleepColor.dim)
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(4)
-                }
+            VStack(alignment: .leading, spacing: SleepSpacing.sm) {
+                Text("Now choose what to lock")
+                    .font(SleepFont.title(28))
+                    .foregroundStyle(SleepColor.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("Pick the apps that keep you up. They stay locked from your bedtime until you wake.")
+                    .font(SleepFont.body(15))
+                    .foregroundStyle(SleepColor.dim)
+                    .lineSpacing(4)
             }
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Spacer()
+
+            // A real screenshot of the picker, cropped to a span that opens
+            // and closes on a ticked row.
+            //
+            // The sibling of `MockPermissionDialog` on the phase before it,
+            // and the same idea — show the system UI so it is recognised on
+            // sight — but shipped as a captured image rather than rebuilt in
+            // SwiftUI. A hand-drawn version would have had to invent marks
+            // for Instagram and TikTok, which looks cheaper *and* is a worse
+            // trademark position than incidental depiction of iOS in a
+            // screenshot. Precedent: `attention-demo.mp4`, the bundled
+            // simulator recording behind the blocking demo.
+            //
+            // Illustrative, not a live view: the rows are whatever was
+            // installed on the capture device, not the user's own apps.
+            Image("PickerPreview")
+                .resizable()
+                .scaledToFit()
+                .clipShape(RoundedRectangle(cornerRadius: SleepRadius.md, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: SleepRadius.md, style: .continuous)
+                        .stroke(SleepColor.border, lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(0.45), radius: 18, y: 8)
+                .accessibilityLabel(
+                    "A preview of the app list, with Instagram, TikTok and Snapchat ticked"
+                )
 
             Spacer()
 
