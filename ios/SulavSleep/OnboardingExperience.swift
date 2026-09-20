@@ -1295,7 +1295,13 @@ struct NarrativePage: View {
                 return
             }
             do {
+                // Warm the generators before the first tap. They idle after a
+                // couple of seconds, and a cold `UIImpactFeedbackGenerator`
+                // fires weakly or not at all — which is most of why the first
+                // haptic on a page went unfelt.
+                Haptics.prepare()
                 try await Task.sleep(for: .milliseconds(420))
+
                 for index in lines.indices {
                     try Task.checkCancellation()
                     if skipped { break }
@@ -1306,19 +1312,41 @@ struct NarrativePage: View {
                         shown = 0
                         try await Task.sleep(for: .milliseconds(180))
                     }
-                    for character in 1...max(1, lines[index].count) {
+
+                    let characters = Array(lines[index])
+                    var sinceTick = 0
+                    for character in 1...max(1, characters.count) {
                         try Task.checkCancellation()
                         if skipped { break }
                         shown = character
+                        sinceTick += 1
+
+                        // Tick on **word boundaries**, so the text is felt as
+                        // it arrives rather than only when it lands.
+                        //
+                        // Two failed extremes preceded this. Every fourth
+                        // character ran ~4.6 times a second, fast enough to
+                        // blur into a buzz. One tap per finished sentence was
+                        // the over-correction: two `.soft` taps four seconds
+                        // apart, both after the words had stopped moving, and
+                        // `.soft` is the faintest style there is — nothing to
+                        // feel while reading.
+                        //
+                        // A word is the unit a reader actually perceives, and
+                        // the floor keeps short words ("it has", "of your")
+                        // from machine-gunning.
+                        let isBoundary = character < characters.count
+                            && characters[character - 1] == " "
+                        if isBoundary, sinceTick >= 4 {
+                            sinceTick = 0
+                            Haptics.tick(intensity: 0.34)
+                        }
                         try await Task.sleep(for: .milliseconds(38))
                     }
                     if skipped { break }
-                    // One tick per sentence, not one per few characters. At
-                    // 38ms a character the old every-fourth-character tap ran
-                    // ~4.6 times a second, which is fast enough to blur into
-                    // a buzz and to be coalesced by the Taptic Engine. A
-                    // haptic here should mark that a thought landed.
-                    Haptics.soft()
+                    // The sentence landing is firmer than the words inside
+                    // it, so the two are distinguishable through a pocket.
+                    Haptics.rigid()
                     try await Task.sleep(for: .milliseconds(380))
                 }
                 if !skipped { finish() }
