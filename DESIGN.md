@@ -1477,7 +1477,10 @@ The rule is worth stating plainly because it decides every future
 question of this shape: *everything the app shows is free, everything it
 does is the subscription.* The lock lives on `SleepStore.isLocked`, with
 `startSleep()` itself carrying a final guard so no future caller can route
-around it.
+around it. **Pairing a sleep partner** is the second thing on that side of
+the line (see "Sleep partner & referral" → "Locked"): the partners screen
+still shows everything, and only the two code buttons give way to the
+paywall.
 
 Nothing is greyed out. Sleep Now keeps its own name, its moon, and its full
 amber weight for a locked user, because a disabled button answers no
@@ -1617,9 +1620,9 @@ connect at all. Now:
   nights, you bank a free month when they subscribe. Transactional, no
   relationship, no data shared. You'd post it anywhere.
 - **Sleep partner** is a mutual, ongoing relationship: you each see the
-  other's streak and schedule. Built by sending someone a **partner invite
-  link**, unrelated to any code, available to anyone regardless of
-  subscription. Multiple partners, capped at 10.
+  other's streak and schedule. Built by trading a **pairing code**,
+  unrelated to the referral code. Multiple partners, capped at 10.
+  **Pairing is a subscriber action** — see "Locked" below.
 
 The intents are orthogonal — refer a coworker without sharing your sleep;
 partner with a friend who already pays, no free month in play — so they
@@ -1701,6 +1704,25 @@ top-trailing so it never disturbs the centered instrument). It opens
   `sheet(isPresented:)` — SwiftUI honors only one and still *builds* the
   other's content, which fired the code mint before anyone asked for a code.
 - **Empty state** — "Sleep better together", the accountability pitch.
+- **Locked** — for a user outside the subscription the two code buttons
+  collapse into one amber **Unlock SleepBlock** (`moon.stars.fill`, the
+  Settings row's glyph) under a single dim line, "Pairing with a friend
+  comes with the subscription", and the pitch's second line names the
+  lock too. Everything above is untouched: the explainer reads in full,
+  and a lapsed subscriber still sees their existing partners and can
+  still unlink. That is the app's one paywall rule applied literally
+  (see "Paywall") — pairing *writes* a partnership and then streams two
+  people's nights at each other, so it is a doing, not a showing. Nothing
+  is greyed out: the button is live, says what it costs, and leads to the
+  plans. Because the sheet and the paywall's `fullScreenCover` hang off
+  the same host, the button routes through
+  `store.presentPaywallOverPartners()`, which drops the sheet first and
+  raises the cover after its dismissal.
+
+  A `sleepblock://partner/<token>` link tapped by a locked user lands on
+  this same screen with a one-shot line rather than being spent —
+  "Sleep partners is part of SleepBlock. Unlock it and open this invite
+  again." — so the invite survives the subscribe.
 
 **No permanent per-user ID.** A fixed, guessable handle would force back
 the accept/decline step this design deleted, and it can't be taken back

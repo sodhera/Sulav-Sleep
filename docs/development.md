@@ -115,7 +115,11 @@ xcrun simctl launch booted com.sulav.sleepblock -review-partner many
 
 Variants: `many` (Maya/Jordan/Sam with summary numbers, the default),
 `one` (a single partner — the case the expiry headline and ending nudge
-name by name).
+name by name), and `locked` (no partners plus a forced `.notEntitled`
+entitlement — the paywalled state, where the two code buttons collapse
+into **Unlock SleepBlock**). `locked` needs a signed-in, onboarded
+account on the simulator: `isLocked` is false until both are true, so on
+a signed-out sim the arg stages nothing to look at.
 
 The arg also dismisses the first-run paywall and raises the sheet on
 launch: dev builds have no RevenueCat entitlement, so `needsPaywall` owns

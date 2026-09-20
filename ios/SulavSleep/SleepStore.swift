@@ -153,7 +153,16 @@ final class SleepStore {
         // `-review-partner one|many` (default many).
         if let index = ProcessInfo.processInfo.arguments.firstIndex(of: "-review-partner") {
             let variant = ProcessInfo.processInfo.arguments.dropFirst(index + 1).first ?? "many"
-            partners = variant == "one" ? [Self.samplePartner] : Self.samplePartners
+            // `locked` stages the paywalled screen — no partners, since the
+            // state worth looking at is the one a not-yet-subscribed user
+            // meets. The entitlement itself is forced in
+            // `startSubscriptionTracking`, the only place dev mode can be
+            // overridden.
+            switch variant {
+            case "one": partners = [Self.samplePartner]
+            case "locked": partners = []
+            default: partners = Self.samplePartners
+            }
             myReferralCode = "SLPX7K"
             // Dev builds have no RevenueCat entitlement, so the first-run
             // paywall owns the route and the partners screen is unreachable.
@@ -533,6 +542,20 @@ final class SleepStore {
         return true
     }
 
+    /// The paywall, raised from *inside* the Sleep Partners sheet. A
+    /// `fullScreenCover` and that sheet hang off the same host view, so the
+    /// cover cannot come up while the sheet is still on screen — the sheet
+    /// goes down first, and the paywall follows once its dismissal animation
+    /// has finished.
+    @MainActor
+    func presentPaywallOverPartners() {
+        showPartners = false
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(350))
+            self?.showPaywall = true
+        }
+    }
+
     /// The *voluntary* entrance — Settings rows for someone who isn't locked
     /// right now (referral nights running) but wants to subscribe anyway.
     /// Unconditional on purpose; the callers gate on `entitlement`.
@@ -584,6 +607,12 @@ final class SleepStore {
             // and hide every referral surface. See the init block.
             if ProcessInfo.processInfo.arguments.contains("-review-referral-nudge")
                 || ProcessInfo.processInfo.arguments.contains("-review-referral-expiry") {
+                entitlement = .notEntitled
+            }
+            // `-review-partner locked` does the same for the Sleep Partners
+            // screen's paywalled state.
+            if let i = ProcessInfo.processInfo.arguments.firstIndex(of: "-review-partner"),
+               ProcessInfo.processInfo.arguments.dropFirst(i + 1).first == "locked" {
                 entitlement = .notEntitled
             }
 #endif
@@ -853,6 +882,16 @@ final class SleepStore {
     func handlePartnerInviteToken(_ token: String) {
         guard isAuthenticated else {
             pendingPartnerToken = token
+            return
+        }
+        // Pairing is a subscriber action (see `isLocked` and DESIGN.md
+        // "Paywall" → "Sleep partners"). A locked user still lands on the
+        // partners screen — it explains itself and offers the way in — but
+        // the token is not spent, so the invite survives for after they
+        // subscribe.
+        guard !isLocked else {
+            partnerInviteMessage = "Sleep partners is part of SleepBlock. Unlock it and open this invite again."
+            showPartners = true
             return
         }
         Task { @MainActor [weak self] in

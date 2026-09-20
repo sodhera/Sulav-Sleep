@@ -147,7 +147,11 @@ struct SleepPartnersScreen: View {
                 Text("Sleep better together")
                     .font(SleepFont.title(16))
                     .foregroundStyle(SleepColor.ink)
-                Text("See each other's streak and schedule.")
+                Text(
+                    store.isLocked
+                        ? "See each other's streak and schedule — part of SleepBlock."
+                        : "See each other's streak and schedule."
+                )
                     .font(SleepFont.body(13))
                     .foregroundStyle(SleepColor.dim)
                     .fixedSize(horizontal: false, vertical: true)
@@ -168,13 +172,38 @@ struct SleepPartnersScreen: View {
     /// Links already in the wild still work — `AppDelegate` still routes
     /// `sleepblock://partner/<token>` and the accept path is untouched — the
     /// app just stops minting new ones.
+    ///
+    /// For a locked user both codes collapse into the one thing they can
+    /// actually do. Pairing is a *doing* — it writes a partnership, and from
+    /// then on two accounts stream each other's nights — so it sits on the
+    /// subscriber side of the app's one paywall rule (DESIGN.md "Paywall":
+    /// everything the app shows is free, everything it does is the
+    /// subscription). The screen above the buttons is untouched: the pitch,
+    /// and any partners from a lapsed subscription, still read in full.
+    /// Nothing is greyed out — the button is live, says what it costs to get
+    /// past, and leads there.
+    @ViewBuilder
     private var actions: some View {
-        VStack(spacing: SleepSpacing.md) {
-            LiquidPrimaryButton(title: codeButtonTitle, systemImage: "person.badge.plus") {
-                activeSheet = .showCode
+        if store.isLocked {
+            VStack(spacing: SleepSpacing.md) {
+                LiquidPrimaryButton(title: "Unlock SleepBlock", systemImage: "moon.stars.fill") {
+                    Haptics.heavy()
+                    store.presentPaywallOverPartners()
+                }
+                Text("Pairing with a friend comes with the subscription.")
+                    .font(SleepFont.body(13))
+                    .foregroundStyle(SleepColor.dim)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
             }
-            LiquidSecondaryButton(title: "Enter a friend's code", systemImage: "character.cursor.ibeam") {
-                activeSheet = .enterCode
+        } else {
+            VStack(spacing: SleepSpacing.md) {
+                LiquidPrimaryButton(title: codeButtonTitle, systemImage: "person.badge.plus") {
+                    activeSheet = .showCode
+                }
+                LiquidSecondaryButton(title: "Enter a friend's code", systemImage: "character.cursor.ibeam") {
+                    activeSheet = .enterCode
+                }
             }
         }
     }
