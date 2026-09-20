@@ -307,20 +307,97 @@ extension SleepStore {
 /// the system app picker, so blocking is actually armed — authorization alone
 /// shields nothing.
 ///
+/// **Two asks, not one.** Granting Screen Time and choosing what to block are
+/// different decisions, and running them together meant the system app picker
+/// simply appeared over the primer the instant permission landed — no screen
+/// ever explained what the list was for, or that anything still needed doing.
+/// The permission phase ends at the system dialog; a second phase then asks
+/// for the apps in the app's own voice before the picker opens.
+///
+/// The picker itself is a **half-sheet**. Full screen made choosing apps feel
+/// like leaving setup for somewhere else; at `.medium` the flow stays visible
+/// behind it and the choice reads as one step of setup rather than a
+/// departure. It can still be dragged up to `.large` for a long list.
+///
 /// One-shot per install, never per account: the seen-marker lives in the app
 /// container (`SleepPersistence.screenTimePrimerSeen`), so deleting the app
 /// and signing back in — which silently drops the authorization — primes
 /// again, while normal launches never re-show it. It completes on grant,
-/// deny, *or* skip: nobody gets trapped at a gate, and the Blocked apps
-/// screen remains the always-available fixup path.
+/// deny, *or* skip at either phase: nobody gets trapped at a gate, and the
+/// Blocked apps screen remains the always-available fixup path.
 struct ScreenTimePrimerView: View {
     var store: SleepStore
 
+    /// Which of the two asks is on screen.
+    private enum Phase { case permission, chooseApps }
+
+    @State private var phase: Phase = .permission
     @State private var isRequesting = false
     @State private var showPicker = false
     @State private var selection = FamilyActivitySelection()
 
     var body: some View {
+        Group {
+            switch phase {
+            case .permission: permissionPhase
+            case .chooseApps: chooseAppsPhase
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: phase)
+        .padding(.horizontal, SleepSpacing.xxl)
+        .padding(.bottom, SleepSpacing.xxl)
+        .safeAreaPadding(.top)
+        .safeAreaPadding(.bottom)
+        // Presented by hand rather than with `.familyActivityPicker`, which
+        // is full-screen only. Wrapped in a NavigationStack because a bare
+        // `FamilyActivityPicker` in our own sheet has no Done button — the
+        // convenience modifier supplies that chrome and we lose it here.
+        .sheet(isPresented: $showPicker) {
+            NavigationStack {
+                FamilyActivityPicker(selection: $selection)
+                    .navigationTitle("Choose apps")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { showPicker = false }
+                        }
+                    }
+            }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
+        .onAppear {
+            SleepAnalytics.record("screen_time_primer_viewed", screen: "screen_time_primer")
+#if DEBUG
+            // Family Controls cannot grant on the Simulator, so the second
+            // phase is unreachable there by playing the flow. This lands on
+            // it directly, the way the onboarding review routes do.
+            if ProcessInfo.processInfo.arguments.contains("-review-screentime-apps") {
+                phase = .chooseApps
+            }
+#endif
+        }
+        .onChange(of: selection) { _, newValue in
+            if let data = SleepScreenTime.encodeSelection(newValue) {
+                store.saveAppSelection(data)
+                if !newValue.applicationTokens.isEmpty || !newValue.categoryTokens.isEmpty {
+                    SleepAnalytics.record("apps_configured", screen: "screen_time_primer")
+                }
+            }
+        }
+        .onChange(of: showPicker) { _, shown in
+            // Picker dismissed — apps chosen or not, the primer's work is
+            // done and RootView moves on to Main.
+            if !shown {
+                SleepAnalytics.record("app_picker_closed", screen: "screen_time_primer")
+                store.completeScreenTimePrimer()
+            }
+        }
+    }
+
+    // MARK: Phase one — permission
+
+    private var permissionPhase: some View {
         VStack(spacing: 0) {
             Spacer()
 
@@ -329,7 +406,7 @@ struct ScreenTimePrimerView: View {
                     .font(SleepFont.title(28))
                     .foregroundStyle(SleepColor.ink)
                     .fixedSize(horizontal: false, vertical: true)
-                Text("Choose what stays locked until morning. Calls always work.")
+                Text("SleepBlock needs Screen Time to lock apps. Calls always work.")
                     .font(SleepFont.body(15))
                     .foregroundStyle(SleepColor.dim)
                     .lineSpacing(4)
@@ -349,28 +426,57 @@ struct ScreenTimePrimerView: View {
 
             Spacer()
         }
-        .padding(.horizontal, SleepSpacing.xxl)
-        .padding(.bottom, SleepSpacing.xxl)
-        .safeAreaPadding(.top)
-        .safeAreaPadding(.bottom)
-        .familyActivityPicker(isPresented: $showPicker, selection: $selection)
-        .onAppear { SleepAnalytics.record("screen_time_primer_viewed", screen: "screen_time_primer") }
-        .onChange(of: selection) { _, newValue in
-            if let data = SleepScreenTime.encodeSelection(newValue) {
-                store.saveAppSelection(data)
-                if !newValue.applicationTokens.isEmpty || !newValue.categoryTokens.isEmpty {
-                    SleepAnalytics.record("apps_configured", screen: "screen_time_primer")
+        .transition(.opacity)
+    }
+
+    // MARK: Phase two — which apps
+
+    /// Permission is granted but nothing is blocked yet, and that gap is
+    /// exactly what this screen exists to close: authorization alone shields
+    /// nothing, so a user who stopped here would think setup was finished and
+    /// find their nights unguarded.
+    private var chooseAppsPhase: some View {
+        VStack(spacing: 0) {
+            Spacer()
+
+            VStack(spacing: SleepSpacing.lg) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 44, weight: .light))
+                    .foregroundStyle(SleepColor.gold)
+
+                VStack(spacing: SleepSpacing.sm) {
+                    Text("Now choose what to lock")
+                        .font(SleepFont.title(28))
+                        .foregroundStyle(SleepColor.ink)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("Pick the apps that keep you up. They stay locked from your bedtime until you wake.")
+                        .font(SleepFont.body(15))
+                        .foregroundStyle(SleepColor.dim)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(4)
                 }
             }
-        }
-        .onChange(of: showPicker) { _, shown in
-            // Picker dismissed — apps chosen or not, the primer's work is
-            // done and RootView moves on to Main.
-            if !shown {
-                SleepAnalytics.record("app_picker_closed", screen: "screen_time_primer")
-                store.completeScreenTimePrimer()
+            .frame(maxWidth: .infinity)
+
+            Spacer()
+
+            VStack(spacing: SleepSpacing.md) {
+                LiquidPrimaryButton(title: "Choose apps") {
+                    SleepAnalytics.record("app_picker_opened", screen: "screen_time_apps")
+                    showPicker = true
+                }
+                Button("Not now") {
+                    Haptics.heavy()
+                    SleepAnalytics.record("app_picker_skipped", screen: "screen_time_apps", control: "not_now")
+                    store.completeScreenTimePrimer()
+                }
+                .font(SleepFont.body(15))
+                .foregroundStyle(SleepColor.dim)
+                .frame(maxWidth: .infinity, minHeight: 44)
             }
         }
+        .transition(.opacity)
     }
 
     private func requestAccess() {
@@ -381,9 +487,11 @@ struct ScreenTimePrimerView: View {
             isRequesting = false
             SleepAnalytics.record("screen_time_permission_result", screen: "screen_time_primer", control: granted ? "granted" : "denied")
             if granted {
-                SleepAnalytics.record("app_picker_opened", screen: "screen_time_primer")
-                // Straight into choosing what locks, while the intent is hot.
-                showPicker = true
+                // Hand over to the second ask rather than opening the picker
+                // on top of this screen. Permission and selection are two
+                // decisions and the user has only made the first.
+                SleepAnalytics.record("screen_time_apps_viewed", screen: "screen_time_apps")
+                phase = .chooseApps
             } else {
                 store.completeScreenTimePrimer()
             }

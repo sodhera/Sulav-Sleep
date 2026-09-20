@@ -34,6 +34,7 @@ struct RootView: View {
     private var showsPrimerPreview: Bool {
 #if DEBUG
         ProcessInfo.processInfo.arguments.contains("-review-screentime-primer")
+            || ProcessInfo.processInfo.arguments.contains("-review-screentime-apps")
 #else
         false
 #endif

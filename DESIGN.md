@@ -1769,7 +1769,7 @@ entirely. Family Controls is the most alarming permission the app asks
 for, and spending it on someone who cannot start a night yet asks them to
 hand over their phone for a feature they can't reach. The screen has no
 eyebrow and leads with the concise **"Block apps while you sleep"**, followed
-by **"Choose what stays locked until morning. Calls always work."** The
+by **"SleepBlock needs Screen Time to lock apps. Calls always work."** The
 centerpiece is an **interactive preview of the iOS permission dialog** with an
 amber arrow and "Tap Continue" beneath its affirmative button. Continue fires
 the real system request directly; there is no duplicate primary CTA below it.
@@ -1787,17 +1787,43 @@ targets. The real Apple-owned sheet that follows still says
 completes the primer the same way as Not now. The arrow breathes a few points
 vertically (stilled under Reduce Motion) — a guide, not a decoration.
 
-Granting flows straight into the system `FamilyActivityPicker` while the
-intent is hot — authorization alone shields nothing. The primer is
-**one-shot per install, never per account**: its seen-marker lives in the
-app container (wiped by deletion), so a delete-and-reinstall sign-in —
-which silently drops the Screen Time authorization along with the app —
-primes again, while normal launches never re-show it. It completes on
-grant, deny, *or* the quiet "Not now": nobody gets trapped at a gate, and
-the Blocked apps screen stays the always-available fixup path. On the
-simulator Family Controls reports unavailable and the gate never fires;
-the DEBUG launch argument `-review-screentime-primer` renders it
-deterministically (same pattern as `-review-paywall`).
+### Two asks, not one
+
+Granting Screen Time and choosing what to block are **different decisions**,
+and the primer now runs them as two phases.
+
+A grant used to open the system `FamilyActivityPicker` immediately, on top of
+the primer. The picker simply appeared: no screen ever said what the list was
+for, or that anything still needed doing. That gap matters more here than
+almost anywhere else in the app, because **authorization alone shields
+nothing** — a user who stopped at the grant would believe setup was finished
+and find their nights unguarded.
+
+So phase one ends at the system dialog, and phase two asks for the apps in the
+app's own voice — a gold confirmation tick, **"Now choose what to lock"**,
+"Pick the apps that keep you up. They stay locked from your bedtime until you
+wake.", then **Choose apps** with a quiet **Not now** beneath it.
+
+The picker is presented as a **half-sheet** (`.medium`, draggable to
+`.large`), not full screen. Full screen made choosing apps feel like leaving
+setup for somewhere else; at `.medium` the flow stays visible behind it and
+the choice reads as one step of setup rather than a departure. This means
+presenting `FamilyActivityPicker` by hand rather than through the
+`.familyActivityPicker` modifier, which is full-screen only — and wrapping it
+in a `NavigationStack`, because the convenience modifier supplies the
+Done-button chrome that a bare picker in our own sheet has no way to draw.
+
+The primer is **one-shot per install, never per account**: its seen-marker
+lives in the app container (wiped by deletion), so a delete-and-reinstall
+sign-in — which silently drops the Screen Time authorization along with the
+app — primes again, while normal launches never re-show it. It completes on
+grant, deny, or the quiet "Not now" **at either phase**: nobody gets trapped
+at a gate, and the Blocked apps screen stays the always-available fixup path.
+
+On the simulator Family Controls reports unavailable and the gate never
+fires. `-review-screentime-primer` renders phase one deterministically, and
+`-review-screentime-apps` lands on phase two — which is otherwise unreachable
+off-device, since it needs a grant that the simulator cannot give.
 
 ## Motion
 
