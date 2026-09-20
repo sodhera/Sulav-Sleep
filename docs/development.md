@@ -2097,9 +2097,16 @@ setup clears the draft; existing-account auth never overwrites its restored
 profile.
 
 Review routes ignore drafts and do not save fixture answers.
-`-review-onboarding-step=<raw>` lands directly on any step with plausible
-answers pre-filled, which is how the reveals get screenshotted without
-playing the whole flow:
+`-review-onboarding-step=<raw>` lands directly on any step with the answers
+from the steps *before* it pre-filled, which is how the reveals get
+screenshotted without playing the whole flow.
+
+It deliberately does **not** pre-fill the answer the reviewed step itself
+collects: `=story` shows an unselected goal list and a disabled Continue,
+`=name` an empty field. Filling those meant the route could never show a
+step's real initial state — the state most worth reviewing — and landing on a
+pre-selected option reads as a bug in the app rather than a fixture.
+`Step.reviewOrder` is what the route compares against.
 
 ```bash
 xcrun simctl launch booted com.sulav.sleepblock --args -review-onboarding-step=grid
