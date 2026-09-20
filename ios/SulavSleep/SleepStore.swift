@@ -155,9 +155,9 @@ final class SleepStore {
             let variant = ProcessInfo.processInfo.arguments.dropFirst(index + 1).first ?? "many"
             // `locked` stages the paywalled screen — no partners, since the
             // state worth looking at is the one a not-yet-subscribed user
-            // meets. The entitlement itself is forced in
-            // `startSubscriptionTracking`, the only place dev mode can be
-            // overridden.
+            // meets. The entitlement comes from the review stub the arg
+            // selects in `SleepSubscription.makeDefault()`, so it holds on a
+            // device build too.
             switch variant {
             case "one": partners = [Self.samplePartner]
             case "locked": partners = []
@@ -607,12 +607,6 @@ final class SleepStore {
             // and hide every referral surface. See the init block.
             if ProcessInfo.processInfo.arguments.contains("-review-referral-nudge")
                 || ProcessInfo.processInfo.arguments.contains("-review-referral-expiry") {
-                entitlement = .notEntitled
-            }
-            // `-review-partner locked` does the same for the Sleep Partners
-            // screen's paywalled state.
-            if let i = ProcessInfo.processInfo.arguments.firstIndex(of: "-review-partner"),
-               ProcessInfo.processInfo.arguments.dropFirst(i + 1).first == "locked" {
                 entitlement = .notEntitled
             }
 #endif

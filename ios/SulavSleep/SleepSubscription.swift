@@ -119,6 +119,15 @@ enum SleepSubscription {
             || ProcessInfo.processInfo.arguments.contains("-review-referral-expiry") {
             return ReviewPaywallSubscriptionService()
         }
+        // `-review-partner locked` stages the paywalled Sleep Partners
+        // screen. It goes through this stub rather than the dev-mode
+        // entitlement default so it also works on a *device* build, where
+        // RevenueCat is configured and would otherwise report the tester's
+        // real (probably entitled) subscription.
+        if let i = ProcessInfo.processInfo.arguments.firstIndex(of: "-review-partner"),
+           ProcessInfo.processInfo.arguments.dropFirst(i + 1).first == "locked" {
+            return ReviewPaywallSubscriptionService()
+        }
 #endif
         return RevenueCatSubscriptionService()
     }

@@ -118,8 +118,17 @@ Variants: `many` (Maya/Jordan/Sam with summary numbers, the default),
 name by name), and `locked` (no partners plus a forced `.notEntitled`
 entitlement — the paywalled state, where the two code buttons collapse
 into **Unlock SleepBlock**). `locked` needs a signed-in, onboarded
-account on the simulator: `isLocked` is false until both are true, so on
-a signed-out sim the arg stages nothing to look at.
+account — `isLocked` is false until both are true, so on a signed-out sim
+the arg stages nothing to look at. It forces the state through the
+`ReviewPaywallSubscriptionService` stub rather than the dev-mode
+entitlement default, so it also works on a **device** build, where
+RevenueCat is configured and would otherwise report the tester's real
+subscription:
+
+```sh
+xcrun devicectl device process launch --device <udid> --terminate-existing \
+  com.sulav.sleepblock -- -review-partner locked
+```
 
 The arg also dismisses the first-run paywall and raises the sheet on
 launch: dev builds have no RevenueCat entitlement, so `needsPaywall` owns
