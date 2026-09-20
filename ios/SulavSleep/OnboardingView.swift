@@ -683,10 +683,11 @@ struct OnboardingQuestionsView: View {
             // The fingerprint *is* this step, so it lives in the content
             // region rather than the bottom action slot. A commitment you
             // authorise should be the thing you are looking at.
-            QuestionLayout(
-                title: commitTitle,
-                subtitle: "Take back your nights. Make room for your mornings."
-            ) {
+            // No subtitle: the question is the whole screen. "Take back your
+            // nights. Make room for your mornings." restated the title in
+            // different words, and this is the one step where the user is
+            // being asked to answer rather than to read.
+            QuestionLayout(title: commitTitle) {
                 CommitmentHoldButton {
                     if includesAccount { advance() } else { finish() }
                 }

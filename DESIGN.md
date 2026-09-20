@@ -583,6 +583,11 @@ and the button below with nothing between them. It remains a
 simulator recreation and is never presented as evidence of granted Screen Time
 permissions; real selection happens in the post-paywall primer.
 
+The commitment step carries **no subtitle** — the question, the print and
+"Hold to commit" are the whole screen. "Take back your nights. Make room for
+your mornings." restated the title in different words, and this is the one
+step where the user is being asked to *answer* rather than to read.
+
 Commitment is a **fingerprint you hold**, and it is the only gesture left in
 setup. The gesture is borrowed from Touch ID on purpose: people already know
 what holding a fingerprint means, so the commitment reads as something you
