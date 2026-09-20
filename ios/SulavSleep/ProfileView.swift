@@ -168,7 +168,17 @@ private struct ProfileRootScreen: View {
                 // stops being a door: no push, no chevron, no interactive
                 // glass, and the caption says when it opens again. Editing the
                 // lockdown from inside the lockdown *was* the way out of it.
-                if store.lockdownSettingsLocked {
+                if !store.canConfigureBlocking {
+                    Button {
+                        Haptics.heavy()
+                        _ = store.presentPaywallIfLocked()
+                    } label: {
+                        BlockedAppsPreview(store: store)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!store.isLocked)
+                    .padding(.top, SleepSpacing.huge)
+                } else if store.lockdownSettingsLocked {
                     BlockedAppsPreview(store: store, isLocked: true)
                         .padding(.top, SleepSpacing.huge)
                 } else {
@@ -382,7 +392,7 @@ struct SettingsModal: View {
                 case .schedule:
                     ScheduleScreen(store: store, profile: profile)
                 case .blockedApps:
-                    BlockedAppsScreen(store: store)
+                    BlockedAppsScreen(store: store, onUpgrade: openPaywall)
                 case .featureRequests:
                     FeatureRequestsScreen(store: store)
                 case .inviteFriend:
@@ -640,7 +650,16 @@ struct SettingsModal: View {
                 // Closed for the duration of tonight's lock — chevron-less and
                 // untappable, the same shape an unavailable Health row takes,
                 // so it reads as "not now" rather than a broken control.
-                if store.lockdownSettingsLocked {
+                if !store.canConfigureBlocking {
+                    Button {
+                        Haptics.heavy()
+                        openPaywall()
+                    } label: {
+                        GlassRow(icon: "lock.fill", title: "Blocked apps", showsChevron: true)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!store.isLocked)
+                } else if store.lockdownSettingsLocked {
                     GlassRow(
                         icon: "lock.fill",
                         title: "Blocked apps",

@@ -1291,11 +1291,11 @@ path, and a published contact — see the note in `DESIGN.md`.
 
 ## Subscription (RevenueCat)
 
-SleepBlock is a subscription app with a **soft paywall around one action**.
+SleepBlock is a subscription app with a **soft paywall around paid actions**.
 After the sign-up questionnaire commits (or a returning unsubscribed user
 signs in), `RootView` shows `PaywallView` instead of Main — but it carries a
 ✕. Closing it drops the user into the full app; what stays locked is
-**starting a night**. Everything the app *shows* is free, everything it
+**starting a night, configuring app blocking, and pairing a sleep partner**. Everything the app *shows* is free, everything it
 *does* is the subscription.
 
 Two states, easy to confuse — keep them straight:
@@ -2271,3 +2271,41 @@ check that `-review-sleep-mode-collapsed` still opens on black.
 Verified on September 19: iPhone 17 Pro simulator build/install passed;
 Welcome and the wake-summary review route visually share the same starry sky
 and ember horizon with no skyline or extra scrim.
+
+
+## App blocking subscription gate (September 20, 2026)
+
+The picker previously bypassed the sleep-start paywall: selecting apps could
+register a nightly DeviceActivity schedule even for an unsubscribed account.
+`SleepStore.canConfigureBlocking` now requires an entitled subscription (trials
+included), valid referral nights, or the existing offline grace. Unknown
+subscription status does not grant access; unconfigured development builds
+retain their existing entitled state.
+
+Profile and Settings gate the Blocked apps entry before navigation. Settings
+uses its existing dismiss-then-paywall helper so the cover is not hidden behind
+its sheet. The destination also removes controls and dismisses an open picker
+when access disappears. The store checks permission requests before and after
+awaiting authorization, rejects selection saves and enabling blocking, and
+requires access for `willLockDuringSleep` and schedule registration. Resolved
+loss of access cancels old daily schedules and clears shields when no sleep
+session is active. An existing session retains its wake/cancel path. Entitlement
+stream updates and foreground reload reconcile schedules; this does not add a
+subscription network check inside the sandboxed DeviceActivity extension.
+
+Regression checks on a physical iPhone with configured RevenueCat:
+
+- Dismiss the paywall on an unpaid account. Tap Blocked apps in Profile, then
+  Settings: each opens the paywall, with no picker or permission request.
+- Close the paywall without buying: access remains locked. Purchase or restore
+  an active entitlement: both entries open the normal blocking controls.
+- Verify trial/referral access and offline grace still allow selection, while
+  unresolved entitlement cannot open a picker.
+- Let entitlement resolve unpaid with the picker open: it closes and subsequent
+  selection changes cannot save. Previously saved tokens remain stored, but
+  no new daily block is registered; old schedules are cancelled on reconciliation.
+- Check active-session wake/cancel and existing bedtime editing restrictions.
+
+Build validation: Debug iOS Simulator via `xcodebuild`. Simulator builds cannot
+exercise real Family Controls permission, app tokens, or shielding; the device
+checks above remain required before release.

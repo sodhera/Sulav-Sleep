@@ -505,6 +505,7 @@ struct ScreenTimePrimerView: View {
             VStack(spacing: SleepSpacing.md) {
                 LiquidPrimaryButton(title: "Choose apps") {
                     SleepAnalytics.record("app_picker_opened", screen: "screen_time_apps")
+                    guard store.canConfigureBlocking else { return }
                     showPicker = true
                 }
                 Button("Not now") {
@@ -828,6 +829,7 @@ struct LockdownClosedPanel: View {
 
 struct BlockedAppsScreen: View {
     var store: SleepStore
+    var onUpgrade: (() -> Void)? = nil
 
     @State private var selection = FamilyActivitySelection()
     @State private var showPicker = false
@@ -843,7 +845,14 @@ struct BlockedAppsScreen: View {
                     : "Locked from Sleep Now until you wake. Calls always work."
             )
 
-            if store.lockdownSettingsLocked {
+            if !store.canConfigureBlocking {
+                Button("Unlock app blocking") {
+                    if let onUpgrade { onUpgrade() }
+                    else { _ = store.presentPaywallIfLocked() }
+                }
+                .disabled(!store.isLocked)
+                .padding(.top, SleepSpacing.xl)
+            } else if store.lockdownSettingsLocked {
                 // Both entry points refuse to push here while the lock holds,
                 // so reaching this normally is impossible; what this branch
                 // actually covers is the screen being *already open* when the
@@ -860,7 +869,7 @@ struct BlockedAppsScreen: View {
         .onChange(of: selection) { _, newValue in
             // The store refuses a mid-lockdown save too; this keeps the view's
             // own copy from drifting away from what is actually shielded.
-            guard !store.lockdownSettingsLocked else { return }
+            guard store.canConfigureBlocking, !store.lockdownSettingsLocked else { return }
             if let data = SleepScreenTime.encodeSelection(newValue) {
                 store.saveAppSelection(data)
                 if !newValue.applicationTokens.isEmpty || !newValue.categoryTokens.isEmpty {
@@ -872,6 +881,9 @@ struct BlockedAppsScreen: View {
             // Bedtime arriving with the system picker open: take it down with
             // the rest of the controls.
             if locked { showPicker = false }
+        }
+        .onChange(of: store.canConfigureBlocking) { _, allowed in
+            if !allowed { showPicker = false }
         }
         .onAppear {
             // The foreground hook can't see a phase the monitor writes while
@@ -931,7 +943,7 @@ struct BlockedAppsScreen: View {
                         // Screen Time authorization is requested lazily, right
                         // when it's needed: the picker is useless without it.
                         Task {
-                            if await store.requestScreenTimeAccess() { showPicker = true }
+                            if await store.requestScreenTimeAccess(), !store.lockdownSettingsLocked { showPicker = true }
                         }
                     } label: {
                         GlassRow(

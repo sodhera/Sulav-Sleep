@@ -46,8 +46,8 @@ review the rhythm of recent nights — using **real data only**.
 - **SleepBlock is a subscription.** Right after the questionnaire commits, the
   paywall (RevenueCat; annual with a free trial, or monthly) appears at the
   moment of highest intent, after the user sets their target schedule. It is
-  a **soft** paywall: a ✕ closes it and the user gets the whole app to look at. What they cannot do without subscribing is **start a
-  night** — the one action the product exists to perform. Everything the app
+  a **soft** paywall: a ✕ closes it and the user gets the whole app to look at. What they cannot do without subscription access is **start a
+  night or configure app blocking** — the one action the product exists to perform. Everything the app
   shows is free; everything it does is the subscription. (An unconfigured
   build — no RevenueCat key — runs unlocked for development.)
 - **Growth is the sleep partner.** The referral and the partner feature are
@@ -65,7 +65,9 @@ review the rhythm of recent nights — using **real data only**.
 - After the paywall, a one-time **Screen Time primer** uses an interactive
   preview of the iOS permission dialog. Its Continue action requests the
   Family Controls authorization directly; Not now skips it, with no duplicate
-  app CTA below the card. A grant flows straight into the system app picker.
+  app CTA below the card. Permission and app selection require subscription access (including an active
+  trial, referral nights, or existing offline grace). A grant leads to the
+  Choose apps step before the system picker.
   It is per-install: deleting the app and signing back in — which drops the
   authorization — shows it again, and the Blocked apps screen remains the
   fixup path.

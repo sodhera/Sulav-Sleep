@@ -1537,7 +1537,15 @@ the line (see "Sleep partner & referral" → "Locked"): the partners screen
 still shows everything, and only the two code buttons give way to the
 paywall.
 
-Nothing is greyed out. Sleep Now keeps its own name, its moon, and its full
+**App blocking is also a subscriber action.** Tapping Blocked apps in
+Profile or Settings opens the paywall before navigation or Screen Time
+permission for a user without access. Settings dismisses before presenting
+the paywall. Active trials, referral nights, and the existing offline grace
+qualify as access. While subscription status loads, this entry waits rather
+than exposing the picker or guessing that a purchase is needed. Losing access
+while the picker is open closes it and removes the editing controls.
+
+Nothing is greyed out for a resolved unpaid user. Sleep Now keeps its own name, its moon, and its full
 amber weight for a locked user, because a disabled button answers no
 questions — the paywall does. The first-run dismissal is remembered per
 install (`sulav.paywallDismissed.v1`), so the full-screen pitch is a

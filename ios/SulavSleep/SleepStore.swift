@@ -382,7 +382,7 @@ final class SleepStore {
     /// app/category chosen. This is the single source of truth for "are apps
     /// blocked" across Home, the confirmation panel, and the profile preview.
     var willLockDuringSleep: Bool {
-        blockingEnabled && screenTimeState == .authorized && lockdownSelectionCount > 0
+        canConfigureBlocking && blockingEnabled && screenTimeState == .authorized && lockdownSelectionCount > 0
     }
 
     /// Whether tonight's lock is in force, and so the settings that govern it
@@ -496,8 +496,8 @@ final class SleepStore {
     ///
     /// **This is no longer a wall around the app.** A locked user gets the
     /// whole of Main — Home, the record, the schedule, settings — and is
-    /// stopped at exactly one place: starting a night (`startSleep`, and every
-    /// deep link that leads to it). Everything the app *shows* is theirs;
+    /// stopped at paid actions: starting a night, configuring app blocking,
+    /// and pairing a sleep partner. Everything the app *shows* is theirs;
     /// what it *does* is the subscription. See DESIGN.md ("Paywall").
     ///
     /// Referral nights are the third exemption, beside the offline grace: a
@@ -507,6 +507,12 @@ final class SleepStore {
     var isLocked: Bool {
         isAuthenticated && isOnboarded && entitlement == .notEntitled
             && !isWithinOfflineGrace && !isWithinReferralNights
+    }
+
+    /// Blocking requires resolved access; an unresolved fetch must never
+    /// open the picker or register a background blocking schedule.
+    var canConfigureBlocking: Bool {
+        entitlement == .entitled || isWithinOfflineGrace || isWithinReferralNights
     }
 
     /// Whether the paywall is the *route* — the closing beat of onboarding,
@@ -636,6 +642,7 @@ final class SleepStore {
             if state == .entitled {
                 SleepPersistence.shared.recordEntitled()
             }
+            self.rescheduleLockdown()
         }
     }
 
@@ -1618,10 +1625,10 @@ final class SleepStore {
     /// the app asks for, and asking it of someone who cannot start a night
     /// yet spends that one prompt on nothing — they'd be granting the app
     /// power over their phone for a feature they can't reach. The primer
-    /// waits for the subscription, and `isLocked` false-on-`.unknown` means
-    /// an offline subscriber still gets it.
+    /// waits for resolved blocking access, including existing referral nights
+    /// and offline grace. An unknown entitlement cannot request permission.
     var needsScreenTimePrimer: Bool {
-        isAuthenticated && isOnboarded && !screenTimePrimerSeen && !isLocked
+        isAuthenticated && isOnboarded && !screenTimePrimerSeen && canConfigureBlocking
             && screenTimeState == .notAuthorized
     }
 
@@ -1645,7 +1652,9 @@ final class SleepStore {
     /// Writes nothing to the profile: authorization is always read live.
     @MainActor
     func requestScreenTimeAccess() async -> Bool {
+        guard canConfigureBlocking else { return false }
         let granted = await screenTime.requestAuthorization()
+        guard canConfigureBlocking else { return false }
         if granted { rescheduleLockdown() }
         AppLog.store.info("Screen Time access \(granted ? "granted" : "denied")")
         return granted
@@ -1654,6 +1663,7 @@ final class SleepStore {
     /// The "Block while you sleep" toggle. Off tears down any active shield
     /// and the scheduled safety-net window; the app selection is kept.
     func setBlockingEnabled(_ on: Bool) {
+        guard !on || canConfigureBlocking else { return }
         // Backstop for the door the UI now closes: switching blocking off ends
         // the shield on the spot, so while the lock holds this is simply not a
         // thing that can happen. `BlockedAppsScreen` is unreachable then and
@@ -1684,6 +1694,7 @@ final class SleepStore {
         return screenTime.selectionData()
     }
     func saveAppSelection(_ data: Data) {
+        guard canConfigureBlocking else { return }
         // Same backstop as `setBlockingEnabled`: clearing the selection calls
         // `endLockdown()` below, so a save landing mid-lockdown was the second
         // way out of the night. Refused whole rather than partially applied —
@@ -1739,6 +1750,18 @@ final class SleepStore {
     /// `intervalDidStart` and put the shield straight back — silently undoing
     /// the wake the user just performed.
     private func rescheduleLockdown() {
+        guard canConfigureBlocking else {
+            // Remove schedules left by older builds or a lapsed entitlement.
+            // Unknown is only a loading state; don't tear down a running night.
+            if entitlement == .notEntitled {
+                screenTime.cancelScheduledLockdown()
+                if activeSession == nil {
+                    screenTime.endLockdown()
+                    refreshLockdownPhase()
+                }
+            }
+            return
+        }
         guard let profile, willLockDuringSleep else { return }
         guard SleepLockdownSelection.currentPhase() == nil, !isInsideLockdownWindow else {
             AppLog.store.info("Lockdown reschedule deferred — window still running")
