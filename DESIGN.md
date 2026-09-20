@@ -415,6 +415,15 @@ be legible or there is no ratio to read, which is also why unlit cells sit at
 `Canvas`; 365 discrete views re-laid out the whole field on every step of the
 reveal.
 
+**The copy has to carry the unit, because the dots can't.** The lit dots are
+not 52 of the user's nights — they are 52 nights' *worth of sleep*, which is a
+conversion, and the kicker above them insists each dot is a night. Leave that
+implicit and the graphic and the number describe different units: "52 nights
+in bed, awake, on your phone" reads as fifty-two sleepless nights, which is
+not what the figure says. The two words **"of sleep"** are doing the whole job
+of the screen, and the footnote carries provenance *and* the arithmetic in one
+line — whose number this is, and why an hour a night becomes fifty-two nights.
+
 The reveal is choreographed to a **fixed duration (~1.7s) and a fixed tick
 count (~14)** rather than a fixed per-cell interval, so thirteen nights and
 two hundred nights feel like the same instrument reporting different numbers.

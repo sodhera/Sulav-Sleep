@@ -1137,12 +1137,22 @@ struct YearOfNightsGrid: View {
                 }
                 .foregroundStyle(SleepColor.amber)
 
-                Text("in bed, awake, on your phone.")
+                // "of sleep" is doing the whole job of this screen.
+                //
+                // Without it the line read "52 nights in bed, awake, on your
+                // phone" — which sounds like fifty-two sleepless nights, and
+                // is not what the figure says. The lit dots are not 52 of the
+                // user's nights; they are 52 nights' *worth of sleep*, a
+                // conversion the reader was being left to make on their own
+                // while the kicker above insisted each dot was a night. The
+                // graphic and the number were describing different units.
+                Text("of sleep, gone to your phone.")
                     .font(SleepFont.title(20))
                     .foregroundStyle(SleepColor.ink)
 
-                // The provenance line is what keeps this figure honest.
-                Text("At the \(phoneMinutes) minutes a night you told us.")
+                // Provenance *and* the arithmetic in one line: whose number
+                // this is, and why an hour becomes fifty-two nights.
+                Text("The \(phoneMinutes) minutes a night you told us, added up over a year.")
                     .font(SleepFont.body(13))
                     .foregroundStyle(SleepColor.muted)
                     .opacity(ready ? 1 : 0)
@@ -1154,7 +1164,8 @@ struct YearOfNightsGrid: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("The next 365 nights")
         .accessibilityValue(
-            "\(lit) nights spent in bed, awake, on your phone, at the \(phoneMinutes) minutes a night you told us"
+            "\(lit) nights' worth of sleep, gone to your phone — the "
+            + "\(phoneMinutes) minutes a night you told us, added up over a year"
         )
         .task(id: lit) {
             revealed = 0
